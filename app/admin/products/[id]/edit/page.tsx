@@ -34,7 +34,12 @@ export default async function EditProductPage({
                   <p className="text-xs sm:text-sm text-muted-foreground">Update product details</p>
                 </div>
                 <div>
-                  <ProductForm product={product} />
+                  <ProductForm 
+                    product={{
+                      ...product,
+                      type: product.type as "FIXED" | "VARIABLE",
+                    }} 
+                  />
                 </div>
               </div>
             </div>
