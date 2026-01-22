@@ -25,7 +25,7 @@ export async function PATCH(
     return NextResponse.json(fundraiser)
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 })
+      return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     return NextResponse.json({ error: "Failed to update fundraiser" }, { status: 500 })
   }

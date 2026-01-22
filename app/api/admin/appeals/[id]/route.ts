@@ -47,7 +47,7 @@ export async function PUT(
     return NextResponse.json(appeal)
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 })
+      return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     return NextResponse.json({ error: "Failed to update appeal" }, { status: 500 })
   }
