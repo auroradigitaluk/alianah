@@ -2,6 +2,9 @@ import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { RecurringTable } from "@/components/recurring-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getRecurringDonations() {
   try {
     return await prisma.recurringDonation.findMany({

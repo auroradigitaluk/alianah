@@ -207,6 +207,7 @@ model Donation {
   status        String // PENDING | COMPLETED | FAILED | REFUNDED
   paymentMethod String // STRIPE | PAYPAL | CARD | OTHER
   transactionId String?
+  orderNumber   String? // Link to demoOrder for tracking
   giftAid       Boolean   @default(false)
   createdAt     DateTime  @default(now())
   completedAt   DateTime?
@@ -221,6 +222,7 @@ model Donation {
   @@index([fundraiserId])
   @@index([status])
   @@index([createdAt])
+  @@index([orderNumber])
   @@map("donations")
 }
 

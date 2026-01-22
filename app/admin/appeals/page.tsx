@@ -5,6 +5,9 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { AppealsTable } from "@/components/appeals-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getAppeals() {
   try {
     return await prisma.appeal.findMany({

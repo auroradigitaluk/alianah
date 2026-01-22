@@ -2,6 +2,9 @@ import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { DonationsTable } from "@/components/donations-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getDonations() {
   try {
     return await prisma.donation.findMany({

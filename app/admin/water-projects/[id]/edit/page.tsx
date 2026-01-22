@@ -3,6 +3,9 @@ import { WaterProjectEditForm } from "@/components/water-project-edit-form"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getProject(id: string) {
   try {
     return await prisma.waterProject.findUnique({

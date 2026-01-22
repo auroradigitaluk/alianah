@@ -5,6 +5,9 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { MasjidsTable } from "@/components/masjids-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getMasjids() {
   try {
     const masjids = await prisma.masjid.findMany({

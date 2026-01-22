@@ -3,6 +3,9 @@ import { ProductForm } from "@/components/product-form"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getProduct(id: string) {
   return await prisma.product.findUnique({
     where: { id },

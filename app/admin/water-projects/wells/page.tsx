@@ -2,6 +2,9 @@ import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { WaterProjectDonationsTable } from "@/components/water-project-donations-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getDonations() {
   try {
     const project = await prisma.waterProject.findUnique({

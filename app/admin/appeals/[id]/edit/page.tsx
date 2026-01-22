@@ -3,6 +3,9 @@ import { AppealForm } from "@/components/appeal-form"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getAppeal(id: string) {
   return await prisma.appeal.findUnique({
     where: { id },

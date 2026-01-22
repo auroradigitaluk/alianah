@@ -5,6 +5,9 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { IconPlus } from "@tabler/icons-react"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getCountries() {
   try {
     return await prisma.waterProjectCountry.findMany({

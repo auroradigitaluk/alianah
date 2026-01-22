@@ -3,6 +3,9 @@ import { WaterProjectCountryForm } from "@/components/water-project-country-form
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getCountry(id: string) {
   try {
     return await prisma.waterProjectCountry.findUnique({

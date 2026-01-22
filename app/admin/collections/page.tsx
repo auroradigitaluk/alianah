@@ -5,6 +5,9 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { CollectionsTable } from "@/components/collections-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getCollections() {
   try {
     return await prisma.collection.findMany({

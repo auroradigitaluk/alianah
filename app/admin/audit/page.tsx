@@ -2,6 +2,9 @@ import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { AuditTable } from "@/components/audit-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getAuditLogs() {
   try {
     return await prisma.auditLog.findMany({

@@ -293,20 +293,21 @@ async function getDashboardData() {
       })
     }
 
-    // Generate income distribution data
+    // Generate income distribution data (using actual data from donations)
     const totalOnline = donations.reduce((sum, d) => sum + d.amountPence, 0) / 100
     const totalOfflineAmount = offlineIncome.reduce((sum, d) => sum + d.amountPence, 0) / 100
     const totalCollectionsAmount = collectionsData.reduce((sum, d) => sum + d.amountPence, 0) / 100
-
+    
+    // Distribution data - simplified for getDashboardData (main function has real payment method breakdown)
     const distributionData = [
       {
         name: "website",
-        value: totalOnline * 0.6, // 60% of online
+        value: totalOnline,
         label: "Website",
       },
       {
         name: "mobile",
-        value: totalOnline * 0.4, // 40% of online
+        value: 0,
         label: "Mobile App",
       },
       {
@@ -482,6 +483,35 @@ export default async function AdminDashboardPage({
       }).catch(() => ({ _sum: { amountPence: 0 } })),
     ])
 
+    // Get offline income and collections for the date range to calculate total "other" sources
+    const [offlineIncomeTotal, collectionsTotal] = await Promise.all([
+      prisma.offlineIncome.aggregate({
+        where: {
+          receivedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
+      prisma.collection.aggregate({
+        where: {
+          collectedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
+    ])
+    
+    // Calculate real distribution based on actual payment methods
+    const onlineAmount = (onlineDonations._sum.amountPence || 0) / 100
+    const cardAmount = (cardDonations._sum.amountPence || 0) / 100
+    const cashAmount = (cashDonations._sum.amountPence || 0) / 100
+    const totalOfflineAmount = (offlineIncomeTotal._sum.amountPence || 0) / 100
+    const totalCollectionsAmount = (collectionsTotal._sum.amountPence || 0) / 100
+    
     const paymentMethodData = [
       {
         name: "online",
@@ -497,6 +527,25 @@ export default async function AdminDashboardPage({
         name: "cash",
         value: cashDonations._sum.amountPence || 0,
         label: "Cash",
+      },
+    ]
+    
+    // Update distribution data with real payment method data
+    const distributionData = [
+      {
+        name: "online",
+        value: onlineAmount,
+        label: "Online (Stripe)",
+      },
+      {
+        name: "card",
+        value: cardAmount,
+        label: "Card (SumUp)",
+      },
+      {
+        name: "cash",
+        value: cashAmount + totalOfflineAmount + totalCollectionsAmount,
+        label: "Cash & Other",
       },
     ]
 
@@ -567,14 +616,14 @@ export default async function AdminDashboardPage({
         }).catch(() => ({ _sum: { amountPence: 0 } })),
       ])
 
-      // Online = STRIPE + CARD donations
-      const desktop = (stripeDonations._sum.amountPence || 0) + (cardDonations._sum.amountPence || 0)
-      const mobile = offlineDonations._sum.amountPence || 0
+      // Use real payment method data
+      const onlineAmount = (stripeDonations._sum.amountPence || 0) + (cardDonations._sum.amountPence || 0)
+      const offlineAmount = offlineDonations._sum.amountPence || 0
       
       lineChartData.push({
         date: date.toISOString().split("T")[0],
-        desktop: desktop,
-        mobile: mobile,
+        desktop: onlineAmount, // Online donations (Stripe + Card)
+        mobile: offlineAmount, // Offline donations (Cash)
       })
     }
 

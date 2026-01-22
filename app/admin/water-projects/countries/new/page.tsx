@@ -1,6 +1,9 @@
 import { AdminHeader } from "@/components/admin-header"
 import { WaterProjectCountryForm } from "@/components/water-project-country-form"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function NewWaterProjectCountryPage() {
   return (
     <>

@@ -5,6 +5,9 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { ProductsTable } from "@/components/products-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getProducts() {
   try {
     return await prisma.product.findMany({

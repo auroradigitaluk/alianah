@@ -6,6 +6,9 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { IconPlus } from "@tabler/icons-react"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getWaterProjects() {
   try {
     const projects = await prisma.waterProject.findMany({

@@ -2,6 +2,9 @@ import { AdminHeader } from "@/components/admin-header"
 import { WaterProjectForm } from "@/components/water-project-form"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getCountries() {
   try {
     return await prisma.waterProjectCountry.findMany({

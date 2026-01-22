@@ -5,6 +5,9 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { OfflineIncomeTable } from "@/components/offline-income-table"
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getOfflineIncome() {
   try {
     return await prisma.offlineIncome.findMany({
