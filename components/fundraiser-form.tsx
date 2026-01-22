@@ -43,14 +43,17 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
   const [loading, setLoading] = React.useState(false)
   const previousNameRef = React.useRef<string>("")
 
+  type FormInput = z.input<typeof fundraiserSchema>
+  type FormOutput = z.output<typeof fundraiserSchema>
+
   const {
     register,
     handleSubmit,
     setValue,
     watch,
     formState: { errors },
-  } = useForm<z.input<typeof fundraiserSchema>>({
-    resolver: zodResolver(fundraiserSchema),
+  } = useForm<FormInput>({
+    resolver: zodResolver(fundraiserSchema) as any,
     defaultValues: {
       title: appealTitle,
     },
@@ -99,7 +102,7 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
     }
   }, [fundraiserName, appealTitle, setValue, message])
 
-  const onSubmit = async (data: FundraiserFormData) => {
+  const onSubmit = async (data: FormOutput) => {
     setLoading(true)
     try {
       const response = await fetch("/api/fundraisers", {
