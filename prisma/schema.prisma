@@ -1,0 +1,388 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      String   @default("VIEWER") // ADMIN | MANAGER | VIEWER
+  createdAt DateTime @default(now())
+
+  auditLogs AuditLog[]
+
+  @@index([email])
+  @@map("admin_users")
+}
+
+model Appeal {
+  id                   String   @id @default(cuid())
+  title                String
+  slug                 String   @unique
+  summary              String
+  heroImageUrl         String?
+  galleryImageUrls     String   @default("[]") // JSON string
+  sectionIntro         String
+  sectionNeed          String
+  sectionFundsUsed     String
+  sectionImpact        String
+  framerUrl            String? // URL to Framer page for "Read full appeal details"
+  isActive             Boolean  @default(true)
+  donationTypesEnabled String   @default("[]") // JSON string
+  defaultDonationType  String   @default("GENERAL")
+  allowMonthly         Boolean  @default(false)
+  allowYearly          Boolean  @default(false)
+  allowCustomMonthly   Boolean  @default(false)
+  allowCustomYearly    Boolean  @default(false)
+  monthlyPricePence    Int? // Single price for monthly donations in pence
+  yearlyPricePence     Int? // Single price for yearly donations in pence
+  allowFundraising     Boolean  @default(false)
+  appealImageUrls      String   @default("[]") // JSON string array of Vercel Blob URLs
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  products           AppealProduct[]
+  fundraisers        Fundraiser[]
+  offlineIncome      OfflineIncome[]
+  collections        Collection[]
+  donations          Donation[]
+  recurringDonations RecurringDonation[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("appeals")
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  type             String // FIXED | VARIABLE
+  unitLabel        String
+  fixedAmountPence Int?
+  minAmountPence   Int?
+  maxAmountPence   Int?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  appeals            AppealProduct[]
+  donations          Donation[]
+  recurringDonations RecurringDonation[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("products")
+}
+
+model AppealProduct {
+  appealId           String
+  productId          String
+  frequency          String // ONE_OFF | MONTHLY | YEARLY
+  presetAmountsPence String  @default("[]") // JSON string
+  allowCustom        Boolean @default(false)
+  sortOrder          Int     @default(0)
+
+  appeal  Appeal  @relation(fields: [appealId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([appealId, productId, frequency])
+  @@index([productId])
+  @@map("appeal_products")
+}
+
+model Fundraiser {
+  id                String   @id @default(cuid())
+  appealId          String
+  title             String
+  slug              String   @unique
+  fundraiserName    String // Display name of the person creating the fundraiser
+  email             String
+  message           String? // Optional message explaining why they're fundraising
+  targetAmountPence Int? // Optional target amount in pence
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  appeal    Appeal     @relation(fields: [appealId], references: [id], onDelete: Cascade)
+  donations Donation[]
+
+  @@index([appealId])
+  @@index([slug])
+  @@index([isActive])
+  @@map("fundraisers")
+}
+
+model OfflineIncome {
+  id           String   @id @default(cuid())
+  appealId     String?
+  amountPence  Int
+  donationType String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  source       String // CASH | BANK_TRANSFER
+  receivedAt   DateTime
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  appeal Appeal? @relation(fields: [appealId], references: [id], onDelete: SetNull)
+
+  @@index([appealId])
+  @@index([receivedAt])
+  @@map("offline_income")
+}
+
+model Masjid {
+  id          String   @id @default(cuid())
+  name        String
+  city        String
+  address     String
+  contactName String?
+  phone       String?
+  email       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  collections Collection[]
+
+  @@index([city])
+  @@map("masjids")
+}
+
+model Collection {
+  id           String   @id @default(cuid())
+  masjidId     String?
+  appealId     String?
+  amountPence  Int
+  donationType String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  type         String // JUMMAH | RAMADAN | EID | SPECIAL | OTHER
+  collectedAt  DateTime
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  masjid Masjid? @relation(fields: [masjidId], references: [id], onDelete: SetNull)
+  appeal Appeal? @relation(fields: [appealId], references: [id], onDelete: SetNull)
+
+  @@index([masjidId])
+  @@index([appealId])
+  @@index([collectedAt])
+  @@map("collections")
+}
+
+model Donor {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String   @unique
+  phone     String?
+  address   String?
+  city      String?
+  postcode  String?
+  country   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  donations             Donation[]
+  recurringDonations    RecurringDonation[]
+  waterProjectDonations WaterProjectDonation[]
+
+  @@index([email])
+  @@map("donors")
+}
+
+model Donation {
+  id            String    @id @default(cuid())
+  donorId       String
+  appealId      String?
+  fundraiserId  String?
+  productId     String?
+  amountPence   Int
+  donationType  String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  frequency     String // ONE_OFF | MONTHLY | YEARLY
+  status        String // PENDING | COMPLETED | FAILED | REFUNDED
+  paymentMethod String // STRIPE | PAYPAL | CARD | OTHER
+  transactionId String?
+  giftAid       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  donor      Donor       @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  appeal     Appeal?     @relation(fields: [appealId], references: [id], onDelete: SetNull)
+  fundraiser Fundraiser? @relation(fields: [fundraiserId], references: [id], onDelete: SetNull)
+  product    Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([donorId])
+  @@index([appealId])
+  @@index([fundraiserId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("donations")
+}
+
+model RecurringDonation {
+  id              String    @id @default(cuid())
+  donorId         String
+  appealId        String?
+  productId       String?
+  amountPence     Int
+  donationType    String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  frequency       String // MONTHLY | YEARLY
+  status          String // ACTIVE | PAUSED | CANCELLED | FAILED
+  paymentMethod   String // STRIPE | PAYPAL | OTHER
+  subscriptionId  String?
+  nextPaymentDate DateTime?
+  lastPaymentDate DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  donor   Donor    @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  appeal  Appeal?  @relation(fields: [appealId], references: [id], onDelete: SetNull)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([donorId])
+  @@index([appealId])
+  @@index([status])
+  @@index([nextPaymentDate])
+  @@map("recurring_donations")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  adminUserId String
+  action      String
+  entityType  String
+  entityId    String?
+  beforeJson  String?
+  afterJson   String?
+  createdAt   DateTime @default(now())
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model DemoOrder {
+  id             String   @id @default(cuid())
+  orderNumber    String   @unique
+  status         String   @default("PENDING") // PENDING | COMPLETED | FAILED
+  subtotalPence  Int
+  feesPence      Int
+  totalPence     Int
+  coverFees      Boolean  @default(false)
+  giftAid        Boolean  @default(false)
+  marketingEmail Boolean  @default(false)
+  marketingSMS   Boolean  @default(false)
+  donorFirstName String
+  donorLastName  String
+  donorEmail     String
+  donorPhone     String?
+  donorAddress   String?
+  donorCity      String?
+  donorPostcode  String?
+  donorCountry   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  items DemoOrderItem[]
+
+  @@index([orderNumber])
+  @@index([status])
+  @@index([createdAt])
+  @@map("demo_orders")
+}
+
+model DemoOrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  appealId     String?
+  fundraiserId String?
+  productId    String?
+  appealTitle  String
+  productName  String?
+  frequency    String // ONE_OFF | MONTHLY | YEARLY
+  donationType String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  amountPence  Int
+  createdAt    DateTime @default(now())
+
+  order DemoOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([fundraiserId])
+  @@map("demo_order_items")
+}
+
+model WaterProjectCountry {
+  id          String   @id @default(cuid())
+  projectType String // WATER_PUMP | WATER_WELL | WATER_TANK | WUDHU_AREA
+  country     String
+  pricePence  Int      // Price in pence for this country/project type
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  donations WaterProjectDonation[]
+
+  @@index([projectType, isActive])
+  @@index([projectType, sortOrder])
+  @@map("water_project_countries")
+}
+
+model WaterProject {
+  id               String    @id @default(cuid())
+  projectType      String    @unique // WATER_PUMP | WATER_WELL | WATER_TANK | WUDHU_AREA (only one project per type)
+  location         String?   // Optional location name
+  description      String?
+  isActive         Boolean   @default(true)
+  status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (set when donation is made)
+  amountPence      Int       @default(0) // Not used - countries have their own prices
+  completionImages String    @default("[]") // JSON string array of image URLs
+  completionReport String? // Generated report text
+  completedAt      DateTime?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  donations WaterProjectDonation[]
+
+  @@index([projectType, isActive])
+  @@index([status])
+  @@map("water_projects")
+}
+
+model WaterProjectDonation {
+  id             String    @id @default(cuid())
+  waterProjectId String
+  countryId      String    // Country chosen for this donation
+  donorId        String
+  amountPence    Int
+  donationType   String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  paymentMethod  String // STRIPE | PAYPAL | OTHER
+  transactionId  String?
+  giftAid        Boolean   @default(false)
+  emailSent      Boolean   @default(false)
+  reportSent     Boolean   @default(false)
+  notes          String?   // Internal notes/updates for this donation
+  status         String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (individual donation status)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  completedAt    DateTime?
+
+  waterProject WaterProject        @relation(fields: [waterProjectId], references: [id], onDelete: Cascade)
+  country      WaterProjectCountry @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  donor        Donor               @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  @@index([waterProjectId])
+  @@index([countryId])
+  @@index([donorId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("water_project_donations")
+}

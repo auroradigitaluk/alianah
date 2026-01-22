@@ -1,0 +1,208 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      String   @default("VIEWER") // ADMIN | MANAGER | VIEWER
+  createdAt DateTime @default(now())
+
+  auditLogs AuditLog[]
+
+  @@index([email])
+  @@map("admin_users")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appeals AppealCategory[]
+
+  @@index([slug])
+  @@index([isActive, sortOrder])
+  @@map("categories")
+}
+
+model Appeal {
+  id                    String        @id @default(cuid())
+  title                 String
+  slug                  String        @unique
+  summary               String
+  heroImageUrl          String?
+  galleryImageUrls      String        @default("[]") // JSON string
+  sectionIntro          String
+  sectionNeed           String
+  sectionFundsUsed      String
+  sectionImpact         String
+  isActive              Boolean       @default(true)
+  donationTypesEnabled  String        @default("[]") // JSON string
+  defaultDonationType   String        @default("GENERAL")
+  allowMonthly          Boolean       @default(false)
+  allowYearly           Boolean       @default(false)
+  allowCustomMonthly    Boolean       @default(false)
+  allowCustomYearly      Boolean       @default(false)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  categories    AppealCategory[]
+  products      AppealProduct[]
+  fundraisers   Fundraiser[]
+  offlineIncome OfflineIncome[]
+  collections   Collection[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("appeals")
+}
+
+model Product {
+  id              String      @id @default(cuid())
+  name            String
+  slug            String      @unique
+  type            String      // FIXED | VARIABLE
+  unitLabel       String
+  fixedAmountPence Int?
+  minAmountPence  Int?
+  maxAmountPence  Int?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  appeals AppealProduct[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("products")
+}
+
+model AppealCategory {
+  appealId   String
+  categoryId String
+  sortOrder  Int @default(0)
+
+  appeal   Appeal   @relation(fields: [appealId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([appealId, categoryId])
+  @@index([categoryId])
+  @@map("appeal_categories")
+}
+
+model AppealProduct {
+  appealId          String
+  productId         String
+  frequency         String      // ONE_OFF | MONTHLY | YEARLY
+  presetAmountsPence String      @default("[]") // JSON string
+  allowCustom       Boolean  @default(false)
+  sortOrder         Int      @default(0)
+
+  appeal  Appeal  @relation(fields: [appealId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([appealId, productId, frequency])
+  @@index([productId])
+  @@map("appeal_products")
+}
+
+model Fundraiser {
+  id            String   @id @default(cuid())
+  appealId      String
+  title         String
+  slug          String   @unique
+  fundraiserName String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  appeal Appeal @relation(fields: [appealId], references: [id], onDelete: Cascade)
+
+  @@index([appealId])
+  @@index([slug])
+  @@map("fundraisers")
+}
+
+model OfflineIncome {
+  id           String        @id @default(cuid())
+  appealId     String?
+  amountPence  Int
+  donationType String        // GENERAL | SADAQAH | ZAKAT | LILLAH
+  source       String        // CASH | BANK_TRANSFER
+  receivedAt   DateTime
+  notes        String?
+  createdAt    DateTime      @default(now())
+
+  appeal Appeal? @relation(fields: [appealId], references: [id], onDelete: SetNull)
+
+  @@index([appealId])
+  @@index([receivedAt])
+  @@map("offline_income")
+}
+
+model Masjid {
+  id          String    @id @default(cuid())
+  name        String
+  city        String
+  address     String
+  contactName String?
+  phone       String?
+  email       String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  collections Collection[]
+
+  @@index([city])
+  @@map("masjids")
+}
+
+model Collection {
+  id           String        @id @default(cuid())
+  masjidId     String?
+  appealId     String?
+  amountPence  Int
+  donationType String        // GENERAL | SADAQAH | ZAKAT | LILLAH
+  type         String        // JUMMAH | RAMADAN | EID | SPECIAL | OTHER
+  collectedAt  DateTime
+  notes        String?
+  createdAt    DateTime      @default(now())
+
+  masjid Masjid? @relation(fields: [masjidId], references: [id], onDelete: SetNull)
+  appeal Appeal? @relation(fields: [appealId], references: [id], onDelete: SetNull)
+
+  @@index([masjidId])
+  @@index([appealId])
+  @@index([collectedAt])
+  @@map("collections")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  adminUserId String
+  action      String
+  entityType  String
+  entityId    String?
+  beforeJson  String?
+  afterJson   String?
+  createdAt   DateTime @default(now())
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
