@@ -47,7 +47,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const projectType = searchParams.get("projectType")
 
-    const where = projectType ? { projectType: projectType as any } : {}
+    const where = projectType 
+      ? { projectType: projectType as "WATER_PUMP" | "WATER_WELL" | "WATER_TANK" | "WUDHU_AREA" }
+      : {}
 
     const projects = await prisma.waterProject.findMany({
       where,

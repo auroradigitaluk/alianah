@@ -6,6 +6,10 @@ const appealSchema = z.object({
   title: z.string().min(1),
   slug: z.string().min(1),
   summary: z.string(),
+  sectionIntro: z.string().optional(),
+  sectionNeed: z.string().optional(),
+  sectionFundsUsed: z.string().optional(),
+  sectionImpact: z.string().optional(),
   framerUrl: z.string().url().nullable().optional(),
   isActive: z.boolean(),
   donationTypesEnabled: z.array(z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"])),
@@ -26,22 +30,30 @@ export async function PUT(
     const body = await request.json()
     const data = appealSchema.parse(body)
 
+    const updateData: any = {
+      title: data.title,
+      slug: data.slug,
+      summary: data.summary,
+      framerUrl: data.framerUrl || null,
+      isActive: data.isActive,
+      donationTypesEnabled: JSON.stringify(data.donationTypesEnabled),
+      allowMonthly: data.allowMonthly,
+      allowYearly: data.allowYearly,
+      allowFundraising: data.allowFundraising ?? false,
+      appealImageUrls: data.appealImageUrls || "[]",
+      monthlyPricePence: data.monthlyPricePence || null,
+      yearlyPricePence: data.yearlyPricePence || null,
+    }
+
+    // Only update section fields if provided
+    if (data.sectionIntro !== undefined) updateData.sectionIntro = data.sectionIntro
+    if (data.sectionNeed !== undefined) updateData.sectionNeed = data.sectionNeed
+    if (data.sectionFundsUsed !== undefined) updateData.sectionFundsUsed = data.sectionFundsUsed
+    if (data.sectionImpact !== undefined) updateData.sectionImpact = data.sectionImpact
+
     const appeal = await prisma.appeal.update({
       where: { id },
-      data: {
-        title: data.title,
-        slug: data.slug,
-        summary: data.summary,
-        framerUrl: data.framerUrl || null,
-        isActive: data.isActive,
-        donationTypesEnabled: JSON.stringify(data.donationTypesEnabled),
-        allowMonthly: data.allowMonthly,
-        allowYearly: data.allowYearly,
-        allowFundraising: data.allowFundraising ?? false,
-        appealImageUrls: data.appealImageUrls || "[]",
-        monthlyPricePence: data.monthlyPricePence || null,
-        yearlyPricePence: data.yearlyPricePence || null,
-      },
+      data: updateData,
     })
 
     return NextResponse.json(appeal)

@@ -51,10 +51,7 @@ async function getWaterProjects() {
     return projects.map(project => ({
       ...project,
       availableCountries: countries.filter(c => c.projectType === project.projectType),
-      donations: project.donations.map(d => ({
-        ...d,
-        status: (d as any).status, // Include status from donation
-      })),
+      donations: project.donations,
     }))
   } catch (error) {
     console.error("Error fetching water projects:", error)
