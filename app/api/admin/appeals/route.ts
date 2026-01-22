@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         summary: data.summary,
         framerUrl: data.framerUrl || null,
         isActive: data.isActive,
-        donationTypesEnabled: data.donationTypesEnabled,
+        donationTypesEnabled: JSON.stringify(data.donationTypesEnabled),
         allowMonthly: data.allowMonthly,
         allowYearly: data.allowYearly,
         allowFundraising: data.allowFundraising ?? false,
