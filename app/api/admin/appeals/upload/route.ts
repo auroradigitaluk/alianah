@@ -10,15 +10,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Check if BLOB_READ_WRITE_TOKEN is configured
-    const token = process.env.BLOB_READ_WRITE_TOKEN
-    if (!token) {
-      console.error("BLOB_READ_WRITE_TOKEN is not configured")
-      return NextResponse.json({ 
-        error: "Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN environment variable." 
-      }, { status: 500 })
-    }
-
     // Validate file type
     if (!file.type.startsWith("image/")) {
       return NextResponse.json({ error: "File must be an image" }, { status: 400 })
@@ -31,19 +22,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Vercel Blob
+    // The put function automatically uses BLOB_READ_WRITE_TOKEN from process.env
+    // If token is not in env, it will throw an error which we'll catch below
     const blob = await put(`appeals/${Date.now()}-${file.name}`, file, {
       access: "public",
       addRandomSuffix: true,
-      token, // Explicitly pass token
     })
 
     return NextResponse.json({ url: blob.url })
   } catch (error) {
     console.error("Upload error:", error)
-    const errorMessage = error instanceof Error ? error.message : "Failed to upload image"
+    let errorMessage = "Failed to upload image"
+    
+    if (error instanceof Error) {
+      // Check for common blob storage errors
+      if (error.message.includes("BLOB_READ_WRITE_TOKEN") || error.message.includes("token")) {
+        errorMessage = "Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN environment variable and restart the server."
+      } else {
+        errorMessage = error.message
+      }
+    }
+    
     return NextResponse.json({ 
-      error: errorMessage,
-      details: error instanceof Error ? error.stack : undefined
+      error: errorMessage
     }, { status: 500 })
   }
 }
