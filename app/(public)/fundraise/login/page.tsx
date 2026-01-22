@@ -2,13 +2,14 @@
 
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 
-export default function FundraiserLoginPage() {
+function FundraiserLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect") || "/fundraise/dashboard"
@@ -177,5 +178,23 @@ export default function FundraiserLoginPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function FundraiserLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-12">
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <FundraiserLoginForm />
+    </Suspense>
   )
 }
