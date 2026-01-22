@@ -4,6 +4,7 @@ import { DonationForm } from "@/components/donation-form"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Users } from "lucide-react"
+import Image from "next/image"
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,7 @@ async function getAppeal(slug: string) {
         donationTypesEnabled: true,
         allowFundraising: true,
         framerUrl: true,
+        appealImageUrls: true,
         products: {
           include: {
             product: true,
@@ -96,8 +98,38 @@ export default async function AppealPage({
   // Use Framer URL from database, or fallback to environment/default
   const framerAppealUrl = appeal.framerUrl || `${process.env.NEXT_PUBLIC_FRAMER_URL || "https://alianah.org"}/appeal/${slug}`
 
+  // Parse appeal images
+  const appealImages: string[] = appeal.appealImageUrls
+    ? (() => {
+        try {
+          return JSON.parse(appeal.appealImageUrls)
+        } catch {
+          return []
+        }
+      })()
+    : []
+
   return (
     <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:px-6 md:py-8 max-w-2xl">
+      {/* Appeal Images */}
+      {appealImages.length > 0 && (
+        <div className="mb-6 sm:mb-8">
+          <div className="space-y-4">
+            {appealImages.map((imageUrl, index) => (
+              <div key={index} className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted">
+                <Image
+                  src={imageUrl}
+                  alt={`${appeal.title} - Image ${index + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 672px"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Minimal Header */}
       <div className="mb-4 sm:mb-6 text-center">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight md:text-3xl mb-2">
