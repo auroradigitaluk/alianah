@@ -19,10 +19,15 @@ async function getProjects() {
         isActive: true,
       },
       include: {
-        country: true,
         donations: {
           select: {
             amountPence: true,
+            country: {
+              select: {
+                country: true,
+                pricePence: true,
+              },
+            },
           },
         },
       },
