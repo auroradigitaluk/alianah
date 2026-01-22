@@ -13,7 +13,7 @@ async function getAppeals() {
     return await prisma.appeal.findMany({
       orderBy: { createdAt: "desc" },
     })
-  } catch (error) {
+  } catch {
     return []
   }
 }

@@ -253,7 +253,7 @@ export default function CheckoutPage() {
                       Boost your donation by 25% at no extra cost to you
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      If you're a UK taxpayer, you can claim Gift Aid. The government will add 25% to your donation - you don't need to pay anything extra!
+                      If you&apos;re a UK taxpayer, you can claim Gift Aid. The government will add 25% to your donation - you don&apos;t need to pay anything extra!
                     </p>
                   </div>
                   <div className="bg-background border rounded-lg p-3 space-y-2">

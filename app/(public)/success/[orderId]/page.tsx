@@ -17,7 +17,7 @@ async function getOrder(orderId: string) {
       },
     })
     return order
-  } catch (error) {
+  } catch {
     return null
   }
 }

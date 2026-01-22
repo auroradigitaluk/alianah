@@ -9,7 +9,7 @@ async function getCountries() {
       where: { isActive: true },
       orderBy: [{ projectType: "asc" }, { sortOrder: "asc" }, { country: "asc" }],
     })
-  } catch (error) {
+  } catch {
     return []
   }
 }
@@ -35,7 +35,7 @@ async function getProjects() {
       },
       orderBy: { createdAt: "desc" },
     })
-  } catch (error) {
+  } catch {
     return []
   }
 }

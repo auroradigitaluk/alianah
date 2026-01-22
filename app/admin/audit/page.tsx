@@ -12,7 +12,7 @@ async function getAuditLogs() {
       take: 100,
       include: { adminUser: { select: { email: true } } },
     })
-  } catch (error) {
+  } catch {
     return []
   }
 }

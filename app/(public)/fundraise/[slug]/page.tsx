@@ -1,10 +1,6 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { FundraiserForm } from "@/components/fundraiser-form"
-import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/utils"
-import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
 import Image from "next/image"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
 
