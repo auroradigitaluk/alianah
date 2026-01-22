@@ -1,8 +1,6 @@
-import { config } from "dotenv"
 import { PrismaClient } from "@prisma/client"
 
-// Load environment variables
-config()
+// Environment variables are automatically loaded by Next.js/Node.js
 
 const prisma = new PrismaClient()
 
