@@ -12,7 +12,7 @@ export function BackButton() {
     if (window.history.length > 1) {
       router.back()
     } else {
-      window.location.href = "https://alianah.org"
+      router.push("/")
     }
   }
 

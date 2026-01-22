@@ -10,7 +10,7 @@ const appealSchema = z.object({
   sectionNeed: z.string().optional(),
   sectionFundsUsed: z.string().optional(),
   sectionImpact: z.string().optional(),
-  framerUrl: z.string().url().nullable().optional(),
+  framerUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
   isActive: z.boolean(),
   donationTypesEnabled: z.array(z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"])),
   allowMonthly: z.boolean(),
@@ -31,10 +31,10 @@ export async function POST(request: NextRequest) {
         title: data.title,
         slug: data.slug,
         summary: data.summary,
-        sectionIntro: data.sectionIntro || "",
-        sectionNeed: data.sectionNeed || "",
-        sectionFundsUsed: data.sectionFundsUsed || "",
-        sectionImpact: data.sectionImpact || "",
+        sectionIntro: data.sectionIntro ?? "",
+        sectionNeed: data.sectionNeed ?? "",
+        sectionFundsUsed: data.sectionFundsUsed ?? "",
+        sectionImpact: data.sectionImpact ?? "",
         framerUrl: data.framerUrl || null,
         isActive: data.isActive,
         donationTypesEnabled: JSON.stringify(data.donationTypesEnabled),
@@ -49,9 +49,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(appeal)
   } catch (error) {
+    console.error("Appeal creation error:", error)
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
-    return NextResponse.json({ error: "Failed to create appeal" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "Failed to create appeal"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

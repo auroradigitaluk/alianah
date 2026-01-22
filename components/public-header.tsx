@@ -14,11 +14,7 @@ export function PublicHeader() {
   const { items, setOpen } = useSidecart()
 
   const handleBack = () => {
-    if (typeof window !== "undefined" && document.referrer) {
-      router.back()
-    } else {
-      window.location.href = "https://alianah.org"
-    }
+    router.back()
   }
 
   const itemCount = items.length

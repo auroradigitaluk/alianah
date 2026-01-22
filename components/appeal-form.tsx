@@ -90,14 +90,19 @@ export function AppealForm({ appeal }: AppealFormProps) {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to upload image")
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to upload: ${response.statusText}`)
       }
 
       const { url } = await response.json()
+      if (!url) {
+        throw new Error("No URL returned from upload")
+      }
       setAppealImages((prev) => [...prev, url])
     } catch (error) {
-      console.error(error)
-      alert("Failed to upload image")
+      console.error("Image upload error:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload image"
+      alert(errorMessage)
     } finally {
       setUploading(false)
       e.target.value = ""
@@ -139,13 +144,17 @@ export function AppealForm({ appeal }: AppealFormProps) {
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to save")
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to save: ${response.statusText}`)
+      }
 
       router.push("/admin/appeals")
       router.refresh()
     } catch (error) {
-      console.error(error)
-      alert("Failed to save appeal")
+      console.error("Appeal save error:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to save appeal"
+      alert(errorMessage)
     } finally {
       setLoading(false)
     }

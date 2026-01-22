@@ -10,7 +10,7 @@ const appealSchema = z.object({
   sectionNeed: z.string().optional(),
   sectionFundsUsed: z.string().optional(),
   sectionImpact: z.string().optional(),
-  framerUrl: z.string().url().nullable().optional(),
+  framerUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
   isActive: z.boolean(),
   donationTypesEnabled: z.array(z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"])),
   allowMonthly: z.boolean(),
@@ -58,9 +58,11 @@ export async function PUT(
 
     return NextResponse.json(appeal)
   } catch (error) {
+    console.error("Appeal update error:", error)
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
-    return NextResponse.json({ error: "Failed to update appeal" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "Failed to update appeal"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
