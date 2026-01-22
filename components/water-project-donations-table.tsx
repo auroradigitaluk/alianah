@@ -19,6 +19,7 @@ interface WaterProjectDonation {
   amountPence: number
   donationType: string
   paymentMethod: string
+  transactionId?: string | null
   giftAid: boolean
   emailSent: boolean
   reportSent: boolean

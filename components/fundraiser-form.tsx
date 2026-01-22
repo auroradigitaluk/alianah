@@ -49,7 +49,7 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<FundraiserFormData>({
+  } = useForm<z.input<typeof fundraiserSchema>>({
     resolver: zodResolver(fundraiserSchema),
     defaultValues: {
       title: appealTitle,
@@ -74,7 +74,7 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
   const isPresetSelected = (amountPence: number) => {
     if (!targetAmountPence) return false
     const amountInPounds = amountPence / 100
-    const currentValue = parseFloat(targetAmountPence)
+    const currentValue = parseFloat(String(targetAmountPence))
     return !isNaN(currentValue) && Math.abs(currentValue - amountInPounds) < 0.01
   }
 
@@ -133,7 +133,7 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
         <CardDescription>Create your fundraising page for {appealTitle}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Fundraiser Name *</Label>
             <Input

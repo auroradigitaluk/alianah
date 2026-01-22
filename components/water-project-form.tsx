@@ -124,13 +124,6 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
     setLoading(true)
 
     try {
-      const amountPence = Math.round(parseFloat(amount) * 100)
-      if (isNaN(amountPence) || amountPence <= 0) {
-        toast.error("Please enter a valid amount")
-        setLoading(false)
-        return
-      }
-
       // Check if project type already exists
       if (!project) {
         const existing = await fetch(`/api/admin/water-projects?projectType=${projectType}`)

@@ -327,6 +327,7 @@ async function main() {
       title: "Palestine Emergency Fundraiser",
       slug: "palestine-emergency-fundraiser",
       fundraiserName: "Community Relief Group",
+      email: "community@example.com",
       isActive: true,
     },
   })
@@ -339,6 +340,7 @@ async function main() {
       title: "Orphan Sponsorship Campaign",
       slug: "orphan-sponsorship-campaign",
       fundraiserName: "Sarah Ahmed",
+      email: "sarah@example.com",
       isActive: true,
     },
   })
@@ -351,6 +353,7 @@ async function main() {
       title: "Gaza Convoy Support",
       slug: "gaza-convoy-support",
       fundraiserName: "Humanitarian Network",
+      email: "network@example.com",
       isActive: true,
     },
   })
@@ -363,6 +366,7 @@ async function main() {
       title: "India Education Drive",
       slug: "india-education-drive",
       fundraiserName: "Education Foundation",
+      email: "foundation@example.com",
       isActive: true,
     },
   })

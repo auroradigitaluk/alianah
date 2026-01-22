@@ -19,6 +19,7 @@ interface Country {
   id: string
   projectType: string
   country: string
+  pricePence: number
 }
 
 interface Project {

@@ -78,7 +78,6 @@ async function main() {
       const project = await prisma.waterProject.create({
         data: {
           projectType: projectData.projectType,
-          countryId: countryId,
           location: projectData.location,
           amountPence: projectData.amountPence,
           isActive: true,

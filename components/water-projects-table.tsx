@@ -139,8 +139,8 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
             header: "Ongoing",
             cell: (project) => {
               const ongoingStatuses = ["WAITING_TO_REVIEW", "ORDERED", "PENDING"]
-              const ongoingCount = project.donations?.filter(d => {
-                const status = (d as any).status
+              const ongoingCount = project.donations?.filter((d: any) => {
+                const status = d.status
                 return status && ongoingStatuses.includes(status)
               }).length || 0
               return (
@@ -154,8 +154,8 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
             id: "completed",
             header: "Complete",
             cell: (project) => {
-              const completedCount = project.donations?.filter(d => {
-                const status = (d as any).status
+              const completedCount = project.donations?.filter((d: any) => {
+                const status = d.status
                 return status === "COMPLETE"
               }).length || 0
               return (
