@@ -52,7 +52,7 @@ export function ChartPieSimple({ data }: ChartPieSimpleProps) {
   const chartData = data.map((item) => {
     const configKey = item.name.toLowerCase() as keyof typeof chartConfig
     const config = chartConfig[configKey]
-    const color = config?.color || "oklch(0.574 0.259 142.38)"
+    const color = (config && 'color' in config ? config.color : undefined) || "oklch(0.574 0.259 142.38)"
     return {
       paymentMethod: item.name,
       amount: item.value,
@@ -105,7 +105,7 @@ export function ChartPieSimple({ data }: ChartPieSimpleProps) {
             const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0"
             const configKey = item.name.toLowerCase()
             const config = chartConfig[configKey as keyof typeof chartConfig]
-            const color = config?.color || "oklch(0.574 0.259 142.38)"
+            const color = (config && 'color' in config ? config.color : undefined) || "oklch(0.574 0.259 142.38)"
             return (
               <div key={item.name} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
