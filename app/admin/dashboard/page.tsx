@@ -195,7 +195,7 @@ async function getDashboardData() {
     })
 
     // Sort by amount descending and take top 6
-    let topProjects = campaignsWithAmounts
+    const topProjects = campaignsWithAmounts
       .sort((a, b) => b.amountPence - a.amountPence)
       .slice(0, 6)
       .map((campaign) => ({
@@ -203,18 +203,6 @@ async function getDashboardData() {
         name: campaign.name,
         amountPence: campaign.amountPence,
       }))
-
-    // Generate fake project data if no real data exists
-    if (topProjects.length === 0) {
-      topProjects = [
-        { id: "1", name: "Egypt to Gaza Humanitarian Convoy", amountPence: 4500000 },
-        { id: "2", name: "Palestine Emergency Relief", amountPence: 3200000 },
-        { id: "3", name: "Orphan Sponsorship - Pakistan", amountPence: 2800000 },
-        { id: "4", name: "India Education and Healthcare", amountPence: 2100000 },
-        { id: "5", name: "Bulgaria Community Support", amountPence: 1800000 },
-        { id: "6", name: "Syria Refugee Support", amountPence: 1500000 },
-      ]
-    }
 
     // Group all donations by date
     const donationsByDate = new Map<string, number>()
@@ -238,32 +226,12 @@ async function getDashboardData() {
     })
 
     // Convert to array and sort by date
-    let chartData = Array.from(donationsByDate.entries())
+    const chartData = Array.from(donationsByDate.entries())
       .map(([date, amountPence]) => ({
         date,
         amount: amountPence / 100, // Convert pence to pounds
       }))
       .sort((a, b) => a.date.localeCompare(b.date))
-
-    // Generate fake data if no real data exists
-    if (chartData.length === 0) {
-      const fakeData = []
-      const today = new Date()
-      for (let i = 89; i >= 0; i--) {
-        const date = new Date(today)
-        date.setDate(date.getDate() - i)
-        // Generate realistic donation amounts with some variation
-        const baseAmount = 800 + Math.random() * 400 // £800-£1200 base
-        const variation = (Math.random() - 0.5) * 300 // ±£150 variation
-        const weekendBoost = date.getDay() === 0 || date.getDay() === 6 ? 200 : 0 // Weekend boost
-        const amount = Math.max(200, baseAmount + variation + weekendBoost)
-        fakeData.push({
-          date: date.toISOString().split("T")[0],
-          amount: Math.round(amount * 100) / 100, // Round to 2 decimal places
-        })
-      }
-      chartData = fakeData
-    }
 
     const totalOffline = totalIncome._sum.amountPence || 0
     const totalCollections = collections._sum.amountPence || 0
@@ -321,7 +289,7 @@ async function getDashboardData() {
 
       weeklyData.push({
         day: dayOfWeek,
-        count: dayDonations || Math.floor(Math.random() * 500) + 200,
+        count: dayDonations || 0,
       })
     }
 
@@ -362,71 +330,25 @@ async function getDashboardData() {
       recurringDonations,
     }
   } catch (error) {
-    // Database not set up yet - return fake data
-    console.error("Dashboard data error, using fake data:", error)
+    console.error("Dashboard data error:", error)
     
-    // Generate fake chart data
-    const fakeChartData = []
-    const today = new Date()
-    for (let i = 89; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
-      const baseAmount = 800 + Math.random() * 400
-      const variation = (Math.random() - 0.5) * 300
-      const weekendBoost = date.getDay() === 0 || date.getDay() === 6 ? 200 : 0
-      const amount = Math.max(200, baseAmount + variation + weekendBoost)
-      fakeChartData.push({
-        date: date.toISOString().split("T")[0],
-        amount: Math.round(amount * 100) / 100,
-      })
-    }
-
-    // Generate fake project data
-    const fakeTopProjects = [
-      { id: "1", name: "Egypt to Gaza Humanitarian Convoy", amountPence: 4500000 },
-      { id: "2", name: "Palestine Emergency Relief", amountPence: 3200000 },
-      { id: "3", name: "Orphan Sponsorship - Pakistan", amountPence: 2800000 },
-      { id: "4", name: "India Education and Healthcare", amountPence: 2100000 },
-      { id: "5", name: "Bulgaria Community Support", amountPence: 1800000 },
-    ]
-
-    // Generate fake monthly data
-    const fakeMonthlyData = [
-      { month: "Oct", online: 2988.2, offline: 4500, collections: 2100 },
-      { month: "Nov", online: 1765.09, offline: 3800, collections: 1900 },
-      { month: "Dec", online: 4005.65, offline: 5200, collections: 2400 },
-    ]
-
-    // Generate fake weekly data
-    const fakeWeeklyData = [
-      { day: "Sun", count: 320 },
-      { day: "Mon", count: 450 },
-      { day: "Tue", count: 3874 },
-      { day: "Wed", count: 2100 },
-      { day: "Thu", count: 2800 },
-      { day: "Fri", count: 1900 },
-      { day: "Sat", count: 1500 },
-    ]
-
-    // Generate fake distribution data
-    const fakeDistributionData = [
-      { name: "website", value: 374.82, label: "Website" },
-      { name: "mobile", value: 241.6, label: "Mobile App" },
-      { name: "other", value: 213.42, label: "Other" },
-    ]
-
+    // Return empty data on error instead of fake data
     return {
-      totalIncomePence: 12500000,
-      activeAppeals: 8,
-      topProjects: fakeTopProjects,
-      chartData: fakeChartData,
-      monthlyData: fakeMonthlyData,
-      weeklyData: fakeWeeklyData,
-      distributionData: fakeDistributionData,
-      totalDonors: 1247,
-      totalDonations: 3421,
-      activeFundraisers: 23,
-      recurringDonations: 156,
+      totalIncomePence: 0,
+      activeAppeals: 0,
+      topProjects: [],
+      chartData: [],
+      monthlyData: [],
+      weeklyData: [],
+      distributionData: [
+        { name: "website", value: 0, label: "Website" },
+        { name: "mobile", value: 0, label: "Mobile App" },
+        { name: "other", value: 0, label: "Other" },
+      ],
+      totalDonors: 0,
+      totalDonations: 0,
+      activeFundraisers: 0,
+      recurringDonations: 0,
     }
   }
 }
@@ -448,7 +370,7 @@ export default async function AdminDashboardPage({
     comparisonStartDate.setDate(comparisonStartDate.getDate() - daysDiff)
     const comparisonEndDate = new Date(startDate)
 
-    // Get metrics
+    // Get metrics - wrap each query in try-catch to handle database errors gracefully
     const [
       totalDonors,
       totalDonorsLastPeriod,
@@ -466,7 +388,7 @@ export default async function AdminDashboardPage({
             lte: endDate,
           },
         },
-      }),
+      }).catch(() => 0),
       prisma.donor.count({
         where: {
           createdAt: {
@@ -474,10 +396,10 @@ export default async function AdminDashboardPage({
             lte: comparisonEndDate,
           },
         },
-      }),
+      }).catch(() => 0),
       prisma.appeal.count({
         where: { isActive: true },
-      }),
+      }).catch(() => 0),
       prisma.donation.count({
         where: {
           status: "COMPLETED",
@@ -486,7 +408,7 @@ export default async function AdminDashboardPage({
             lte: endDate,
           },
         },
-      }),
+      }).catch(() => 0),
       prisma.donation.count({
         where: {
           status: "COMPLETED",
@@ -495,10 +417,10 @@ export default async function AdminDashboardPage({
             lte: comparisonEndDate,
           },
         },
-      }),
+      }).catch(() => 0),
       prisma.fundraiser.count({
         where: { isActive: true },
-      }),
+      }).catch(() => 0),
       prisma.donation.aggregate({
         where: {
           status: "COMPLETED",
@@ -508,7 +430,7 @@ export default async function AdminDashboardPage({
           },
         },
         _sum: { amountPence: true },
-      }),
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
       prisma.donation.aggregate({
         where: {
           status: "COMPLETED",
@@ -518,7 +440,7 @@ export default async function AdminDashboardPage({
           },
         },
         _sum: { amountPence: true },
-      }),
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
     ])
 
     // Get payment method data (online, card, cash)
@@ -534,7 +456,7 @@ export default async function AdminDashboardPage({
           },
         },
         _sum: { amountPence: true },
-      }),
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
       // Card = CARD donations (SumUp card readers)
       prisma.donation.aggregate({
         where: {
@@ -546,7 +468,7 @@ export default async function AdminDashboardPage({
           },
         },
         _sum: { amountPence: true },
-      }),
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
       // Cash = CASH from offline income
       prisma.offlineIncome.aggregate({
         where: {
@@ -557,7 +479,7 @@ export default async function AdminDashboardPage({
           },
         },
         _sum: { amountPence: true },
-      }),
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
     ])
 
     const paymentMethodData = [
@@ -619,7 +541,7 @@ export default async function AdminDashboardPage({
             },
           },
           _sum: { amountPence: true },
-        }),
+        }).catch(() => ({ _sum: { amountPence: 0 } })),
         // Card donations (CARD - SumUp card readers)
         prisma.donation.aggregate({
           where: {
@@ -631,7 +553,7 @@ export default async function AdminDashboardPage({
             },
           },
           _sum: { amountPence: true },
-        }),
+        }).catch(() => ({ _sum: { amountPence: 0 } })),
         // Offline donations (CASH from offline income)
         prisma.offlineIncome.aggregate({
           where: {
@@ -642,7 +564,7 @@ export default async function AdminDashboardPage({
             },
           },
           _sum: { amountPence: true },
-        }),
+        }).catch(() => ({ _sum: { amountPence: 0 } })),
       ])
 
       // Online = STRIPE + CARD donations
@@ -689,7 +611,7 @@ export default async function AdminDashboardPage({
           select: { amountPence: true },
         },
       },
-    })
+    }).catch(() => [])
 
     // Calculate total amount for each appeal
     const campaignsWithAmounts = appeals.map((appeal) => {
@@ -706,21 +628,9 @@ export default async function AdminDashboardPage({
     })
 
     // Sort by amount descending and take top 6
-    let topProjects = campaignsWithAmounts
+    const topProjects = campaignsWithAmounts
       .sort((a, b) => b.amountPence - a.amountPence)
       .slice(0, 6)
-
-    // Generate fake project data if no real data exists
-    if (topProjects.length === 0) {
-      topProjects = [
-        { id: "1", name: "Egypt to Gaza Humanitarian Convoy", amountPence: 4500000 },
-        { id: "2", name: "Palestine Emergency Relief", amountPence: 3200000 },
-        { id: "3", name: "Orphan Sponsorship - Pakistan", amountPence: 2800000 },
-        { id: "4", name: "India Education and Healthcare", amountPence: 2100000 },
-        { id: "5", name: "Bulgaria Community Support", amountPence: 1800000 },
-        { id: "6", name: "Syria Refugee Support", amountPence: 1500000 },
-      ]
-    }
 
     // Get latest donations
     const latestDonations = await prisma.donation.findMany({
@@ -746,7 +656,7 @@ export default async function AdminDashboardPage({
           },
         },
       },
-    })
+    }).catch(() => [])
 
     // Calculate trends
     const donorsTrend = totalDonorsLastPeriod
@@ -878,8 +788,8 @@ export default async function AdminDashboardPage({
     console.error("Dashboard error:", error)
     console.error("Error details:", JSON.stringify(error, null, 2))
     
-    // Try to fetch payment method data even in error case
-    let paymentMethodData = [
+    // Return empty data on error instead of fake data
+    const paymentMethodData = [
       {
         name: "online",
         value: 0,
@@ -896,76 +806,17 @@ export default async function AdminDashboardPage({
         label: "Cash",
       },
     ]
-    
-    try {
-      const [onlineDonations, cardDonations, cashDonations] = await Promise.all([
-        prisma.donation.aggregate({
-          where: { status: "COMPLETED", paymentMethod: "STRIPE" },
-          _sum: { amountPence: true },
-        }),
-        prisma.donation.aggregate({
-          where: { status: "COMPLETED", paymentMethod: "CARD" },
-          _sum: { amountPence: true },
-        }),
-        prisma.offlineIncome.aggregate({
-          where: { source: "CASH" },
-          _sum: { amountPence: true },
-        }),
-      ])
-      
-      paymentMethodData = [
-        {
-          name: "online",
-          value: onlineDonations._sum.amountPence || 0,
-          label: "Online",
-        },
-        {
-          name: "card",
-          value: cardDonations._sum.amountPence || 0,
-          label: "Card",
-        },
-        {
-          name: "cash",
-          value: cashDonations._sum.amountPence || 0,
-          label: "Cash",
-        },
-      ]
-    } catch (paymentError) {
-      console.error("Error fetching payment method data:", paymentError)
-    }
 
-    const lineChartData = Array.from({ length: 90 }, (_, i) => {
-      const date = new Date()
-      date.setDate(date.getDate() - (89 - i))
-      return {
-        date: date.toISOString().split("T")[0],
-        desktop: Math.floor(Math.random() * 100000) + 50000, // Online donations
-        mobile: Math.floor(Math.random() * 50000) + 20000, // Offline donations
-      }
-    })
-
-    const topProjects = [
-      { id: "1", name: "Egypt to Gaza Humanitarian Convoy", amountPence: 4500000 },
-      { id: "2", name: "Palestine Emergency Relief", amountPence: 3200000 },
-      { id: "3", name: "Orphan Sponsorship - Pakistan", amountPence: 2800000 },
-      { id: "4", name: "India Education and Healthcare", amountPence: 2100000 },
-      { id: "5", name: "Bulgaria Community Support", amountPence: 1800000 },
-      { id: "6", name: "Syria Refugee Support", amountPence: 1500000 },
-    ]
-
-    const latestTransactions = [
-      { id: "1", paidBy: "Stella Powell", packageName: "Palestine Emergency", price: "£50.00", status: "Active" as const, paidDate: "03/27/2026" },
-      { id: "2", paidBy: "Aaron Dunn", packageName: "Gaza Relief", price: "£100.00", status: "Active" as const, paidDate: "08/14/2026" },
-      { id: "3", paidBy: "Eleanor Kim", packageName: "Orphan Sponsorship", price: "£25.00", status: "Active" as const, paidDate: "11/17/2026" },
-      { id: "4", paidBy: "Joshua Cook", packageName: "General Donation", price: "£75.00", status: "Expired" as const, paidDate: "08/09/2026" },
-      { id: "5", paidBy: "Anna Russell", packageName: "Water for Life", price: "£150.00", status: "Active" as const, paidDate: "08/09/2026" },
-    ]
+    const lineChartData: Array<{ date: string; desktop: number; mobile: number }> = []
+    const topProjects: Array<{ id: string; name: string; amountPence: number }> = []
+    const latestTransactions: Array<{ id: string; paidBy: string; packageName: string; price: string; status: "Active" | "Expired"; paidDate: string }> = []
 
     return (
       <>
         <AdminHeader title="Dashboard" />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
+            <DashboardDateFilter />
             <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
               {/* Top Row: 4 Metric Cards in 2x2 Grid */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
@@ -976,9 +827,9 @@ export default async function AdminDashboardPage({
                       <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">£125,000.00</div>
+                      <div className="text-2xl font-bold">{formatCurrency(0)}</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Last 30 days <span className="text-green-600">↑ 32.54%</span>
+                        No data available
                       </p>
                     </CardContent>
                   </Card>
@@ -989,9 +840,9 @@ export default async function AdminDashboardPage({
                       <CardTitle className="text-sm font-medium">Total Donations</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">3,421</div>
+                      <div className="text-2xl font-bold">0</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Last 30 days <span className="text-green-600">↑ 32.54%</span>
+                        No data available
                       </p>
                     </CardContent>
                   </Card>
@@ -1002,9 +853,9 @@ export default async function AdminDashboardPage({
                       <CardTitle className="text-sm font-medium">Appeals</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">8</div>
+                      <div className="text-2xl font-bold">0</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Currently active appeals
+                        No data available
                       </p>
                     </CardContent>
                   </Card>
@@ -1015,9 +866,9 @@ export default async function AdminDashboardPage({
                       <CardTitle className="text-sm font-medium">Active Fundraisers</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">23</div>
+                      <div className="text-2xl font-bold">0</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Active fundraising pages
+                        No data available
                       </p>
                     </CardContent>
                   </Card>
