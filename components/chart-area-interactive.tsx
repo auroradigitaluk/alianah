@@ -41,7 +41,7 @@ const chartConfig = {
 } satisfies ChartConfig
 
 interface ChartAreaInteractiveProps {
-  chartData: { date: string; amount: number }[]
+  chartData?: { date: string; amount: number }[]
 }
 
 export function ChartAreaInteractive({ chartData: propChartData = [] }: ChartAreaInteractiveProps) {
