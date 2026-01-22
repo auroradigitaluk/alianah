@@ -2,6 +2,7 @@ import { AdminHeader } from "@/components/admin-header"
 import { ChartPieSimple } from "@/components/chart-pie-simple"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive-shadcn"
 import { TopCampaignsTable } from "@/components/top-campaigns-table"
+import { DashboardDateFilter } from "@/components/dashboard-date-filter"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
@@ -16,6 +17,56 @@ import { formatCurrency } from "@/lib/utils"
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+function getDateRange(range: string | null) {
+  const now = new Date()
+  let startDate: Date
+  let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
+  switch (range) {
+    case "7d":
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 7)
+      startDate.setHours(0, 0, 0, 0)
+      break
+    case "30d":
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 30)
+      startDate.setHours(0, 0, 0, 0)
+      break
+    case "90d":
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 90)
+      startDate.setHours(0, 0, 0, 0)
+      break
+    case "this_month":
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      break
+    case "last_month":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+      break
+    case "this_year":
+      startDate = new Date(now.getFullYear(), 0, 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+      break
+    case "all":
+      startDate = new Date(0) // Beginning of time
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      break
+    default:
+      // Default to 30 days
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 30)
+      startDate.setHours(0, 0, 0, 0)
+  }
+
+  return { startDate, endDate }
+}
 
 async function getDashboardData() {
   try {
@@ -380,54 +431,91 @@ async function getDashboardData() {
   }
 }
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>
+}) {
   try {
+    const params = await searchParams
     const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+    const dateRange = getDateRange(params?.range || "30d")
+    const { startDate, endDate } = dateRange
+    
+    // For comparison (previous period)
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    const comparisonStartDate = new Date(startDate)
+    comparisonStartDate.setDate(comparisonStartDate.getDate() - daysDiff)
+    const comparisonEndDate = new Date(startDate)
 
     // Get metrics
     const [
       totalDonors,
-      totalDonorsLastMonth,
+      totalDonorsLastPeriod,
       activeAppeals,
       totalDonations,
-      totalDonationsLastMonth,
+      totalDonationsLastPeriod,
       activeFundraisers,
       totalIncome,
-      totalIncomeLastMonth,
+      totalIncomeLastPeriod,
     ] = await Promise.all([
-      prisma.donor.count(),
       prisma.donor.count({
         where: {
-          createdAt: { lte: lastMonthEnd },
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      }),
+      prisma.donor.count({
+        where: {
+          createdAt: {
+            gte: comparisonStartDate,
+            lte: comparisonEndDate,
+          },
         },
       }),
       prisma.appeal.count({
         where: { isActive: true },
       }),
       prisma.donation.count({
-        where: { status: "COMPLETED" },
+        where: {
+          status: "COMPLETED",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
       }),
       prisma.donation.count({
         where: {
           status: "COMPLETED",
-          createdAt: { lte: lastMonthEnd },
+          createdAt: {
+            gte: comparisonStartDate,
+            lte: comparisonEndDate,
+          },
         },
       }),
       prisma.fundraiser.count({
         where: { isActive: true },
       }),
       prisma.donation.aggregate({
-        where: { status: "COMPLETED" },
+        where: {
+          status: "COMPLETED",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
         _sum: { amountPence: true },
       }),
       prisma.donation.aggregate({
         where: {
           status: "COMPLETED",
-          createdAt: { lte: lastMonthEnd },
+          createdAt: {
+            gte: comparisonStartDate,
+            lte: comparisonEndDate,
+          },
         },
         _sum: { amountPence: true },
       }),
@@ -440,6 +528,10 @@ export default async function AdminDashboardPage() {
         where: {
           status: "COMPLETED",
           paymentMethod: "STRIPE",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
         },
         _sum: { amountPence: true },
       }),
@@ -448,6 +540,10 @@ export default async function AdminDashboardPage() {
         where: {
           status: "COMPLETED",
           paymentMethod: "CARD",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
         },
         _sum: { amountPence: true },
       }),
@@ -455,6 +551,10 @@ export default async function AdminDashboardPage() {
       prisma.offlineIncome.aggregate({
         where: {
           source: "CASH",
+          receivedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
         },
         _sum: { amountPence: true },
       }),
@@ -491,15 +591,21 @@ export default async function AdminDashboardPage() {
     }))
 
 
-    // Get donations by day (last 90 days) for area chart - split by online vs offline
+    // Get donations by day for area chart - split by online vs offline
+    // Calculate number of days in range
+    const daysInRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    const maxDays = Math.min(daysInRange, 90) // Limit to 90 days for performance
     const lineChartData = []
-    for (let day = 89; day >= 0; day--) {
-      const date = new Date(now)
-      date.setDate(date.getDate() - day)
+    for (let day = maxDays - 1; day >= 0; day--) {
+      const date = new Date(startDate)
+      date.setDate(date.getDate() + day)
       const dayStart = new Date(date)
       dayStart.setHours(0, 0, 0, 0)
       const dayEnd = new Date(date)
       dayEnd.setHours(23, 59, 59, 999)
+      
+      // Skip if outside the selected range
+      if (dayStart < startDate || dayEnd > endDate) continue
 
       const [stripeDonations, cardDonations, offlineDonations] = await Promise.all([
         // Online donations (STRIPE)
@@ -555,13 +661,31 @@ export default async function AdminDashboardPage() {
       where: { isActive: true },
       include: {
         donations: {
-          where: { status: "COMPLETED" },
+          where: {
+            status: "COMPLETED",
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
           select: { amountPence: true },
         },
         offlineIncome: {
+          where: {
+            receivedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
           select: { amountPence: true },
         },
         collections: {
+          where: {
+            collectedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
           select: { amountPence: true },
         },
       },
@@ -602,7 +726,13 @@ export default async function AdminDashboardPage() {
     const latestDonations = await prisma.donation.findMany({
       take: 5,
       orderBy: { createdAt: "desc" },
-      where: { status: "COMPLETED" },
+      where: {
+        status: "COMPLETED",
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
       include: {
         donor: {
           select: {
@@ -619,15 +749,15 @@ export default async function AdminDashboardPage() {
     })
 
     // Calculate trends
-    const donorsTrend = totalDonorsLastMonth
-      ? ((totalDonors - totalDonorsLastMonth) / totalDonorsLastMonth) * 100
+    const donorsTrend = totalDonorsLastPeriod
+      ? ((totalDonors - totalDonorsLastPeriod) / totalDonorsLastPeriod) * 100
       : 0
-    const donationsTrend = totalDonationsLastMonth
-      ? ((totalDonations - totalDonationsLastMonth) / totalDonationsLastMonth) * 100
+    const donationsTrend = totalDonationsLastPeriod
+      ? ((totalDonations - totalDonationsLastPeriod) / totalDonationsLastPeriod) * 100
       : 0
-    const incomeTrend = totalIncomeLastMonth._sum.amountPence
-      ? ((totalIncome._sum.amountPence || 0) - totalIncomeLastMonth._sum.amountPence) /
-        totalIncomeLastMonth._sum.amountPence *
+    const incomeTrend = totalIncomeLastPeriod._sum.amountPence
+      ? ((totalIncome._sum.amountPence || 0) - totalIncomeLastPeriod._sum.amountPence) /
+        totalIncomeLastPeriod._sum.amountPence *
         100
       : 0
 
@@ -662,7 +792,7 @@ export default async function AdminDashboardPage() {
                     <CardContent>
                       <div className="text-2xl font-bold">{formatCurrency(totalIncome._sum.amountPence || 0)}</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Last 30 days{" "}
+                        vs previous period{" "}
                         <span className={incomeTrend >= 0 ? "text-green-600" : "text-red-600"}>
                           {incomeTrend >= 0 ? "↑" : "↓"} {Math.abs(incomeTrend).toFixed(2)}%
                         </span>
@@ -678,7 +808,7 @@ export default async function AdminDashboardPage() {
                     <CardContent>
                       <div className="text-2xl font-bold">{totalDonations.toLocaleString()}</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Last 30 days{" "}
+                        vs previous period{" "}
                         <span className={donationsTrend >= 0 ? "text-green-600" : "text-red-600"}>
                           {donationsTrend >= 0 ? "↑" : "↓"} {Math.abs(donationsTrend).toFixed(2)}%
                         </span>
