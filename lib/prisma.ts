@@ -40,15 +40,17 @@ function validateDatabaseUrl() {
 // Only validate when the client is actually created, not at module load time
 // This allows the build to complete without requiring DATABASE_URL
 function createPrismaClient() {
-  // Only validate in runtime, not during build
-  if (typeof window === "undefined" && process.env.NODE_ENV !== "test") {
-    // Skip validation during build phase
-    const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build" || 
-                         process.env.VERCEL === "1" && !process.env.DATABASE_URL
-    
-    if (!isBuildPhase) {
-      validateDatabaseUrl()
-    }
+  // Skip validation during build phase - Next.js will try to collect page data
+  // which imports this module, but DATABASE_URL may not be available yet
+  const isBuildPhase = 
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.NEXT_PHASE === "phase-development-build" ||
+    (process.env.VERCEL === "1" && !process.env.DATABASE_URL) ||
+    process.env.NODE_ENV === "production" && !process.env.DATABASE_URL
+  
+  // Only validate in runtime when actually needed, not during build
+  if (!isBuildPhase && typeof window === "undefined") {
+    validateDatabaseUrl()
   }
 
   return new PrismaClient({

@@ -28,7 +28,7 @@ interface Appeal {
 interface Product {
   id: string
   name: string
-  type: string
+  type: string // FIXED | VARIABLE
   fixedAmountPence: number | null
   minAmountPence: number | null
   maxAmountPence: number | null
@@ -42,11 +42,26 @@ interface AppealProduct {
   product: Product
 }
 
+interface WaterProject {
+  id: string
+  projectType: string // WATER_PUMP | WATER_WELL | WATER_TANK | WUDHU_AREA
+  location: string | null
+  description: string | null
+}
+
+interface WaterProjectCountry {
+  id: string
+  projectType: string
+  country: string
+  pricePence: number
+}
+
 interface OneNationDonationFormProps {
   appeals: Appeal[]
   products: AppealProduct[]
   donationTypesEnabled: string[]
-  locations?: string[] // Optional locations list
+  waterProjects?: WaterProject[]
+  waterProjectCountries?: WaterProjectCountry[]
 }
 
 
@@ -54,33 +69,77 @@ export function OneNationDonationForm({
   appeals,
   products,
   donationTypesEnabled,
-  locations = [],
+  waterProjects = [],
+  waterProjectCountries = [],
 }: OneNationDonationFormProps) {
   const { addItem } = useSidecart()
 
-  const [frequency, setFrequency] = React.useState<"ONE_OFF" | "MONTHLY">("ONE_OFF")
+  const [frequency, setFrequency] = React.useState<"ONE_OFF" | "MONTHLY" | "YEARLY">("ONE_OFF")
+  const [donationType, setDonationType] = React.useState<"appeal" | "water">("appeal")
   const [selectedAppeal, setSelectedAppeal] = React.useState<string>("")
+  const [selectedWaterProject, setSelectedWaterProject] = React.useState<string>("")
   const [selectedIntention, setSelectedIntention] = React.useState<string>("")
-  const [selectedLocation, setSelectedLocation] = React.useState<string>("")
+  const [selectedWaterCountry, setSelectedWaterCountry] = React.useState<string>("")
   const [customAmount, setCustomAmount] = React.useState<string>("")
   const [selectedProduct, setSelectedProduct] = React.useState<string>("")
+  const [plaqueName, setPlaqueName] = React.useState<string>("")
 
-  // Get selected appeal data
+  // Get selected appeal or water project data
   const appealData = appeals.find((a) => a.id === selectedAppeal)
+  const waterProjectData = waterProjects.find((p) => p.id === selectedWaterProject)
   
   // Get available products for selected appeal and frequency
   const availableProducts = selectedAppeal
     ? products.filter((p) => p.frequency === frequency)
     : []
 
-  // Get preset amount for monthly from appeal
+  // Get selected product data
+  const selectedProductData = availableProducts.find((p) => p.productId === selectedProduct)
+  
+  // Check if selected product allows custom amounts
+  const productAllowsCustom = selectedProductData?.allowCustom ?? true
+  
+  // Check if product has fixed frequencies (monthly/yearly only, no custom)
+  const productHasFixedFrequencies = selectedProductData && !selectedProductData.allowCustom && 
+    (selectedProductData.frequency === "MONTHLY" || selectedProductData.frequency === "YEARLY")
+  
+  // Get preset amounts for product
+  const productPresetAmounts = selectedProductData?.presetAmountsPence
+    ? JSON.parse(selectedProductData.presetAmountsPence) as number[]
+    : []
+  
+  // Get preset amount for monthly/yearly from appeal
   const monthlyPresetAmount = appealData?.monthlyPricePence
     ? appealData.monthlyPricePence / 100
     : null
+  const yearlyPresetAmount = appealData?.yearlyPricePence
+    ? appealData.yearlyPricePence / 100
+    : null
+
+  // Get available countries for selected water project
+  const availableWaterCountries = selectedWaterProject
+    ? waterProjectCountries.filter((c) => c.projectType === waterProjectData?.projectType)
+    : []
+  
+  // Get selected water country data
+  const selectedWaterCountryData = availableWaterCountries.find((c) => c.id === selectedWaterCountry)
+  
+  // Check if water project requires plaque name (water pump)
+  const requiresPlaqueName = waterProjectData?.projectType === "WATER_PUMP"
 
   const handleAddToBag = () => {
-    if (!selectedAppeal) {
+    if (donationType === "appeal" && !selectedAppeal) {
       alert("Please select a project")
+      return
+    }
+
+    if (donationType === "water" && !selectedWaterProject) {
+      alert("Please select a water project")
+      return
+    }
+
+    if (donationType === "water" && !selectedWaterCountry) {
+      alert("Please select a country")
       return
     }
 
@@ -89,19 +148,19 @@ export function OneNationDonationForm({
       return
     }
 
+    if (requiresPlaqueName && !plaqueName.trim()) {
+      alert("Please enter a name for the plaque")
+      return
+    }
+
     let amountPence = 0
     let productId: string | undefined
     let productName: string | undefined
 
-    if (selectedProduct) {
-      const productData = availableProducts.find((p) => p.productId === selectedProduct)
-      if (productData) {
-        productId = productData.productId
-        productName = productData.product.name
-        
-        if (productData.product.fixedAmountPence) {
-          amountPence = productData.product.fixedAmountPence
-        } else if (customAmount) {
+    if (donationType === "water") {
+      // Water project donation - use country price or custom amount
+      if (selectedWaterCountryData) {
+        if (customAmount) {
           const amount = parseFloat(customAmount)
           if (isNaN(amount) || amount <= 0) {
             alert("Please enter a valid amount")
@@ -109,14 +168,46 @@ export function OneNationDonationForm({
           }
           amountPence = Math.round(amount * 100)
         } else {
-          alert("Please enter an amount")
+          amountPence = selectedWaterCountryData.pricePence
+        }
+      } else {
+        alert("Please select a country")
+        return
+      }
+    } else if (selectedProduct && selectedProductData) {
+      // Product selected
+      productId = selectedProductData.productId
+      productName = selectedProductData.product.name
+      
+      if (selectedProductData.product.fixedAmountPence) {
+        amountPence = selectedProductData.product.fixedAmountPence
+      } else if (productPresetAmounts.length > 0 && !productAllowsCustom) {
+        // Product with preset amounts only (no custom)
+        if (frequency === "MONTHLY" && monthlyPresetAmount) {
+          amountPence = Math.round(monthlyPresetAmount * 100)
+        } else if (frequency === "YEARLY" && yearlyPresetAmount) {
+          amountPence = Math.round(yearlyPresetAmount * 100)
+        } else {
+          alert("Please select a valid frequency for this product")
           return
         }
+      } else if (customAmount) {
+        const amount = parseFloat(customAmount)
+        if (isNaN(amount) || amount <= 0) {
+          alert("Please enter a valid amount")
+          return
+        }
+        amountPence = Math.round(amount * 100)
+      } else {
+        alert("Please enter an amount")
+        return
       }
     } else {
       // Direct donation to appeal
       if (frequency === "MONTHLY" && monthlyPresetAmount) {
         amountPence = Math.round(monthlyPresetAmount * 100)
+      } else if (frequency === "YEARLY" && yearlyPresetAmount) {
+        amountPence = Math.round(yearlyPresetAmount * 100)
       } else if (customAmount) {
         const amount = parseFloat(customAmount)
         if (isNaN(amount) || amount <= 0) {
@@ -130,20 +221,42 @@ export function OneNationDonationForm({
       }
     }
 
-    addItem({
-      id: "",
-      appealId: selectedAppeal,
-      appealTitle: appealData?.title || "",
-      productId,
-      productName,
-      frequency: frequency === "ONE_OFF" ? "ONE_OFF" : "MONTHLY",
-      donationType: selectedIntention as any,
-      amountPence,
-    })
+    if (donationType === "water") {
+      // Water project donation
+      const projectTypeLabels: Record<string, string> = {
+        WATER_PUMP: "Water Pump",
+        WATER_WELL: "Water Well",
+        WATER_TANK: "Water Tank",
+        WUDHU_AREA: "Wudhu Area",
+      }
+      addItem({
+        id: "",
+        appealTitle: waterProjectData?.location || projectTypeLabels[waterProjectData?.projectType || ""] || "Water Project",
+        frequency: "ONE_OFF",
+        donationType: selectedIntention as any,
+        amountPence,
+        waterProjectId: selectedWaterProject,
+        waterProjectCountryId: selectedWaterCountry,
+        plaqueName: requiresPlaqueName ? plaqueName : undefined,
+      })
+    } else {
+      // Appeal donation
+      addItem({
+        id: "",
+        appealId: selectedAppeal,
+        appealTitle: appealData?.title || "",
+        productId,
+        productName,
+        frequency: frequency === "ONE_OFF" ? "ONE_OFF" : frequency === "MONTHLY" ? "MONTHLY" : "YEARLY",
+        donationType: selectedIntention as any,
+        amountPence,
+      })
+    }
 
     // Reset form
     setCustomAmount("")
     setSelectedProduct("")
+    setPlaqueName("")
   }
 
   return (
@@ -157,63 +270,182 @@ export function OneNationDonationForm({
           </p>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Frequency Toggle */}
+          {/* Donation Type Toggle (Appeal vs Water Project) */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Donation Frequency</Label>
+            <Label className="text-sm font-medium text-foreground">Donation Type</Label>
             <div className="flex gap-2">
               <Button
                 type="button"
-                onClick={() => setFrequency("ONE_OFF")}
-                variant={frequency === "ONE_OFF" ? "default" : "outline"}
+                onClick={() => {
+                  setDonationType("appeal")
+                  setSelectedWaterProject("")
+                  setSelectedWaterCountry("")
+                }}
+                variant={donationType === "appeal" ? "default" : "outline"}
                 className={cn(
                   "flex-1 h-11 text-sm font-medium transition-all",
-                  frequency === "ONE_OFF" && "shadow-sm"
+                  donationType === "appeal" && "shadow-sm"
                 )}
               >
-                One-Off
+                Appeals & Projects
               </Button>
-              <Button
-                type="button"
-                onClick={() => setFrequency("MONTHLY")}
-                variant={frequency === "MONTHLY" ? "default" : "outline"}
-                className={cn(
-                  "flex-1 h-11 text-sm font-medium transition-all",
-                  frequency === "MONTHLY" && "shadow-sm"
-                )}
-              >
-                Monthly
-              </Button>
+              {waterProjects.length > 0 && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setDonationType("water")
+                    setSelectedAppeal("")
+                    setSelectedProduct("")
+                  }}
+                  variant={donationType === "water" ? "default" : "outline"}
+                  className={cn(
+                    "flex-1 h-11 text-sm font-medium transition-all",
+                    donationType === "water" && "shadow-sm"
+                  )}
+                >
+                  Water for Life
+                </Button>
+              )}
             </div>
           </div>
 
+          {/* Frequency Toggle (only for appeals, not water projects) */}
+          {donationType === "appeal" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Donation Frequency</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setFrequency("ONE_OFF")}
+                  variant={frequency === "ONE_OFF" ? "default" : "outline"}
+                  className={cn(
+                    "flex-1 h-11 text-sm font-medium transition-all",
+                    frequency === "ONE_OFF" && "shadow-sm"
+                  )}
+                >
+                  One-Off
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setFrequency("MONTHLY")}
+                  variant={frequency === "MONTHLY" ? "default" : "outline"}
+                  disabled={!!(productHasFixedFrequencies && selectedProductData?.frequency !== "MONTHLY")}
+                  className={cn(
+                    "flex-1 h-11 text-sm font-medium transition-all",
+                    frequency === "MONTHLY" && "shadow-sm"
+                  )}
+                >
+                  Monthly
+                </Button>
+                {appealData?.allowYearly && (
+                  <Button
+                    type="button"
+                    onClick={() => setFrequency("YEARLY")}
+                    variant={frequency === "YEARLY" ? "default" : "outline"}
+                    disabled={!!(productHasFixedFrequencies && selectedProductData?.frequency !== "YEARLY")}
+                    className={cn(
+                      "flex-1 h-11 text-sm font-medium transition-all",
+                      frequency === "YEARLY" && "shadow-sm"
+                    )}
+                  >
+                    Yearly
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Form Fields */}
           <div className="space-y-4">
-            {/* Select Project */}
-            <div className="space-y-2">
-              <Label htmlFor="project-select" className="text-sm font-medium text-foreground">
-                Select Project <span className="text-destructive">*</span>
-              </Label>
-              <Select value={selectedAppeal} onValueChange={setSelectedAppeal}>
-                <SelectTrigger id="project-select" className="h-11">
-                  <SelectValue placeholder="Choose a project to support" />
-                </SelectTrigger>
-                <SelectContent>
-                  {appeals.map((appeal) => (
-                    <SelectItem key={appeal.id} value={appeal.id}>
-                      {appeal.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Select Project/Appeal or Water Project */}
+            {donationType === "appeal" ? (
+              <div className="space-y-2">
+                <Label htmlFor="project-select" className="text-sm font-medium text-foreground">
+                  Select Project <span className="text-destructive">*</span>
+                </Label>
+                <Select value={selectedAppeal} onValueChange={(value) => {
+                  setSelectedAppeal(value)
+                  setSelectedProduct("")
+                }}>
+                  <SelectTrigger id="project-select" className="h-11">
+                    <SelectValue placeholder="Choose a project to support" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {appeals.map((appeal) => (
+                      <SelectItem key={appeal.id} value={appeal.id}>
+                        {appeal.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="water-project-select" className="text-sm font-medium text-foreground">
+                  Select Water Project <span className="text-destructive">*</span>
+                </Label>
+                <Select value={selectedWaterProject} onValueChange={(value) => {
+                  setSelectedWaterProject(value)
+                  setSelectedWaterCountry("")
+                }}>
+                  <SelectTrigger id="water-project-select" className="h-11">
+                    <SelectValue placeholder="Choose a water project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {waterProjects.map((project) => {
+                      const projectTypeLabels: Record<string, string> = {
+                        WATER_PUMP: "Water Pump",
+                        WATER_WELL: "Water Well",
+                        WATER_TANK: "Water Tank",
+                        WUDHU_AREA: "Wudhu Area",
+                      }
+                      return (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.location || projectTypeLabels[project.projectType] || project.projectType}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Water Project Country Selection */}
+            {donationType === "water" && selectedWaterProject && availableWaterCountries.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="water-country-select" className="text-sm font-medium text-foreground">
+                  Select Country <span className="text-destructive">*</span>
+                </Label>
+                <Select value={selectedWaterCountry} onValueChange={setSelectedWaterCountry}>
+                  <SelectTrigger id="water-country-select" className="h-11">
+                    <SelectValue placeholder="Choose a country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableWaterCountries.map((country) => (
+                      <SelectItem key={country.id} value={country.id}>
+                        {country.country} - £{(country.pricePence / 100).toFixed(2)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedWaterCountryData && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Standard price: £{(selectedWaterCountryData.pricePence / 100).toFixed(2)} (or enter custom amount below)
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Product Selection (if appeal selected and products available) */}
-            {selectedAppeal && availableProducts.length > 0 && (
+            {donationType === "appeal" && selectedAppeal && availableProducts.length > 0 && (
               <div className="space-y-2">
                 <Label htmlFor="product-select" className="text-sm font-medium text-foreground">
                   Select Product <span className="text-muted-foreground font-normal">(Optional)</span>
                 </Label>
-                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                <Select value={selectedProduct} onValueChange={(value) => {
+                  setSelectedProduct(value)
+                  setCustomAmount("")
+                }}>
                   <SelectTrigger id="product-select" className="h-11">
                     <SelectValue placeholder="Choose a specific product or make a direct donation" />
                   </SelectTrigger>
@@ -229,8 +461,41 @@ export function OneNationDonationForm({
               </div>
             )}
 
-            {/* Amount Input (if no product selected or product allows custom) */}
-            {(!selectedProduct || availableProducts.find((p) => p.productId === selectedProduct)?.allowCustom) && (
+            {/* Product Preset Amounts (for products with fixed amounts, like orphan sponsorship) */}
+            {donationType === "appeal" && selectedProduct && selectedProductData && productPresetAmounts.length > 0 && !productAllowsCustom && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">
+                  Select Amount <span className="text-destructive">*</span>
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {productPresetAmounts.map((amount) => (
+                    <Button
+                      key={amount}
+                      type="button"
+                      variant={customAmount === (amount / 100).toString() ? "default" : "outline"}
+                      onClick={() => setCustomAmount((amount / 100).toString())}
+                      className="h-11"
+                    >
+                      £{(amount / 100).toFixed(2)}
+                    </Button>
+                  ))}
+                </div>
+                {frequency === "MONTHLY" && monthlyPresetAmount && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Monthly: £{monthlyPresetAmount.toFixed(2)}
+                  </p>
+                )}
+                {frequency === "YEARLY" && yearlyPresetAmount && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Yearly: £{yearlyPresetAmount.toFixed(2)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Amount Input (if product allows custom or no product selected, or water project) */}
+            {((donationType === "water") || 
+              (donationType === "appeal" && (!selectedProduct || productAllowsCustom))) && (
               <div className="space-y-2">
                 <Label htmlFor="amount-input" className="text-sm font-medium text-foreground">
                   Amount <span className="text-destructive">*</span>
@@ -242,19 +507,58 @@ export function OneNationDonationForm({
                   <Input
                     id="amount-input"
                     type="number"
-                    placeholder={frequency === "MONTHLY" && monthlyPresetAmount ? monthlyPresetAmount.toString() : "Enter amount"}
+                    placeholder={
+                      donationType === "water" && selectedWaterCountryData
+                        ? (selectedWaterCountryData.pricePence / 100).toFixed(2)
+                        : frequency === "MONTHLY" && monthlyPresetAmount
+                        ? monthlyPresetAmount.toString()
+                        : frequency === "YEARLY" && yearlyPresetAmount
+                        ? yearlyPresetAmount.toString()
+                        : "Enter amount"
+                    }
                     value={customAmount}
                     onChange={(e) => setCustomAmount(e.target.value)}
                     min="1"
                     step="0.01"
                     className="h-11 pl-7"
+                    disabled={!!(donationType === "appeal" && selectedProduct && !productAllowsCustom)}
                   />
                 </div>
-                {frequency === "MONTHLY" && monthlyPresetAmount && !selectedProduct && (
+                {donationType === "appeal" && frequency === "MONTHLY" && monthlyPresetAmount && !selectedProduct && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Suggested monthly amount: £{monthlyPresetAmount.toFixed(2)}
                   </p>
                 )}
+                {donationType === "appeal" && frequency === "YEARLY" && yearlyPresetAmount && !selectedProduct && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Suggested yearly amount: £{yearlyPresetAmount.toFixed(2)}
+                  </p>
+                )}
+                {donationType === "appeal" && selectedProduct && !productAllowsCustom && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This product has fixed amounts only. Please select from the options above.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Plaque Name Field (for water pumps) */}
+            {requiresPlaqueName && selectedWaterProject && (
+              <div className="space-y-2">
+                <Label htmlFor="plaque-name-input" className="text-sm font-medium text-foreground">
+                  Name on Plaque <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="plaque-name-input"
+                  type="text"
+                  placeholder="Enter name to appear on plaque"
+                  value={plaqueName}
+                  onChange={(e) => setPlaqueName(e.target.value)}
+                  className="h-11"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This name will be displayed on the water pump plaque
+                </p>
               </div>
             )}
 
@@ -277,33 +581,16 @@ export function OneNationDonationForm({
               </Select>
             </div>
 
-            {/* Location (if locations available) */}
-            {locations.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="location-select" className="text-sm font-medium text-foreground">
-                  Location <span className="text-muted-foreground font-normal">(Optional)</span>
-                </Label>
-                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                  <SelectTrigger id="location-select" className="h-11">
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location} value={location}>
-                        {location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
             {/* Add to Donation Bag Button */}
             <Button
               onClick={handleAddToBag}
               size="lg"
               className="w-full h-11 mt-6 font-medium"
-              disabled={!selectedAppeal || !selectedIntention}
+              disabled={
+                (donationType === "appeal" && !selectedAppeal) ||
+                (donationType === "water" && (!selectedWaterProject || !selectedWaterCountry)) ||
+                !selectedIntention
+              }
             >
               Add to Donation Bag
             </Button>

@@ -140,28 +140,50 @@ async function getAllActiveProducts() {
   }
 }
 
-async function getUniqueLocations() {
+async function getWaterProjectsForForm() {
   try {
-    const countries = await prisma.waterProjectCountry.findMany({
+    return await prisma.waterProject.findMany({
       where: { isActive: true },
-      select: { country: true },
-      distinct: ["country"],
-      orderBy: { country: "asc" },
+      select: {
+        id: true,
+        projectType: true,
+        location: true,
+        description: true,
+      },
+      orderBy: { createdAt: "desc" },
     })
-    return countries.map((c) => c.country)
   } catch (error) {
-    console.error("Error fetching locations:", error)
+    console.error("Error fetching water projects:", error)
+    return []
+  }
+}
+
+async function getWaterProjectCountriesForForm() {
+  try {
+    return await prisma.waterProjectCountry.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        projectType: true,
+        country: true,
+        pricePence: true,
+      },
+      orderBy: [{ projectType: "asc" }, { sortOrder: "asc" }, { country: "asc" }],
+    })
+  } catch (error) {
+    console.error("Error fetching water project countries:", error)
     return []
   }
 }
 
 export default async function HomePage() {
-  const [appeals, waterProjects, allProducts, fallbackAppeal, locations] = await Promise.all([
+  const [appeals, waterProjects, allProducts, fallbackAppeal, waterProjectsForForm, waterProjectCountries] = await Promise.all([
     getActiveAppeals(),
     getActiveWaterProjects(),
     getAllActiveProducts(),
     getOrCreateDefaultAppeal(), // Get any appeal or create default if none exist
-    getUniqueLocations(), // Get unique locations from water project countries
+    getWaterProjectsForForm(), // Get water projects for the form
+    getWaterProjectCountriesForForm(), // Get water project countries with prices
   ])
 
   // Calculate totals for each appeal
@@ -219,7 +241,7 @@ export default async function HomePage() {
         </div>
 
         {/* One Nation Style Donation Form */}
-        {allAppealsForForm.length > 0 ? (
+        {(allAppealsForForm.length > 0 || waterProjectsForForm.length > 0) ? (
           <OneNationDonationForm
             appeals={allAppealsForForm.map((a) => ({
               id: a.id,
@@ -232,7 +254,8 @@ export default async function HomePage() {
             }))}
             products={allAppealProducts}
             donationTypesEnabled={allDonationTypes}
-            locations={locations}
+            waterProjects={waterProjectsForForm}
+            waterProjectCountries={waterProjectCountries}
           />
         ) : (
           <div className="mb-4 sm:mb-6 text-center p-6 border rounded-lg bg-muted/50">

@@ -5,7 +5,7 @@ import { z } from "zod"
 const checkoutSchema = z.object({
   items: z.array(
     z.object({
-      appealId: z.string(),
+      appealId: z.string().optional(), // Optional for water projects
       appealTitle: z.string(),
       fundraiserId: z.string().optional(),
       productId: z.string().optional(),
@@ -97,16 +97,18 @@ export async function POST(request: NextRequest) {
         donorPostcode: validated.donor.postcode || null,
         donorCountry: validated.donor.country || null,
         items: {
-          create: validated.items.map((item) => ({
-            appealId: item.appealId,
-            fundraiserId: item.fundraiserId || null,
-            productId: item.productId || null,
-            appealTitle: item.appealTitle,
-            productName: item.productName || null,
-            frequency: item.frequency,
-            donationType: item.donationType,
-            amountPence: item.amountPence,
-          })),
+          create: validated.items
+            .filter((item) => item.appealId) // Only include appeal donations in demo order
+            .map((item) => ({
+              appealId: item.appealId!,
+              fundraiserId: item.fundraiserId || null,
+              productId: item.productId || null,
+              appealTitle: item.appealTitle,
+              productName: item.productName || null,
+              frequency: item.frequency,
+              donationType: item.donationType,
+              amountPence: item.amountPence,
+            })),
         },
       },
       include: {
@@ -114,47 +116,49 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Create real Donation records for each item
+    // Create real Donation records for each item (only for appeal donations, not water projects)
     const donations = await Promise.all(
-      validated.items.map(async (item) => {
-        // Determine payment method based on item
-        const paymentMethod = "STRIPE" // Default, can be updated based on actual payment processing
+      validated.items
+        .filter((item) => item.appealId) // Only process appeal donations here
+        .map(async (item) => {
+          // Determine payment method based on item
+          const paymentMethod = "STRIPE" // Default, can be updated based on actual payment processing
 
-        // Create donation record
-        const donation = await prisma.donation.create({
-          data: {
-            donorId: donor.id,
-            appealId: item.appealId,
-            fundraiserId: item.fundraiserId || null,
-            productId: item.productId || null,
-            amountPence: item.amountPence,
-            donationType: item.donationType,
-            frequency: item.frequency,
-            paymentMethod: paymentMethod,
-            status: "PENDING", // Will be updated to COMPLETED when payment is confirmed
-            giftAid: validated.donor.giftAid,
-            orderNumber: orderNumber,
-          },
-        })
-
-        // If it's a recurring donation, create RecurringDonation record
-        // Note: RecurringDonation model doesn't have fundraiserId field, only appealId
-        if (item.frequency === "MONTHLY" || item.frequency === "YEARLY") {
-          await prisma.recurringDonation.create({
+          // Create donation record
+          const donation = await prisma.donation.create({
             data: {
               donorId: donor.id,
-              appealId: item.appealId,
+              appealId: item.appealId!,
+              fundraiserId: item.fundraiserId || null,
+              productId: item.productId || null,
               amountPence: item.amountPence,
               donationType: item.donationType,
               frequency: item.frequency,
               paymentMethod: paymentMethod,
-              status: "PENDING", // Will be activated when first payment is confirmed
+              status: "PENDING", // Will be updated to COMPLETED when payment is confirmed
+              giftAid: validated.donor.giftAid,
+              orderNumber: orderNumber,
             },
           })
-        }
 
-        return donation
-      })
+          // If it's a recurring donation, create RecurringDonation record
+          // Note: RecurringDonation model doesn't have fundraiserId field, only appealId
+          if (item.frequency === "MONTHLY" || item.frequency === "YEARLY") {
+            await prisma.recurringDonation.create({
+              data: {
+                donorId: donor.id,
+                appealId: item.appealId!,
+                amountPence: item.amountPence,
+                donationType: item.donationType,
+                frequency: item.frequency,
+                paymentMethod: paymentMethod,
+                status: "PENDING", // Will be activated when first payment is confirmed
+              },
+            })
+          }
+
+          return donation
+        })
     )
 
     return NextResponse.json({ 

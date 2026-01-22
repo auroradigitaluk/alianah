@@ -5,7 +5,7 @@ import { Sidecart } from "@/components/sidecart"
 
 interface CartItem {
   id: string
-  appealId: string
+  appealId?: string // Optional for water projects
   appealTitle: string
   fundraiserId?: string
   productId?: string
@@ -13,6 +13,10 @@ interface CartItem {
   frequency: "ONE_OFF" | "MONTHLY" | "YEARLY"
   donationType: "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
   amountPence: number
+  // Water project specific fields
+  waterProjectId?: string
+  waterProjectCountryId?: string
+  plaqueName?: string
 }
 
 interface SidecartContextType {

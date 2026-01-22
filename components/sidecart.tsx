@@ -42,7 +42,7 @@ export function Sidecart() {
             <div className="flex flex-col items-center justify-center h-full text-center">
               <p className="text-muted-foreground mb-4">Your basket is empty</p>
               <Button asChild variant="outline" onClick={() => setOpen(false)}>
-                <Link href="/">Browse Appeals</Link>
+                <Link href="/#top">Make a Donation</Link>
               </Button>
             </div>
           ) : (
@@ -53,6 +53,12 @@ export function Sidecart() {
                     <h3 className="font-medium">{item.appealTitle}</h3>
                     {item.productName && (
                       <p className="text-sm text-muted-foreground">{item.productName}</p>
+                    )}
+                    {item.waterProjectId && (
+                      <p className="text-xs text-muted-foreground">Water for Life Project</p>
+                    )}
+                    {item.plaqueName && (
+                      <p className="text-xs text-muted-foreground">Plaque: {item.plaqueName}</p>
                     )}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>{frequencyLabels[item.frequency]}</span>
