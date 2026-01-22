@@ -117,7 +117,21 @@ model Fundraiser {
   @@index([appealId])
   @@index([slug])
   @@index([isActive])
+  @@index([email])
   @@map("fundraisers")
+}
+
+model FundraiserOTP {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([code])
+  @@map("fundraiser_otps")
 }
 
 model OfflineIncome {

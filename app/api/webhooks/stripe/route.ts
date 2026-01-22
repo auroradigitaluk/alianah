@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { sendFundraiserDonationNotification } from "@/lib/email"
 
 // Lazy initialization to avoid errors during build when API key is not available
 let stripe: any = null
@@ -57,6 +58,26 @@ export async function POST(request: NextRequest) {
         const transactionId = session.payment_intent as string
 
         if (orderNumber) {
+          // Get donations before updating to check for fundraisers
+          const pendingDonations = await prisma.donation.findMany({
+            where: {
+              orderNumber: orderNumber,
+              status: "PENDING",
+            },
+            include: {
+              donor: true,
+              fundraiser: {
+                include: {
+                  appeal: {
+                    select: {
+                      title: true,
+                    },
+                  },
+                },
+              },
+            },
+          })
+
           // Update all donations for this order
           await prisma.donation.updateMany({
             where: {
@@ -93,6 +114,29 @@ export async function POST(request: NextRequest) {
               lastPaymentDate: new Date(),
             },
           })
+
+          // Send donation notifications to fundraisers
+          for (const donation of pendingDonations) {
+            if (donation.fundraiserId && donation.fundraiser) {
+              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+              const fundraiserUrl = `${baseUrl}/fundraise/${donation.fundraiser.slug}`
+              
+              try {
+                await sendFundraiserDonationNotification({
+                  fundraiserEmail: donation.fundraiser.email,
+                  fundraiserName: donation.fundraiser.fundraiserName,
+                  fundraiserTitle: donation.fundraiser.title,
+                  donorName: donation.donor.firstName || "Anonymous",
+                  amount: donation.amountPence,
+                  donationType: donation.donationType,
+                  fundraiserUrl,
+                })
+              } catch (emailError) {
+                // Log error but don't fail the webhook
+                console.error("Error sending fundraiser donation notification:", emailError)
+              }
+            }
+          }
         }
 
         break
@@ -103,16 +147,56 @@ export async function POST(request: NextRequest) {
         
         // Update donation by transaction ID
         if (paymentIntent.metadata?.donationId) {
-          await prisma.donation.update({
+          const donation = await prisma.donation.findUnique({
             where: {
               id: paymentIntent.metadata.donationId,
             },
-            data: {
-              status: "COMPLETED",
-              completedAt: new Date(),
-              transactionId: paymentIntent.id,
+            include: {
+              donor: true,
+              fundraiser: {
+                include: {
+                  appeal: {
+                    select: {
+                      title: true,
+                    },
+                  },
+                },
+              },
             },
           })
+
+          if (donation && donation.status === "PENDING") {
+            await prisma.donation.update({
+              where: {
+                id: paymentIntent.metadata.donationId,
+              },
+              data: {
+                status: "COMPLETED",
+                completedAt: new Date(),
+                transactionId: paymentIntent.id,
+              },
+            })
+
+            // Send notification to fundraiser if applicable
+            if (donation.fundraiserId && donation.fundraiser) {
+              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+              const fundraiserUrl = `${baseUrl}/fundraise/${donation.fundraiser.slug}`
+              
+              try {
+                await sendFundraiserDonationNotification({
+                  fundraiserEmail: donation.fundraiser.email,
+                  fundraiserName: donation.fundraiser.fundraiserName,
+                  fundraiserTitle: donation.fundraiser.title,
+                  donorName: donation.donor.firstName || "Anonymous",
+                  amount: donation.amountPence,
+                  donationType: donation.donationType,
+                  fundraiserUrl,
+                })
+              } catch (emailError) {
+                console.error("Error sending fundraiser donation notification:", emailError)
+              }
+            }
+          }
         }
 
         break

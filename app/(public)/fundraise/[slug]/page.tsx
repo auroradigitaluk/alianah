@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { FundraiserForm } from "@/components/fundraiser-form"
 import Image from "next/image"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { LogIn } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
 
@@ -143,6 +146,16 @@ export default async function FundraisePage({
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
+          {/* Login Button */}
+          <div className="mb-4 sm:mb-6 flex justify-end">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/fundraise/login?redirect=/fundraise/${slug}`}>
+                <LogIn className="mr-2 h-4 w-4" />
+                Login
+              </Link>
+            </Button>
+          </div>
+
           {/* Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 sm:gap-6 lg:gap-8">
             {/* Left Column - Primary Content (~65%) */}
@@ -227,6 +240,16 @@ export default async function FundraisePage({
       <div className="min-h-screen bg-background">
         {/* Main Content */}
         <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-2xl">
+          {/* Login Button */}
+          <div className="mb-4 sm:mb-6 flex justify-end">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/fundraise/login?redirect=/fundraise/${slug}`}>
+                <LogIn className="mr-2 h-4 w-4" />
+                Login
+              </Link>
+            </Button>
+          </div>
+
           <div className="mb-6 sm:mb-8 text-center">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">{appeal.title}</h1>
             {appeal.summary && (

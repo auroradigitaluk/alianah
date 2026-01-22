@@ -115,8 +115,18 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to create fundraiser")
+        const errorData = await response.json()
+        
+        // If email already exists, redirect to login
+        if (errorData.requiresLogin) {
+          // Get current path to redirect back to the same appeal page
+          const currentPath = window.location.pathname
+          const loginUrl = `/fundraise/login?redirect=${encodeURIComponent(currentPath)}&email=${encodeURIComponent(data.email)}`
+          router.push(loginUrl)
+          return
+        }
+        
+        throw new Error(errorData.error || errorData.message || "Failed to create fundraiser")
       }
 
       const result = await response.json()

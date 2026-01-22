@@ -50,6 +50,29 @@ interface CompletionEmailParams {
   googleDriveLink?: string
 }
 
+interface FundraiserWelcomeEmailParams {
+  fundraiserEmail: string
+  fundraiserName: string
+  fundraiserTitle: string
+  appealTitle: string
+  fundraiserUrl: string
+}
+
+interface FundraiserDonationNotificationParams {
+  fundraiserEmail: string
+  fundraiserName: string
+  fundraiserTitle: string
+  donorName: string
+  amount: number
+  donationType: string
+  fundraiserUrl: string
+}
+
+interface FundraiserOTPEmailParams {
+  email: string
+  code: string
+}
+
 export async function sendWaterProjectDonationEmail(params: DonationEmailParams) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set, skipping email")
@@ -152,6 +175,142 @@ export async function sendWaterProjectCompletionEmail(params: CompletionEmailPar
     })
   } catch (error) {
     console.error("Error sending completion email:", error)
+    throw error
+  }
+}
+
+export async function sendFundraiserWelcomeEmail(params: FundraiserWelcomeEmailParams) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { fundraiserEmail, fundraiserName, fundraiserTitle, appealTitle, fundraiserUrl } = params
+
+  try {
+    await getResend().emails.send({
+      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      to: fundraiserEmail,
+      subject: `Your fundraising page is ready: ${fundraiserTitle}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb;">Your Fundraising Page is Ready!</h1>
+            <p>Dear ${fundraiserName},</p>
+            <p>Thank you for setting up a fundraiser for <strong>${appealTitle}</strong>!</p>
+            <p>Your fundraising page is now live and ready to share. You can start collecting donations right away.</p>
+            <div style="background-color: #eff6ff; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6; text-align: center;">
+              <p style="margin: 0 0 15px 0;"><strong>Your Fundraising Link:</strong></p>
+              <p style="margin: 0;"><a href="${fundraiserUrl}" style="color: #3b82f6; text-decoration: underline; font-size: 16px; word-break: break-all;">${fundraiserUrl}</a></p>
+            </div>
+            <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0;"><strong>Next Steps:</strong></p>
+              <ul style="margin: 0; padding-left: 20px;">
+                <li>Share your fundraising link with friends, family, and on social media</li>
+                <li>Track your progress on your fundraising page</li>
+                <li>You'll receive email notifications when someone donates to your fundraiser</li>
+              </ul>
+            </div>
+            <p>Every donation made through your link will be tracked and you'll be notified immediately.</p>
+            <p>Thank you for your support in making a difference!</p>
+            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
+          </body>
+        </html>
+      `,
+    })
+  } catch (error) {
+    console.error("Error sending fundraiser welcome email:", error)
+    throw error
+  }
+}
+
+export async function sendFundraiserDonationNotification(params: FundraiserDonationNotificationParams) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { fundraiserEmail, fundraiserName, fundraiserTitle, donorName, amount, donationType, fundraiserUrl } = params
+
+  try {
+    await getResend().emails.send({
+      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      to: fundraiserEmail,
+      subject: `New donation to ${fundraiserTitle}!`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #16a34a;">🎉 New Donation Received!</h1>
+            <p>Dear ${fundraiserName},</p>
+            <p>Great news! Someone just made a donation to your fundraiser <strong>${fundraiserTitle}</strong>!</p>
+            <div style="background-color: #f0fdf4; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #16a34a;">
+              <p style="margin: 0 0 10px 0;"><strong>Donation Details:</strong></p>
+              <p style="margin: 5px 0;">Donor: ${donorName || "Anonymous"}</p>
+              <p style="margin: 5px 0;">Amount: <strong style="font-size: 18px; color: #16a34a;">£${(amount / 100).toFixed(2)}</strong></p>
+              <p style="margin: 5px 0;">Donation Type: ${DONATION_TYPE_LABELS[donationType] || donationType}</p>
+            </div>
+            <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center;">
+              <p style="margin: 0 0 10px 0;"><strong>View your fundraising page:</strong></p>
+              <p style="margin: 0;"><a href="${fundraiserUrl}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Fundraising Page</a></p>
+            </div>
+            <p>Thank you for your continued support in making a difference!</p>
+            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
+          </body>
+        </html>
+      `,
+    })
+  } catch (error) {
+    console.error("Error sending fundraiser donation notification:", error)
+    throw error
+  }
+}
+
+export async function sendFundraiserOTPEmail(params: FundraiserOTPEmailParams) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { email, code } = params
+
+  try {
+    await getResend().emails.send({
+      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      to: email,
+      subject: "Your Fundraiser Login Code",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb;">Your Login Code</h1>
+            <p>Hello,</p>
+            <p>You requested a login code for your fundraiser account. Use the code below to sign in:</p>
+            <div style="background-color: #eff6ff; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6; text-align: center;">
+              <p style="margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1e40af;">${code}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px;">This code will expire in 10 minutes.</p>
+            <p>If you didn't request this code, you can safely ignore this email.</p>
+            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
+          </body>
+        </html>
+      `,
+    })
+  } catch (error) {
+    console.error("Error sending OTP email:", error)
     throw error
   }
 }
