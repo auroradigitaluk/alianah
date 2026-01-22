@@ -8,6 +8,8 @@ import { ArrowLeft } from "lucide-react"
 import Image from "next/image"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
 
+export const dynamic = 'force-dynamic'
+
 async function getAppeal(slug: string) {
   try {
     const appeal = await prisma.appeal.findUnique({

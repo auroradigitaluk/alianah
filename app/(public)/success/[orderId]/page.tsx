@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { ShareButton } from "@/components/share-button"
 
+export const dynamic = 'force-dynamic'
+
 async function getOrder(orderId: string) {
   try {
     const order = await prisma.demoOrder.findUnique({

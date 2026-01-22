@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Users } from "lucide-react"
 
+export const dynamic = 'force-dynamic'
+
 async function getAppeal(slug: string) {
   try {
     const appeal = await prisma.appeal.findUnique({

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma"
 import { WaterForLifePage } from "@/components/water-for-life-page"
 
+export const dynamic = 'force-dynamic'
+
 async function getCountries() {
   try {
     return await prisma.waterProjectCountry.findMany({
