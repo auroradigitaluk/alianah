@@ -756,22 +756,7 @@ export default async function AdminDashboardPage({
       },
     }).catch(() => [])
 
-    // 3. Get Products with their donations
-    const products = await prisma.product.findMany({
-      where: { isActive: true },
-      include: {
-        donations: {
-          where: {
-            status: "COMPLETED",
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
-          select: { amountPence: true },
-        },
-      },
-    }).catch(() => [])
+    // Products removed - no longer supported
 
     // Combine all donation targets
     const allCampaigns: Array<{ id: string; name: string; amountPence: number; type: string }> = []
@@ -812,20 +797,6 @@ export default async function AdminDashboardPage({
             : projectTypeLabels[project.projectType] || project.projectType,
           amountPence: donationsTotal,
           type: "Water Project",
-        })
-      }
-    })
-
-    // Add Products
-    products.forEach((product) => {
-      const donationsTotal = product.donations.reduce((sum, d) => sum + d.amountPence, 0)
-      
-      if (donationsTotal > 0) {
-        allCampaigns.push({
-          id: product.id,
-          name: product.name,
-          amountPence: donationsTotal,
-          type: "Product",
         })
       }
     })

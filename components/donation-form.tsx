@@ -40,7 +40,7 @@ interface DonationFormProps {
     monthlyPricePence: number | null
     yearlyPricePence: number | null
   }
-  products: AppealProduct[]
+  products?: AppealProduct[]
   donationTypesEnabled: string[]
   initialFrequency?: "ONE_OFF" | "MONTHLY" | "YEARLY"
   initialPreset?: number
@@ -51,7 +51,7 @@ interface DonationFormProps {
 
 export function DonationForm({
   appeal,
-  products,
+  products = [],
   donationTypesEnabled,
   initialFrequency,
   initialPreset,

@@ -14,14 +14,6 @@ async function getActiveAppeals() {
     return await prisma.appeal.findMany({
       where: { isActive: true },
       include: {
-        products: {
-          include: {
-            product: true,
-          },
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
         donations: {
           where: {
             status: "COMPLETED",
@@ -53,16 +45,6 @@ async function getOrCreateDefaultAppeal() {
   try {
     // Get any appeal (active or not) for the donation form fallback
     let appeal = await prisma.appeal.findFirst({
-      include: {
-        products: {
-          include: {
-            product: true,
-          },
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
-      },
       orderBy: { createdAt: "desc" },
     })
 
@@ -82,16 +64,6 @@ async function getOrCreateDefaultAppeal() {
           allowMonthly: true,
           allowYearly: true,
           allowFundraising: false,
-        },
-        include: {
-          products: {
-            include: {
-              product: true,
-            },
-            orderBy: {
-              sortOrder: "asc",
-            },
-          },
         },
       })
     }
@@ -124,18 +96,6 @@ async function getActiveWaterProjects() {
     })
   } catch (error) {
     console.error("Error fetching water projects:", error)
-    return []
-  }
-}
-
-async function getAllActiveProducts() {
-  try {
-    return await prisma.product.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: "desc" },
-    })
-  } catch (error) {
-    console.error("Error fetching products:", error)
     return []
   }
 }
@@ -177,10 +137,9 @@ async function getWaterProjectCountriesForForm() {
 }
 
 export default async function HomePage() {
-  const [appeals, waterProjects, allProducts, fallbackAppeal, waterProjectsForForm, waterProjectCountries] = await Promise.all([
+  const [appeals, waterProjects, fallbackAppeal, waterProjectsForForm, waterProjectCountries] = await Promise.all([
     getActiveAppeals(),
     getActiveWaterProjects(),
-    getAllActiveProducts(),
     getOrCreateDefaultAppeal(), // Get any appeal or create default if none exist
     getWaterProjectsForForm(), // Get water projects for the form
     getWaterProjectCountriesForForm(), // Get water project countries with prices
@@ -218,9 +177,6 @@ export default async function HomePage() {
         }]
       : []
 
-  // Get all products from all appeals
-  const allAppealProducts = allAppealsForForm.flatMap((appeal) => appeal.products)
-
   // Get all unique donation types
   const allDonationTypes = allAppealsForForm.length > 0
     ? Array.from(new Set(allAppealsForForm.flatMap((a) => a.donationTypesEnabled))) as ("GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH")[]
@@ -252,7 +208,7 @@ export default async function HomePage() {
               monthlyPricePence: a.monthlyPricePence,
               yearlyPricePence: a.yearlyPricePence,
             }))}
-            products={allAppealProducts}
+            products={[]}
             donationTypesEnabled={allDonationTypes}
             waterProjects={waterProjectsForForm}
             waterProjectCountries={waterProjectCountries}

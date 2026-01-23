@@ -58,7 +58,7 @@ interface WaterProjectCountry {
 
 interface OneNationDonationFormProps {
   appeals: Appeal[]
-  products: AppealProduct[]
+  products?: AppealProduct[]
   donationTypesEnabled: string[]
   waterProjects?: WaterProject[]
   waterProjectCountries?: WaterProjectCountry[]
@@ -67,7 +67,7 @@ interface OneNationDonationFormProps {
 
 export function OneNationDonationForm({
   appeals,
-  products,
+  products = [],
   donationTypesEnabled,
   waterProjects = [],
   waterProjectCountries = [],

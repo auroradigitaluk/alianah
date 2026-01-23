@@ -123,16 +123,6 @@ async function getAppeals(range: string | null, start: string | null, end: strin
             isActive: true,
           },
         },
-        products: {
-          include: {
-            product: {
-              select: {
-                name: true,
-                slug: true,
-              },
-            },
-          },
-        },
       },
       orderBy: { createdAt: "desc" },
     })

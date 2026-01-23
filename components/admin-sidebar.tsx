@@ -47,11 +47,6 @@ const mainNavItems = [
     url: "/admin/appeals",
     icon: IconHeart,
   },
-  {
-    title: "Products",
-    url: "/admin/products",
-    icon: IconFolder,
-  },
 ]
 
 const waterForLifeItems = [

@@ -28,14 +28,6 @@ async function getAppeal(slug: string) {
         allowFundraising: true,
         framerUrl: true,
         appealImageUrls: true,
-        products: {
-          include: {
-            product: true,
-          },
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
       },
     })
     
@@ -165,7 +157,7 @@ export default async function AppealPage({
             monthlyPricePence: appeal.monthlyPricePence,
             yearlyPricePence: appeal.yearlyPricePence,
           }}
-          products={appeal.products}
+          products={[]}
           donationTypesEnabled={donationTypesEnabled}
           initialFrequency={mapFrequency(urlParams.frequency)}
           initialPreset={urlParams.preset ? Math.round(parseFloat(urlParams.preset) * 100) : undefined}

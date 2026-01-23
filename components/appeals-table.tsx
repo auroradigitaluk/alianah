@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ExternalLink, Copy, Check, FileText, Target, Hash, Wallet, Users, Package, Calendar, Link2, Image as ImageIcon, Settings, TrendingUp } from "lucide-react"
+import { ExternalLink, Copy, Check, FileText, Target, Hash, Wallet, Users, Calendar, Link2, Image as ImageIcon, Settings, TrendingUp } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -70,16 +70,7 @@ interface Appeal {
     fundraiserName: string
     isActive: boolean
   }>
-  products?: Array<{
-    product: {
-      name: string
-      slug: string
-    }
-    frequency: string
-    presetAmountsPence: string
-    allowCustom: boolean
-    sortOrder: number
-  }>
+  products?: Array<never>
 }
 
 export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
@@ -288,7 +279,6 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
             })
             
             const fundraisers = selectedAppeal.fundraisers || []
-            const products = selectedAppeal.products || []
             
             const totalDonations = donations
               .filter(d => d.status === "COMPLETED")
@@ -697,44 +687,6 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
                             </div>
                           </div>
                         </div>
-
-                        {products.length > 0 && (
-                          <>
-                            <Separator className="my-6" />
-                            <div>
-                              <div className="flex items-center gap-3 pb-2 mb-4">
-                                <div className="p-2 rounded-lg bg-muted/50">
-                                  <Package className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Products</h3>
-                              </div>
-                              <div className="space-y-3">
-                                {products.map((ap, idx) => (
-                                  <div key={idx} className="p-4 rounded-lg border bg-card">
-                                    <div className="flex items-start justify-between mb-2">
-                                      <p className="font-semibold text-foreground">{ap.product.name}</p>
-                                      <Badge variant="outline">{ap.frequency}</Badge>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mb-2">Slug: {ap.product.slug}</p>
-                                    {ap.presetAmountsPence && ap.presetAmountsPence !== "[]" && (
-                                      <div className="mt-2">
-                                        <p className="text-xs font-semibold text-muted-foreground mb-1">Preset Amounts:</p>
-                                        <div className="flex flex-wrap gap-2">
-                                          {(JSON.parse(ap.presetAmountsPence) as number[]).map((amount, i) => (
-                                            <Badge key={i} variant="secondary">{formatCurrency(amount)}</Badge>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {ap.allowCustom && (
-                                      <Badge variant="outline" className="mt-2">Custom amounts allowed</Badge>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </>
-                        )}
                       </div>
                     </TabsContent>
 
