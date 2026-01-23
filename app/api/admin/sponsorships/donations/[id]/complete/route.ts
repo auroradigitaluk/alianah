@@ -1,0 +1,77 @@
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { z } from "zod"
+import { sendSponsorshipCompletionEmail } from "@/lib/email"
+
+const completeDonationSchema = z.object({
+  status: z.literal("COMPLETE"),
+  completionImages: z.array(z.string()).length(4, "Exactly 4 images are required"),
+  completionReport: z.string().optional(),
+  completionReportPDF: z.string().url().optional().nullable(),
+  googleDriveLink: z.string().url().optional().nullable(),
+})
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+    const data = completeDonationSchema.parse(body)
+
+    const donation = await prisma.sponsorshipDonation.findUnique({
+      where: { id },
+      include: {
+        donor: true,
+        country: true,
+        sponsorshipProject: true,
+      },
+    })
+
+    if (!donation) {
+      return NextResponse.json({ error: "Donation not found" }, { status: 404 })
+    }
+
+    const updatedDonation = await prisma.sponsorshipDonation.update({
+      where: { id },
+      data: {
+        status: "COMPLETE",
+        completedAt: new Date(),
+      },
+      include: {
+        donor: true,
+        country: true,
+        sponsorshipProject: true,
+      },
+    })
+
+    try {
+      await sendSponsorshipCompletionEmail({
+        donorEmail: donation.donor.email,
+        donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
+        projectType: donation.sponsorshipProject.projectType,
+        country: donation.country.country,
+        images: data.completionImages,
+        report: data.completionReport || "",
+        completionReportPDF: data.completionReportPDF || undefined,
+        googleDriveLink: data.googleDriveLink || undefined,
+      })
+
+      await prisma.sponsorshipDonation.update({
+        where: { id },
+        data: { reportSent: true },
+      })
+    } catch (emailError) {
+      console.error("Error sending sponsorship completion email:", emailError)
+    }
+
+    return NextResponse.json(updatedDonation)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues }, { status: 400 })
+    }
+    console.error("Error completing sponsorship donation:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}

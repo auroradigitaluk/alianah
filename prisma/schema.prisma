@@ -204,9 +204,10 @@ model Donor {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  donations             Donation[]
-  recurringDonations    RecurringDonation[]
-  waterProjectDonations WaterProjectDonation[]
+  donations                Donation[]
+  recurringDonations       RecurringDonation[]
+  waterProjectDonations    WaterProjectDonation[]
+  sponsorshipDonations     SponsorshipDonation[]
 
   @@index([email])
   @@map("donors")
@@ -415,4 +416,78 @@ model WaterProjectDonation {
   @@index([status])
   @@index([createdAt])
   @@map("water_project_donations")
+}
+
+model SponsorshipProjectCountry {
+  id          String   @id @default(cuid())
+  projectType String   // ORPHANS | HIFZ | FAMILIES
+  country     String
+  pricePence  Int
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  donations SponsorshipDonation[]
+
+  @@index([projectType, isActive])
+  @@index([projectType, sortOrder])
+  @@map("sponsorship_project_countries")
+}
+
+model SponsorshipProject {
+  id               String    @id @default(cuid())
+  projectType      String    @unique // ORPHANS | HIFZ | FAMILIES (only one project per type)
+  location         String?
+  description      String?
+  isActive         Boolean   @default(true)
+  status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE
+  amountPence      Int       @default(0)
+  completionImages String    @default("[]")
+  completionReport String?
+  completedAt      DateTime?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  donations SponsorshipDonation[]
+
+  @@index([projectType, isActive])
+  @@index([status])
+  @@map("sponsorship_projects")
+}
+
+model SponsorshipDonation {
+  id               String    @id @default(cuid())
+  sponsorshipProjectId String
+  countryId        String
+  donorId          String
+  amountPence      Int
+  donationType     String    // GENERAL | SADAQAH | ZAKAT | LILLAH
+  paymentMethod    String    // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
+  collectedVia     String?
+  transactionId    String?
+  giftAid          Boolean   @default(false)
+  billingAddress   String?
+  billingCity      String?
+  billingPostcode  String?
+  billingCountry   String?
+  emailSent        Boolean   @default(false)
+  reportSent       Boolean   @default(false)
+  notes            String?
+  status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  completedAt      DateTime?
+
+  sponsorshipProject SponsorshipProject        @relation(fields: [sponsorshipProjectId], references: [id], onDelete: Cascade)
+  country            SponsorshipProjectCountry @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  donor              Donor                     @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  @@index([sponsorshipProjectId])
+  @@index([countryId])
+  @@index([donorId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sponsorship_donations")
 }

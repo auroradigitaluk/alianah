@@ -8,6 +8,8 @@ interface PDFReportData {
   completionDate: string
   googleDriveLink?: string
   images: string[]
+  /** e.g. "Water Project" or "Sponsorship" - defaults to "Water Project" */
+  reportKind?: string
 }
 
 // Alianah branding colors - can be customized later
@@ -57,10 +59,11 @@ export async function generateCompletionReportPDF(data: PDFReportData): Promise<
   yPosition = 40
 
   // Title
+  const reportKind = data.reportKind || "Water Project"
   doc.setTextColor(BRAND_COLORS.text)
   doc.setFontSize(20)
   doc.setFont("helvetica", "bold")
-  doc.text("Water Project Completion Report", margin, yPosition)
+  doc.text(`${reportKind} Completion Report`, margin, yPosition)
   yPosition += 10
 
   // Divider line
@@ -113,7 +116,9 @@ export async function generateCompletionReportPDF(data: PDFReportData): Promise<
   doc.setFontSize(11)
   doc.setFont("helvetica", "normal")
   
-  const message = "This project has been successfully completed. The images below show the completed work."
+  const message = reportKind === "Sponsorship"
+    ? "This sponsorship has been successfully completed. The images below show the completed work."
+    : "This project has been successfully completed. The images below show the completed work."
   const splitMessage = doc.splitTextToSize(message, contentWidth)
   doc.text(splitMessage, margin, yPosition)
   yPosition += splitMessage.length * 6 + 5

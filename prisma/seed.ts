@@ -4,9 +4,21 @@ const prisma = new PrismaClient()
 
 async function main() {
   console.log("Seeding database...")
-  // Seed file is empty - no demo data will be created
-  // Add your own data through the admin interface or API
-  console.log("Database seeded successfully! (No data created)")
+
+  const sponsorshipTypes = ["ORPHANS", "HIFZ", "FAMILIES"] as const
+  for (const projectType of sponsorshipTypes) {
+    const existing = await prisma.sponsorshipProject.findUnique({
+      where: { projectType },
+    })
+    if (!existing) {
+      await prisma.sponsorshipProject.create({
+        data: { projectType, isActive: true },
+      })
+      console.log(`Created sponsorship project: ${projectType}`)
+    }
+  }
+
+  console.log("Database seeded successfully!")
 }
 
 main()

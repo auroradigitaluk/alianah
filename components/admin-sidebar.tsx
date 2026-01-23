@@ -14,6 +14,7 @@ import {
   IconSettings,
   IconUsers,
   IconDroplet,
+  IconUsersGroup,
 } from "@tabler/icons-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -69,6 +70,25 @@ const waterForLifeItems = [
   {
     title: "Manage Projects",
     url: "/admin/water-projects",
+  },
+]
+
+const sponsorshipItems = [
+  {
+    title: "Orphans",
+    url: "/admin/sponsorships/orphans",
+  },
+  {
+    title: "Hifz",
+    url: "/admin/sponsorships/hifz",
+  },
+  {
+    title: "Families",
+    url: "/admin/sponsorships/families",
+  },
+  {
+    title: "Manage Projects",
+    url: "/admin/sponsorships",
   },
 ]
 
@@ -139,8 +159,12 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const [waterMenuOpen, setWaterMenuOpen] = React.useState(
     pathname?.startsWith("/admin/water-projects") || false
   )
+  const [sponsorshipMenuOpen, setSponsorshipMenuOpen] = React.useState(
+    pathname?.startsWith("/admin/sponsorships") || false
+  )
 
   const isWaterProjectActive = pathname?.startsWith("/admin/water-projects")
+  const isSponsorshipActive = pathname?.startsWith("/admin/sponsorships")
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -193,6 +217,37 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                 {waterMenuOpen && (
                   <SidebarMenuSub>
                     {waterForLifeItems.map((item) => (
+                      <SidebarMenuSubItem key={item.title}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={pathname === item.url}
+                        >
+                          <Link href={item.url}>
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Sponsorships"
+                  isActive={isSponsorshipActive}
+                  onClick={() => setSponsorshipMenuOpen(!sponsorshipMenuOpen)}
+                >
+                  <IconUsersGroup />
+                  <span>Sponsorships</span>
+                  {sponsorshipMenuOpen ? (
+                    <IconChevronDown className="ml-auto" />
+                  ) : (
+                    <IconChevronRight className="ml-auto" />
+                  )}
+                </SidebarMenuButton>
+                {sponsorshipMenuOpen && (
+                  <SidebarMenuSub>
+                    {sponsorshipItems.map((item) => (
                       <SidebarMenuSubItem key={item.title}>
                         <SidebarMenuSubButton
                           asChild
