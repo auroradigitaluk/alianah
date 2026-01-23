@@ -227,7 +227,7 @@ export default async function HomePage() {
     : ["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"] as ("GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH")[]
 
   return (
-    <div id="top" className="min-h-screen bg-background">
+    <div id="top" className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
       {/* Hero Section with One Nation Style Donation Form */}
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:px-6 md:py-8">
         {/* Minimal Header */}

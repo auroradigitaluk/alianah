@@ -33,8 +33,25 @@ const chartConfig = {
   amount: {
     label: "Amount",
   },
+  website: {
+    label: "Website - Stripe",
+    color: "oklch(0.574 0.259 142.38)",
+  },
+  offline_cash: {
+    label: "Offline - Cash",
+    color: "oklch(0.65 0.259 142.38)",
+  },
+  offline_bank: {
+    label: "Offline - Bank Transfer",
+    color: "oklch(0.72 0.259 142.38)",
+  },
+  collections: {
+    label: "Collections (Masjid)",
+    color: "oklch(0.8 0.259 142.38)",
+  },
+  // Legacy support
   online: {
-    label: "Online",
+    label: "Website - Stripe",
     color: "oklch(0.574 0.259 142.38)",
   },
   card: {
@@ -42,7 +59,7 @@ const chartConfig = {
     color: "oklch(0.65 0.259 142.38)",
   },
   cash: {
-    label: "Cash",
+    label: "Offline - Cash",
     color: "oklch(0.72 0.259 142.38)",
   },
 } satisfies ChartConfig

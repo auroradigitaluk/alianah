@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { prisma } from "@/lib/prisma"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatDonorName } from "@/lib/utils"
+import { DollarSign, Globe, Building2, Wallet, TrendingUp, TrendingDown, Repeat, XCircle } from "lucide-react"
 
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic'
@@ -362,69 +363,33 @@ export default async function AdminDashboardPage({
   try {
     const params = await searchParams
     const now = new Date()
+    
+    // Get global date range (applies to all cards, charts, and tables)
     const dateRange = getDateRange(params?.range || "30d")
     const { startDate, endDate } = dateRange
     
-    // For comparison (previous period)
+    // Calculate previous period for comparison
     const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
     const comparisonStartDate = new Date(startDate)
-    comparisonStartDate.setDate(comparisonStartDate.getDate() - daysDiff)
+    comparisonStartDate.setDate(comparisonStartDate.getDate() - daysDiff - 1)
     const comparisonEndDate = new Date(startDate)
+    comparisonEndDate.setDate(comparisonEndDate.getDate() - 1)
+    comparisonEndDate.setHours(23, 59, 59, 999)
 
-    // Get metrics - wrap each query in try-catch to handle database errors gracefully
+    // Get stat card metrics for the selected period (current + previous for comparison)
     const [
-      totalDonors,
-      totalDonorsLastPeriod,
-      activeAppeals,
-      totalDonations,
-      totalDonationsLastPeriod,
-      activeFundraisers,
-      totalIncome,
-      totalIncomeLastPeriod,
+      totalOnlineDonations,
+      totalOfflineIncome,
+      totalCollections,
+      totalOnlineDonationsPrev,
+      totalOfflineIncomePrev,
+      totalCollectionsPrev,
     ] = await Promise.all([
-      prisma.donor.count({
-        where: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
-          },
-        },
-      }).catch(() => 0),
-      prisma.donor.count({
-        where: {
-          createdAt: {
-            gte: comparisonStartDate,
-            lte: comparisonEndDate,
-          },
-        },
-      }).catch(() => 0),
-      prisma.appeal.count({
-        where: { isActive: true },
-      }).catch(() => 0),
-      prisma.donation.count({
-        where: {
-          status: "COMPLETED",
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
-          },
-        },
-      }).catch(() => 0),
-      prisma.donation.count({
-        where: {
-          status: "COMPLETED",
-          createdAt: {
-            gte: comparisonStartDate,
-            lte: comparisonEndDate,
-          },
-        },
-      }).catch(() => 0),
-      prisma.fundraiser.count({
-        where: { isActive: true },
-      }).catch(() => 0),
+      // Current period: Total Online = STRIPE + CARD donations
       prisma.donation.aggregate({
         where: {
           status: "COMPLETED",
+          paymentMethod: { in: ["STRIPE", "CARD"] },
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -432,10 +397,52 @@ export default async function AdminDashboardPage({
         },
         _sum: { amountPence: true },
       }).catch(() => ({ _sum: { amountPence: 0 } })),
+      // Current period: Total Offline = All offline income
+      prisma.offlineIncome.aggregate({
+        where: {
+          receivedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
+      // Current period: Total Collections
+      prisma.collection.aggregate({
+        where: {
+          collectedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
+      // Previous period: Total Online
       prisma.donation.aggregate({
         where: {
           status: "COMPLETED",
+          paymentMethod: { in: ["STRIPE", "CARD"] },
           createdAt: {
+            gte: comparisonStartDate,
+            lte: comparisonEndDate,
+          },
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
+      // Previous period: Total Offline
+      prisma.offlineIncome.aggregate({
+        where: {
+          receivedAt: {
+            gte: comparisonStartDate,
+            lte: comparisonEndDate,
+          },
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
+      // Previous period: Total Collections
+      prisma.collection.aggregate({
+        where: {
+          collectedAt: {
             gte: comparisonStartDate,
             lte: comparisonEndDate,
           },
@@ -443,6 +450,37 @@ export default async function AdminDashboardPage({
         _sum: { amountPence: true },
       }).catch(() => ({ _sum: { amountPence: 0 } })),
     ])
+
+    // Calculate Total Amount (sum of all three) for current and previous periods
+    const totalAmountPence = 
+      (totalOnlineDonations._sum.amountPence || 0) +
+      (totalOfflineIncome._sum.amountPence || 0) +
+      (totalCollections._sum.amountPence || 0)
+    
+    const totalAmountPencePrev = 
+      (totalOnlineDonationsPrev._sum.amountPence || 0) +
+      (totalOfflineIncomePrev._sum.amountPence || 0) +
+      (totalCollectionsPrev._sum.amountPence || 0)
+
+    // Calculate percentage changes
+    const calculatePercentageChange = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0
+      return ((current - previous) / previous) * 100
+    }
+
+    const totalAmountChange = calculatePercentageChange(totalAmountPence, totalAmountPencePrev)
+    const totalOnlineChange = calculatePercentageChange(
+      totalOnlineDonations._sum.amountPence || 0,
+      totalOnlineDonationsPrev._sum.amountPence || 0
+    )
+    const totalOfflineChange = calculatePercentageChange(
+      totalOfflineIncome._sum.amountPence || 0,
+      totalOfflineIncomePrev._sum.amountPence || 0
+    )
+    const totalCollectionsChange = calculatePercentageChange(
+      totalCollections._sum.amountPence || 0,
+      totalCollectionsPrev._sum.amountPence || 0
+    )
 
     // Get payment method data (online, card, cash)
     const [onlineDonations, cardDonations, cashDonations] = await Promise.all([
@@ -483,8 +521,8 @@ export default async function AdminDashboardPage({
       }).catch(() => ({ _sum: { amountPence: 0 } })),
     ])
 
-    // Get offline income and collections for the date range to calculate total "other" sources
-    const [offlineIncomeTotal, collectionsTotal] = await Promise.all([
+    // Get offline income and collections for the date range
+    const [offlineIncomeTotal, collectionsTotal, offlineCashTotal, offlineBankTotal] = await Promise.all([
       prisma.offlineIncome.aggregate({
         where: {
           receivedAt: {
@@ -503,6 +541,26 @@ export default async function AdminDashboardPage({
         },
         _sum: { amountPence: true },
       }).catch(() => ({ _sum: { amountPence: 0 } })),
+      prisma.offlineIncome.aggregate({
+        where: {
+          source: "CASH",
+          receivedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
+      prisma.offlineIncome.aggregate({
+        where: {
+          source: "BANK_TRANSFER",
+          receivedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
     ])
     
     // Calculate real distribution based on actual payment methods
@@ -514,19 +572,24 @@ export default async function AdminDashboardPage({
     
     const paymentMethodData = [
       {
-        name: "online",
+        name: "website",
         value: onlineDonations._sum.amountPence || 0,
-        label: "Online",
+        label: "Website - Stripe",
       },
       {
-        name: "card",
-        value: cardDonations._sum.amountPence || 0,
-        label: "Card",
+        name: "offline_cash",
+        value: offlineCashTotal._sum.amountPence || 0,
+        label: "Offline - Cash",
       },
       {
-        name: "cash",
-        value: cashDonations._sum.amountPence || 0,
-        label: "Cash",
+        name: "offline_bank",
+        value: offlineBankTotal._sum.amountPence || 0,
+        label: "Offline - Bank Transfer",
+      },
+      {
+        name: "collections",
+        value: collectionsTotal._sum.amountPence || 0,
+        label: "Collections (Masjid)",
       },
     ]
     
@@ -553,13 +616,6 @@ export default async function AdminDashboardPage({
     // Online = STRIPE donations only
     // Card = CARD donations only  
     // Cash = CASH from offline income only
-    
-    // Server-side log to verify data
-    console.log("[SERVER] Payment method data:", JSON.stringify({
-      online: { pence: onlineDonations._sum.amountPence || 0, pounds: ((onlineDonations._sum.amountPence || 0) / 100).toFixed(2) },
-      card: { pence: cardDonations._sum.amountPence || 0, pounds: ((cardDonations._sum.amountPence || 0) / 100).toFixed(2) },
-      cash: { pence: cashDonations._sum.amountPence || 0, pounds: ((cashDonations._sum.amountPence || 0) / 100).toFixed(2) },
-    }))
 
 
     // Get donations by day for area chart - split by online vs offline
@@ -695,6 +751,7 @@ export default async function AdminDashboardPage({
       include: {
         donor: {
           select: {
+            title: true,
             firstName: true,
             lastName: true,
           },
@@ -707,97 +764,427 @@ export default async function AdminDashboardPage({
       },
     }).catch(() => [])
 
-    // Calculate trends
-    const donorsTrend = totalDonorsLastPeriod
-      ? ((totalDonors - totalDonorsLastPeriod) / totalDonorsLastPeriod) * 100
-      : 0
-    const donationsTrend = totalDonationsLastPeriod
-      ? ((totalDonations - totalDonationsLastPeriod) / totalDonationsLastPeriod) * 100
-      : 0
-    const incomeTrend = totalIncomeLastPeriod._sum.amountPence
-      ? ((totalIncome._sum.amountPence || 0) - totalIncomeLastPeriod._sum.amountPence) /
-        totalIncomeLastPeriod._sum.amountPence *
-        100
-      : 0
+    // Get recurring donations summary
+    const [activeRecurring, cancelledRecurringThisPeriod, recurringMonthlyTotal] = await Promise.all([
+      prisma.recurringDonation.count({
+        where: {
+          status: "ACTIVE",
+        },
+      }).catch(() => 0),
+      prisma.recurringDonation.count({
+        where: {
+          status: "CANCELLED",
+          updatedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      }).catch(() => 0),
+      prisma.recurringDonation.aggregate({
+        where: {
+          status: "ACTIVE",
+          frequency: "MONTHLY",
+        },
+        _sum: { amountPence: true },
+      }).catch(() => ({ _sum: { amountPence: 0 } })),
+    ])
 
-    // Format latest donations
-    const latestTransactions = latestDonations.map((donation) => ({
-      id: donation.id,
-      paidBy: `${donation.donor.firstName} ${donation.donor.lastName}`,
-      packageName: donation.appeal?.title || "General Donation",
-      price: formatCurrency(donation.amountPence),
-      status: donation.status === "COMPLETED" ? ("Active" as const) : ("Expired" as const),
-      paidDate: new Date(donation.createdAt).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }),
-    }))
+    // Get top fundraisers for the period
+    const topFundraisers = await prisma.fundraiser.findMany({
+      where: {
+        isActive: true,
+        donations: {
+          some: {
+            status: "COMPLETED",
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        },
+      },
+      include: {
+        appeal: {
+          select: {
+            title: true,
+          },
+        },
+        donations: {
+          where: {
+            status: "COMPLETED",
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: {
+            amountPence: true,
+          },
+        },
+      },
+      take: 5,
+    }).catch(() => [])
+
+    const fundraisersWithTotals = topFundraisers.map((fundraiser) => {
+      const totalRaised = fundraiser.donations.reduce((sum, d) => sum + d.amountPence, 0)
+      return {
+        id: fundraiser.id,
+        title: fundraiser.title,
+        appealTitle: fundraiser.appeal?.title || "General",
+        totalRaised,
+      }
+    }).sort((a, b) => b.totalRaised - a.totalRaised)
+
+    // Get recent activity (last 10 events)
+    const recentActivity: Array<{ type: string; message: string; timestamp: Date }> = []
+    
+    // Get recent donations
+    const recentDonations = await prisma.donation.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      where: {
+        status: "COMPLETED",
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        donor: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+        appeal: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    }).catch(() => [])
+
+    recentDonations.forEach((donation) => {
+      recentActivity.push({
+        type: "donation",
+        message: `Online donation received: ${formatCurrency(donation.amountPence)} from ${donation.donor.firstName} ${donation.donor.lastName}`,
+        timestamp: donation.createdAt,
+      })
+    })
+
+    // Get recent offline income
+    const recentOffline = await prisma.offlineIncome.findMany({
+      take: 10,
+      orderBy: { receivedAt: "desc" },
+      where: {
+        receivedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+    }).catch(() => [])
+
+    recentOffline.forEach((income) => {
+      recentActivity.push({
+        type: "offline",
+        message: `Offline income added: ${formatCurrency(income.amountPence)} (${income.source})`,
+        timestamp: income.receivedAt,
+      })
+    })
+
+    // Get recent collections
+    const recentCollections = await prisma.collection.findMany({
+      take: 10,
+      orderBy: { collectedAt: "desc" },
+      where: {
+        collectedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+    }).catch(() => [])
+
+    recentCollections.forEach((collection) => {
+      recentActivity.push({
+        type: "collection",
+        message: `Collection logged: ${formatCurrency(collection.amountPence)}`,
+        timestamp: collection.collectedAt,
+      })
+    })
+
+    // Get recent fundraisers
+    const recentFundraisers = await prisma.fundraiser.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        appeal: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    }).catch(() => [])
+
+    recentFundraisers.forEach((fundraiser) => {
+      recentActivity.push({
+        type: "fundraiser",
+        message: `Fundraiser created: ${fundraiser.title} for ${fundraiser.appeal?.title || "General"}`,
+        timestamp: fundraiser.createdAt,
+      })
+    })
+
+    // Sort by timestamp and take last 10
+    recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    const recentActivityList = recentActivity.slice(0, 10)
+
+    // Get context label for the selected period
+    const getPeriodLabel = () => {
+      const range = params?.range || "30d"
+      switch (range) {
+        case "7d":
+          return "Last 7 days"
+        case "30d":
+          return "Last 30 days"
+        case "90d":
+          return "Last 90 days"
+        case "this_month":
+          return "This month"
+        case "last_month":
+          return "Last month"
+        case "this_year":
+          return "This year"
+        case "all":
+          return "All time"
+        default:
+          return "Selected period"
+      }
+    }
+
+    const periodLabel = getPeriodLabel()
 
     return (
       <>
         <AdminHeader title="Dashboard" />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
+            <DashboardDateFilter />
             <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
               {/* Top Row: 4 Metric Cards in 2x2 Grid */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                   {/* Total Amount */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+                      <div className="rounded-lg bg-primary/10 p-2">
+                        <DollarSign className="h-4 w-4 text-primary" />
+                      </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{formatCurrency(totalIncome._sum.amountPence || 0)}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        vs previous period{" "}
-                        <span className={incomeTrend >= 0 ? "text-green-600" : "text-red-600"}>
-                          {incomeTrend >= 0 ? "↑" : "↓"} {Math.abs(incomeTrend).toFixed(2)}%
-                        </span>
-                      </p>
+                    <CardContent className="relative z-10">
+                      <div className="text-2xl font-bold">{formatCurrency(totalAmountPence)}</div>
+                      {totalAmountPence === 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No income recorded
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          vs previous period{" "}
+                          {totalAmountChange >= 0 ? (
+                            <span className="text-green-600 flex items-center gap-0.5 font-medium">
+                              <TrendingUp className="h-3 w-3" />
+                              {Math.abs(totalAmountChange).toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-red-600 flex items-center gap-0.5 font-medium">
+                              <TrendingDown className="h-3 w-3" />
+                              {Math.abs(totalAmountChange).toFixed(1)}%
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
 
-                  {/* Total Donations */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Donations</CardTitle>
+                  {/* Total Online */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/5 via-card to-card border-blue-500/20">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                      <CardTitle className="text-sm font-medium">Total Online</CardTitle>
+                      <div className="rounded-lg bg-blue-500/10 p-2">
+                        <Globe className="h-4 w-4 text-blue-600" />
+                      </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{totalDonations.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        vs previous period{" "}
-                        <span className={donationsTrend >= 0 ? "text-green-600" : "text-red-600"}>
-                          {donationsTrend >= 0 ? "↑" : "↓"} {Math.abs(donationsTrend).toFixed(2)}%
-                        </span>
-                      </p>
+                    <CardContent className="relative z-10">
+                      <div className="text-2xl font-bold">{formatCurrency(totalOnlineDonations._sum.amountPence || 0)}</div>
+                      {(totalOnlineDonations._sum.amountPence || 0) === 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No online donations
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          vs previous period{" "}
+                          {totalOnlineChange >= 0 ? (
+                            <span className="text-green-600 flex items-center gap-0.5 font-medium">
+                              <TrendingUp className="h-3 w-3" />
+                              {Math.abs(totalOnlineChange).toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-red-600 flex items-center gap-0.5 font-medium">
+                              <TrendingDown className="h-3 w-3" />
+                              {Math.abs(totalOnlineChange).toFixed(1)}%
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
 
-                  {/* Appeals */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Appeals</CardTitle>
+                  {/* Total Offline */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-purple-500/5 via-card to-card border-purple-500/20">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                      <CardTitle className="text-sm font-medium">Total Offline</CardTitle>
+                      <div className="rounded-lg bg-purple-500/10 p-2">
+                        <Wallet className="h-4 w-4 text-purple-600" />
+                      </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{activeAppeals}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Currently active appeals
-                      </p>
+                    <CardContent className="relative z-10">
+                      <div className="text-2xl font-bold">{formatCurrency(totalOfflineIncome._sum.amountPence || 0)}</div>
+                      {(totalOfflineIncome._sum.amountPence || 0) === 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No offline income logged
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          vs previous period{" "}
+                          {totalOfflineChange >= 0 ? (
+                            <span className="text-green-600 flex items-center gap-0.5 font-medium">
+                              <TrendingUp className="h-3 w-3" />
+                              {Math.abs(totalOfflineChange).toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-red-600 flex items-center gap-0.5 font-medium">
+                              <TrendingDown className="h-3 w-3" />
+                              {Math.abs(totalOfflineChange).toFixed(1)}%
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
 
-                  {/* Active Fundraisers */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Active Fundraisers</CardTitle>
+                  {/* Total Collections */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500/5 via-card to-card border-orange-500/20">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                      <CardTitle className="text-sm font-medium">Total Collections</CardTitle>
+                      <div className="rounded-lg bg-orange-500/10 p-2">
+                        <Building2 className="h-4 w-4 text-orange-600" />
+                      </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{activeFundraisers}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Active fundraising pages
-                      </p>
+                    <CardContent className="relative z-10">
+                      <div className="text-2xl font-bold">{formatCurrency(totalCollections._sum.amountPence || 0)}</div>
+                      {(totalCollections._sum.amountPence || 0) === 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No collections recorded yet
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          vs previous period{" "}
+                          {totalCollectionsChange >= 0 ? (
+                            <span className="text-green-600 flex items-center gap-0.5 font-medium">
+                              <TrendingUp className="h-3 w-3" />
+                              {Math.abs(totalCollectionsChange).toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-red-600 flex items-center gap-0.5 font-medium">
+                              <TrendingDown className="h-3 w-3" />
+                              {Math.abs(totalCollectionsChange).toFixed(1)}%
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Recurring Donations Summary */}
+              <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
+                  {/* Active Recurring */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-green-500/5 via-card to-card border-green-500/20">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                      <CardTitle className="text-sm font-medium">Active Recurring</CardTitle>
+                      <div className="rounded-lg bg-green-500/10 p-2">
+                        <Repeat className="h-4 w-4 text-green-600" />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="relative z-10">
+                      <div className="text-2xl font-bold">{activeRecurring}</div>
+                      {activeRecurring === 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No active recurring donations
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Active subscriptions
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Monthly Total */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/5 via-card to-card border-blue-500/20">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                      <CardTitle className="text-sm font-medium">Monthly Total</CardTitle>
+                      <div className="rounded-lg bg-blue-500/10 p-2">
+                        <DollarSign className="h-4 w-4 text-blue-600" />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="relative z-10">
+                      <div className="text-2xl font-bold">{formatCurrency(recurringMonthlyTotal._sum.amountPence || 0)}</div>
+                      {(recurringMonthlyTotal._sum.amountPence || 0) === 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No monthly recurring income
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Per month
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Cancelled */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500/5 via-card to-card border-orange-500/20">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                      <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
+                      <div className="rounded-lg bg-orange-500/10 p-2">
+                        <XCircle className="h-4 w-4 text-orange-600" />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="relative z-10">
+                      <div className="text-2xl font-bold">{cancelledRecurringThisPeriod}</div>
+                      {cancelledRecurringThisPeriod === 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No cancellations ({periodLabel})
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Cancelled ({periodLabel})
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -815,18 +1202,94 @@ export default async function AdminDashboardPage({
                     <Card className="flex flex-col w-full">
                       <CardHeader>
                         <CardTitle>Top Fundraising Appeals</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-1">{periodLabel}</p>
                       </CardHeader>
                       <CardContent className="flex-1">
-                        <TopCampaignsTable campaigns={topProjects} />
+                        {topProjects.length > 0 ? (
+                          <TopCampaignsTable campaigns={topProjects} />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No appeals with donations in this period</p>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
                 </div>
               </div>
 
+              {/* Recent Activity and Top Fundraisers */}
+              <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
+                  {/* Recent Activity */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Activity</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {recentActivityList.length > 0 ? (
+                        <div className="space-y-3">
+                          {recentActivityList.map((activity, index) => (
+                            <div key={index} className="flex items-start gap-3 text-sm">
+                              <div className="flex-1">
+                                <p className="text-foreground">{activity.message}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {new Date(activity.timestamp).toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No recent activity</p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Fundraisers */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Top Fundraisers ({periodLabel})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {fundraisersWithTotals.length > 0 ? (
+                        <div className="space-y-3">
+                          {fundraisersWithTotals.map((fundraiser) => (
+                            <div key={fundraiser.id} className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{fundraiser.title}</p>
+                                <p className="text-xs text-muted-foreground">{fundraiser.appealTitle}</p>
+                              </div>
+                              <p className="font-semibold text-sm">{formatCurrency(fundraiser.totalRaised)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No fundraisers created</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
               {/* Third Row: Donations Over Time Chart */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
-                <ChartAreaInteractive data={lineChartData} />
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground px-1">{periodLabel}</p>
+                  {lineChartData.length > 0 ? (
+                    <ChartAreaInteractive data={lineChartData} />
+                  ) : (
+                    <Card>
+                      <CardContent className="py-8">
+                        <p className="text-sm text-muted-foreground text-center">No donation data for this period</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -840,30 +1303,40 @@ export default async function AdminDashboardPage({
     // Return empty data on error instead of fake data
     const paymentMethodData = [
       {
-        name: "online",
+        name: "website",
         value: 0,
-        label: "Online",
+        label: "Website - Stripe",
       },
       {
-        name: "card",
+        name: "offline_cash",
         value: 0,
-        label: "Card",
+        label: "Offline - Cash",
       },
       {
-        name: "cash",
+        name: "offline_bank",
         value: 0,
-        label: "Cash",
+        label: "Offline - Bank Transfer",
+      },
+      {
+        name: "collections",
+        value: 0,
+        label: "Collections (Masjid)",
       },
     ]
 
     const lineChartData: Array<{ date: string; desktop: number; mobile: number }> = []
     const topProjects: Array<{ id: string; name: string; amountPence: number }> = []
-    const latestTransactions: Array<{ id: string; paidBy: string; packageName: string; price: string; status: "Active" | "Expired"; paidDate: string }> = []
+    const recentActivityList: Array<{ type: string; message: string; timestamp: Date }> = []
+    const fundraisersWithTotals: Array<{ id: string; title: string; appealTitle: string; totalRaised: number }> = []
+    const activeRecurring = 0
+    const cancelledRecurringThisPeriod = 0
+    const recurringMonthlyTotal = { _sum: { amountPence: 0 } }
+    const periodLabel = "Selected period"
 
     return (
       <>
         <AdminHeader title="Dashboard" />
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col bg-gradient-to-b from-background via-background to-muted/20">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <DashboardDateFilter />
             <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
@@ -878,46 +1351,46 @@ export default async function AdminDashboardPage({
                     <CardContent>
                       <div className="text-2xl font-bold">{formatCurrency(0)}</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        No data available
+                        No income recorded
                       </p>
                     </CardContent>
                   </Card>
 
-                  {/* Total Donations */}
+                  {/* Total Online */}
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Donations</CardTitle>
+                      <CardTitle className="text-sm font-medium">Total Online</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">0</div>
+                      <div className="text-2xl font-bold">{formatCurrency(0)}</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        No data available
+                        No income recorded
                       </p>
                     </CardContent>
                   </Card>
 
-                  {/* Appeals */}
+                  {/* Total Offline */}
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Appeals</CardTitle>
+                      <CardTitle className="text-sm font-medium">Total Offline</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">0</div>
+                      <div className="text-2xl font-bold">{formatCurrency(0)}</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        No data available
+                        No income recorded
                       </p>
                     </CardContent>
                   </Card>
 
-                  {/* Active Fundraisers */}
+                  {/* Total Collections */}
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Active Fundraisers</CardTitle>
+                      <CardTitle className="text-sm font-medium">Total Collections</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">0</div>
+                      <div className="text-2xl font-bold">{formatCurrency(0)}</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        No data available
+                        No income recorded
                       </p>
                     </CardContent>
                   </Card>

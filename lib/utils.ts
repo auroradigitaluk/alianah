@@ -36,3 +36,12 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   const minutes = String(d.getMinutes()).padStart(2, "0")
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
+
+export function formatDonorName(donor: { title?: string | null; firstName: string; lastName: string }): string {
+  const parts = []
+  if (donor.title) {
+    parts.push(donor.title)
+  }
+  parts.push(donor.firstName, donor.lastName)
+  return parts.join(" ")
+}

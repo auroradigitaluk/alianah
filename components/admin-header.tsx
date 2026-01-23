@@ -8,9 +8,10 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 interface AdminHeaderProps {
   title: string
   actions?: React.ReactNode
+  monthFilter?: React.ReactNode
 }
 
-export function AdminHeader({ title, actions }: AdminHeaderProps) {
+export function AdminHeader({ title, actions, monthFilter }: AdminHeaderProps) {
   const isDemo = process.env.NEXT_PUBLIC_APP_ENV === "demo"
 
   return (
@@ -23,6 +24,15 @@ export function AdminHeader({ title, actions }: AdminHeaderProps) {
         />
         <h1 className="text-sm sm:text-base font-medium truncate">{title}</h1>
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          {monthFilter && (
+            <>
+              {monthFilter}
+              <Separator
+                orientation="vertical"
+                className="mx-1 sm:mx-2 data-[orientation=vertical]:h-4"
+              />
+            </>
+          )}
           {isDemo && (
             <Badge variant="destructive" className="font-semibold">
               TEST MODE

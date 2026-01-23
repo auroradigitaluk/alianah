@@ -7,11 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { DetailModal } from "@/components/detail-modal"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { IconPencil, IconUpload, IconFileText, IconMail, IconCheck, IconEye, IconX, IconSend, IconDownload } from "@tabler/icons-react"
 import { ExternalLink } from "lucide-react"
 import { generateCompletionReportPDF } from "@/lib/pdf-generator"
+import { formatDonorName } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 
 interface WaterProjectDonation {
@@ -28,6 +36,7 @@ interface WaterProjectDonation {
   createdAt: Date | string
   completedAt: Date | string | null
   donor: {
+    title?: string | null
     firstName: string
     lastName: string
     email: string
@@ -237,7 +246,7 @@ export function WaterProjectDonationsTable({
 
 Project Type: ${PROJECT_TYPE_LABELS[projectType] || projectType}
 Country: ${selectedDonation.country.country}
-Donor: ${selectedDonation.donor.firstName} ${selectedDonation.donor.lastName}
+Donor: ${formatDonorName(selectedDonation.donor)}
 Amount: £${((selectedDonation.amountPence || 0) / 100).toFixed(2)}
 
 Status: Complete
@@ -317,7 +326,7 @@ Thank you for your generous support in making this project possible.`
       // Create CSV content
       const headers = ["Donor Name", "Email", "Country", "Amount", "Status", "Type", "Date", "Gift Aid"]
       const rows = donations.map(d => [
-        `${d.donor.firstName} ${d.donor.lastName}`,
+        formatDonorName(d.donor),
         d.donor.email,
         d.country.country,
         `£${(d.amountPence / 100).toFixed(2)}`,
@@ -359,7 +368,7 @@ Thank you for your generous support in making this project possible.`
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      const donorName = `${donation.donor.firstName} ${donation.donor.lastName}`.toLowerCase()
+      const donorName = formatDonorName(donation.donor).toLowerCase()
       const email = donation.donor.email.toLowerCase()
       const country = donation.country.country.toLowerCase()
       
@@ -383,12 +392,12 @@ Thank you for your generous support in making this project possible.`
       case "amount-asc":
         return a.amountPence - b.amountPence
       case "donor-asc":
-        const nameA = `${a.donor.firstName} ${a.donor.lastName}`.toLowerCase()
-        const nameB = `${b.donor.firstName} ${b.donor.lastName}`.toLowerCase()
+        const nameA = formatDonorName(a.donor).toLowerCase()
+        const nameB = formatDonorName(b.donor).toLowerCase()
         return nameA.localeCompare(nameB)
       case "donor-desc":
-        const nameA2 = `${a.donor.firstName} ${a.donor.lastName}`.toLowerCase()
-        const nameB2 = `${b.donor.firstName} ${b.donor.lastName}`.toLowerCase()
+        const nameA2 = formatDonorName(a.donor).toLowerCase()
+        const nameB2 = formatDonorName(b.donor).toLowerCase()
         return nameB2.localeCompare(nameA2)
       case "country-asc":
         return a.country.country.localeCompare(b.country.country)
@@ -494,7 +503,7 @@ Thank you for your generous support in making this project possible.`
             header: "Header",
             cell: (donation) => (
               <div className="font-medium">
-                {donation.donor.firstName} {donation.donor.lastName}
+                {formatDonorName(donation.donor)}
               </div>
             ),
           },
@@ -538,20 +547,38 @@ Thank you for your generous support in making this project possible.`
         ]}
         enableSelection={false}
       />
-      <DetailModal
+      <Dialog
         open={!!selectedDonation}
         onOpenChange={(open) => !open && setSelectedDonation(null)}
-        title={selectedDonation ? `Donation Overview - ${selectedDonation.donor.firstName} ${selectedDonation.donor.lastName}` : "Donation Overview"}
       >
-        {selectedDonation && (
-          <div className="space-y-6">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-2xl font-bold">
+              {selectedDonation ? `Donation Overview - ${formatDonorName(selectedDonation.donor)}` : "Donation Overview"}
+            </DialogTitle>
+            <DialogDescription>
+              Comprehensive donation details and management
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedDonation && (
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
+                <div className="px-6 pt-4 border-b">
+                  <TabsList>
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-6 py-6">
+                  <TabsContent value="overview" className="space-y-6 mt-0">
             {/* Donor Information */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Donor Information</h3>
               <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                 <div>
                   <p className="text-lg font-semibold">
-                    {selectedDonation.donor.firstName} {selectedDonation.donor.lastName}
+                    {formatDonorName(selectedDonation.donor)}
                   </p>
                 </div>
                 <div className="space-y-1 text-sm">
@@ -959,7 +986,7 @@ Thank you for your generous support in making this project possible.`
 
                       <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                         <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                          <strong>Note:</strong> This report will be sent to {selectedDonation.donor.firstName} {selectedDonation.donor.lastName} ({selectedDonation.donor.email}) once you approve.
+                          <strong>Note:</strong> This report will be sent to {formatDonorName(selectedDonation.donor)} ({selectedDonation.donor.email}) once you approve.
                         </p>
                       </div>
                     </div>
@@ -1036,7 +1063,7 @@ Thank you for your generous support in making this project possible.`
                             const pdfUrl = await generateCompletionReportPDF({
                               projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
                               country: selectedDonation.country.country,
-                              donorName: `${selectedDonation.donor.firstName} ${selectedDonation.donor.lastName}`,
+                              donorName: formatDonorName(selectedDonation.donor),
                               amount: selectedDonation.amountPence,
                               completionDate: selectedDonation.completedAt 
                                 ? new Date(selectedDonation.completedAt).toLocaleDateString('en-GB')
@@ -1048,7 +1075,8 @@ Thank you for your generous support in making this project possible.`
                             // Download the PDF
                             const link = document.createElement("a")
                             link.href = pdfUrl
-                            link.download = `completion-report-${selectedDonation.id}-${selectedDonation.donor.firstName}-${selectedDonation.donor.lastName}.pdf`
+                            const safeFileName = formatDonorName(selectedDonation.donor).replace(/[^a-z0-9]/gi, '-').toLowerCase()
+                            link.download = `completion-report-${selectedDonation.id}-${safeFileName}.pdf`
                             link.click()
                             
                             // Clean up blob URL after download
@@ -1067,9 +1095,13 @@ Thank you for your generous support in making this project possible.`
                 </div>
               </div>
             )}
-          </div>
-        )}
-      </DetailModal>
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

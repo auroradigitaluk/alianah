@@ -191,6 +191,7 @@ model Collection {
 
 model Donor {
   id        String   @id @default(cuid())
+  title     String?  // Mr, Mrs, Miss, Ms, Dr, etc.
   firstName String
   lastName  String
   email     String   @unique
@@ -224,6 +225,10 @@ model Donation {
   transactionId String?
   orderNumber   String? // Link to demoOrder for tracking
   giftAid       Boolean   @default(false)
+  billingAddress String? // Billing address for gift aid purposes
+  billingCity    String?
+  billingPostcode String?
+  billingCountry String?
   createdAt     DateTime  @default(now())
   completedAt   DateTime?
 
@@ -385,6 +390,10 @@ model WaterProjectDonation {
   paymentMethod  String // STRIPE | PAYPAL | OTHER
   transactionId  String?
   giftAid        Boolean   @default(false)
+  billingAddress String? // Billing address for gift aid purposes
+  billingCity    String?
+  billingPostcode String?
+  billingCountry String?
   emailSent      Boolean   @default(false)
   reportSent     Boolean   @default(false)
   notes          String?   // Internal notes/updates for this donation

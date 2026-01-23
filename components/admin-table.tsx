@@ -338,7 +338,7 @@ export function AdminTable<T extends { id: string }>({
 
   return (
     <div className="w-full">
-      <div className="overflow-x-auto overflow-hidden rounded-lg border">
+      <div className="overflow-x-auto overflow-hidden rounded-lg border shadow-sm bg-card">
         {enableDrag ? (
           <DndContext
             collisionDetection={closestCenter}

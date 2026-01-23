@@ -9,11 +9,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useSidecart } from "@/components/sidecart-provider"
 import { formatCurrency } from "@/lib/utils"
 import { z } from "zod"
 
 const checkoutSchema = z.object({
+  title: z.string().optional(),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
@@ -22,10 +30,23 @@ const checkoutSchema = z.object({
   city: z.string().optional(),
   postcode: z.string().optional(),
   country: z.string().optional(),
+  billingAddress: z.string().optional(),
+  billingCity: z.string().optional(),
+  billingPostcode: z.string().optional(),
+  billingCountry: z.string().optional(),
   marketingEmail: z.boolean().default(false),
   marketingSMS: z.boolean().default(false),
   giftAid: z.boolean().default(false),
   coverFees: z.boolean().default(false),
+}).refine((data) => {
+  // If gift aid is selected, billing address is required
+  if (data.giftAid) {
+    return !!(data.billingAddress && data.billingCity && data.billingPostcode && data.billingCountry)
+  }
+  return true
+}, {
+  message: "Billing address is required for Gift Aid",
+  path: ["billingAddress"],
 })
 
 export default function CheckoutPage() {
@@ -33,6 +54,7 @@ export default function CheckoutPage() {
   const { items, clearCart } = useSidecart()
   const [loading, setLoading] = React.useState(false)
   const [formData, setFormData] = React.useState({
+    title: "",
     firstName: "",
     lastName: "",
     email: "",
@@ -41,6 +63,10 @@ export default function CheckoutPage() {
     city: "",
     postcode: "",
     country: "",
+    billingAddress: "",
+    billingCity: "",
+    billingPostcode: "",
+    billingCountry: "",
     marketingEmail: false,
     marketingSMS: false,
     giftAid: false,
@@ -78,6 +104,7 @@ export default function CheckoutPage() {
             body: JSON.stringify({
               waterProjectId: item.waterProjectId,
               countryId: item.waterProjectCountryId,
+              title: validated.title || undefined,
               firstName: validated.firstName,
               lastName: validated.lastName,
               email: validated.email,
@@ -86,6 +113,10 @@ export default function CheckoutPage() {
               city: validated.city || undefined,
               postcode: validated.postcode || undefined,
               country: validated.country || undefined,
+              billingAddress: validated.billingAddress || undefined,
+              billingCity: validated.billingCity || undefined,
+              billingPostcode: validated.billingPostcode || undefined,
+              billingCountry: validated.billingCountry || undefined,
               amountPence: item.amountPence,
               donationType: item.donationType,
               paymentMethod: "STRIPE",
@@ -173,6 +204,29 @@ export default function CheckoutPage() {
                 <CardTitle>Donor Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Select
+                    value={formData.title}
+                    onValueChange={(value) => setFormData({ ...formData, title: value })}
+                  >
+                    <SelectTrigger id="title">
+                      <SelectValue placeholder="Select title" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="Mr">Mr</SelectItem>
+                      <SelectItem value="Mrs">Mrs</SelectItem>
+                      <SelectItem value="Miss">Miss</SelectItem>
+                      <SelectItem value="Ms">Ms</SelectItem>
+                      <SelectItem value="Dr">Dr</SelectItem>
+                      <SelectItem value="Prof">Prof</SelectItem>
+                      <SelectItem value="Rev">Rev</SelectItem>
+                      <SelectItem value="Sir">Sir</SelectItem>
+                      <SelectItem value="Dame">Dame</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name *</Label>
@@ -341,14 +395,70 @@ export default function CheckoutPage() {
                   </Label>
                 </div>
                 {formData.giftAid && (
-                  <div className="text-sm text-muted-foreground bg-muted p-4 rounded-lg">
-                    <p className="mb-2">
-                      I confirm I am a UK taxpayer and understand that if I pay less Income Tax and/or Capital Gains Tax than the amount of Gift Aid claimed on all my donations in that tax year it is my responsibility to pay any difference.
-                    </p>
-                    <p>
-                      Please notify us if you want to cancel this declaration, change your name or home address, or no longer pay sufficient tax on your income and/or capital gains.
-                    </p>
-                  </div>
+                  <>
+                    <div className="text-sm text-muted-foreground bg-muted p-4 rounded-lg">
+                      <p className="mb-2">
+                        I confirm I am a UK taxpayer and understand that if I pay less Income Tax and/or Capital Gains Tax than the amount of Gift Aid claimed on all my donations in that tax year it is my responsibility to pay any difference.
+                      </p>
+                      <p>
+                        Please notify us if you want to cancel this declaration, change your name or home address, or no longer pay sufficient tax on your income and/or capital gains.
+                      </p>
+                    </div>
+                    <div className="space-y-4 pt-2">
+                      <h4 className="font-semibold text-sm">Billing Address (Required for Gift Aid)</h4>
+                      <div className="space-y-2">
+                        <Label htmlFor="billingAddress">Billing Address *</Label>
+                        <Input
+                          id="billingAddress"
+                          value={formData.billingAddress}
+                          onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
+                          required={formData.giftAid}
+                        />
+                        {errors.billingAddress && (
+                          <p className="text-sm text-destructive">{errors.billingAddress}</p>
+                        )}
+                      </div>
+                      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="billingCity">City *</Label>
+                          <Input
+                            id="billingCity"
+                            value={formData.billingCity}
+                            onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
+                            required={formData.giftAid}
+                          />
+                          {errors.billingCity && (
+                            <p className="text-sm text-destructive">{errors.billingCity}</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="billingPostcode">Postcode *</Label>
+                          <Input
+                            id="billingPostcode"
+                            value={formData.billingPostcode}
+                            onChange={(e) => setFormData({ ...formData, billingPostcode: e.target.value })}
+                            required={formData.giftAid}
+                          />
+                          {errors.billingPostcode && (
+                            <p className="text-sm text-destructive">{errors.billingPostcode}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="billingCountry">Country *</Label>
+                        <Input
+                          id="billingCountry"
+                          value={formData.billingCountry}
+                          onChange={(e) => setFormData({ ...formData, billingCountry: e.target.value })}
+                          placeholder="United Kingdom"
+                          required={formData.giftAid}
+                        />
+                        {errors.billingCountry && (
+                          <p className="text-sm text-destructive">{errors.billingCountry}</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

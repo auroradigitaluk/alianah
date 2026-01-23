@@ -14,6 +14,7 @@ async function getDonations() {
           include: {
             donor: {
               select: {
+                title: true,
                 firstName: true,
                 lastName: true,
                 email: true,
@@ -40,6 +41,10 @@ async function getDonations() {
       donationType: donation.donationType,
       paymentMethod: donation.paymentMethod,
       giftAid: donation.giftAid,
+      billingAddress: donation.billingAddress,
+      billingCity: donation.billingCity,
+      billingPostcode: donation.billingPostcode,
+      billingCountry: donation.billingCountry,
       emailSent: donation.emailSent,
       reportSent: donation.reportSent,
       notes: donation.notes,

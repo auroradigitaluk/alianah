@@ -6,6 +6,7 @@ import { sendWaterProjectDonationEmail } from "@/lib/email"
 const donationSchema = z.object({
   waterProjectId: z.string(),
   countryId: z.string(), // Country chosen for this donation
+  title: z.string().optional(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email(),
@@ -14,6 +15,10 @@ const donationSchema = z.object({
   city: z.string().optional(),
   postcode: z.string().optional(),
   country: z.string().optional(),
+  billingAddress: z.string().optional(),
+  billingCity: z.string().optional(),
+  billingPostcode: z.string().optional(),
+  billingCountry: z.string().optional(),
   amountPence: z.number().int().positive(),
   donationType: z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"]),
   paymentMethod: z.string(),
@@ -34,6 +39,7 @@ export async function POST(request: NextRequest) {
     if (!donor) {
       donor = await prisma.donor.create({
         data: {
+          title: data.title || null,
           firstName: data.firstName,
           lastName: data.lastName,
           email: data.email,
@@ -49,6 +55,7 @@ export async function POST(request: NextRequest) {
       donor = await prisma.donor.update({
         where: { id: donor.id },
         data: {
+          title: data.title || donor.title,
           firstName: data.firstName,
           lastName: data.lastName,
           phone: data.phone || donor.phone,
@@ -93,6 +100,10 @@ export async function POST(request: NextRequest) {
         paymentMethod: data.paymentMethod,
         transactionId: data.transactionId || null,
         giftAid: data.giftAid,
+        billingAddress: data.billingAddress || null,
+        billingCity: data.billingCity || null,
+        billingPostcode: data.billingPostcode || null,
+        billingCountry: data.billingCountry || null,
         emailSent: false,
         reportSent: false,
       },

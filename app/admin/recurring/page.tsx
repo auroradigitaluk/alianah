@@ -10,7 +10,7 @@ async function getRecurringDonations() {
     return await prisma.recurringDonation.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        donor: { select: { firstName: true, lastName: true, email: true } },
+        donor: { select: { title: true, firstName: true, lastName: true, email: true } },
         appeal: { select: { title: true } },
       },
     })

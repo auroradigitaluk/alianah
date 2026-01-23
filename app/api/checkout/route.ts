@@ -16,6 +16,7 @@ const checkoutSchema = z.object({
     })
   ),
   donor: z.object({
+    title: z.string().optional(),
     firstName: z.string(),
     lastName: z.string(),
     email: z.string().email(),
@@ -24,6 +25,10 @@ const checkoutSchema = z.object({
     city: z.string().optional(),
     postcode: z.string().optional(),
     country: z.string().optional(),
+    billingAddress: z.string().optional(),
+    billingCity: z.string().optional(),
+    billingPostcode: z.string().optional(),
+    billingCountry: z.string().optional(),
     marketingEmail: z.boolean(),
     marketingSMS: z.boolean(),
     giftAid: z.boolean(),
@@ -50,6 +55,7 @@ export async function POST(request: NextRequest) {
     if (!donor) {
       donor = await prisma.donor.create({
         data: {
+          title: validated.donor.title || null,
           firstName: validated.donor.firstName,
           lastName: validated.donor.lastName,
           email: validated.donor.email,
@@ -65,6 +71,7 @@ export async function POST(request: NextRequest) {
       donor = await prisma.donor.update({
         where: { id: donor.id },
         data: {
+          title: validated.donor.title || donor.title,
           firstName: validated.donor.firstName,
           lastName: validated.donor.lastName,
           phone: validated.donor.phone || donor.phone,
@@ -137,6 +144,10 @@ export async function POST(request: NextRequest) {
               paymentMethod: paymentMethod,
               status: "PENDING", // Will be updated to COMPLETED when payment is confirmed
               giftAid: validated.donor.giftAid,
+              billingAddress: validated.donor.billingAddress || null,
+              billingCity: validated.donor.billingCity || null,
+              billingPostcode: validated.donor.billingPostcode || null,
+              billingCountry: validated.donor.billingCountry || null,
               orderNumber: orderNumber,
             },
           })

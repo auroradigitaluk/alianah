@@ -1,12 +1,32 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
-import { DetailModal } from "@/components/detail-modal"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/utils"
-import { ExternalLink, Eye, EyeOff } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName } from "@/lib/utils"
+import { ExternalLink, Eye, EyeOff, Calendar, Target, TrendingUp, Users, Gift, Mail, User, Hash, MessageSquare, Megaphone, FileText, Download } from "lucide-react"
+import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
 
 interface Fundraiser {
   id: string
@@ -19,10 +39,72 @@ interface Fundraiser {
   amountRaised: number
 }
 
+interface FundraiserDetails {
+  id: string
+  title: string
+  slug: string
+  fundraiserName: string
+  email: string
+  message: string | null
+  targetAmountPence: number | null
+  isActive: boolean
+  createdAt: string
+  appeal: {
+    id: string
+    title: string
+    slug: string
+    summary: string | null
+    isActive: boolean
+  }
+  statistics: {
+    totalRaised: number
+    donationCount: number
+    averageDonation: number
+    progressPercentage: number
+    targetAmountPence: number | null
+    donationsByType: Record<string, number>
+    donationsByPaymentMethod: Record<string, number>
+    giftAidCount: number
+    giftAidPercentage: number
+  }
+  donations: Donation[]
+}
+
+interface Donation {
+  id: string
+  amountPence: number
+  donationType: string
+  frequency: string
+  status: string
+  paymentMethod: string
+  giftAid: boolean
+  transactionId: string | null
+  billingAddress: string | null
+  billingCity: string | null
+  billingPostcode: string | null
+  billingCountry: string | null
+  createdAt: string
+  completedAt: string | null
+  donor: {
+    firstName: string
+    lastName: string
+    email: string
+    title?: string | null
+  }
+  appeal?: {
+    title: string
+  } | null
+  product?: {
+    name: string
+  } | null
+}
+
 export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] }) {
   const router = useRouter()
   const [selectedFundraiser, setSelectedFundraiser] = useState<Fundraiser | null>(null)
+  const [fundraiserDetails, setFundraiserDetails] = useState<FundraiserDetails | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
 
   const handleToggleStatus = async (fundraiser: Fundraiser, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -52,118 +134,674 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
     window.open(`/fundraise/${fundraiser.slug}`, "_blank")
   }
 
+  useEffect(() => {
+    if (selectedFundraiser) {
+      fetchFundraiserDetails()
+    } else {
+      setFundraiserDetails(null)
+    }
+  }, [selectedFundraiser])
+
+  const fetchFundraiserDetails = async () => {
+    if (!selectedFundraiser) return
+
+    setLoadingDetails(true)
+    try {
+      const response = await fetch(`/api/admin/fundraisers/${selectedFundraiser.id}`)
+      
+      if (!response.ok) {
+        let errorMessage = `Failed to fetch fundraiser details: ${response.status}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+          console.error("API Error:", errorData)
+        } catch (jsonError) {
+          // Response might not be JSON
+          const text = await response.text()
+          console.error("API Error (non-JSON):", text || `Status ${response.status}`)
+          errorMessage = text || errorMessage
+        }
+        throw new Error(errorMessage)
+      }
+      
+      const data = await response.json()
+      setFundraiserDetails(data)
+    } catch (error) {
+      console.error("Error fetching fundraiser details:", error)
+      setFundraiserDetails(null)
+      // Optionally show a user-friendly error message
+      alert(error instanceof Error ? error.message : "Failed to load fundraiser details")
+    } finally {
+      setLoadingDetails(false)
+    }
+  }
+
+  const exportDonationsToCSV = () => {
+    if (!fundraiserDetails || fundraiserDetails.donations.length === 0) return
+
+    // CSV headers
+    const headers = [
+      "Donor Name",
+      "Donor Email",
+      "Amount",
+      "Status",
+      "Date",
+      "Payment Method",
+      "Type",
+      "Gift Aid",
+      "Billing Address",
+      "Billing City",
+      "Billing Postcode",
+      "Billing Country",
+      "Transaction ID",
+    ]
+
+    // Convert donations to CSV rows
+    const rows = fundraiserDetails.donations.map((donation) => {
+      const donorName = formatDonorName(donation.donor)
+      const amount = formatCurrency(donation.amountPence)
+      const status = formatEnum(donation.status)
+      const date = formatDate(
+        donation.completedAt ? new Date(donation.completedAt) : new Date(donation.createdAt)
+      )
+      const paymentMethod = formatEnum(donation.paymentMethod)
+      const donationType = formatEnum(donation.donationType)
+      const giftAid = donation.giftAid ? "Yes" : "No"
+      const billingAddress = donation.billingAddress || ""
+      const billingCity = donation.billingCity || ""
+      const billingPostcode = donation.billingPostcode || ""
+      const billingCountry = donation.billingCountry || ""
+      const transactionId = donation.transactionId || ""
+
+      return [
+        donorName,
+        donation.donor.email,
+        amount,
+        status,
+        date,
+        paymentMethod,
+        donationType,
+        giftAid,
+        billingAddress,
+        billingCity,
+        billingPostcode,
+        billingCountry,
+        transactionId,
+      ]
+    })
+
+    // Combine headers and rows
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n")
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute(
+      "download",
+      `donations-${fundraiserDetails.fundraiserName}-${new Date().toISOString().split("T")[0]}.csv`
+    )
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <>
       <AdminTable
         data={fundraisers}
         onRowClick={(fundraiser) => setSelectedFundraiser(fundraiser)}
         columns={[
-        {
-          id: "title",
-          header: "Title",
-          cell: (fundraiser) => (
-            <div className="font-medium">{fundraiser.title}</div>
-          ),
-        },
-        {
-          id: "campaign",
-          header: "Appeal",
-          cell: (fundraiser) => (
-            <div className="text-sm">{fundraiser.appeal.title}</div>
-          ),
-        },
-        {
-          id: "fundraiser",
-          header: "Fundraiser",
-          cell: (fundraiser) => (
-            <div className="text-sm">{fundraiser.fundraiserName}</div>
-          ),
-        },
-        {
-          id: "amountRaised",
-          header: "Amount Raised",
-          cell: (fundraiser) => (
-            <div className="font-medium">{formatCurrency(fundraiser.amountRaised)}</div>
-          ),
-        },
-        {
-          id: "status",
-          header: "Status",
-          cell: (fundraiser) => <StatusBadge isActive={fundraiser.isActive} />,
-        },
-        {
-          id: "actions",
-          header: "Actions",
-          cell: (fundraiser) => (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => handleViewPage(fundraiser, e)}
-                className="h-8"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => handleToggleStatus(fundraiser, e)}
-                disabled={updating === fundraiser.id}
-                className="h-8"
-              >
-                {fundraiser.isActive ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          ),
-          enableSorting: false,
-        },
-      ]}
-      enableSelection={false}
+          {
+            id: "title",
+            header: "Title",
+            cell: (fundraiser) => (
+              <div className="font-medium">{fundraiser.title}</div>
+            ),
+          },
+          {
+            id: "campaign",
+            header: "Appeal",
+            cell: (fundraiser) => (
+              <div className="text-sm">{fundraiser.appeal.title}</div>
+            ),
+          },
+          {
+            id: "fundraiser",
+            header: "Fundraiser",
+            cell: (fundraiser) => (
+              <div className="text-sm">{fundraiser.fundraiserName}</div>
+            ),
+          },
+          {
+            id: "amountRaised",
+            header: "Amount Raised",
+            cell: (fundraiser) => (
+              <div className="font-medium">{formatCurrency(fundraiser.amountRaised)}</div>
+            ),
+          },
+          {
+            id: "status",
+            header: "Status",
+            cell: (fundraiser) => <StatusBadge isActive={fundraiser.isActive} />,
+          },
+          {
+            id: "actions",
+            header: "Actions",
+            cell: (fundraiser) => (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => handleViewPage(fundraiser, e)}
+                  className="h-8"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => handleToggleStatus(fundraiser, e)}
+                  disabled={updating === fundraiser.id}
+                  className="h-8"
+                >
+                  {fundraiser.isActive ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            ),
+            enableSorting: false,
+          },
+        ]}
+        enableSelection={false}
       />
-      <DetailModal
+
+      <Dialog
         open={!!selectedFundraiser}
         onOpenChange={(open) => !open && setSelectedFundraiser(null)}
-        title={selectedFundraiser?.title || "Fundraiser Details"}
       >
-        {selectedFundraiser && (
-          <div className="space-y-6">
-            <div className="space-y-1">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Campaign</h3>
-              <p className="text-base font-semibold">{selectedFundraiser.appeal.title}</p>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-2xl font-bold">
+              {selectedFundraiser?.title || "Fundraiser Details"}
+            </DialogTitle>
+            <DialogDescription>
+              Comprehensive overview of fundraiser information and donations
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingDetails ? (
+            <div className="px-6 py-6 space-y-4">
+              <Skeleton className="h-64 w-full" />
             </div>
-            <div className="space-y-1">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fundraiser Name</h3>
-              <p className="text-base">{selectedFundraiser.fundraiserName}</p>
+          ) : fundraiserDetails ? (
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
+                <div className="px-6 pt-4 border-b">
+                  <TabsList>
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="donations">
+                      Donations ({fundraiserDetails.statistics.donationCount})
+                    </TabsTrigger>
+                    <TabsTrigger value="statistics">Statistics</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-6 py-6">
+                  <TabsContent value="overview" className="space-y-6 mt-0">
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12" />
+                        <CardHeader className="pb-0 px-6 pt-3 relative z-10">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Total Raised
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-3 pt-0 relative z-10">
+                          <div className="text-2xl font-bold text-primary">
+                            {formatCurrency(fundraiserDetails.statistics.totalRaised)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-blue-500/5 via-card to-card border-blue-500/20">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -mr-12 -mt-12" />
+                        <CardHeader className="pb-0 px-6 pt-3 relative z-10">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Donations
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-3 pt-0 relative z-10">
+                          <div className="text-2xl font-bold">
+                            {fundraiserDetails.statistics.donationCount}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      {fundraiserDetails.targetAmountPence && (
+                        <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-purple-500/5 via-card to-card border-purple-500/20">
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl -mr-12 -mt-12" />
+                          <CardHeader className="pb-0 px-6 pt-3 relative z-10">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
+                              Progress
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="px-6 pb-3 pt-0 relative z-10">
+                            <div className="text-2xl font-bold">
+                              {fundraiserDetails.statistics.progressPercentage.toFixed(1)}%
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              of {formatCurrency(fundraiserDetails.targetAmountPence)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Fundraiser Information */}
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3 pb-2">
+                        <div className="p-2 rounded-lg bg-muted/50">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Fundraiser Information</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Fundraiser Name
+                              </p>
+                              <p className="text-base font-semibold text-foreground">{fundraiserDetails.fundraiserName}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Email
+                              </p>
+                              <p className="text-base text-foreground break-all">{fundraiserDetails.email}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Hash className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Slug
+                              </p>
+                              <p className="text-base font-mono text-sm text-foreground break-all">{fundraiserDetails.slug}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Target className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Status
+                              </p>
+                              <StatusBadge isActive={fundraiserDetails.isActive} />
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Created
+                              </p>
+                              <p className="text-base text-foreground">{formatDate(new Date(fundraiserDetails.createdAt))}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {fundraiserDetails.message && (
+                          <div className="md:col-span-2 pt-2">
+                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg bg-muted/20 border border-border/50">
+                              <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                  Message
+                                </p>
+                                <p className="text-base text-foreground leading-relaxed">{fundraiserDetails.message}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Appeal Information */}
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3 pb-2">
+                        <div className="p-2 rounded-lg bg-muted/50">
+                          <Megaphone className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Campaign / Appeal</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Appeal Title
+                              </p>
+                              <p className="text-base font-semibold text-foreground">{fundraiserDetails.appeal.title}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Target className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Appeal Status
+                              </p>
+                              <StatusBadge isActive={fundraiserDetails.appeal.isActive} />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {fundraiserDetails.appeal.summary && (
+                          <div className="md:col-span-2 pt-2">
+                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg bg-muted/20 border border-border/50">
+                              <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                  Summary
+                                </p>
+                                <p className="text-base text-foreground leading-relaxed">{fundraiserDetails.appeal.summary}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="donations" className="mt-0">
+                    {fundraiserDetails.donations.length === 0 ? (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">No donations yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex justify-end">
+                          <Button onClick={exportDonationsToCSV} variant="outline" size="sm">
+                            <Download className="mr-2 h-4 w-4" />
+                            Export CSV
+                          </Button>
+                        </div>
+                        <div className="rounded-md border">
+                          <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Donor</TableHead>
+                              <TableHead>Amount</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Payment Method</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Gift Aid</TableHead>
+                              <TableHead>Billing Address</TableHead>
+                              <TableHead>Transaction ID</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {fundraiserDetails.donations.map((donation) => (
+                              <TableRow key={donation.id}>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">
+                                      {formatDonorName(donation.donor)}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {donation.donor.email}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-semibold">
+                                    {formatCurrency(donation.amountPence)}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={donation.status === "COMPLETED" ? "default" : "outline"}
+                                    className="px-1.5"
+                                  >
+                                    {donation.status === "COMPLETED" ? (
+                                      <IconCircleCheckFilled className="mr-1 size-3 fill-white" />
+                                    ) : (
+                                      <IconLoader className="mr-1 size-3" />
+                                    )}
+                                    {formatEnum(donation.status)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    {formatDate(
+                                      donation.completedAt
+                                        ? new Date(donation.completedAt)
+                                        : new Date(donation.createdAt)
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">{formatEnum(donation.paymentMethod)}</div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">{formatEnum(donation.donationType)}</div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    {donation.giftAid ? (
+                                      <>
+                                        <IconCheck className="h-4 w-4 text-primary" />
+                                        <span className="text-sm">Yes</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <IconX className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-sm">No</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {donation.billingAddress ? (
+                                    <div className="text-xs max-w-[150px]">
+                                      <div className="font-medium truncate" title={donation.billingAddress}>
+                                        {donation.billingAddress}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        {donation.billingCity && `${donation.billingCity}, `}
+                                        {donation.billingPostcode} {donation.billingCountry}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {donation.transactionId ? (
+                                    <div className="font-mono text-xs max-w-[120px] truncate" title={donation.transactionId}>
+                                      {donation.transactionId}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="statistics" className="space-y-6 mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Donation Statistics</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Total Raised</span>
+                            <span className="font-semibold">
+                              {formatCurrency(fundraiserDetails.statistics.totalRaised)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Total Donations</span>
+                            <span className="font-semibold">
+                              {fundraiserDetails.statistics.donationCount}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Average Donation</span>
+                            <span className="font-semibold">
+                              {formatCurrency(Math.round(fundraiserDetails.statistics.averageDonation))}
+                            </span>
+                          </div>
+                          {fundraiserDetails.targetAmountPence && (
+                            <>
+                              <Separator />
+                              <div className="flex justify-between">
+                                <span className="text-sm text-muted-foreground">Target Amount</span>
+                                <span className="font-semibold">
+                                  {formatCurrency(fundraiserDetails.targetAmountPence)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-muted-foreground">Progress</span>
+                                <span className="font-semibold">
+                                  {fundraiserDetails.statistics.progressPercentage.toFixed(1)}%
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">By Donation Type</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {Object.entries(fundraiserDetails.statistics.donationsByType).length > 0 ? (
+                            Object.entries(fundraiserDetails.statistics.donationsByType).map(
+                              ([type, amount]) => (
+                                <div key={type} className="flex justify-between">
+                                  <span className="text-sm text-muted-foreground">
+                                    {formatEnum(type)}
+                                  </span>
+                                  <span className="font-semibold">{formatCurrency(amount)}</span>
+                                </div>
+                              )
+                            )
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No data</p>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">By Payment Method</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {Object.entries(fundraiserDetails.statistics.donationsByPaymentMethod).length >
+                          0 ? (
+                            Object.entries(fundraiserDetails.statistics.donationsByPaymentMethod).map(
+                              ([method, amount]) => (
+                                <div key={method} className="flex justify-between">
+                                  <span className="text-sm text-muted-foreground">
+                                    {formatEnum(method)}
+                                  </span>
+                                  <span className="font-semibold">{formatCurrency(amount)}</span>
+                                </div>
+                              )
+                            )
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No data</p>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Gift Aid</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">With Gift Aid</span>
+                            <span className="font-semibold">
+                              {fundraiserDetails.statistics.giftAidCount}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Percentage</span>
+                            <span className="font-semibold">
+                              {fundraiserDetails.statistics.giftAidPercentage.toFixed(1)}%
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
+                </div>
+              </Tabs>
             </div>
-            {selectedFundraiser.email && (
-              <div className="space-y-1">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</h3>
-                <p className="text-base">{selectedFundraiser.email}</p>
-              </div>
-            )}
-            <div className="space-y-1">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fundraiser Title</h3>
-              <p className="text-base">{selectedFundraiser.title}</p>
+          ) : (
+            <div className="px-6 py-6">
+              <p className="text-sm text-muted-foreground">Failed to load fundraiser details</p>
             </div>
-            <div className="space-y-1">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Slug</h3>
-              <p className="text-base font-mono text-sm">{selectedFundraiser.slug}</p>
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Amount Raised</h3>
-              <p className="text-2xl font-semibold">{formatCurrency(selectedFundraiser.amountRaised)}</p>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</h3>
-              <StatusBadge isActive={selectedFundraiser.isActive} />
-            </div>
-          </div>
-        )}
-      </DetailModal>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

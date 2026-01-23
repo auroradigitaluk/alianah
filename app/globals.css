@@ -123,3 +123,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Enhanced visual effects */
+@layer utilities {
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.8);
+  }
+  
+  .dark .glass-effect {
+    background: rgba(0, 0, 0, 0.4);
+  }
+  
+  .gradient-border {
+    position: relative;
+    background: var(--card);
+    border-radius: var(--radius-lg);
+  }
+  
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-lg);
+    padding: 1px;
+    background: linear-gradient(135deg, var(--primary), transparent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+}

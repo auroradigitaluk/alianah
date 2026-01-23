@@ -34,7 +34,7 @@ const chartConfig = {
     label: "Donations",
   },
   desktop: {
-    label: "Online",
+    label: "Website - Stripe",
     color: "var(--primary)",
   },
   mobile: {

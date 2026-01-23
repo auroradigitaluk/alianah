@@ -36,6 +36,7 @@ async function getDonors() {
 
       return {
         id: donor.id,
+        title: donor.title,
         firstName: donor.firstName,
         lastName: donor.lastName,
         email: donor.email,

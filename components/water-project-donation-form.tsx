@@ -32,6 +32,7 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
   const [giftAid, setGiftAid] = useState(false)
   const [countries, setCountries] = useState<Array<{ id: string; country: string; pricePence: number }>>([])
   const [formData, setFormData] = useState({
+    title: "",
     firstName: "",
     lastName: "",
     email: "",
@@ -40,6 +41,10 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
     city: "",
     postcode: "",
     country: "",
+    billingAddress: "",
+    billingCity: "",
+    billingPostcode: "",
+    billingCountry: "",
   })
 
   // Fetch countries for this project type
@@ -80,7 +85,19 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
         body: JSON.stringify({
           waterProjectId: projectId,
           countryId: countryId,
-          ...formData,
+          title: formData.title || undefined,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          address: formData.address || undefined,
+          city: formData.city || undefined,
+          postcode: formData.postcode || undefined,
+          country: formData.country || undefined,
+          billingAddress: formData.billingAddress || undefined,
+          billingCity: formData.billingCity || undefined,
+          billingPostcode: formData.billingPostcode || undefined,
+          billingCountry: formData.billingCountry || undefined,
           amountPence,
           donationType,
           paymentMethod: "STRIPE", // TODO: Integrate actual payment
@@ -99,6 +116,7 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
       // Reset form
       setAmount("")
       setFormData({
+        title: "",
         firstName: "",
         lastName: "",
         email: "",
@@ -107,6 +125,10 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
         city: "",
         postcode: "",
         country: "",
+        billingAddress: "",
+        billingCity: "",
+        billingPostcode: "",
+        billingCountry: "",
       })
       setGiftAid(false)
       
@@ -166,6 +188,30 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
 
       <div className="space-y-4">
         <h3 className="font-semibold">Your Details</h3>
+        
+        <div className="space-y-2">
+          <Label htmlFor="title">Title</Label>
+          <Select
+            value={formData.title}
+            onValueChange={(value) => setFormData({ ...formData, title: value })}
+          >
+            <SelectTrigger id="title">
+              <SelectValue placeholder="Select title" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">None</SelectItem>
+              <SelectItem value="Mr">Mr</SelectItem>
+              <SelectItem value="Mrs">Mrs</SelectItem>
+              <SelectItem value="Miss">Miss</SelectItem>
+              <SelectItem value="Ms">Ms</SelectItem>
+              <SelectItem value="Dr">Dr</SelectItem>
+              <SelectItem value="Prof">Prof</SelectItem>
+              <SelectItem value="Rev">Rev</SelectItem>
+              <SelectItem value="Sir">Sir</SelectItem>
+              <SelectItem value="Dame">Dame</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -247,15 +293,62 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
         </div>
       </div>
 
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="giftAid"
-          checked={giftAid}
-          onCheckedChange={(checked) => setGiftAid(checked === true)}
-        />
-        <Label htmlFor="giftAid" className="font-normal cursor-pointer text-sm">
-          I am a UK taxpayer and would like Alianah to reclaim Gift Aid on my donation
-        </Label>
+      <div className="space-y-4">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="giftAid"
+            checked={giftAid}
+            onCheckedChange={(checked) => setGiftAid(checked === true)}
+          />
+          <Label htmlFor="giftAid" className="font-normal cursor-pointer text-sm">
+            I am a UK taxpayer and would like Alianah to reclaim Gift Aid on my donation
+          </Label>
+        </div>
+
+        {giftAid && (
+          <div className="space-y-4 pt-2 border-t">
+            <h4 className="font-semibold text-sm">Billing Address (Required for Gift Aid)</h4>
+            <div className="space-y-2">
+              <Label htmlFor="billingAddress">Billing Address *</Label>
+              <Input
+                id="billingAddress"
+                value={formData.billingAddress}
+                onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
+                required={giftAid}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="billingCity">City *</Label>
+                <Input
+                  id="billingCity"
+                  value={formData.billingCity}
+                  onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
+                  required={giftAid}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billingPostcode">Postcode *</Label>
+                <Input
+                  id="billingPostcode"
+                  value={formData.billingPostcode}
+                  onChange={(e) => setFormData({ ...formData, billingPostcode: e.target.value })}
+                  required={giftAid}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="billingCountry">Country *</Label>
+              <Input
+                id="billingCountry"
+                value={formData.billingCountry}
+                onChange={(e) => setFormData({ ...formData, billingCountry: e.target.value })}
+                placeholder="United Kingdom"
+                required={giftAid}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <Button type="submit" disabled={loading} className="w-full">
