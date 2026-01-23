@@ -17,6 +17,7 @@ const appealSchema = z.object({
   allowYearly: z.boolean(),
   allowFundraising: z.boolean().optional().default(false),
   appealImageUrls: z.string().optional(),
+  fundraisingImageUrls: z.string().optional(),
   monthlyPricePence: z.number().nullable().optional(),
   yearlyPricePence: z.number().nullable().optional(),
 })
@@ -41,6 +42,7 @@ export async function PUT(
       allowYearly: data.allowYearly,
       allowFundraising: data.allowFundraising ?? false,
       appealImageUrls: data.appealImageUrls || "[]",
+      fundraisingImageUrls: data.fundraisingImageUrls || "[]",
       monthlyPricePence: data.monthlyPricePence || null,
       yearlyPricePence: data.yearlyPricePence || null,
     }

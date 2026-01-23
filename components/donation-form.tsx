@@ -244,18 +244,23 @@ export function DonationForm({
           </div>
         )}
         {((selectedProductData ? canUseCustom : true) && !showAppealPreset) && (
-          <Input
-            type="number"
-            placeholder={selectedProductData ? "Enter custom amount" : "Enter amount"}
-            value={customAmount}
-            onChange={(e) => {
-              setCustomAmount(e.target.value)
-              setPresetAmount(null)
-            }}
-            min="1"
-            step="0.01"
-            className="h-11 text-base"
-          />
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium pointer-events-none">
+              £
+            </span>
+            <Input
+              type="number"
+              placeholder={selectedProductData ? "Enter custom amount" : "Enter amount"}
+              value={customAmount}
+              onChange={(e) => {
+                setCustomAmount(e.target.value)
+                setPresetAmount(null)
+              }}
+              min="1"
+              step="0.01"
+              className="h-11 text-base pl-7"
+            />
+          </div>
         )}
       </div>
 

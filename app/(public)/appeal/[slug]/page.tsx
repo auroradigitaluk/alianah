@@ -145,7 +145,7 @@ export default async function AppealPage({
       {/* Fundraiser Setup Option */}
       {appeal.allowFundraising && (
         <div className="mb-4 sm:mb-6">
-          <Button asChild variant="outline" className="w-full" size="lg">
+          <Button asChild className="w-full bg-primary text-primary-foreground hover:bg-black border-primary focus-visible:ring-primary/50" size="lg">
             <Link href={`/fundraise/${appeal.slug}`}>
               <Users className="mr-2 h-4 w-4" />
               Set up a fundraiser for this appeal

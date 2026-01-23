@@ -3,9 +3,6 @@ import { prisma } from "@/lib/prisma"
 import { FundraiserForm } from "@/components/fundraiser-form"
 import Image from "next/image"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { LogIn } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +48,7 @@ async function getFundraiser(slug: string) {
             yearlyPricePence: true,
             donationTypesEnabled: true,
             appealImageUrls: true,
+            fundraisingImageUrls: true,
             products: {
               include: {
                 product: true,
@@ -140,22 +138,37 @@ export default async function FundraisePage({
       ? JSON.parse(fundraiser.appeal.donationTypesEnabled)
       : ["GENERAL"]
 
-    // Use the specified hero image
-    const heroImage = "https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_3000/https://alianah.org/wp-content/uploads/2025/05/4-1.webp"
+    // Parse fundraising images - use fundraising images if available, otherwise fallback to appeal images, then hardcoded
+    const fundraisingImages: string[] = fundraiser.appeal.fundraisingImageUrls
+      ? (() => {
+          try {
+            return JSON.parse(fundraiser.appeal.fundraisingImageUrls)
+          } catch {
+            return []
+          }
+        })()
+      : []
+    
+    const appealImages: string[] = fundraiser.appeal.appealImageUrls
+      ? (() => {
+          try {
+            return JSON.parse(fundraiser.appeal.appealImageUrls)
+          } catch {
+            return []
+          }
+        })()
+      : []
+
+    // Use first fundraising image, or first appeal image, or fallback to hardcoded
+    const heroImage = fundraisingImages.length > 0
+      ? fundraisingImages[0]
+      : appealImages.length > 0
+      ? appealImages[0]
+      : "https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_3000/https://alianah.org/wp-content/uploads/2025/05/4-1.webp"
 
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
-          {/* Login Button */}
-          <div className="mb-4 sm:mb-6 flex justify-end">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/fundraise/login?redirect=/fundraise/${slug}`}>
-                <LogIn className="mr-2 h-4 w-4" />
-                Login
-              </Link>
-            </Button>
-          </div>
-
           {/* Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 sm:gap-6 lg:gap-8">
             {/* Left Column - Primary Content (~65%) */}
@@ -240,16 +253,6 @@ export default async function FundraisePage({
       <div className="min-h-screen bg-background">
         {/* Main Content */}
         <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-2xl">
-          {/* Login Button */}
-          <div className="mb-4 sm:mb-6 flex justify-end">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/fundraise/login?redirect=/fundraise/${slug}`}>
-                <LogIn className="mr-2 h-4 w-4" />
-                Login
-              </Link>
-            </Button>
-          </div>
-
           <div className="mb-6 sm:mb-8 text-center">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">{appeal.title}</h1>
             {appeal.summary && (

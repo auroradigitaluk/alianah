@@ -46,6 +46,7 @@ model Appeal {
   yearlyPricePence     Int? // Single price for yearly donations in pence
   allowFundraising     Boolean  @default(false)
   appealImageUrls      String   @default("[]") // JSON string array of Vercel Blob URLs
+  fundraisingImageUrls String   @default("[]") // JSON string array of Vercel Blob URLs for fundraising pages
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

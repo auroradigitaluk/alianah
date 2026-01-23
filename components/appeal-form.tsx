@@ -23,6 +23,7 @@ interface AppealFormProps {
     allowYearly: boolean
     allowFundraising?: boolean
     appealImageUrls?: string
+    fundraisingImageUrls?: string
     monthlyPricePence?: number | null
     yearlyPricePence?: number | null
   }
@@ -64,7 +65,18 @@ export function AppealForm({ appeal }: AppealFormProps) {
     }
     return []
   })
+  const [fundraisingImages, setFundraisingImages] = useState<string[]>(() => {
+    if (appeal?.fundraisingImageUrls) {
+      try {
+        return JSON.parse(appeal.fundraisingImageUrls)
+      } catch {
+        return []
+      }
+    }
+    return []
+  })
   const [uploading, setUploading] = useState(false)
+  const [uploadingFundraising, setUploadingFundraising] = useState(false)
 
 
   const toggleDonationType = (type: string) => {
@@ -113,6 +125,44 @@ export function AppealForm({ appeal }: AppealFormProps) {
     setAppealImages((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const handleFundraisingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingFundraising(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/admin/appeals/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to upload: ${response.statusText}`)
+      }
+
+      const { url } = await response.json()
+      if (!url) {
+        throw new Error("No URL returned from upload")
+      }
+      setFundraisingImages((prev) => [...prev, url])
+    } catch (error) {
+      console.error("Fundraising image upload error:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload image"
+      alert(errorMessage)
+    } finally {
+      setUploadingFundraising(false)
+      e.target.value = ""
+    }
+  }
+
+  const removeFundraisingImage = (index: number) => {
+    setFundraisingImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -135,6 +185,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
           allowYearly,
           allowFundraising,
           appealImageUrls: JSON.stringify(appealImages),
+          fundraisingImageUrls: JSON.stringify(fundraisingImages),
           monthlyPricePence: monthlyPrice && !isNaN(parseFloat(monthlyPrice)) && parseFloat(monthlyPrice) > 0
             ? Math.round(parseFloat(monthlyPrice) * 100)
             : null,
@@ -300,6 +351,48 @@ export function AppealForm({ appeal }: AppealFormProps) {
           </p>
         </div>
       </div>
+      {allowFundraising && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Fundraising Images</Label>
+            <p className="text-sm text-muted-foreground">
+              Upload images to display on fundraising pages for this appeal
+            </p>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={handleFundraisingImageUpload}
+              disabled={uploadingFundraising}
+              className="cursor-pointer"
+            />
+            {uploadingFundraising && <p className="text-sm text-muted-foreground">Uploading...</p>}
+          </div>
+          {fundraisingImages.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {fundraisingImages.map((url, index) => (
+                <div key={index} className="relative group">
+                  <div className="relative aspect-video rounded-lg overflow-hidden border bg-muted">
+                    <img
+                      src={url}
+                      alt={`Fundraising image ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removeFundraisingImage(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Appeal Images</Label>
