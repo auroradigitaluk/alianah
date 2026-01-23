@@ -5,7 +5,7 @@ import Link from "next/link"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { IconDroplet } from "@tabler/icons-react"
-import { ExternalLink, Droplet, MapPin, FileText, Target, Calendar, DollarSign } from "lucide-react"
+import { ExternalLink, Droplet, MapPin, FileText, Target, Calendar, Wallet } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -218,7 +218,7 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
         open={!!selectedProject}
         onOpenChange={(open) => !open && setSelectedProject(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold">
               {selectedProject ? `${PROJECT_TYPE_LABELS[selectedProject.projectType]}` : "Project Details"}
@@ -231,7 +231,7 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
           {selectedProject && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 border-b">
+                <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     {selectedProject.donations && selectedProject.donations.length > 0 && (

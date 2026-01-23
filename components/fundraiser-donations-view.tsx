@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
-import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName } from "@/lib/utils"
+import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod } from "@/lib/utils"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -180,7 +180,7 @@ export function FundraiserDonationsView({
                         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
                           Payment Method
                         </p>
-                        <p className="font-medium">{formatEnum(donation.paymentMethod)}</p>
+                        <p className="font-medium">{formatPaymentMethod(donation.paymentMethod)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">

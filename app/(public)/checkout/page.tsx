@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useSidecart } from "@/components/sidecart-provider"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, PAYMENT_METHODS, COLLECTION_SOURCES } from "@/lib/utils"
 import { z } from "zod"
 
 const checkoutSchema = z.object({
@@ -119,7 +119,8 @@ export default function CheckoutPage() {
               billingCountry: validated.billingCountry || undefined,
               amountPence: item.amountPence,
               donationType: item.donationType,
-              paymentMethod: "STRIPE",
+              paymentMethod: PAYMENT_METHODS.WEBSITE_STRIPE,
+              collectedVia: COLLECTION_SOURCES.WEBSITE,
               giftAid: validated.giftAid,
               // Store plaque name in notes if provided
               notes: item.plaqueName ? `Plaque Name: ${item.plaqueName}` : undefined,

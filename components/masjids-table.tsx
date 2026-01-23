@@ -13,7 +13,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Building2, User, Phone, Mail, MapPin, DollarSign, Calendar } from "lucide-react"
+import { Building2, User, Phone, Mail, MapPin, Wallet, Calendar } from "lucide-react"
 
 interface Masjid {
   id: string
@@ -95,7 +95,7 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
         open={!!selectedMasjid}
         onOpenChange={(open) => !open && setSelectedMasjid(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold">
               {selectedMasjid?.name || "Masjid Details"}
@@ -108,7 +108,7 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
           {selectedMasjid && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 border-b">
+                <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                   </TabsList>

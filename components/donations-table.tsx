@@ -4,7 +4,7 @@ import { useState } from "react"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
-import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName } from "@/lib/utils"
+import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, Mail, DollarSign, Target, Calendar, CreditCard, Gift, MapPin, FileText } from "lucide-react"
+import { User, Mail, Wallet, Target, Calendar, CreditCard, Gift, MapPin, FileText } from "lucide-react"
 
 interface Donation {
   id: string
@@ -138,7 +138,7 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
         open={!!selectedDonation}
         onOpenChange={(open) => !open && setSelectedDonation(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold">
               Donation Details
@@ -151,7 +151,7 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
           {selectedDonation && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 border-b">
+                <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="details">Details</TabsTrigger>
@@ -305,7 +305,7 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
                         <div className="space-y-0">
                           <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
                             <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <DollarSign className="h-4 w-4 text-muted-foreground" />
+                              <Wallet className="h-4 w-4 text-muted-foreground" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -323,7 +323,7 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                                 Payment Method
                               </p>
-                              <p className="text-base text-foreground">{formatEnum(selectedDonation.paymentMethod)}</p>
+                              <p className="text-base text-foreground">{formatPaymentMethod(selectedDonation.paymentMethod)}</p>
                             </div>
                           </div>
                         </div>

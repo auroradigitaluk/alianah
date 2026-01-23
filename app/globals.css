@@ -153,3 +153,43 @@
     mask-composite: exclude;
   }
 }
+
+/* Calendar styles */
+@layer base {
+  [data-slot="calendar"] button[data-selected],
+  [data-slot="calendar"] button[data-range-start],
+  [data-slot="calendar"] button[data-range-end] {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    border-color: transparent !important;
+  }
+  
+  [data-slot="calendar"] button[data-range-middle] {
+    background-color: hsl(var(--primary) / 0.5) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+  
+  [data-slot="calendar"] .rdp-button_previous,
+  [data-slot="calendar"] .rdp-button_next,
+  [data-slot="calendar"] .rdp-button_previous svg,
+  [data-slot="calendar"] .rdp-button_next svg {
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  [data-slot="calendar"] button[data-selected]:hover,
+  [data-slot="calendar"] button[data-range-start]:hover,
+  [data-slot="calendar"] button[data-range-end]:hover {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+  
+  [data-slot="calendar"] button[data-range-middle]:hover {
+    background-color: hsl(var(--primary) / 0.5) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+  
+  [data-slot="calendar"] button[aria-selected="true"] {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+}

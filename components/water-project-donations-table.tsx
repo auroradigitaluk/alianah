@@ -19,7 +19,7 @@ import { toast } from "sonner"
 import { IconPencil, IconUpload, IconFileText, IconMail, IconCheck, IconEye, IconX, IconSend, IconDownload } from "@tabler/icons-react"
 import { ExternalLink } from "lucide-react"
 import { generateCompletionReportPDF } from "@/lib/pdf-generator"
-import { formatDonorName } from "@/lib/utils"
+import { formatDonorName, formatPaymentMethod } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 
 interface WaterProjectDonation {
@@ -551,7 +551,7 @@ Thank you for your generous support in making this project possible.`
         open={!!selectedDonation}
         onOpenChange={(open) => !open && setSelectedDonation(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold">
               {selectedDonation ? `Donation Overview - ${formatDonorName(selectedDonation.donor)}` : "Donation Overview"}
@@ -564,7 +564,7 @@ Thank you for your generous support in making this project possible.`
           {selectedDonation && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 border-b">
+                <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                   </TabsList>
@@ -642,7 +642,7 @@ Thank you for your generous support in making this project possible.`
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Payment Method</p>
-                    <p className="text-sm mt-1">{selectedDonation.paymentMethod}</p>
+                    <p className="text-sm mt-1">{formatPaymentMethod(selectedDonation.paymentMethod)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Gift Aid</p>

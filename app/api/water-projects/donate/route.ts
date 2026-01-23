@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { PAYMENT_METHODS, COLLECTION_SOURCES } from "@/lib/utils"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { sendWaterProjectDonationEmail } from "@/lib/email"
@@ -97,7 +98,8 @@ export async function POST(request: NextRequest) {
         donorId: donor.id,
         amountPence: data.amountPence,
         donationType: data.donationType,
-        paymentMethod: data.paymentMethod,
+        paymentMethod: data.paymentMethod || PAYMENT_METHODS.WEBSITE_STRIPE,
+        collectedVia: COLLECTION_SOURCES.WEBSITE,
         transactionId: data.transactionId || null,
         giftAid: data.giftAid,
         billingAddress: data.billingAddress || null,

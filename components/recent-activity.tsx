@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, DollarSign, Plus, Building2, XCircle, CheckCircle2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Wallet, Plus, Building2, XCircle, CheckCircle2 } from "lucide-react"
 
 interface Activity {
   type: string
@@ -26,7 +26,7 @@ export function RecentActivity({ activities }: RecentActivityProps) {
 
   const getActivityIcon = (type: string) => {
     if (type.includes("donation")) {
-      return <DollarSign className="h-4 w-4 text-green-600" />
+      return <Wallet className="h-4 w-4 text-green-600" />
     }
     if (type.includes("fundraiser")) {
       return <Plus className="h-4 w-4 text-blue-600" />
@@ -40,7 +40,7 @@ export function RecentActivity({ activities }: RecentActivityProps) {
     if (type.includes("succeeded")) {
       return <CheckCircle2 className="h-4 w-4 text-green-600" />
     }
-    return <DollarSign className="h-4 w-4 text-muted-foreground" />
+    return <Wallet className="h-4 w-4 text-muted-foreground" />
   }
 
   const formatTimeAgo = (timestamp: Date | string) => {

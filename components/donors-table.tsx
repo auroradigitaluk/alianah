@@ -13,7 +13,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, Mail, Phone, MapPin, DollarSign } from "lucide-react"
+import { User, Mail, Phone, MapPin, Wallet } from "lucide-react"
 
 interface Donor {
   id: string
@@ -94,7 +94,7 @@ export function DonorsTable({ donors }: { donors: Donor[] }) {
         open={!!selectedDonor}
         onOpenChange={(open) => !open && setSelectedDonor(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold">
               {selectedDonor ? formatDonorName(selectedDonor) : "Donor Details"}
@@ -107,7 +107,7 @@ export function DonorsTable({ donors }: { donors: Donor[] }) {
           {selectedDonor && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 border-b">
+                <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                   </TabsList>

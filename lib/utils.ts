@@ -45,3 +45,52 @@ export function formatDonorName(donor: { title?: string | null; firstName: strin
   parts.push(donor.firstName, donor.lastName)
   return parts.join(" ")
 }
+
+// Payment method constants and utilities
+export const PAYMENT_METHODS = {
+  WEBSITE_STRIPE: "WEBSITE_STRIPE",
+  CARD_SUMUP: "CARD_SUMUP",
+  CASH: "CASH",
+  BANK_TRANSFER: "BANK_TRANSFER",
+} as const
+
+export type PaymentMethod = typeof PAYMENT_METHODS[keyof typeof PAYMENT_METHODS]
+
+export function formatPaymentMethod(value: string): string {
+  const mapping: Record<string, string> = {
+    WEBSITE_STRIPE: "Website (Stripe)",
+    CARD_SUMUP: "Card (SumUp)",
+    CASH: "Cash",
+    BANK_TRANSFER: "Bank Transfer",
+    // Legacy values for backward compatibility
+    STRIPE: "Website (Stripe)",
+    CARD: "Card (SumUp)",
+    PAYPAL: "Website (Stripe)", // Treat PayPal as website
+    OTHER: "Other",
+  }
+  return mapping[value] || formatEnum(value)
+}
+
+// Collection source constants and utilities
+export const COLLECTION_SOURCES = {
+  WEBSITE: "website",
+  OFFICE: "office",
+  EVENTS: "events",
+  COLLECTIONS: "collections",
+  MASJID_COLLECTIONS: "masjid_collections",
+  FUNDRAISING: "fundraising",
+} as const
+
+export type CollectionSource = typeof COLLECTION_SOURCES[keyof typeof COLLECTION_SOURCES]
+
+export function formatCollectionSource(value: string): string {
+  const mapping: Record<string, string> = {
+    website: "Website",
+    office: "Office",
+    events: "Events",
+    collections: "Collections",
+    masjid_collections: "Masjid Collections",
+    fundraising: "Fundraising",
+  }
+  return mapping[value] || formatEnum(value)
+}

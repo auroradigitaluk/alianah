@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Building2, DollarSign, Calendar, Target, FileText, StickyNote } from "lucide-react"
+import { Building2, Wallet, Calendar, Target, FileText, StickyNote } from "lucide-react"
 
 interface Collection {
   id: string
@@ -89,7 +89,7 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
         open={!!selectedCollection}
         onOpenChange={(open) => !open && setSelectedCollection(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold">
               Collection Details
@@ -102,7 +102,7 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
           {selectedCollection && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 border-b">
+                <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                   </TabsList>

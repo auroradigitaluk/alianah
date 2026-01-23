@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
+import { PAYMENT_METHODS, COLLECTION_SOURCES } from "@/lib/utils"
 
 interface WaterProjectDonationFormProps {
   projectId: string
@@ -100,7 +101,8 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
           billingCountry: formData.billingCountry || undefined,
           amountPence,
           donationType,
-          paymentMethod: "STRIPE", // TODO: Integrate actual payment
+          paymentMethod: PAYMENT_METHODS.WEBSITE_STRIPE,
+          collectedVia: COLLECTION_SOURCES.WEBSITE,
           giftAid,
         }),
       })

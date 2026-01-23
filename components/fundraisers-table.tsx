@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName } from "@/lib/utils"
+import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod } from "@/lib/utils"
 import { ExternalLink, Eye, EyeOff, Calendar, Target, TrendingUp, Users, Gift, Mail, User, Hash, MessageSquare, Megaphone, FileText, Download } from "lucide-react"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
 
@@ -206,7 +206,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
       const date = formatDate(
         donation.completedAt ? new Date(donation.completedAt) : new Date(donation.createdAt)
       )
-      const paymentMethod = formatEnum(donation.paymentMethod)
+      const paymentMethod = formatPaymentMethod(donation.paymentMethod)
       const donationType = formatEnum(donation.donationType)
       const giftAid = donation.giftAid ? "Yes" : "No"
       const billingAddress = donation.billingAddress || ""
@@ -329,7 +329,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
         open={!!selectedFundraiser}
         onOpenChange={(open) => !open && setSelectedFundraiser(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold">
               {selectedFundraiser?.title || "Fundraiser Details"}
@@ -346,7 +346,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
           ) : fundraiserDetails ? (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 border-b">
+                <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="donations">
@@ -628,7 +628,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <div className="text-sm">{formatEnum(donation.paymentMethod)}</div>
+                                  <div className="text-sm">{formatPaymentMethod(donation.paymentMethod)}</div>
                                 </TableCell>
                                 <TableCell>
                                   <div className="text-sm">{formatEnum(donation.donationType)}</div>

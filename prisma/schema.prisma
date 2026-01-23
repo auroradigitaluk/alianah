@@ -140,7 +140,8 @@ model OfflineIncome {
   appealId     String?
   amountPence  Int
   donationType String // GENERAL | SADAQAH | ZAKAT | LILLAH
-  source       String // CASH | BANK_TRANSFER
+  source       String // CASH | BANK_TRANSFER (payment method for offline income)
+  collectedVia String? // website | office | events | collections | masjid_collections | fundraising
   receivedAt   DateTime
   notes        String?
   createdAt    DateTime @default(now())
@@ -221,7 +222,8 @@ model Donation {
   donationType  String // GENERAL | SADAQAH | ZAKAT | LILLAH
   frequency     String // ONE_OFF | MONTHLY | YEARLY
   status        String // PENDING | COMPLETED | FAILED | REFUNDED
-  paymentMethod String // STRIPE | PAYPAL | CARD | OTHER
+  paymentMethod String // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
+  collectedVia  String? // website | office | events | collections | masjid_collections | fundraising
   transactionId String?
   orderNumber   String? // Link to demoOrder for tracking
   giftAid       Boolean   @default(false)
@@ -387,7 +389,8 @@ model WaterProjectDonation {
   donorId        String
   amountPence    Int
   donationType   String // GENERAL | SADAQAH | ZAKAT | LILLAH
-  paymentMethod  String // STRIPE | PAYPAL | OTHER
+  paymentMethod  String // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
+  collectedVia   String? // website | office | events | collections | masjid_collections | fundraising
   transactionId  String?
   giftAid        Boolean   @default(false)
   billingAddress String? // Billing address for gift aid purposes

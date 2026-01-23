@@ -13,8 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { prisma } from "@/lib/prisma"
-import { formatCurrency, formatDonorName } from "@/lib/utils"
-import { DollarSign, Globe, Building2, Wallet, TrendingUp, TrendingDown, Repeat, XCircle } from "lucide-react"
+import { formatCurrency, formatDonorName, PAYMENT_METHODS, formatPaymentMethod } from "@/lib/utils"
+import { Wallet, Globe, Building2, TrendingUp, TrendingDown, Repeat, XCircle } from "lucide-react"
 
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic'
@@ -386,11 +386,11 @@ export default async function AdminDashboardPage({
       totalOfflineIncomePrev,
       totalCollectionsPrev,
     ] = await Promise.all([
-      // Current period: Total Online = STRIPE + CARD donations
+      // Current period: Total Online = WEBSITE_STRIPE + CARD_SUMUP donations
       prisma.donation.aggregate({
         where: {
           status: "COMPLETED",
-          paymentMethod: { in: ["STRIPE", "CARD"] },
+          paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, PAYMENT_METHODS.CARD_SUMUP, "STRIPE", "CARD"] },
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -485,11 +485,11 @@ export default async function AdminDashboardPage({
 
     // Get payment method data (online, card, cash)
     const [onlineDonations, cardDonations, cashDonations] = await Promise.all([
-      // Online = STRIPE donations
+      // Online = WEBSITE_STRIPE donations
       prisma.donation.aggregate({
         where: {
           status: "COMPLETED",
-          paymentMethod: "STRIPE",
+          paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE"] },
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -497,11 +497,11 @@ export default async function AdminDashboardPage({
         },
         _sum: { amountPence: true },
       }).catch(() => ({ _sum: { amountPence: 0 } })),
-      // Card = CARD donations (SumUp card readers)
+      // Card = CARD_SUMUP donations (SumUp card readers)
       prisma.donation.aggregate({
         where: {
           status: "COMPLETED",
-          paymentMethod: "CARD",
+          paymentMethod: { in: [PAYMENT_METHODS.CARD_SUMUP, "CARD"] },
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -509,17 +509,32 @@ export default async function AdminDashboardPage({
         },
         _sum: { amountPence: true },
       }).catch(() => ({ _sum: { amountPence: 0 } })),
-      // Cash = CASH from offline income
-      prisma.offlineIncome.aggregate({
-        where: {
-          source: "CASH",
-          receivedAt: {
-            gte: startDate,
-            lte: endDate,
+      // Cash = CASH from offline income and donations
+      Promise.all([
+        prisma.donation.aggregate({
+          where: {
+            status: "COMPLETED",
+            paymentMethod: PAYMENT_METHODS.CASH,
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
           },
-        },
-        _sum: { amountPence: true },
-      }).catch(() => ({ _sum: { amountPence: 0 } })),
+          _sum: { amountPence: true },
+        }).catch(() => ({ _sum: { amountPence: 0 } })),
+        prisma.offlineIncome.aggregate({
+          where: {
+            source: "CASH",
+            receivedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          _sum: { amountPence: true },
+        }).catch(() => ({ _sum: { amountPence: 0 } })),
+      ]).then(([donations, offline]) => ({
+        _sum: { amountPence: (donations._sum.amountPence || 0) + (offline._sum.amountPence || 0) },
+      })),
     ])
 
     // Get offline income and collections for the date range
@@ -573,19 +588,24 @@ export default async function AdminDashboardPage({
     
     const paymentMethodData = [
       {
-        name: "website",
+        name: "website_stripe",
         value: onlineDonations._sum.amountPence || 0,
-        label: "Website - Stripe",
+        label: formatPaymentMethod(PAYMENT_METHODS.WEBSITE_STRIPE),
       },
       {
-        name: "offline_cash",
-        value: offlineCashTotal._sum.amountPence || 0,
-        label: "Offline - Cash",
+        name: "card_sumup",
+        value: cardDonations._sum.amountPence || 0,
+        label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
       },
       {
-        name: "offline_bank",
+        name: "cash",
+        value: cashDonations._sum.amountPence || 0,
+        label: formatPaymentMethod(PAYMENT_METHODS.CASH),
+      },
+      {
+        name: "bank_transfer",
         value: offlineBankTotal._sum.amountPence || 0,
-        label: "Offline - Bank Transfer",
+        label: formatPaymentMethod(PAYMENT_METHODS.BANK_TRANSFER),
       },
       {
         name: "collections",
@@ -597,26 +617,26 @@ export default async function AdminDashboardPage({
     // Update distribution data with real payment method data
     const distributionData = [
       {
-        name: "online",
+        name: "website_stripe",
         value: onlineAmount,
-        label: "Online (Stripe)",
+        label: formatPaymentMethod(PAYMENT_METHODS.WEBSITE_STRIPE),
       },
       {
-        name: "card",
+        name: "card_sumup",
         value: cardAmount,
-        label: "Card (SumUp)",
+        label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
       },
       {
         name: "cash",
         value: cashAmount + totalOfflineAmount + totalCollectionsAmount,
-        label: "Cash & Other",
+        label: formatPaymentMethod(PAYMENT_METHODS.CASH),
       },
     ]
 
     // Ensure we're using the correct data sources strictly:
-    // Online = STRIPE donations only
-    // Card = CARD donations only  
-    // Cash = CASH from offline income only
+    // Website (Stripe) = WEBSITE_STRIPE donations only
+    // Card (SumUp) = CARD_SUMUP donations only  
+    // Cash = CASH from donations and offline income
 
 
     // Get donations by day for area chart - split by online vs offline
@@ -636,11 +656,11 @@ export default async function AdminDashboardPage({
       if (dayStart < startDate || dayEnd > endDate) continue
 
       const [stripeDonations, cardDonations, offlineDonations] = await Promise.all([
-        // Online donations (STRIPE)
+        // Online donations (WEBSITE_STRIPE)
         prisma.donation.aggregate({
           where: {
             status: "COMPLETED",
-            paymentMethod: "STRIPE",
+            paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE"] },
             createdAt: {
               gte: dayStart,
               lte: dayEnd,
@@ -648,11 +668,11 @@ export default async function AdminDashboardPage({
           },
           _sum: { amountPence: true },
         }).catch(() => ({ _sum: { amountPence: 0 } })),
-        // Card donations (CARD - SumUp card readers)
+        // Card donations (CARD_SUMUP - SumUp card readers)
         prisma.donation.aggregate({
           where: {
             status: "COMPLETED",
-            paymentMethod: "CARD",
+            paymentMethod: { in: [PAYMENT_METHODS.CARD_SUMUP, "CARD"] },
             createdAt: {
               gte: dayStart,
               lte: dayEnd,
@@ -1064,7 +1084,7 @@ export default async function AdminDashboardPage({
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
                       <div className="rounded-lg bg-primary/10 p-2">
-                        <DollarSign className="h-4 w-4 text-primary" />
+                        <Wallet className="h-4 w-4 text-primary" />
                       </div>
                     </CardHeader>
                     <CardContent className="relative z-10">
@@ -1228,7 +1248,7 @@ export default async function AdminDashboardPage({
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Monthly Total</CardTitle>
                       <div className="rounded-lg bg-blue-500/10 p-2">
-                        <DollarSign className="h-4 w-4 text-blue-600" />
+                        <Wallet className="h-4 w-4 text-blue-600" />
                       </div>
                     </CardHeader>
                     <CardContent className="relative z-10">
@@ -1355,19 +1375,24 @@ export default async function AdminDashboardPage({
     // Return empty data on error instead of fake data
     const paymentMethodData = [
       {
-        name: "website",
+        name: "website_stripe",
         value: 0,
-        label: "Website - Stripe",
+        label: formatPaymentMethod(PAYMENT_METHODS.WEBSITE_STRIPE),
       },
       {
-        name: "offline_cash",
+        name: "card_sumup",
         value: 0,
-        label: "Offline - Cash",
+        label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
       },
       {
-        name: "offline_bank",
+        name: "cash",
         value: 0,
-        label: "Offline - Bank Transfer",
+        label: formatPaymentMethod(PAYMENT_METHODS.CASH),
+      },
+      {
+        name: "bank_transfer",
+        value: 0,
+        label: formatPaymentMethod(PAYMENT_METHODS.BANK_TRANSFER),
       },
       {
         name: "collections",

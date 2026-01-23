@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, Mail, DollarSign, Target, Calendar, RefreshCw, FileText } from "lucide-react"
+import { User, Mail, Wallet, Target, Calendar, RefreshCw, FileText } from "lucide-react"
 
 interface RecurringDonation {
   id: string
@@ -111,7 +111,7 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
         open={!!selectedRecurring}
         onOpenChange={(open) => !open && setSelectedRecurring(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-2xl font-bold">
               Recurring Donation Details
@@ -124,7 +124,7 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
           {selectedRecurring && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 border-b">
+                <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                   </TabsList>

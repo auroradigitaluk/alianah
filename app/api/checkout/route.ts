@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { PAYMENT_METHODS, COLLECTION_SOURCES } from "@/lib/utils"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
@@ -129,7 +130,8 @@ export async function POST(request: NextRequest) {
         .filter((item) => item.appealId) // Only process appeal donations here
         .map(async (item) => {
           // Determine payment method based on item
-          const paymentMethod = "STRIPE" // Default, can be updated based on actual payment processing
+          const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE // Default for website donations via Stripe
+          const collectedVia = COLLECTION_SOURCES.WEBSITE // Website donations
 
           // Create donation record
           const donation = await prisma.donation.create({
@@ -142,6 +144,7 @@ export async function POST(request: NextRequest) {
               donationType: item.donationType,
               frequency: item.frequency,
               paymentMethod: paymentMethod,
+              collectedVia: collectedVia,
               status: "PENDING", // Will be updated to COMPLETED when payment is confirmed
               giftAid: validated.donor.giftAid,
               billingAddress: validated.donor.billingAddress || null,

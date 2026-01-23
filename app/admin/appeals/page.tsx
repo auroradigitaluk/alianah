@@ -8,9 +8,132 @@ import { AppealsTable } from "@/components/appeals-table"
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-async function getAppeals() {
+function getDateRange(range: string | null, start?: string | null, end?: string | null) {
+  const now = new Date()
+  let startDate: Date
+  let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
+  // Handle custom range
+  if (range === "custom" && start && end) {
+    startDate = new Date(start)
+    startDate.setHours(0, 0, 0, 0)
+    endDate = new Date(end)
+    endDate.setHours(23, 59, 59, 999)
+    return { startDate, endDate }
+  }
+
+  switch (range) {
+    case "this_week": {
+      const dayOfWeek = now.getDay()
+      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) // Adjust to Monday
+      startDate = new Date(now.getFullYear(), now.getMonth(), diff)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(startDate)
+      endDate.setDate(endDate.getDate() + 6)
+      endDate.setHours(23, 59, 59, 999)
+      break
+    }
+    case "last_week": {
+      const dayOfWeek = now.getDay()
+      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) // Adjust to Monday
+      const lastMonday = new Date(now.getFullYear(), now.getMonth(), diff - 7)
+      startDate = new Date(lastMonday)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(lastMonday)
+      endDate.setDate(endDate.getDate() + 6)
+      endDate.setHours(23, 59, 59, 999)
+      break
+    }
+    case "this_month":
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      break
+    case "last_month":
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+      break
+    case "90d":
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 90)
+      startDate.setHours(0, 0, 0, 0)
+      break
+    case "this_year":
+      startDate = new Date(now.getFullYear(), 0, 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+      break
+    case "last_year":
+      startDate = new Date(now.getFullYear() - 1, 0, 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999)
+      break
+    default:
+      // Default to this month
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+  }
+
+  return { startDate, endDate }
+}
+
+async function getAppeals(range: string | null, start: string | null, end: string | null) {
   try {
+    const { startDate, endDate } = getDateRange(range, start, end)
+    
     return await prisma.appeal.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        donations: {
+          select: {
+            id: true,
+            amountPence: true,
+            status: true,
+            paymentMethod: true,
+            createdAt: true,
+          },
+        },
+        offlineIncome: {
+          select: {
+            id: true,
+            amountPence: true,
+            source: true,
+            receivedAt: true,
+          },
+        },
+        collections: {
+          select: {
+            id: true,
+            amountPence: true,
+            collectedAt: true,
+          },
+        },
+        fundraisers: {
+          select: {
+            id: true,
+            title: true,
+            fundraiserName: true,
+            isActive: true,
+          },
+        },
+        products: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     })
   } catch {
@@ -18,8 +141,13 @@ async function getAppeals() {
   }
 }
 
-export default async function AppealsPage() {
-  const appeals = await getAppeals()
+export default async function AppealsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string; start?: string; end?: string }>
+}) {
+  const params = await searchParams
+  const appeals = await getAppeals(params?.range || null, params?.start || null, params?.end || null)
 
   return (
     <>
