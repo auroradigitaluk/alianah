@@ -23,9 +23,18 @@ const dateRangeOptions = [
 export function DashboardDateFilter() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const currentRange = searchParams.get("range") || "30d"
+  const [mounted, setMounted] = React.useState(false)
+  const [currentRange, setCurrentRange] = React.useState("30d")
+  
+  // Avoid hydration mismatch by only reading searchParams after mount
+  React.useEffect(() => {
+    setMounted(true)
+    const range = searchParams.get("range") || "30d"
+    setCurrentRange(range)
+  }, [searchParams])
 
   const handleRangeChange = (value: string) => {
+    setCurrentRange(value)
     const params = new URLSearchParams(searchParams.toString())
     if (value === "30d") {
       // Default value, remove from URL
@@ -37,19 +46,17 @@ export function DashboardDateFilter() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-2 sm:px-4 lg:px-6 pb-2">
-      <Select value={currentRange} onValueChange={handleRangeChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Select date range" />
-        </SelectTrigger>
-        <SelectContent>
-          {dateRangeOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={currentRange} onValueChange={handleRangeChange}>
+      <SelectTrigger className="w-[180px]" suppressHydrationWarning>
+        <SelectValue placeholder="Select date range" />
+      </SelectTrigger>
+      <SelectContent>
+        {dateRangeOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }

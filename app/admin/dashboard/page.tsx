@@ -3,6 +3,7 @@ import { ChartPieSimple } from "@/components/chart-pie-simple"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive-shadcn"
 import { TopCampaignsTable } from "@/components/top-campaigns-table"
 import { DashboardDateFilter } from "@/components/dashboard-date-filter"
+import { RecentActivity } from "@/components/recent-activity"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
@@ -683,7 +684,8 @@ export default async function AdminDashboardPage({
       })
     }
 
-    // Get top performing projects (appeals)
+    // Get top performing campaigns/appeals/projects (all donation targets)
+    // 1. Get Appeals
     const appeals = await prisma.appeal.findMany({
       where: { isActive: true },
       include: {
@@ -718,24 +720,100 @@ export default async function AdminDashboardPage({
       },
     }).catch(() => [])
 
-    // Calculate total amount for each appeal
-    const campaignsWithAmounts = appeals.map((appeal) => {
+    // 2. Get Water Projects with their donations
+    const waterProjects = await prisma.waterProject.findMany({
+      where: { isActive: true },
+      include: {
+        donations: {
+          where: {
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: { amountPence: true },
+        },
+      },
+    }).catch(() => [])
+
+    // 3. Get Products with their donations
+    const products = await prisma.product.findMany({
+      where: { isActive: true },
+      include: {
+        donations: {
+          where: {
+            status: "COMPLETED",
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: { amountPence: true },
+        },
+      },
+    }).catch(() => [])
+
+    // Combine all donation targets
+    const allCampaigns: Array<{ id: string; name: string; amountPence: number; type: string }> = []
+
+    // Add Appeals
+    appeals.forEach((appeal) => {
       const donationsTotal = appeal.donations.reduce((sum, d) => sum + d.amountPence, 0)
       const offlineTotal = appeal.offlineIncome.reduce((sum, d) => sum + d.amountPence, 0)
       const collectionsTotal = appeal.collections.reduce((sum, d) => sum + d.amountPence, 0)
       const totalAmount = donationsTotal + offlineTotal + collectionsTotal
-
-      return {
-        id: appeal.id,
-        name: appeal.title,
-        amountPence: totalAmount,
+      
+      if (totalAmount > 0) {
+        allCampaigns.push({
+          id: appeal.id,
+          name: appeal.title,
+          amountPence: totalAmount,
+          type: "Appeal",
+        })
       }
     })
 
-    // Sort by amount descending and take top 6
-    const topProjects = campaignsWithAmounts
+    // Add Water Projects
+    waterProjects.forEach((project) => {
+      const donationsTotal = project.donations.reduce((sum, d) => sum + d.amountPence, 0)
+      
+      if (donationsTotal > 0) {
+        const projectTypeLabels: Record<string, string> = {
+          WATER_PUMP: "Water Pump",
+          WATER_WELL: "Water Well",
+          WATER_TANK: "Water Tank",
+          WUDHU_AREA: "Wudhu Area",
+        }
+        
+        allCampaigns.push({
+          id: project.id,
+          name: project.location 
+            ? `${projectTypeLabels[project.projectType] || project.projectType} - ${project.location}`
+            : projectTypeLabels[project.projectType] || project.projectType,
+          amountPence: donationsTotal,
+          type: "Water Project",
+        })
+      }
+    })
+
+    // Add Products
+    products.forEach((product) => {
+      const donationsTotal = product.donations.reduce((sum, d) => sum + d.amountPence, 0)
+      
+      if (donationsTotal > 0) {
+        allCampaigns.push({
+          id: product.id,
+          name: product.name,
+          amountPence: donationsTotal,
+          type: "Product",
+        })
+      }
+    })
+
+    // Sort by amount descending and take top 10
+    const topProjects = allCampaigns
       .sort((a, b) => b.amountPence - a.amountPence)
-      .slice(0, 6)
+      .slice(0, 10)
 
     // Get latest donations
     const latestDonations = await prisma.donation.findMany({
@@ -803,7 +881,10 @@ export default async function AdminDashboardPage({
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        fundraiserName: true,
         appeal: {
           select: {
             title: true,
@@ -830,17 +911,18 @@ export default async function AdminDashboardPage({
       return {
         id: fundraiser.id,
         title: fundraiser.title,
+        fundraiserName: fundraiser.fundraiserName,
         appealTitle: fundraiser.appeal?.title || "General",
         totalRaised,
       }
     }).sort((a, b) => b.totalRaised - a.totalRaised)
 
-    // Get recent activity (last 10 events)
+    // Get recent activity (last 30 events for pagination)
     const recentActivity: Array<{ type: string; message: string; timestamp: Date }> = []
     
     // Get recent donations
     const recentDonations = await prisma.donation.findMany({
-      take: 10,
+      take: 20,
       orderBy: { createdAt: "desc" },
       where: {
         status: "COMPLETED",
@@ -874,7 +956,7 @@ export default async function AdminDashboardPage({
 
     // Get recent offline income
     const recentOffline = await prisma.offlineIncome.findMany({
-      take: 10,
+      take: 20,
       orderBy: { receivedAt: "desc" },
       where: {
         receivedAt: {
@@ -894,7 +976,7 @@ export default async function AdminDashboardPage({
 
     // Get recent collections
     const recentCollections = await prisma.collection.findMany({
-      take: 10,
+      take: 20,
       orderBy: { collectedAt: "desc" },
       where: {
         collectedAt: {
@@ -914,7 +996,7 @@ export default async function AdminDashboardPage({
 
     // Get recent fundraisers
     const recentFundraisers = await prisma.fundraiser.findMany({
-      take: 10,
+      take: 20,
       orderBy: { createdAt: "desc" },
       where: {
         createdAt: {
@@ -939,9 +1021,8 @@ export default async function AdminDashboardPage({
       })
     })
 
-    // Sort by timestamp and take last 10
+    // Sort by timestamp (newest first)
     recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    const recentActivityList = recentActivity.slice(0, 10)
 
     // Get context label for the selected period
     const getPeriodLabel = () => {
@@ -970,10 +1051,9 @@ export default async function AdminDashboardPage({
 
     return (
       <>
-        <AdminHeader title="Dashboard" />
+        <AdminHeader title="Dashboard" dateFilter={<DashboardDateFilter />} />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            <DashboardDateFilter />
             <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
               {/* Top Row: 4 Metric Cards in 2x2 Grid */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
@@ -1192,23 +1272,23 @@ export default async function AdminDashboardPage({
 
               {/* Second Row: Pie Chart and Top Performing Projects Table Side by Side */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-5">
-                  <div className="md:col-span-2 flex w-full">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-10">
+                  <div className="md:col-span-4 flex w-full">
                     <div className="w-full">
                       <ChartPieSimple data={paymentMethodData} />
                     </div>
                   </div>
-                  <div className="md:col-span-3 flex w-full">
+                  <div className="md:col-span-6 flex w-full">
                     <Card className="flex flex-col w-full">
                       <CardHeader>
-                        <CardTitle>Top Fundraising Appeals</CardTitle>
+                        <CardTitle>Top Campaigns & Appeals</CardTitle>
                         <p className="text-xs text-muted-foreground mt-1">{periodLabel}</p>
                       </CardHeader>
                       <CardContent className="flex-1">
                         {topProjects.length > 0 ? (
                           <TopCampaignsTable campaigns={topProjects} />
                         ) : (
-                          <p className="text-sm text-muted-foreground">No appeals with donations in this period</p>
+                          <p className="text-sm text-muted-foreground">No campaigns with donations in this period</p>
                         )}
                       </CardContent>
                     </Card>
@@ -1220,35 +1300,7 @@ export default async function AdminDashboardPage({
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
                   {/* Recent Activity */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Recent Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {recentActivityList.length > 0 ? (
-                        <div className="space-y-3">
-                          {recentActivityList.map((activity, index) => (
-                            <div key={index} className="flex items-start gap-3 text-sm">
-                              <div className="flex-1">
-                                <p className="text-foreground">{activity.message}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {new Date(activity.timestamp).toLocaleDateString("en-GB", {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No recent activity</p>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <RecentActivity activities={recentActivity} />
 
                   {/* Top Fundraisers */}
                   <Card>
@@ -1261,7 +1313,7 @@ export default async function AdminDashboardPage({
                           {fundraisersWithTotals.map((fundraiser) => (
                             <div key={fundraiser.id} className="flex items-center justify-between">
                               <div className="flex-1">
-                                <p className="font-medium text-sm">{fundraiser.title}</p>
+                                <p className="font-medium text-sm">{fundraiser.fundraiserName}</p>
                                 <p className="text-xs text-muted-foreground">{fundraiser.appealTitle}</p>
                               </div>
                               <p className="font-semibold text-sm">{formatCurrency(fundraiser.totalRaised)}</p>
@@ -1325,9 +1377,9 @@ export default async function AdminDashboardPage({
     ]
 
     const lineChartData: Array<{ date: string; desktop: number; mobile: number }> = []
-    const topProjects: Array<{ id: string; name: string; amountPence: number }> = []
-    const recentActivityList: Array<{ type: string; message: string; timestamp: Date }> = []
-    const fundraisersWithTotals: Array<{ id: string; title: string; appealTitle: string; totalRaised: number }> = []
+    const topProjects: Array<{ id: string; name: string; amountPence: number; type?: string }> = []
+    const recentActivity: Array<{ type: string; message: string; timestamp: Date }> = []
+    const fundraisersWithTotals: Array<{ id: string; title: string; fundraiserName: string; appealTitle: string; totalRaised: number }> = []
     const activeRecurring = 0
     const cancelledRecurringThisPeriod = 0
     const recurringMonthlyTotal = { _sum: { amountPence: 0 } }
@@ -1335,10 +1387,9 @@ export default async function AdminDashboardPage({
 
     return (
       <>
-        <AdminHeader title="Dashboard" />
+        <AdminHeader title="Dashboard" dateFilter={<DashboardDateFilter />} />
         <div className="flex flex-1 flex-col bg-gradient-to-b from-background via-background to-muted/20">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            <DashboardDateFilter />
             <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
               {/* Top Row: 4 Metric Cards in 2x2 Grid */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
@@ -1399,16 +1450,16 @@ export default async function AdminDashboardPage({
 
               {/* Second Row: Pie Chart and Top Performing Projects Table Side by Side */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-5">
-                  <div className="md:col-span-2 flex w-full">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-10">
+                  <div className="md:col-span-4 flex w-full">
                     <div className="w-full">
                       <ChartPieSimple data={paymentMethodData} />
                     </div>
                   </div>
-                  <div className="md:col-span-3 flex w-full">
+                  <div className="md:col-span-6 flex w-full">
                     <Card className="flex flex-col w-full">
                       <CardHeader>
-                        <CardTitle>Top Fundraising Appeals</CardTitle>
+                        <CardTitle>Top Campaigns & Appeals</CardTitle>
                       </CardHeader>
                       <CardContent className="flex-1">
                         <TopCampaignsTable campaigns={topProjects} />
@@ -1418,10 +1469,39 @@ export default async function AdminDashboardPage({
                 </div>
               </div>
 
-              {/* Third Row: Donations Over Time Chart */}
+              {/* Recent Activity and Top Fundraisers */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
-                <ChartAreaInteractive data={lineChartData} />
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
+                  {/* Recent Activity */}
+                  <RecentActivity activities={recentActivity} />
+
+                  {/* Top Fundraisers */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Top Fundraisers ({periodLabel})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {fundraisersWithTotals.length > 0 ? (
+                        <div className="space-y-3">
+                          {fundraisersWithTotals.map((fundraiser) => (
+                            <div key={fundraiser.id} className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{fundraiser.fundraiserName}</p>
+                                <p className="text-xs text-muted-foreground">{fundraiser.appealTitle}</p>
+                              </div>
+                              <p className="font-semibold text-sm">{formatCurrency(fundraiser.totalRaised)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No fundraisers created</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
+
+              {/* Third Row: Donations Over Time Chart */}
             </div>
           </div>
         </div>

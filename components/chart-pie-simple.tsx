@@ -82,16 +82,16 @@ export function ChartPieSimple({ data }: ChartPieSimpleProps) {
   const onlinePercentage = total > 0 ? ((onlineAmount / total) * 100).toFixed(1) : "0"
 
   return (
-    <Card className="flex flex-col h-full w-full">
-      <CardHeader className="items-center pb-0">
-        <CardTitle>Donations by Payment Method</CardTitle>
-        <CardDescription>Total donations breakdown</CardDescription>
+    <Card className="flex flex-col h-full w-full overflow-hidden">
+      <CardHeader className="pb-3 flex-shrink-0">
+        <CardTitle className="text-base font-semibold">Donations by Payment Method</CardTitle>
+        <CardDescription className="text-xs mt-1">Total donations breakdown</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
+      <CardContent className="flex-1 pb-4 pt-0 flex items-center justify-center">
         <ChartContainer
           id="payment-methods-pie"
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
+          className="aspect-square w-full max-w-[280px] mx-auto"
         >
           <PieChart>
             <ChartTooltip
@@ -116,30 +116,6 @@ export function ChartPieSimple({ data }: ChartPieSimpleProps) {
           </PieChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="flex-col gap-2 text-sm">
-        <div className="flex w-full flex-col gap-3">
-          {data.map((item) => {
-            const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0"
-            const configKey = item.name.toLowerCase()
-            const config = chartConfig[configKey as keyof typeof chartConfig]
-            const color = (config && 'color' in config ? config.color : undefined) || "oklch(0.574 0.259 142.38)"
-            return (
-              <div key={item.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="font-medium">{item.label}</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatCurrency(item.value)} ({percentage}%)
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </CardFooter>
     </Card>
   )
 }
