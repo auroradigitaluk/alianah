@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { sendFundraiserDonationNotification } from "@/lib/email"
+import Stripe from "stripe"
 
 // Lazy initialization to avoid errors during build when API key is not available
-let stripe: any = null
+let stripe: Stripe | null = null
 
-function getStripe() {
+function getStripe(): Stripe {
   if (!stripe) {
-    const Stripe = require("stripe")
     const apiKey = process.env.STRIPE_SECRET_KEY
     if (!apiKey) {
       throw new Error("STRIPE_SECRET_KEY is not set")
     }
     stripe = new Stripe(apiKey, {
-      apiVersion: "2024-12-18.acacia",
+      // Stripe's TS types may not include preview API versions.
+      apiVersion: "2024-12-18.acacia" as unknown as Stripe.LatestApiVersion,
     })
   }
   return stripe
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 })
   }
 
-  let event: any
+  let event: Stripe.Event
 
   try {
     event = getStripe().webhooks.constructEvent(
@@ -42,16 +43,17 @@ export async function POST(request: NextRequest) {
       signature,
       process.env.STRIPE_WEBHOOK_SECRET
     )
-  } catch (err: any) {
-    console.error("Webhook signature verification failed:", err.message)
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error"
+    console.error("Webhook signature verification failed:", message)
+    return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 })
   }
 
   try {
     // Handle the event
     switch (event.type) {
       case "checkout.session.completed": {
-        const session = event.data.object
+        const session = event.data.object as Stripe.Checkout.Session
         
         // Find donation by order number or transaction ID
         const orderNumber = session.metadata?.orderNumber
@@ -143,7 +145,7 @@ export async function POST(request: NextRequest) {
       }
 
       case "payment_intent.succeeded": {
-        const paymentIntent = event.data.object
+        const paymentIntent = event.data.object as Stripe.PaymentIntent
         
         // Update donation by transaction ID
         if (paymentIntent.metadata?.donationId) {
@@ -203,7 +205,10 @@ export async function POST(request: NextRequest) {
       }
 
       case "invoice.payment_succeeded": {
-        const invoice = event.data.object
+        // Stripe's TS types vary by version; ensure `subscription` is accessible.
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription | null
+        }
         
         // Handle recurring donation payment
         if (invoice.subscription) {
@@ -225,7 +230,7 @@ export async function POST(request: NextRequest) {
 
       case "customer.subscription.deleted":
       case "invoice.payment_failed": {
-        const subscription = event.data.object
+        const subscription = event.data.object as Stripe.Subscription
         
         if (subscription.id) {
           await prisma.recurringDonation.updateMany({

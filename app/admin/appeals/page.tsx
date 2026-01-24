@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { AppealsTable } from "@/components/appeals-table"
+import { ArchivedAppealsModal } from "@/components/archived-appeals-modal"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -137,19 +138,30 @@ export default async function AppealsPage({
   searchParams: Promise<{ range?: string; start?: string; end?: string }>
 }) {
   const params = await searchParams
-  const appeals = await getAppeals(params?.range || null, params?.start || null, params?.end || null)
+
+  const allAppeals = await getAppeals(params?.range || null, params?.start || null, params?.end || null)
+  const appeals = allAppeals.filter((a) => !a.archivedAt)
+
+  const archivedAppeals = await prisma.appeal.findMany({
+    where: { archivedAt: { not: null } },
+    select: { id: true, title: true, slug: true, archivedAt: true },
+    orderBy: { archivedAt: "desc" },
+  })
 
   return (
     <>
       <AdminHeader
         title="Appeals"
         actions={
-          <Button asChild>
-            <Link href="/admin/appeals/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Appeal
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <ArchivedAppealsModal appeals={archivedAppeals} />
+            <Button asChild>
+              <Link href="/admin/appeals/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New Appeal
+              </Link>
+            </Button>
+          </div>
         }
       />
       <div className="flex flex-1 flex-col">

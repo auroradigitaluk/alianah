@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 async function getActiveAppeals() {
   try {
     return await prisma.appeal.findMany({
-      where: { isActive: true },
+      where: { isActive: true, archivedAt: null },
       include: {
         donations: {
           where: {
@@ -45,6 +45,7 @@ async function getOrCreateDefaultAppeal() {
   try {
     // Get any appeal (active or not) for the donation form fallback
     let appeal = await prisma.appeal.findFirst({
+      where: { archivedAt: null },
       orderBy: { createdAt: "desc" },
     })
 
@@ -207,6 +208,9 @@ export default async function HomePage() {
               allowYearly: a.allowYearly,
               monthlyPricePence: a.monthlyPricePence,
               yearlyPricePence: a.yearlyPricePence,
+              oneOffPresetAmountsPence: a.oneOffPresetAmountsPence,
+              monthlyPresetAmountsPence: a.monthlyPresetAmountsPence,
+              yearlyPresetAmountsPence: a.yearlyPresetAmountsPence,
             }))}
             products={[]}
             donationTypesEnabled={allDonationTypes}

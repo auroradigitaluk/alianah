@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,6 +33,7 @@ interface Appeal {
   sectionImpact: string
   framerUrl: string | null
   isActive: boolean
+  archivedAt?: Date | string | null
   donationTypesEnabled: string
   defaultDonationType: string
   allowMonthly: boolean
@@ -74,6 +75,7 @@ interface Appeal {
 }
 
 export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
+  const router = useRouter()
   const [selectedAppeal, setSelectedAppeal] = useState<Appeal | null>(null)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [modalDateRange, setModalDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null)
@@ -180,6 +182,43 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
     }
   }
 
+  const handleArchiveToggle = async (appeal: Appeal, archived: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/appeals/${appeal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || "Failed to update archive status")
+      }
+      setSelectedAppeal(null)
+      router.refresh()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update archive status")
+    }
+  }
+
+  const handleDelete = async (appeal: Appeal) => {
+    const ok = window.confirm(
+      "Delete this appeal? Donations will be kept, but the appeal (and related fundraisers/products) will be removed."
+    )
+    if (!ok) return
+
+    try {
+      const res = await fetch(`/api/admin/appeals/${appeal.id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || "Failed to delete appeal")
+      }
+      setSelectedAppeal(null)
+      router.refresh()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete appeal")
+    }
+  }
+
   return (
     <>
       <AdminTable
@@ -196,7 +235,10 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
         {
           id: "status",
           header: "Status",
-          cell: (appeal) => <StatusBadge isActive={appeal.isActive} />,
+          cell: (appeal) =>
+            appeal.archivedAt
+              ? <StatusBadge status="Archived" />
+              : <StatusBadge isActive={appeal.isActive} />,
         },
         {
           id: "appealLink",
@@ -482,12 +524,40 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
                       <Separator className="my-6" />
 
                       <div className="pt-2">
-                        <a
-                          href={`/admin/appeals/${selectedAppeal.id}/edit`}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          Edit Appeal →
-                        </a>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a
+                            href={`/admin/appeals/${selectedAppeal.id}/edit`}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            Edit Appeal →
+                          </a>
+                          <div className="ml-auto flex items-center gap-2">
+                            {selectedAppeal.archivedAt ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleArchiveToggle(selectedAppeal, false)}
+                              >
+                                Unarchive
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleArchiveToggle(selectedAppeal, true)}
+                              >
+                                Archive
+                              </Button>
+                            )}
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDelete(selectedAppeal)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </TabsContent>
 

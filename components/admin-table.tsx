@@ -52,17 +52,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-interface AdminTableColumn {
+interface AdminTableColumn<T extends { id: string }> {
   id: string
   header: string
   accessorKey?: string
-  cell?: (row: any) => React.ReactNode
+  cell?: (row: T) => React.ReactNode
   enableSorting?: boolean
 }
 
 interface AdminTableProps<T extends { id: string }> {
   data: T[]
-  columns: AdminTableColumn[]
+  columns: AdminTableColumn<T>[]
   onRowClick?: (item: T) => void
   enableDrag?: boolean
   enableSelection?: boolean
@@ -236,10 +236,10 @@ export function AdminTable<T extends { id: string }>({
         cell: col.cell
           ? ({ row }) => col.cell!(row.original)
           : ({ row }) => {
-              const value = col.accessorKey
-                ? (row.original as any)[col.accessorKey]
-                : (row.original as any)[col.id]
-              return value || "-"
+              const record = row.original as unknown as Record<string, unknown>
+              const key = col.accessorKey || col.id
+              const value = record[key]
+              return value ?? "-"
             },
         enableSorting: col.enableSorting !== false,
       })

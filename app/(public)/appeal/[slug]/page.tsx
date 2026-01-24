@@ -20,10 +20,14 @@ async function getAppeal(slug: string) {
         summary: true,
         slug: true,
         isActive: true,
+        archivedAt: true,
         allowMonthly: true,
         allowYearly: true,
         monthlyPricePence: true,
         yearlyPricePence: true,
+        oneOffPresetAmountsPence: true,
+        monthlyPresetAmountsPence: true,
+        yearlyPresetAmountsPence: true,
         donationTypesEnabled: true,
         allowFundraising: true,
         framerUrl: true,
@@ -39,6 +43,11 @@ async function getAppeal(slug: string) {
     
     if (!appeal.isActive) {
       console.log(`Appeal is inactive: ${slug}`)
+      return null
+    }
+
+    if (appeal.archivedAt) {
+      console.log(`Appeal is archived: ${slug}`)
       return null
     }
     
@@ -156,6 +165,9 @@ export default async function AppealPage({
             allowYearly: appeal.allowYearly,
             monthlyPricePence: appeal.monthlyPricePence,
             yearlyPricePence: appeal.yearlyPricePence,
+            oneOffPresetAmountsPence: appeal.oneOffPresetAmountsPence,
+            monthlyPresetAmountsPence: appeal.monthlyPresetAmountsPence,
+            yearlyPresetAmountsPence: appeal.yearlyPresetAmountsPence,
           }}
           products={[]}
           donationTypesEnabled={donationTypesEnabled}

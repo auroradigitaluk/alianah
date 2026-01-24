@@ -1,13 +1,12 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface AppealFormProps {
   appeal?: {
@@ -26,6 +25,9 @@ interface AppealFormProps {
     fundraisingImageUrls?: string
     monthlyPricePence?: number | null
     yearlyPricePence?: number | null
+    oneOffPresetAmountsPence?: string
+    monthlyPresetAmountsPence?: string
+    yearlyPresetAmountsPence?: string
   }
 }
 
@@ -49,12 +51,39 @@ export function AppealForm({ appeal }: AppealFormProps) {
   const [allowMonthly, setAllowMonthly] = useState(appeal?.allowMonthly ?? false)
   const [allowYearly, setAllowYearly] = useState(appeal?.allowYearly ?? false)
   const [allowFundraising, setAllowFundraising] = useState(appeal?.allowFundraising ?? false)
-  const [monthlyPrice, setMonthlyPrice] = useState<string>(
-    appeal?.monthlyPricePence ? (appeal.monthlyPricePence / 100).toString() : ""
-  )
-  const [yearlyPrice, setYearlyPrice] = useState<string>(
-    appeal?.yearlyPricePence ? (appeal.yearlyPricePence / 100).toString() : ""
-  )
+  const [oneOffPresets, setOneOffPresets] = useState<string>(() => {
+    if (appeal?.oneOffPresetAmountsPence) {
+      try {
+        const arr = JSON.parse(appeal.oneOffPresetAmountsPence) as number[]
+        return arr.map((p) => (p / 100).toFixed(2)).join(", ")
+      } catch {
+        return ""
+      }
+    }
+    return ""
+  })
+  const [monthlyPresets, setMonthlyPresets] = useState<string>(() => {
+    if (appeal?.monthlyPresetAmountsPence) {
+      try {
+        const arr = JSON.parse(appeal.monthlyPresetAmountsPence) as number[]
+        return arr.map((p) => (p / 100).toFixed(2)).join(", ")
+      } catch {
+        return ""
+      }
+    }
+    return ""
+  })
+  const [yearlyPresets, setYearlyPresets] = useState<string>(() => {
+    if (appeal?.yearlyPresetAmountsPence) {
+      try {
+        const arr = JSON.parse(appeal.yearlyPresetAmountsPence) as number[]
+        return arr.map((p) => (p / 100).toFixed(2)).join(", ")
+      } catch {
+        return ""
+      }
+    }
+    return ""
+  })
   const [appealImages, setAppealImages] = useState<string[]>(() => {
     if (appeal?.appealImageUrls) {
       try {
@@ -78,6 +107,27 @@ export function AppealForm({ appeal }: AppealFormProps) {
   const [uploading, setUploading] = useState(false)
   const [uploadingFundraising, setUploadingFundraising] = useState(false)
 
+  const parsePresetInputToJsonPence = (input: string): string => {
+    const raw = input
+      .split(/[\n,]+/g)
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+    if (raw.length === 0) return "[]"
+
+    const pence: number[] = []
+    for (const token of raw) {
+      const amount = Number(token)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error(`Invalid preset amount: "${token}"`)
+      }
+      pence.push(Math.round(amount * 100))
+    }
+
+    // de-dupe + sort ascending
+    const uniqueSorted = Array.from(new Set(pence)).sort((a, b) => a - b)
+    return JSON.stringify(uniqueSorted)
+  }
 
   const toggleDonationType = (type: string) => {
     setDonationTypesEnabled((prev) =>
@@ -168,6 +218,24 @@ export function AppealForm({ appeal }: AppealFormProps) {
     setLoading(true)
 
     try {
+      if (allowFundraising && fundraisingImages.length < 3) {
+        alert("Please upload at least 3 fundraising images before enabling fundraising.")
+        return
+      }
+
+      let oneOffPresetAmountsPence = "[]"
+      let monthlyPresetAmountsPence = "[]"
+      let yearlyPresetAmountsPence = "[]"
+      try {
+        oneOffPresetAmountsPence = parsePresetInputToJsonPence(oneOffPresets)
+        monthlyPresetAmountsPence = parsePresetInputToJsonPence(monthlyPresets)
+        yearlyPresetAmountsPence = parsePresetInputToJsonPence(yearlyPresets)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Invalid preset amounts"
+        alert(msg)
+        return
+      }
+
       const url = appeal ? `/api/admin/appeals/${appeal.id}` : "/api/admin/appeals"
       const method = appeal ? "PUT" : "POST"
 
@@ -186,12 +254,11 @@ export function AppealForm({ appeal }: AppealFormProps) {
           allowFundraising,
           appealImageUrls: JSON.stringify(appealImages),
           fundraisingImageUrls: JSON.stringify(fundraisingImages),
-          monthlyPricePence: monthlyPrice && !isNaN(parseFloat(monthlyPrice)) && parseFloat(monthlyPrice) > 0
-            ? Math.round(parseFloat(monthlyPrice) * 100)
-            : null,
-          yearlyPricePence: yearlyPrice && !isNaN(parseFloat(yearlyPrice)) && parseFloat(yearlyPrice) > 0
-            ? Math.round(parseFloat(yearlyPrice) * 100)
-            : null,
+          monthlyPricePence: null,
+          yearlyPricePence: null,
+          oneOffPresetAmountsPence,
+          monthlyPresetAmountsPence,
+          yearlyPresetAmountsPence,
         }),
       })
 
@@ -290,39 +357,49 @@ export function AppealForm({ appeal }: AppealFormProps) {
 
         {allowMonthly && (
           <div className="space-y-2 border rounded-lg p-4">
-            <Label htmlFor="monthlyPrice">Monthly Price (£)</Label>
-            <p className="text-sm text-muted-foreground">
-              Set the monthly donation amount
-            </p>
-            <Input
-              id="monthlyPrice"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Enter monthly amount"
-              value={monthlyPrice}
-              onChange={(e) => setMonthlyPrice(e.target.value)}
-            />
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="monthlyPresets">Monthly Preset Amounts (£)</Label>
+              <Input
+                id="monthlyPresets"
+                placeholder="e.g. 10, 25, 50"
+                value={monthlyPresets}
+                onChange={(e) => setMonthlyPresets(e.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">
+                Comma-separated amounts shown as buttons for monthly donations.
+              </p>
+            </div>
           </div>
         )}
 
         {allowYearly && (
           <div className="space-y-2 border rounded-lg p-4">
-            <Label htmlFor="yearlyPrice">Yearly Price (£)</Label>
-            <p className="text-sm text-muted-foreground">
-              Set the yearly donation amount
-            </p>
-            <Input
-              id="yearlyPrice"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Enter yearly amount"
-              value={yearlyPrice}
-              onChange={(e) => setYearlyPrice(e.target.value)}
-            />
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="yearlyPresets">Yearly Preset Amounts (£)</Label>
+              <Input
+                id="yearlyPresets"
+                placeholder="e.g. 120, 250, 500"
+                value={yearlyPresets}
+                onChange={(e) => setYearlyPresets(e.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">
+                Comma-separated amounts shown as buttons for yearly donations.
+              </p>
+            </div>
           </div>
         )}
+      </div>
+      <div className="space-y-2 border rounded-lg p-4">
+        <Label htmlFor="oneOffPresets">One-off Preset Amounts (£)</Label>
+        <Input
+          id="oneOffPresets"
+          placeholder="e.g. 10, 20, 50, 100"
+          value={oneOffPresets}
+          onChange={(e) => setOneOffPresets(e.target.value)}
+        />
+        <p className="text-sm text-muted-foreground">
+          Comma-separated amounts shown as buttons for one-off donations.
+        </p>
       </div>
       <div className="space-y-4">
         <div className="space-y-2">
@@ -356,7 +433,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
           <div className="space-y-2">
             <Label>Fundraising Images</Label>
             <p className="text-sm text-muted-foreground">
-              Upload images to display on fundraising pages for this appeal
+              Upload at least 3 images to display as a slideshow on fundraising pages for this appeal
             </p>
             <Input
               type="file"
@@ -367,6 +444,9 @@ export function AppealForm({ appeal }: AppealFormProps) {
             />
             {uploadingFundraising && <p className="text-sm text-muted-foreground">Uploading...</p>}
           </div>
+          <p className="text-xs text-muted-foreground">
+            {fundraisingImages.length}/3 minimum uploaded
+          </p>
           {fundraisingImages.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {fundraisingImages.map((url, index) => (

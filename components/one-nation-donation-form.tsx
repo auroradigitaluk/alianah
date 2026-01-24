@@ -15,6 +15,11 @@ import { Input } from "@/components/ui/input"
 import { useSidecart } from "@/components/sidecart-provider"
 import { cn } from "@/lib/utils"
 
+type DonationType = "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
+
+const isDonationType = (value: string): value is DonationType =>
+  value === "GENERAL" || value === "SADAQAH" || value === "ZAKAT" || value === "LILLAH"
+
 interface Appeal {
   id: string
   title: string
@@ -23,6 +28,9 @@ interface Appeal {
   allowYearly: boolean
   monthlyPricePence: number | null
   yearlyPricePence: number | null
+  oneOffPresetAmountsPence?: string
+  monthlyPresetAmountsPence?: string
+  yearlyPresetAmountsPence?: string
 }
 
 interface Product {
@@ -78,7 +86,7 @@ export function OneNationDonationForm({
   const [donationType, setDonationType] = React.useState<"appeal" | "water">("appeal")
   const [selectedAppeal, setSelectedAppeal] = React.useState<string>("")
   const [selectedWaterProject, setSelectedWaterProject] = React.useState<string>("")
-  const [selectedIntention, setSelectedIntention] = React.useState<string>("")
+  const [selectedIntention, setSelectedIntention] = React.useState<DonationType | "">("")
   const [selectedWaterCountry, setSelectedWaterCountry] = React.useState<string>("")
   const [customAmount, setCustomAmount] = React.useState<string>("")
   const [selectedProduct, setSelectedProduct] = React.useState<string>("")
@@ -115,6 +123,36 @@ export function OneNationDonationForm({
   const yearlyPresetAmount = appealData?.yearlyPricePence
     ? appealData.yearlyPricePence / 100
     : null
+
+  const parseJsonIntArray = (value?: string): number[] => {
+    if (!value) return []
+    try {
+      const arr = JSON.parse(value)
+      if (!Array.isArray(arr)) return []
+      return arr
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0)
+    } catch {
+      return []
+    }
+  }
+
+  const getAppealPresetAmountsPence = (): number[] => {
+    if (!appealData) return []
+    if (frequency === "MONTHLY") {
+      const monthly = parseJsonIntArray(appealData.monthlyPresetAmountsPence)
+      if (monthly.length > 0) return monthly
+      return appealData.monthlyPricePence ? [appealData.monthlyPricePence] : []
+    }
+    if (frequency === "YEARLY") {
+      const yearly = parseJsonIntArray(appealData.yearlyPresetAmountsPence)
+      if (yearly.length > 0) return yearly
+      return appealData.yearlyPricePence ? [appealData.yearlyPricePence] : []
+    }
+    return parseJsonIntArray(appealData.oneOffPresetAmountsPence)
+  }
+
+  const appealPresetAmountsPence = getAppealPresetAmountsPence()
 
   // Get available countries for selected water project
   const availableWaterCountries = selectedWaterProject
@@ -204,17 +242,17 @@ export function OneNationDonationForm({
       }
     } else {
       // Direct donation to appeal
-      if (frequency === "MONTHLY" && monthlyPresetAmount) {
-        amountPence = Math.round(monthlyPresetAmount * 100)
-      } else if (frequency === "YEARLY" && yearlyPresetAmount) {
-        amountPence = Math.round(yearlyPresetAmount * 100)
-      } else if (customAmount) {
+      if (customAmount) {
         const amount = parseFloat(customAmount)
         if (isNaN(amount) || amount <= 0) {
           alert("Please enter a valid amount")
           return
         }
         amountPence = Math.round(amount * 100)
+      } else if (frequency === "MONTHLY" && monthlyPresetAmount) {
+        amountPence = Math.round(monthlyPresetAmount * 100)
+      } else if (frequency === "YEARLY" && yearlyPresetAmount) {
+        amountPence = Math.round(yearlyPresetAmount * 100)
       } else {
         alert("Please enter an amount")
         return
@@ -233,7 +271,7 @@ export function OneNationDonationForm({
         id: "",
         appealTitle: waterProjectData?.location || projectTypeLabels[waterProjectData?.projectType || ""] || "Water Project",
         frequency: "ONE_OFF",
-        donationType: selectedIntention as any,
+        donationType: selectedIntention,
         amountPence,
         waterProjectId: selectedWaterProject,
         waterProjectCountryId: selectedWaterCountry,
@@ -248,7 +286,7 @@ export function OneNationDonationForm({
         productId,
         productName,
         frequency: frequency === "ONE_OFF" ? "ONE_OFF" : frequency === "MONTHLY" ? "MONTHLY" : "YEARLY",
-        donationType: selectedIntention as any,
+        donationType: selectedIntention,
         amountPence,
       })
     }
@@ -493,6 +531,28 @@ export function OneNationDonationForm({
               </div>
             )}
 
+            {/* Appeal Preset Amounts (direct donation) */}
+            {donationType === "appeal" && selectedAppeal && (!selectedProduct || productAllowsCustom) && appealPresetAmountsPence.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">
+                  Suggested Amounts <span className="text-destructive">*</span>
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {appealPresetAmountsPence.map((amountPence) => (
+                    <Button
+                      key={amountPence}
+                      type="button"
+                      variant={customAmount === (amountPence / 100).toString() ? "default" : "outline"}
+                      onClick={() => setCustomAmount((amountPence / 100).toString())}
+                      className="h-11"
+                    >
+                      £{(amountPence / 100).toFixed(2)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Amount Input (if product allows custom or no product selected, or water project) */}
             {((donationType === "water") || 
               (donationType === "appeal" && (!selectedProduct || productAllowsCustom))) && (
@@ -510,6 +570,8 @@ export function OneNationDonationForm({
                     placeholder={
                       donationType === "water" && selectedWaterCountryData
                         ? (selectedWaterCountryData.pricePence / 100).toFixed(2)
+                        : donationType === "appeal" && appealPresetAmountsPence.length > 0
+                        ? (appealPresetAmountsPence[0] / 100).toFixed(2)
                         : frequency === "MONTHLY" && monthlyPresetAmount
                         ? monthlyPresetAmount.toString()
                         : frequency === "YEARLY" && yearlyPresetAmount
@@ -567,7 +629,12 @@ export function OneNationDonationForm({
               <Label htmlFor="intention-select" className="text-sm font-medium text-foreground">
                 Donation Type <span className="text-destructive">*</span>
               </Label>
-              <Select value={selectedIntention} onValueChange={setSelectedIntention}>
+              <Select
+                value={selectedIntention}
+                onValueChange={(value) => {
+                  if (isDonationType(value)) setSelectedIntention(value)
+                }}
+              >
                 <SelectTrigger id="intention-select" className="h-11">
                   <SelectValue placeholder="Select donation type" />
                 </SelectTrigger>

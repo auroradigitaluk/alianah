@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { FundraiserForm } from "@/components/fundraiser-form"
-import Image from "next/image"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
+import { FundraisingSlideshow } from "@/components/fundraising-slideshow"
 
 export const dynamic = 'force-dynamic'
 
@@ -15,11 +15,12 @@ async function getAppeal(slug: string) {
         title: true,
         summary: true,
         isActive: true,
+        archivedAt: true,
         allowFundraising: true,
       },
     })
 
-    if (!appeal || !appeal.isActive || !appeal.allowFundraising) {
+    if (!appeal || !appeal.isActive || appeal.archivedAt || !appeal.allowFundraising) {
       return null
     }
 
@@ -42,10 +43,14 @@ async function getFundraiser(slug: string) {
             summary: true,
             slug: true,
             isActive: true,
+            archivedAt: true,
             allowMonthly: true,
             allowYearly: true,
             monthlyPricePence: true,
             yearlyPricePence: true,
+            oneOffPresetAmountsPence: true,
+            monthlyPresetAmountsPence: true,
+            yearlyPresetAmountsPence: true,
             donationTypesEnabled: true,
             appealImageUrls: true,
             fundraisingImageUrls: true,
@@ -92,6 +97,11 @@ async function getFundraiser(slug: string) {
 
     if (!fundraiser.appeal.isActive) {
       console.log(`Appeal is inactive for fundraiser: ${slug}`)
+      return null
+    }
+
+    if (fundraiser.appeal.archivedAt) {
+      console.log(`Appeal is archived for fundraiser: ${slug}`)
       return null
     }
 
@@ -160,11 +170,12 @@ export default async function FundraisePage({
       : []
 
     // Use first fundraising image, or first appeal image, or fallback to hardcoded
-    const heroImage = fundraisingImages.length > 0
-      ? fundraisingImages[0]
-      : appealImages.length > 0
-      ? appealImages[0]
-      : "https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_3000/https://alianah.org/wp-content/uploads/2025/05/4-1.webp"
+    const slideshowImages =
+      fundraisingImages.length > 0
+        ? fundraisingImages
+        : appealImages.length > 0
+          ? appealImages
+          : ["https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_3000/https://alianah.org/wp-content/uploads/2025/05/4-1.webp"]
 
     return (
       <div className="min-h-screen bg-background">
@@ -178,16 +189,11 @@ export default async function FundraisePage({
                 {fundraiser.title}
               </h1>
 
-              {/* 2. Hero Image */}
-              <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border">
-                <Image
-                  src={heroImage}
-                  alt={fundraiser.appeal.title}
-                  fill
-                  className="object-cover"
-                  priority
-                />
-              </div>
+              {/* 2. Fundraising Slideshow */}
+              <FundraisingSlideshow
+                images={slideshowImages}
+                alt={fundraiser.appeal.title}
+              />
 
               {/* 3. Fundraiser Meta Row */}
               <div className="space-y-1">
@@ -227,6 +233,9 @@ export default async function FundraisePage({
                     allowYearly: false,
                     monthlyPricePence: null,
                     yearlyPricePence: null,
+                    oneOffPresetAmountsPence: fundraiser.appeal.oneOffPresetAmountsPence,
+                    monthlyPresetAmountsPence: fundraiser.appeal.monthlyPresetAmountsPence,
+                    yearlyPresetAmountsPence: fundraiser.appeal.yearlyPresetAmountsPence,
                   }}
                   products={fundraiser.appeal.products.filter(p => p.frequency === "ONE_OFF")}
                   donationTypesEnabled={donationTypesEnabled}

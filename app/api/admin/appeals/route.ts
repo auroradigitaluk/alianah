@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
+const parseJsonArrayLength = (value: string | undefined): number => {
+  if (!value) return 0
+  try {
+    const arr = JSON.parse(value)
+    return Array.isArray(arr) ? arr.length : 0
+  } catch {
+    return 0
+  }
+}
+
 const appealSchema = z.object({
   title: z.string().min(1),
   slug: z.string().min(1),
@@ -20,6 +30,20 @@ const appealSchema = z.object({
   fundraisingImageUrls: z.string().optional(),
   monthlyPricePence: z.number().nullable().optional(),
   yearlyPricePence: z.number().nullable().optional(),
+  oneOffPresetAmountsPence: z.string().optional(),
+  monthlyPresetAmountsPence: z.string().optional(),
+  yearlyPresetAmountsPence: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.allowFundraising) {
+    const count = parseJsonArrayLength(data.fundraisingImageUrls)
+    if (count < 3) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fundraisingImageUrls"],
+        message: "At least 3 fundraising images are required when fundraising is enabled.",
+      })
+    }
+  }
 })
 
 export async function POST(request: NextRequest) {
@@ -46,6 +70,9 @@ export async function POST(request: NextRequest) {
         fundraisingImageUrls: data.fundraisingImageUrls || "[]",
         monthlyPricePence: data.monthlyPricePence || null,
         yearlyPricePence: data.yearlyPricePence || null,
+        oneOffPresetAmountsPence: data.oneOffPresetAmountsPence || "[]",
+        monthlyPresetAmountsPence: data.monthlyPresetAmountsPence || "[]",
+        yearlyPresetAmountsPence: data.yearlyPresetAmountsPence || "[]",
       },
     })
 

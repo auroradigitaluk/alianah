@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import type { Prisma } from "@prisma/client"
 import { z } from "zod"
+
+const parseJsonArrayLength = (value: string | undefined): number => {
+  if (!value) return 0
+  try {
+    const arr = JSON.parse(value)
+    return Array.isArray(arr) ? arr.length : 0
+  } catch {
+    return 0
+  }
+}
 
 const appealSchema = z.object({
   title: z.string().min(1),
@@ -20,6 +31,20 @@ const appealSchema = z.object({
   fundraisingImageUrls: z.string().optional(),
   monthlyPricePence: z.number().nullable().optional(),
   yearlyPricePence: z.number().nullable().optional(),
+  oneOffPresetAmountsPence: z.string().optional(),
+  monthlyPresetAmountsPence: z.string().optional(),
+  yearlyPresetAmountsPence: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.allowFundraising) {
+    const count = parseJsonArrayLength(data.fundraisingImageUrls)
+    if (count < 3) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fundraisingImageUrls"],
+        message: "At least 3 fundraising images are required when fundraising is enabled.",
+      })
+    }
+  }
 })
 
 export async function PUT(
@@ -31,7 +56,7 @@ export async function PUT(
     const body = await request.json()
     const data = appealSchema.parse(body)
 
-    const updateData: any = {
+    const updateData: Prisma.AppealUpdateInput = {
       title: data.title,
       slug: data.slug,
       summary: data.summary,
@@ -45,6 +70,9 @@ export async function PUT(
       fundraisingImageUrls: data.fundraisingImageUrls || "[]",
       monthlyPricePence: data.monthlyPricePence || null,
       yearlyPricePence: data.yearlyPricePence || null,
+      oneOffPresetAmountsPence: data.oneOffPresetAmountsPence || "[]",
+      monthlyPresetAmountsPence: data.monthlyPresetAmountsPence || "[]",
+      yearlyPresetAmountsPence: data.yearlyPresetAmountsPence || "[]",
     }
 
     // Only update section fields if provided
@@ -65,6 +93,58 @@ export async function PUT(
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     const errorMessage = error instanceof Error ? error.message : "Failed to update appeal"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
+  }
+}
+
+const archiveSchema = z.object({
+  archived: z.boolean(),
+})
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+    const data = archiveSchema.parse(body)
+
+    const appeal = await prisma.appeal.update({
+      where: { id },
+      data: {
+        archivedAt: data.archived ? new Date() : null,
+      },
+    })
+
+    return NextResponse.json(appeal)
+  } catch (error) {
+    console.error("Appeal archive error:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues }, { status: 400 })
+    }
+    const errorMessage = error instanceof Error ? error.message : "Failed to archive appeal"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+
+    // Donations are preserved (Donation.appealId uses onDelete: SetNull).
+    // Deleting an appeal will remove dependent records like appeal_products/fundraisers.
+    await prisma.appeal.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Appeal delete error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to delete appeal"
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

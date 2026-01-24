@@ -16,6 +16,8 @@ import { Badge } from "@/components/ui/badge"
 import { useSidecart } from "@/components/sidecart-provider"
 import { formatCurrency, formatEnum } from "@/lib/utils"
 
+type DonationType = "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
+
 interface AppealProduct {
   productId: string
   frequency: string
@@ -39,6 +41,9 @@ interface DonationFormProps {
     allowYearly: boolean
     monthlyPricePence: number | null
     yearlyPricePence: number | null
+    oneOffPresetAmountsPence?: string
+    monthlyPresetAmountsPence?: string
+    yearlyPresetAmountsPence?: string
   }
   products?: AppealProduct[]
   donationTypesEnabled: string[]
@@ -64,7 +69,10 @@ export function DonationForm({
   const [frequency, setFrequency] = React.useState<"ONE_OFF" | "MONTHLY" | "YEARLY">(
     initialFrequency || "ONE_OFF"
   )
-  const [donationType, setDonationType] = React.useState<string>(
+  const isDonationType = (value: string): value is DonationType =>
+    value === "GENERAL" || value === "SADAQAH" || value === "ZAKAT" || value === "LILLAH"
+
+  const [donationType, setDonationType] = React.useState<DonationType>(
     initialDonationType && donationTypesEnabled.includes(initialDonationType)
       ? initialDonationType
       : "GENERAL"
@@ -94,28 +102,39 @@ export function DonationForm({
   const availableProducts = products.filter((p) => p.frequency === frequency)
   const selectedProductData = availableProducts.find((p) => p.productId === selectedProduct)
 
-  // Get preset amount for monthly/yearly from appeal
-  const getAppealPresetAmount = (): number | null => {
-    if (frequency === "MONTHLY" && appeal.monthlyPricePence) {
-      return appeal.monthlyPricePence
+  const parseJsonIntArray = (value?: string): number[] => {
+    if (!value) return []
+    try {
+      const arr = JSON.parse(value)
+      if (!Array.isArray(arr)) return []
+      return arr
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0)
+    } catch {
+      return []
     }
-    if (frequency === "YEARLY" && appeal.yearlyPricePence) {
-      return appeal.yearlyPricePence
-    }
-    return null
   }
 
-  const appealPresetAmount = getAppealPresetAmount()
-
-  // Auto-select appeal preset amount when frequency changes
-  React.useEffect(() => {
-    if (appealPresetAmount && !selectedProduct) {
-      setPresetAmount(appealPresetAmount)
-      setCustomAmount("")
-    } else if (!appealPresetAmount && !selectedProduct && frequency !== "ONE_OFF") {
-      setPresetAmount(null)
+  const getAppealPresetAmounts = (): number[] => {
+    // Monthly / Yearly: prefer preset arrays, fallback to single price if set
+    if (frequency === "MONTHLY") {
+      const monthly = parseJsonIntArray(appeal.monthlyPresetAmountsPence)
+      if (monthly.length > 0) return monthly
+      return appeal.monthlyPricePence ? [appeal.monthlyPricePence] : []
     }
-  }, [frequency, appealPresetAmount, selectedProduct])
+    if (frequency === "YEARLY") {
+      const yearly = parseJsonIntArray(appeal.yearlyPresetAmountsPence)
+      if (yearly.length > 0) return yearly
+      return appeal.yearlyPricePence ? [appeal.yearlyPricePence] : []
+    }
+    // ONE_OFF: use one-off preset list only
+    return parseJsonIntArray(appeal.oneOffPresetAmountsPence)
+  }
+
+  const appealPresetAmounts = getAppealPresetAmounts()
+
+  // Note: we intentionally do NOT auto-select presets for recurring donations.
+  // Customers can always type any monthly/yearly amount, and presets are optional.
 
   const handleAddToBasket = () => {
     if (!donationType) {
@@ -169,7 +188,7 @@ export function DonationForm({
       productId,
       productName,
       frequency,
-      donationType: donationType as any,
+      donationType,
       amountPence,
     })
 
@@ -184,8 +203,7 @@ export function DonationForm({
 
   const canUseCustom = selectedProductData?.allowCustom ?? false
 
-  // Show preset button for appeal prices
-  const showAppealPreset = appealPresetAmount && !selectedProduct
+  const showAppealPresets = !selectedProduct && appealPresetAmounts.length > 0
 
   const formFields = (
     <>
@@ -212,18 +230,23 @@ export function DonationForm({
       {/* Amount Selection */}
       <div className="space-y-2">
         <Label className="text-base">Amount</Label>
-        {showAppealPreset && (
-          <Button
-            type="button"
-            variant={presetAmount === appealPresetAmount ? "default" : "outline"}
-            className="w-full h-11 text-base mb-2"
-            onClick={() => {
-              setPresetAmount(appealPresetAmount)
-              setCustomAmount("")
-            }}
-          >
-            {formatCurrency(appealPresetAmount)}
-          </Button>
+        {showAppealPresets && (
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            {appealPresetAmounts.map((amount) => (
+              <Button
+                key={amount}
+                type="button"
+                variant={presetAmount === amount ? "default" : "outline"}
+                onClick={() => {
+                  setPresetAmount(amount)
+                  setCustomAmount("")
+                }}
+                className="h-11 text-base"
+              >
+                {formatCurrency(amount)}
+              </Button>
+            ))}
+          </div>
         )}
         {selectedProductData && presetAmounts.length > 0 && (
           <div className="grid grid-cols-2 gap-2 mb-2">
@@ -243,7 +266,7 @@ export function DonationForm({
             ))}
           </div>
         )}
-        {((selectedProductData ? canUseCustom : true) && !showAppealPreset) && (
+        {((selectedProductData ? canUseCustom : true)) && (
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium pointer-events-none">
               £
@@ -267,7 +290,12 @@ export function DonationForm({
       {/* Donation Type Selection */}
       <div className="space-y-2">
         <Label className="text-base">Donation Type *</Label>
-        <Select value={donationType} onValueChange={setDonationType}>
+        <Select
+          value={donationType}
+          onValueChange={(value) => {
+            if (isDonationType(value)) setDonationType(value)
+          }}
+        >
           <SelectTrigger className="h-11">
             <SelectValue />
           </SelectTrigger>

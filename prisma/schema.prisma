@@ -36,12 +36,16 @@ model Appeal {
   sectionImpact        String
   framerUrl            String? // URL to Framer page for "Read full appeal details"
   isActive             Boolean  @default(true)
+  archivedAt           DateTime?
   donationTypesEnabled String   @default("[]") // JSON string
   defaultDonationType  String   @default("GENERAL")
   allowMonthly         Boolean  @default(false)
   allowYearly          Boolean  @default(false)
   allowCustomMonthly   Boolean  @default(false)
   allowCustomYearly    Boolean  @default(false)
+  oneOffPresetAmountsPence  String   @default("[]") // JSON string array of ints (pence)
+  monthlyPresetAmountsPence String   @default("[]") // JSON string array of ints (pence)
+  yearlyPresetAmountsPence  String   @default("[]") // JSON string array of ints (pence)
   monthlyPricePence    Int? // Single price for monthly donations in pence
   yearlyPricePence     Int? // Single price for yearly donations in pence
   allowFundraising     Boolean  @default(false)
@@ -59,6 +63,7 @@ model Appeal {
 
   @@index([slug])
   @@index([isActive])
+  @@index([archivedAt])
   @@map("appeals")
 }
 

@@ -21,6 +21,9 @@ interface FundraiserDonationCardProps {
     allowYearly: boolean
     monthlyPricePence: number | null
     yearlyPricePence: number | null
+    oneOffPresetAmountsPence?: string
+    monthlyPresetAmountsPence?: string
+    yearlyPresetAmountsPence?: string
   }
   products: any[]
   donationTypesEnabled: string[]

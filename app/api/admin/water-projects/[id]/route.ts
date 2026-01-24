@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import type { Prisma } from "@prisma/client"
 import { z } from "zod"
 import { sendWaterProjectCompletionEmail } from "@/lib/email"
 
@@ -72,12 +73,16 @@ export async function PUT(
     const isCompleting = data.status === "COMPLETE" && currentProject.status !== "COMPLETE"
     const hasCompletionData = data.completionImages && data.completionImages.length > 0
 
-    const updateData: any = { ...data }
-    if (data.completionImages) {
-      updateData.completionImages = JSON.stringify(data.completionImages)
-    }
-    if (isCompleting) {
-      updateData.completedAt = new Date()
+    const updateData: Prisma.WaterProjectUpdateInput = {
+      projectType: data.projectType,
+      location: data.location,
+      description: data.description,
+      isActive: data.isActive,
+      status: data.status,
+      amountPence: data.amountPence,
+      completionReport: data.completionReport,
+      ...(data.completionImages ? { completionImages: JSON.stringify(data.completionImages) } : {}),
+      ...(isCompleting ? { completedAt: new Date() } : {}),
     }
 
     const project = await prisma.waterProject.update({
