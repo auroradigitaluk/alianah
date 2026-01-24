@@ -538,7 +538,7 @@ export function OneNationDonationForm({
                           £{(preset.amountPence / 100).toFixed(2)}{frequency === "MONTHLY" ? "/month" : ""}
                         </span>
                         {preset.label && (
-                          <span className="text-xs font-medium text-foreground/80 mt-1 leading-snug line-clamp-3 text-center whitespace-normal group-hover:text-white">
+                          <span className="text-[11px] font-medium text-foreground/80 mt-0.5 leading-tight tracking-tight line-clamp-3 text-center whitespace-normal group-hover:text-white">
                             {preset.label}
                           </span>
                         )}

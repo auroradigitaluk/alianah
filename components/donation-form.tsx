@@ -292,7 +292,7 @@ export function DonationForm({
                       : formatCurrency(preset.amountPence)}
                   </span>
                   {preset.label && (
-                    <span className="text-xs font-medium text-foreground/80 mt-1 leading-snug line-clamp-3 text-center whitespace-normal group-hover:text-white">
+                    <span className="text-[11px] font-medium text-foreground/80 mt-0.5 leading-tight tracking-tight line-clamp-3 text-center whitespace-normal group-hover:text-white">
                       {preset.label}
                     </span>
                   )}
