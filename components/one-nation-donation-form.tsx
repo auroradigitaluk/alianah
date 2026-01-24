@@ -531,14 +531,14 @@ export function OneNationDonationForm({
                       type="button"
                       variant={customAmount === (preset.amountPence / 100).toString() ? "default" : "outline"}
                       onClick={() => setCustomAmount((preset.amountPence / 100).toString())}
-                      className="h-11"
+                      className={preset.label ? "group h-auto py-2.5" : "group h-11"}
                     >
                       <span className="flex flex-col items-center leading-tight">
-                        <span>
+                        <span className="group-hover:text-white">
                           £{(preset.amountPence / 100).toFixed(2)}{frequency === "MONTHLY" ? "/month" : ""}
                         </span>
                         {preset.label && (
-                          <span className="text-[11px] text-muted-foreground font-normal mt-0.5 line-clamp-2 text-center">
+                          <span className="text-xs font-medium text-foreground/80 mt-1 leading-snug line-clamp-3 text-center whitespace-normal group-hover:text-white">
                             {preset.label}
                           </span>
                         )}

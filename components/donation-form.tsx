@@ -283,16 +283,16 @@ export function DonationForm({
                   setPresetAmount(preset.amountPence)
                   setCustomAmount("")
                 }}
-                className="h-11 text-base"
+                className={preset.label ? "group h-auto py-2.5 text-base" : "group h-11 text-base"}
               >
                 <span className="flex flex-col items-center leading-tight">
-                  <span>
+                  <span className="font-semibold group-hover:text-white">
                     {frequency === "MONTHLY"
                       ? `${formatCurrency(preset.amountPence)}/month`
                       : formatCurrency(preset.amountPence)}
                   </span>
                   {preset.label && (
-                    <span className="text-[11px] text-muted-foreground font-normal mt-0.5 line-clamp-2 text-center">
+                    <span className="text-xs font-medium text-foreground/80 mt-1 leading-snug line-clamp-3 text-center whitespace-normal group-hover:text-white">
                       {preset.label}
                     </span>
                   )}
