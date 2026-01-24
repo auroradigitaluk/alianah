@@ -19,7 +19,6 @@ interface AppealFormProps {
     donationTypesEnabled: string[]
     defaultDonationType: string
     allowMonthly: boolean
-    allowYearly: boolean
     allowFundraising?: boolean
     appealImageUrls?: string
     fundraisingImageUrls?: string
@@ -27,7 +26,6 @@ interface AppealFormProps {
     yearlyPricePence?: number | null
     oneOffPresetAmountsPence?: string
     monthlyPresetAmountsPence?: string
-    yearlyPresetAmountsPence?: string
   }
 }
 
@@ -49,7 +47,6 @@ export function AppealForm({ appeal }: AppealFormProps) {
     appeal?.donationTypesEnabled || ["GENERAL"]
   )
   const [allowMonthly, setAllowMonthly] = useState(appeal?.allowMonthly ?? false)
-  const [allowYearly, setAllowYearly] = useState(appeal?.allowYearly ?? false)
   const [allowFundraising, setAllowFundraising] = useState(appeal?.allowFundraising ?? false)
   const [oneOffPresets, setOneOffPresets] = useState<string>(() => {
     if (appeal?.oneOffPresetAmountsPence) {
@@ -66,17 +63,6 @@ export function AppealForm({ appeal }: AppealFormProps) {
     if (appeal?.monthlyPresetAmountsPence) {
       try {
         const arr = JSON.parse(appeal.monthlyPresetAmountsPence) as number[]
-        return arr.map((p) => (p / 100).toFixed(2)).join(", ")
-      } catch {
-        return ""
-      }
-    }
-    return ""
-  })
-  const [yearlyPresets, setYearlyPresets] = useState<string>(() => {
-    if (appeal?.yearlyPresetAmountsPence) {
-      try {
-        const arr = JSON.parse(appeal.yearlyPresetAmountsPence) as number[]
         return arr.map((p) => (p / 100).toFixed(2)).join(", ")
       } catch {
         return ""
@@ -225,11 +211,9 @@ export function AppealForm({ appeal }: AppealFormProps) {
 
       let oneOffPresetAmountsPence = "[]"
       let monthlyPresetAmountsPence = "[]"
-      let yearlyPresetAmountsPence = "[]"
       try {
         oneOffPresetAmountsPence = parsePresetInputToJsonPence(oneOffPresets)
         monthlyPresetAmountsPence = parsePresetInputToJsonPence(monthlyPresets)
-        yearlyPresetAmountsPence = parsePresetInputToJsonPence(yearlyPresets)
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Invalid preset amounts"
         alert(msg)
@@ -250,7 +234,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
           isActive,
           donationTypesEnabled,
           allowMonthly,
-          allowYearly,
+          allowYearly: false,
           allowFundraising,
           appealImageUrls: JSON.stringify(appealImages),
           fundraisingImageUrls: JSON.stringify(fundraisingImages),
@@ -258,7 +242,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
           yearlyPricePence: null,
           oneOffPresetAmountsPence,
           monthlyPresetAmountsPence,
-          yearlyPresetAmountsPence,
+          yearlyPresetAmountsPence: "[]",
         }),
       })
 
@@ -344,14 +328,6 @@ export function AppealForm({ appeal }: AppealFormProps) {
             >
               Allow Monthly
             </Button>
-            <Button
-              type="button"
-              variant={allowYearly ? "default" : "outline"}
-              onClick={() => setAllowYearly(!allowYearly)}
-              className="h-9"
-            >
-              Allow Yearly
-            </Button>
           </div>
         </div>
 
@@ -367,23 +343,6 @@ export function AppealForm({ appeal }: AppealFormProps) {
               />
               <p className="text-sm text-muted-foreground">
                 Comma-separated amounts shown as buttons for monthly donations.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {allowYearly && (
-          <div className="space-y-2 border rounded-lg p-4">
-            <div className="space-y-2 mt-4">
-              <Label htmlFor="yearlyPresets">Yearly Preset Amounts (£)</Label>
-              <Input
-                id="yearlyPresets"
-                placeholder="e.g. 120, 250, 500"
-                value={yearlyPresets}
-                onChange={(e) => setYearlyPresets(e.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                Comma-separated amounts shown as buttons for yearly donations.
               </p>
             </div>
           </div>

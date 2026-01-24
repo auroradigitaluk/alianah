@@ -38,12 +38,9 @@ interface DonationFormProps {
     id: string
     title: string
     allowMonthly: boolean
-    allowYearly: boolean
     monthlyPricePence: number | null
-    yearlyPricePence: number | null
     oneOffPresetAmountsPence?: string
     monthlyPresetAmountsPence?: string
-    yearlyPresetAmountsPence?: string
   }
   products?: AppealProduct[]
   donationTypesEnabled: string[]
@@ -67,7 +64,7 @@ export function DonationForm({
   const { addItem } = useSidecart()
 
   const [frequency, setFrequency] = React.useState<"ONE_OFF" | "MONTHLY" | "YEARLY">(
-    initialFrequency || "ONE_OFF"
+    initialFrequency === "YEARLY" ? "ONE_OFF" : (initialFrequency || "ONE_OFF")
   )
   const isDonationType = (value: string): value is DonationType =>
     value === "GENERAL" || value === "SADAQAH" || value === "ZAKAT" || value === "LILLAH"
@@ -116,16 +113,11 @@ export function DonationForm({
   }
 
   const getAppealPresetAmounts = (): number[] => {
-    // Monthly / Yearly: prefer preset arrays, fallback to single price if set
+    // Monthly: prefer preset arrays, fallback to single price if set
     if (frequency === "MONTHLY") {
       const monthly = parseJsonIntArray(appeal.monthlyPresetAmountsPence)
       if (monthly.length > 0) return monthly
       return appeal.monthlyPricePence ? [appeal.monthlyPricePence] : []
-    }
-    if (frequency === "YEARLY") {
-      const yearly = parseJsonIntArray(appeal.yearlyPresetAmountsPence)
-      if (yearly.length > 0) return yearly
-      return appeal.yearlyPricePence ? [appeal.yearlyPricePence] : []
     }
     // ONE_OFF: use one-off preset list only
     return parseJsonIntArray(appeal.oneOffPresetAmountsPence)
@@ -207,6 +199,37 @@ export function DonationForm({
 
   const formFields = (
     <>
+      {/* Frequency Selection (only if monthly is enabled) */}
+      {appeal.allowMonthly && (
+        <div className="space-y-2">
+          <Label className="text-base">Frequency</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={frequency === "ONE_OFF" ? "default" : "outline"}
+              className="h-11 text-base"
+              onClick={() => setFrequency("ONE_OFF")}
+            >
+              One off
+            </Button>
+            <Button
+              type="button"
+              variant={frequency === "MONTHLY" ? "default" : "outline"}
+              className="h-11 text-base"
+              onClick={() => setFrequency("MONTHLY")}
+            >
+              Recurring
+            </Button>
+          </div>
+          {frequency === "MONTHLY" && (
+            <p className="text-sm text-muted-foreground">
+              This is a monthly donation. Your payment method will be charged each month at checkout.
+              Cancel anytime using the link in your email receipt.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Product Selection (if available) */}
       {availableProducts.length > 0 && (
         <div className="space-y-2">
@@ -243,7 +266,7 @@ export function DonationForm({
                 }}
                 className="h-11 text-base"
               >
-                {formatCurrency(amount)}
+                {frequency === "MONTHLY" ? `${formatCurrency(amount)}/month` : formatCurrency(amount)}
               </Button>
             ))}
           </div>
@@ -261,7 +284,7 @@ export function DonationForm({
                 }}
                 className="h-11 text-base"
               >
-                {formatCurrency(amount)}
+                {frequency === "MONTHLY" ? `${formatCurrency(amount)}/month` : formatCurrency(amount)}
               </Button>
             ))}
           </div>

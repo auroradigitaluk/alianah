@@ -82,7 +82,6 @@ export default async function AppealPage({
     if (!freq) return undefined
     const lower = freq.toLowerCase()
     if (lower === "monthly") return "MONTHLY"
-    if (lower === "yearly") return "YEARLY"
     if (lower === "oneoff" || lower === "one-off") return "ONE_OFF"
     return undefined
   }
@@ -162,12 +161,9 @@ export default async function AppealPage({
             id: appeal.id,
             title: appeal.title,
             allowMonthly: appeal.allowMonthly,
-            allowYearly: appeal.allowYearly,
             monthlyPricePence: appeal.monthlyPricePence,
-            yearlyPricePence: appeal.yearlyPricePence,
             oneOffPresetAmountsPence: appeal.oneOffPresetAmountsPence,
             monthlyPresetAmountsPence: appeal.monthlyPresetAmountsPence,
-            yearlyPresetAmountsPence: appeal.yearlyPresetAmountsPence,
           }}
           products={[]}
           donationTypesEnabled={donationTypesEnabled}

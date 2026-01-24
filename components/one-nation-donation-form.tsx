@@ -25,12 +25,9 @@ interface Appeal {
   title: string
   slug: string
   allowMonthly: boolean
-  allowYearly: boolean
   monthlyPricePence: number | null
-  yearlyPricePence: number | null
   oneOffPresetAmountsPence?: string
   monthlyPresetAmountsPence?: string
-  yearlyPresetAmountsPence?: string
 }
 
 interface Product {
@@ -82,7 +79,7 @@ export function OneNationDonationForm({
 }: OneNationDonationFormProps) {
   const { addItem } = useSidecart()
 
-  const [frequency, setFrequency] = React.useState<"ONE_OFF" | "MONTHLY" | "YEARLY">("ONE_OFF")
+  const [frequency, setFrequency] = React.useState<"ONE_OFF" | "MONTHLY">("ONE_OFF")
   const [donationType, setDonationType] = React.useState<"appeal" | "water">("appeal")
   const [selectedAppeal, setSelectedAppeal] = React.useState<string>("")
   const [selectedWaterProject, setSelectedWaterProject] = React.useState<string>("")
@@ -109,19 +106,16 @@ export function OneNationDonationForm({
   
   // Check if product has fixed frequencies (monthly/yearly only, no custom)
   const productHasFixedFrequencies = selectedProductData && !selectedProductData.allowCustom && 
-    (selectedProductData.frequency === "MONTHLY" || selectedProductData.frequency === "YEARLY")
+    (selectedProductData.frequency === "MONTHLY")
   
   // Get preset amounts for product
   const productPresetAmounts = selectedProductData?.presetAmountsPence
     ? JSON.parse(selectedProductData.presetAmountsPence) as number[]
     : []
   
-  // Get preset amount for monthly/yearly from appeal
+  // Get preset amount for monthly from appeal (appeals do not support yearly)
   const monthlyPresetAmount = appealData?.monthlyPricePence
     ? appealData.monthlyPricePence / 100
-    : null
-  const yearlyPresetAmount = appealData?.yearlyPricePence
-    ? appealData.yearlyPricePence / 100
     : null
 
   const parseJsonIntArray = (value?: string): number[] => {
@@ -143,11 +137,6 @@ export function OneNationDonationForm({
       const monthly = parseJsonIntArray(appealData.monthlyPresetAmountsPence)
       if (monthly.length > 0) return monthly
       return appealData.monthlyPricePence ? [appealData.monthlyPricePence] : []
-    }
-    if (frequency === "YEARLY") {
-      const yearly = parseJsonIntArray(appealData.yearlyPresetAmountsPence)
-      if (yearly.length > 0) return yearly
-      return appealData.yearlyPricePence ? [appealData.yearlyPricePence] : []
     }
     return parseJsonIntArray(appealData.oneOffPresetAmountsPence)
   }
@@ -223,8 +212,6 @@ export function OneNationDonationForm({
         // Product with preset amounts only (no custom)
         if (frequency === "MONTHLY" && monthlyPresetAmount) {
           amountPence = Math.round(monthlyPresetAmount * 100)
-        } else if (frequency === "YEARLY" && yearlyPresetAmount) {
-          amountPence = Math.round(yearlyPresetAmount * 100)
         } else {
           alert("Please select a valid frequency for this product")
           return
@@ -251,8 +238,6 @@ export function OneNationDonationForm({
         amountPence = Math.round(amount * 100)
       } else if (frequency === "MONTHLY" && monthlyPresetAmount) {
         amountPence = Math.round(monthlyPresetAmount * 100)
-      } else if (frequency === "YEARLY" && yearlyPresetAmount) {
-        amountPence = Math.round(yearlyPresetAmount * 100)
       } else {
         alert("Please enter an amount")
         return
@@ -285,7 +270,7 @@ export function OneNationDonationForm({
         appealTitle: appealData?.title || "",
         productId,
         productName,
-        frequency: frequency === "ONE_OFF" ? "ONE_OFF" : frequency === "MONTHLY" ? "MONTHLY" : "YEARLY",
+        frequency: frequency === "ONE_OFF" ? "ONE_OFF" : "MONTHLY",
         donationType: selectedIntention,
         amountPence,
       })
@@ -375,21 +360,10 @@ export function OneNationDonationForm({
                 >
                   Monthly
                 </Button>
-                {appealData?.allowYearly && (
-                  <Button
-                    type="button"
-                    onClick={() => setFrequency("YEARLY")}
-                    variant={frequency === "YEARLY" ? "default" : "outline"}
-                    disabled={!!(productHasFixedFrequencies && selectedProductData?.frequency !== "YEARLY")}
-                    className={cn(
-                      "flex-1 h-11 text-sm font-medium transition-all",
-                      frequency === "YEARLY" && "shadow-sm"
-                    )}
-                  >
-                    Yearly
-                  </Button>
-                )}
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Recurring donations are monthly for appeals.
+              </p>
             </div>
           )}
 
@@ -514,18 +488,13 @@ export function OneNationDonationForm({
                       onClick={() => setCustomAmount((amount / 100).toString())}
                       className="h-11"
                     >
-                      £{(amount / 100).toFixed(2)}
+                      £{(amount / 100).toFixed(2)}{frequency === "MONTHLY" ? "/month" : ""}
                     </Button>
                   ))}
                 </div>
                 {frequency === "MONTHLY" && monthlyPresetAmount && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Monthly: £{monthlyPresetAmount.toFixed(2)}
-                  </p>
-                )}
-                {frequency === "YEARLY" && yearlyPresetAmount && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Yearly: £{yearlyPresetAmount.toFixed(2)}
                   </p>
                 )}
               </div>
@@ -546,7 +515,7 @@ export function OneNationDonationForm({
                       onClick={() => setCustomAmount((amountPence / 100).toString())}
                       className="h-11"
                     >
-                      £{(amountPence / 100).toFixed(2)}
+                      £{(amountPence / 100).toFixed(2)}{frequency === "MONTHLY" ? "/month" : ""}
                     </Button>
                   ))}
                 </div>
@@ -574,8 +543,6 @@ export function OneNationDonationForm({
                         ? (appealPresetAmountsPence[0] / 100).toFixed(2)
                         : frequency === "MONTHLY" && monthlyPresetAmount
                         ? monthlyPresetAmount.toString()
-                        : frequency === "YEARLY" && yearlyPresetAmount
-                        ? yearlyPresetAmount.toString()
                         : "Enter amount"
                     }
                     value={customAmount}
@@ -589,11 +556,6 @@ export function OneNationDonationForm({
                 {donationType === "appeal" && frequency === "MONTHLY" && monthlyPresetAmount && !selectedProduct && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Suggested monthly amount: £{monthlyPresetAmount.toFixed(2)}
-                  </p>
-                )}
-                {donationType === "appeal" && frequency === "YEARLY" && yearlyPresetAmount && !selectedProduct && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Suggested yearly amount: £{yearlyPresetAmount.toFixed(2)}
                   </p>
                 )}
                 {donationType === "appeal" && selectedProduct && !productAllowsCustom && (

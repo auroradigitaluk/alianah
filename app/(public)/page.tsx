@@ -205,12 +205,9 @@ export default async function HomePage() {
               title: a.title,
               slug: a.slug,
               allowMonthly: a.allowMonthly,
-              allowYearly: a.allowYearly,
               monthlyPricePence: a.monthlyPricePence,
-              yearlyPricePence: a.yearlyPricePence,
               oneOffPresetAmountsPence: a.oneOffPresetAmountsPence,
               monthlyPresetAmountsPence: a.monthlyPresetAmountsPence,
-              yearlyPresetAmountsPence: a.yearlyPresetAmountsPence,
             }))}
             products={[]}
             donationTypesEnabled={allDonationTypes}

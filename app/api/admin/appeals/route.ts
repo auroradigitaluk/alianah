@@ -64,15 +64,17 @@ export async function POST(request: NextRequest) {
         isActive: data.isActive,
         donationTypesEnabled: JSON.stringify(data.donationTypesEnabled),
         allowMonthly: data.allowMonthly,
-        allowYearly: data.allowYearly,
+        // Appeals do not support yearly recurring (yearly is sponsorship-only)
+        allowYearly: false,
+        allowCustomYearly: false,
         allowFundraising: data.allowFundraising ?? false,
         appealImageUrls: data.appealImageUrls || "[]",
         fundraisingImageUrls: data.fundraisingImageUrls || "[]",
         monthlyPricePence: data.monthlyPricePence || null,
-        yearlyPricePence: data.yearlyPricePence || null,
+        yearlyPricePence: null,
         oneOffPresetAmountsPence: data.oneOffPresetAmountsPence || "[]",
         monthlyPresetAmountsPence: data.monthlyPresetAmountsPence || "[]",
-        yearlyPresetAmountsPence: data.yearlyPresetAmountsPence || "[]",
+        yearlyPresetAmountsPence: "[]",
       },
     })
 

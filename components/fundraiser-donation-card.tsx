@@ -4,10 +4,24 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ProgressRing } from "@/components/ui/progress-ring"
-import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
 import { Share2, Heart, ShieldCheck } from "lucide-react"
 import { DonationForm } from "@/components/donation-form"
+
+type AppealProduct = {
+  productId: string
+  frequency: string
+  presetAmountsPence: string
+  allowCustom: boolean
+  product: {
+    id: string
+    name: string
+    type: string
+    fixedAmountPence: number | null
+    minAmountPence: number | null
+    maxAmountPence: number | null
+  }
+}
 
 interface FundraiserDonationCardProps {
   totalRaised: number
@@ -18,14 +32,12 @@ interface FundraiserDonationCardProps {
     id: string
     title: string
     allowMonthly: boolean
-    allowYearly: boolean
     monthlyPricePence: number | null
-    yearlyPricePence: number | null
     oneOffPresetAmountsPence?: string
     monthlyPresetAmountsPence?: string
     yearlyPresetAmountsPence?: string
   }
-  products: any[]
+  products: AppealProduct[]
   donationTypesEnabled: string[]
   fundraiserId: string
   recentDonations: Array<{

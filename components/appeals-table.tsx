@@ -37,11 +37,8 @@ interface Appeal {
   donationTypesEnabled: string
   defaultDonationType: string
   allowMonthly: boolean
-  allowYearly: boolean
   allowCustomMonthly: boolean
-  allowCustomYearly: boolean
   monthlyPricePence: number | null
-  yearlyPricePence: number | null
   allowFundraising: boolean
   appealImageUrls: string
   fundraisingImageUrls: string
@@ -195,6 +192,8 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
       }
       setSelectedAppeal(null)
       router.refresh()
+      // Ensure UI updates immediately (server + client state)
+      setTimeout(() => window.location.reload(), 50)
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to update archive status")
     }
@@ -214,6 +213,8 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
       }
       setSelectedAppeal(null)
       router.refresh()
+      // Ensure deleted row disappears immediately
+      setTimeout(() => window.location.reload(), 50)
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete appeal")
     }
@@ -726,23 +727,8 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Badge variant={selectedAppeal.allowYearly ? "default" : "secondary"}>
-                                    {selectedAppeal.allowYearly ? "✓" : "✗"} Yearly
-                                  </Badge>
-                                  {selectedAppeal.allowYearly && selectedAppeal.yearlyPricePence && (
-                                    <span className="text-sm text-muted-foreground">
-                                      ({formatCurrency(selectedAppeal.yearlyPricePence)})
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
                                   <Badge variant={selectedAppeal.allowCustomMonthly ? "default" : "secondary"}>
                                     {selectedAppeal.allowCustomMonthly ? "✓" : "✗"} Custom Monthly
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={selectedAppeal.allowCustomYearly ? "default" : "secondary"}>
-                                    {selectedAppeal.allowCustomYearly ? "✓" : "✗"} Custom Yearly
                                   </Badge>
                                 </div>
                               </div>

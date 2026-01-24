@@ -37,6 +37,8 @@ export function ArchivedAppealsModal({ appeals }: { appeals: ArchivedAppeal[] })
         throw new Error(data?.error || "Failed to unarchive appeal")
       }
       router.refresh()
+      // Ensure list/count updates immediately
+      setTimeout(() => window.location.reload(), 50)
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to unarchive appeal")
     } finally {
