@@ -51,8 +51,29 @@ export function AppealForm({ appeal }: AppealFormProps) {
   const [oneOffPresets, setOneOffPresets] = useState<string>(() => {
     if (appeal?.oneOffPresetAmountsPence) {
       try {
-        const arr = JSON.parse(appeal.oneOffPresetAmountsPence) as number[]
-        return arr.map((p) => (p / 100).toFixed(2)).join(", ")
+        const arr: unknown = JSON.parse(appeal.oneOffPresetAmountsPence)
+        if (!Array.isArray(arr)) return ""
+        return arr
+          .map((item) => {
+            if (typeof item === "number") return (item / 100).toFixed(2)
+            if (
+              item &&
+              typeof item === "object" &&
+              "amountPence" in item &&
+              typeof (item as { amountPence?: unknown }).amountPence === "number"
+            ) {
+              const amountPence = (item as { amountPence: number }).amountPence
+              const label =
+                "label" in item && typeof (item as { label?: unknown }).label === "string"
+                  ? (item as { label: string }).label.trim()
+                  : ""
+              const amount = (amountPence / 100).toFixed(2)
+              return label ? `${amount} - ${label}` : amount
+            }
+            return ""
+          })
+          .filter(Boolean)
+          .join("\n")
       } catch {
         return ""
       }
@@ -62,8 +83,29 @@ export function AppealForm({ appeal }: AppealFormProps) {
   const [monthlyPresets, setMonthlyPresets] = useState<string>(() => {
     if (appeal?.monthlyPresetAmountsPence) {
       try {
-        const arr = JSON.parse(appeal.monthlyPresetAmountsPence) as number[]
-        return arr.map((p) => (p / 100).toFixed(2)).join(", ")
+        const arr: unknown = JSON.parse(appeal.monthlyPresetAmountsPence)
+        if (!Array.isArray(arr)) return ""
+        return arr
+          .map((item) => {
+            if (typeof item === "number") return (item / 100).toFixed(2)
+            if (
+              item &&
+              typeof item === "object" &&
+              "amountPence" in item &&
+              typeof (item as { amountPence?: unknown }).amountPence === "number"
+            ) {
+              const amountPence = (item as { amountPence: number }).amountPence
+              const label =
+                "label" in item && typeof (item as { label?: unknown }).label === "string"
+                  ? (item as { label: string }).label.trim()
+                  : ""
+              const amount = (amountPence / 100).toFixed(2)
+              return label ? `${amount} - ${label}` : amount
+            }
+            return ""
+          })
+          .filter(Boolean)
+          .join("\n")
       } catch {
         return ""
       }
@@ -93,25 +135,43 @@ export function AppealForm({ appeal }: AppealFormProps) {
   const [uploading, setUploading] = useState(false)
   const [uploadingFundraising, setUploadingFundraising] = useState(false)
 
-  const parsePresetInputToJsonPence = (input: string): string => {
-    const raw = input
-      .split(/[\n,]+/g)
+  const parsePresetInputToJson = (input: string): string => {
+    const rawLines = input
+      .split(/\n+/g)
       .map((s) => s.trim())
       .filter(Boolean)
 
-    if (raw.length === 0) return "[]"
+    if (rawLines.length === 0) return "[]"
 
-    const pence: number[] = []
-    for (const token of raw) {
-      const amount = Number(token)
-      if (!Number.isFinite(amount) || amount <= 0) {
-        throw new Error(`Invalid preset amount: "${token}"`)
+    const presets: Array<{ amountPence: number; label?: string }> = []
+
+    for (const line of rawLines) {
+      // Supports:
+      // - "20"
+      // - "20, 50" (admin may paste with commas)
+      // - "20 - can provide water"
+      // - "20 | can provide water"
+      const parts = line.split(",").map((p) => p.trim()).filter(Boolean)
+      for (const part of parts) {
+        const [amountPart, ...rest] = part.split(/\s*(?:-|–|—|\|:|:|\|)\s*/g)
+        const amount = Number((amountPart || "").trim())
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error(`Invalid preset amount: "${amountPart}"`)
+        }
+        const label = rest.join(" - ").trim()
+        presets.push({
+          amountPence: Math.round(amount * 100),
+          ...(label ? { label } : {}),
+        })
       }
-      pence.push(Math.round(amount * 100))
     }
 
-    // de-dupe + sort ascending
-    const uniqueSorted = Array.from(new Set(pence)).sort((a, b) => a - b)
+    // de-dupe by amount (keep first label), sort ascending
+    const seen = new Set<number>()
+    const uniqueSorted = presets
+      .filter((p) => (seen.has(p.amountPence) ? false : (seen.add(p.amountPence), true)))
+      .sort((a, b) => a.amountPence - b.amountPence)
+
     return JSON.stringify(uniqueSorted)
   }
 
@@ -228,8 +288,8 @@ export function AppealForm({ appeal }: AppealFormProps) {
       let oneOffPresetAmountsPence = "[]"
       let monthlyPresetAmountsPence = "[]"
       try {
-        oneOffPresetAmountsPence = parsePresetInputToJsonPence(oneOffPresets)
-        monthlyPresetAmountsPence = parsePresetInputToJsonPence(monthlyPresets)
+        oneOffPresetAmountsPence = parsePresetInputToJson(oneOffPresets)
+        monthlyPresetAmountsPence = parsePresetInputToJson(monthlyPresets)
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Invalid preset amounts"
         alert(msg)
@@ -351,14 +411,14 @@ export function AppealForm({ appeal }: AppealFormProps) {
           <div className="space-y-2 border rounded-lg p-4">
             <div className="space-y-2 mt-4">
               <Label htmlFor="monthlyPresets">Monthly Preset Amounts (£)</Label>
-              <Input
+              <Textarea
                 id="monthlyPresets"
-                placeholder="e.g. 10, 25, 50"
+                placeholder={"One per line, e.g.\n20 - can provide water for a family\n50 - can provide a family food for a week"}
                 value={monthlyPresets}
                 onChange={(e) => setMonthlyPresets(e.target.value)}
               />
               <p className="text-sm text-muted-foreground">
-                Comma-separated amounts shown as buttons for monthly donations.
+                Amounts (and optional helper text) shown as buttons for monthly donations.
               </p>
             </div>
           </div>
@@ -366,14 +426,14 @@ export function AppealForm({ appeal }: AppealFormProps) {
       </div>
       <div className="space-y-2 border rounded-lg p-4">
         <Label htmlFor="oneOffPresets">One-off Preset Amounts (£)</Label>
-        <Input
+        <Textarea
           id="oneOffPresets"
-          placeholder="e.g. 10, 20, 50, 100"
+          placeholder={"One per line, e.g.\n20 - can provide water for a family\n50 - can provide a family food for a week"}
           value={oneOffPresets}
           onChange={(e) => setOneOffPresets(e.target.value)}
         />
         <p className="text-sm text-muted-foreground">
-          Comma-separated amounts shown as buttons for one-off donations.
+          Amounts (and optional helper text) shown as buttons for one-off donations.
         </p>
       </div>
       <div className="space-y-4">

@@ -17,6 +17,7 @@ import { useSidecart } from "@/components/sidecart-provider"
 import { formatCurrency, formatEnum } from "@/lib/utils"
 
 type DonationType = "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
+type Preset = { amountPence: number; label?: string }
 
 interface AppealProduct {
   productId: string
@@ -99,31 +100,49 @@ export function DonationForm({
   const availableProducts = products.filter((p) => p.frequency === frequency)
   const selectedProductData = availableProducts.find((p) => p.productId === selectedProduct)
 
-  const parseJsonIntArray = (value?: string): number[] => {
+  const parsePresetJson = (value?: string): Preset[] => {
     if (!value) return []
     try {
-      const arr = JSON.parse(value)
+      const arr: unknown = JSON.parse(value)
       if (!Array.isArray(arr)) return []
+
       return arr
-        .map((n) => Number(n))
-        .filter((n) => Number.isFinite(n) && n > 0)
+        .map((item): Preset | null => {
+          if (typeof item === "number" && Number.isFinite(item) && item > 0) {
+            return { amountPence: item }
+          }
+          if (item && typeof item === "object") {
+            const amountPence =
+              "amountPence" in item && typeof (item as { amountPence?: unknown }).amountPence === "number"
+                ? (item as { amountPence: number }).amountPence
+                : null
+            if (!amountPence || !Number.isFinite(amountPence) || amountPence <= 0) return null
+            const label =
+              "label" in item && typeof (item as { label?: unknown }).label === "string"
+                ? (item as { label: string }).label.trim()
+                : undefined
+            return { amountPence, ...(label ? { label } : {}) }
+          }
+          return null
+        })
+        .filter((p): p is Preset => Boolean(p))
     } catch {
       return []
     }
   }
 
-  const getAppealPresetAmounts = (): number[] => {
+  const getAppealPresets = (): Preset[] => {
     // Monthly: prefer preset arrays, fallback to single price if set
     if (frequency === "MONTHLY") {
-      const monthly = parseJsonIntArray(appeal.monthlyPresetAmountsPence)
+      const monthly = parsePresetJson(appeal.monthlyPresetAmountsPence)
       if (monthly.length > 0) return monthly
-      return appeal.monthlyPricePence ? [appeal.monthlyPricePence] : []
+      return appeal.monthlyPricePence ? [{ amountPence: appeal.monthlyPricePence }] : []
     }
     // ONE_OFF: use one-off preset list only
-    return parseJsonIntArray(appeal.oneOffPresetAmountsPence)
+    return parsePresetJson(appeal.oneOffPresetAmountsPence)
   }
 
-  const appealPresetAmounts = getAppealPresetAmounts()
+  const appealPresets = getAppealPresets()
 
   // Note: we intentionally do NOT auto-select presets for recurring donations.
   // Customers can always type any monthly/yearly amount, and presets are optional.
@@ -195,7 +214,7 @@ export function DonationForm({
 
   const canUseCustom = selectedProductData?.allowCustom ?? false
 
-  const showAppealPresets = !selectedProduct && appealPresetAmounts.length > 0
+  const showAppealPresets = !selectedProduct && appealPresets.length > 0
 
   const formFields = (
     <>
@@ -255,18 +274,29 @@ export function DonationForm({
         <Label className="text-base">Amount</Label>
         {showAppealPresets && (
           <div className="grid grid-cols-2 gap-2 mb-2">
-            {appealPresetAmounts.map((amount) => (
+            {appealPresets.map((preset) => (
               <Button
-                key={amount}
+                key={preset.amountPence}
                 type="button"
-                variant={presetAmount === amount ? "default" : "outline"}
+                variant={presetAmount === preset.amountPence ? "default" : "outline"}
                 onClick={() => {
-                  setPresetAmount(amount)
+                  setPresetAmount(preset.amountPence)
                   setCustomAmount("")
                 }}
                 className="h-11 text-base"
               >
-                {frequency === "MONTHLY" ? `${formatCurrency(amount)}/month` : formatCurrency(amount)}
+                <span className="flex flex-col items-center leading-tight">
+                  <span>
+                    {frequency === "MONTHLY"
+                      ? `${formatCurrency(preset.amountPence)}/month`
+                      : formatCurrency(preset.amountPence)}
+                  </span>
+                  {preset.label && (
+                    <span className="text-[11px] text-muted-foreground font-normal mt-0.5 line-clamp-2 text-center">
+                      {preset.label}
+                    </span>
+                  )}
+                </span>
               </Button>
             ))}
           </div>

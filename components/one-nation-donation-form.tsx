@@ -16,6 +16,7 @@ import { useSidecart } from "@/components/sidecart-provider"
 import { cn } from "@/lib/utils"
 
 type DonationType = "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
+type Preset = { amountPence: number; label?: string }
 
 const isDonationType = (value: string): value is DonationType =>
   value === "GENERAL" || value === "SADAQAH" || value === "ZAKAT" || value === "LILLAH"
@@ -118,30 +119,47 @@ export function OneNationDonationForm({
     ? appealData.monthlyPricePence / 100
     : null
 
-  const parseJsonIntArray = (value?: string): number[] => {
+  const parsePresetJson = (value?: string): Preset[] => {
     if (!value) return []
     try {
-      const arr = JSON.parse(value)
+      const arr: unknown = JSON.parse(value)
       if (!Array.isArray(arr)) return []
       return arr
-        .map((n) => Number(n))
-        .filter((n) => Number.isFinite(n) && n > 0)
+        .map((item): Preset | null => {
+          if (typeof item === "number" && Number.isFinite(item) && item > 0) {
+            return { amountPence: item }
+          }
+          if (item && typeof item === "object") {
+            const amountPence =
+              "amountPence" in item && typeof (item as { amountPence?: unknown }).amountPence === "number"
+                ? (item as { amountPence: number }).amountPence
+                : null
+            if (!amountPence || !Number.isFinite(amountPence) || amountPence <= 0) return null
+            const label =
+              "label" in item && typeof (item as { label?: unknown }).label === "string"
+                ? (item as { label: string }).label.trim()
+                : undefined
+            return { amountPence, ...(label ? { label } : {}) }
+          }
+          return null
+        })
+        .filter((p): p is Preset => Boolean(p))
     } catch {
       return []
     }
   }
 
-  const getAppealPresetAmountsPence = (): number[] => {
+  const getAppealPresets = (): Preset[] => {
     if (!appealData) return []
     if (frequency === "MONTHLY") {
-      const monthly = parseJsonIntArray(appealData.monthlyPresetAmountsPence)
+      const monthly = parsePresetJson(appealData.monthlyPresetAmountsPence)
       if (monthly.length > 0) return monthly
-      return appealData.monthlyPricePence ? [appealData.monthlyPricePence] : []
+      return appealData.monthlyPricePence ? [{ amountPence: appealData.monthlyPricePence }] : []
     }
-    return parseJsonIntArray(appealData.oneOffPresetAmountsPence)
+    return parsePresetJson(appealData.oneOffPresetAmountsPence)
   }
 
-  const appealPresetAmountsPence = getAppealPresetAmountsPence()
+  const appealPresets = getAppealPresets()
 
   // Get available countries for selected water project
   const availableWaterCountries = selectedWaterProject
@@ -501,21 +519,30 @@ export function OneNationDonationForm({
             )}
 
             {/* Appeal Preset Amounts (direct donation) */}
-            {donationType === "appeal" && selectedAppeal && (!selectedProduct || productAllowsCustom) && appealPresetAmountsPence.length > 0 && (
+            {donationType === "appeal" && selectedAppeal && (!selectedProduct || productAllowsCustom) && appealPresets.length > 0 && (
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">
                   Suggested Amounts <span className="text-destructive">*</span>
                 </Label>
                 <div className="grid grid-cols-2 gap-2">
-                  {appealPresetAmountsPence.map((amountPence) => (
+                  {appealPresets.map((preset) => (
                     <Button
-                      key={amountPence}
+                      key={preset.amountPence}
                       type="button"
-                      variant={customAmount === (amountPence / 100).toString() ? "default" : "outline"}
-                      onClick={() => setCustomAmount((amountPence / 100).toString())}
+                      variant={customAmount === (preset.amountPence / 100).toString() ? "default" : "outline"}
+                      onClick={() => setCustomAmount((preset.amountPence / 100).toString())}
                       className="h-11"
                     >
-                      £{(amountPence / 100).toFixed(2)}{frequency === "MONTHLY" ? "/month" : ""}
+                      <span className="flex flex-col items-center leading-tight">
+                        <span>
+                          £{(preset.amountPence / 100).toFixed(2)}{frequency === "MONTHLY" ? "/month" : ""}
+                        </span>
+                        {preset.label && (
+                          <span className="text-[11px] text-muted-foreground font-normal mt-0.5 line-clamp-2 text-center">
+                            {preset.label}
+                          </span>
+                        )}
+                      </span>
                     </Button>
                   ))}
                 </div>
@@ -539,8 +566,8 @@ export function OneNationDonationForm({
                     placeholder={
                       donationType === "water" && selectedWaterCountryData
                         ? (selectedWaterCountryData.pricePence / 100).toFixed(2)
-                        : donationType === "appeal" && appealPresetAmountsPence.length > 0
-                        ? (appealPresetAmountsPence[0] / 100).toFixed(2)
+                        : donationType === "appeal" && appealPresets.length > 0
+                        ? (appealPresets[0].amountPence / 100).toFixed(2)
                         : frequency === "MONTHLY" && monthlyPresetAmount
                         ? monthlyPresetAmount.toString()
                         : "Enter amount"
