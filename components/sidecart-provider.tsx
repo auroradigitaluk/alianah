@@ -17,6 +17,10 @@ interface CartItem {
   waterProjectId?: string
   waterProjectCountryId?: string
   plaqueName?: string
+  // Sponsorship specific fields
+  sponsorshipProjectId?: string
+  sponsorshipCountryId?: string
+  sponsorshipProjectType?: string
 }
 
 interface SidecartContextType {
@@ -51,7 +55,12 @@ export function SidecartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = React.useCallback((item: CartItem) => {
     setItems((prev) => {
-      const newItem = { ...item, id: `${item.appealId}-${item.productId || "direct"}-${Date.now()}` }
+      const baseId =
+        item.appealId ||
+        item.waterProjectId ||
+        item.sponsorshipProjectId ||
+        "item"
+      const newItem = { ...item, id: `${baseId}-${item.productId || "direct"}-${Date.now()}` }
       return [...prev, newItem]
     })
     setOpen(true)

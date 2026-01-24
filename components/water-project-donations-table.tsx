@@ -122,8 +122,8 @@ export function WaterProjectDonationsTable({
       toast.success("Status updated successfully")
       setSelectedDonation(null)
       window.location.reload()
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update status")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update status")
     } finally {
       setUpdatingStatus(false)
     }
@@ -157,8 +157,8 @@ export function WaterProjectDonationsTable({
       setEditingNotes(false)
       setSelectedDonation({ ...selectedDonation, notes: updatedNotes })
       window.location.reload()
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add note")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add note")
     } finally {
       setSavingNotes(false)
     }
@@ -187,8 +187,8 @@ export function WaterProjectDonationsTable({
       const { urls } = await response.json()
       setCompletionImages([...completionImages, ...urls])
       toast.success("Images uploaded successfully")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to upload images")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upload images")
     } finally {
       setUploadingImages(false)
     }
@@ -264,9 +264,9 @@ Thank you for your generous support in making this project possible.`
       URL.revokeObjectURL(pdfBlobUrl)
       
       toast.success("PDF report generated and uploaded successfully")
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error generating PDF:", error)
-      toast.error("Failed to generate report")
+      toast.error(error instanceof Error ? error.message : "Failed to generate report")
     } finally {
       setGeneratingReport(false)
     }
@@ -310,8 +310,8 @@ Thank you for your generous support in making this project possible.`
       setReviewingReport(false)
       setSelectedDonation(null)
       window.location.reload()
-    } catch (error: any) {
-      toast.error(error.message || "Failed to complete donation")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to complete donation")
     } finally {
       setSendingReport(false)
     }

@@ -148,7 +148,7 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
             header: "Ongoing",
             cell: (project) => {
               const ongoingStatuses = ["WAITING_TO_REVIEW", "ORDERED", "PENDING"]
-              const ongoingCount = project.donations?.filter((d: any) => {
+              const ongoingCount = project.donations?.filter((d: { status?: string | null }) => {
                 const status = d.status
                 return status && ongoingStatuses.includes(status)
               }).length || 0
@@ -163,7 +163,7 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
             id: "completed",
             header: "Complete",
             cell: (project) => {
-              const completedCount = project.donations?.filter((d: any) => {
+              const completedCount = project.donations?.filter((d: { status?: string | null }) => {
                 const status = d.status
                 return status === "COMPLETE"
               }).length || 0
@@ -282,8 +282,8 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
                           </CardHeader>
                           <CardContent className="px-6 pb-3 pt-0 relative z-10">
                             <div className="text-2xl font-bold text-orange-600">
-                              {selectedProject.donations.filter(d => {
-                                const status = (d as any).status
+                              {selectedProject.donations.filter((d) => {
+                                const status = d.status
                                 return status && ["WAITING_TO_REVIEW", "ORDERED", "PENDING"].includes(status)
                               }).length}
                             </div>
@@ -298,7 +298,7 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
                           </CardHeader>
                           <CardContent className="px-6 pb-3 pt-0 relative z-10">
                             <div className="text-2xl font-bold text-primary">
-                              {selectedProject.donations.filter(d => (d as any).status === "COMPLETE").length}
+                              {selectedProject.donations.filter((d) => d.status === "COMPLETE").length}
                             </div>
                           </CardContent>
                         </Card>
@@ -463,8 +463,8 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
                             <div>
                               <p className="text-xs text-muted-foreground">Ongoing</p>
                               <p className="text-lg font-bold text-orange-600">
-                                {selectedProject.donations.filter(d => {
-                                  const status = (d as any).status
+                                {selectedProject.donations.filter((d) => {
+                                  const status = d.status
                                   return status && ["WAITING_TO_REVIEW", "ORDERED", "PENDING"].includes(status)
                                 }).length}
                               </p>
@@ -472,7 +472,7 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
                             <div>
                               <p className="text-xs text-muted-foreground">Complete</p>
                               <p className="text-lg font-bold text-primary">
-                                {selectedProject.donations.filter(d => (d as any).status === "COMPLETE").length}
+                                {selectedProject.donations.filter((d) => d.status === "COMPLETE").length}
                               </p>
                             </div>
                           </div>

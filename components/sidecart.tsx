@@ -57,6 +57,11 @@ export function Sidecart() {
                     {item.waterProjectId && (
                       <p className="text-xs text-muted-foreground">Water for Life Project</p>
                     )}
+                    {item.sponsorshipProjectId && (
+                      <p className="text-xs text-muted-foreground">
+                        Sponsorship{item.sponsorshipProjectType ? ` • ${formatEnum(item.sponsorshipProjectType)}` : ""}
+                      </p>
+                    )}
                     {item.plaqueName && (
                       <p className="text-xs text-muted-foreground">Plaque: {item.plaqueName}</p>
                     )}

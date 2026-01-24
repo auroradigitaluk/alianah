@@ -1,11 +1,5 @@
 import { prisma } from "@/lib/prisma"
 import { OneNationDonationForm } from "@/components/one-nation-donation-form"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import Image from "next/image"
-import { formatCurrency } from "@/lib/utils"
-import { Droplet, ArrowRight, Users } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 
 export const dynamic = 'force-dynamic'
 
@@ -76,31 +70,6 @@ async function getOrCreateDefaultAppeal() {
   }
 }
 
-async function getActiveWaterProjects() {
-  try {
-    return await prisma.waterProject.findMany({
-      where: {
-        isActive: true,
-      },
-      include: {
-        donations: {
-          where: {
-            status: "COMPLETED",
-          },
-          select: {
-            amountPence: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 6,
-    })
-  } catch (error) {
-    console.error("Error fetching water projects:", error)
-    return []
-  }
-}
-
 async function getWaterProjectsForForm() {
   try {
     return await prisma.waterProject.findMany({
@@ -137,13 +106,57 @@ async function getWaterProjectCountriesForForm() {
   }
 }
 
+async function getSponsorshipProjectsForForm() {
+  try {
+    return await prisma.sponsorshipProject.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        projectType: true,
+        location: true,
+        description: true,
+      },
+      orderBy: { projectType: "asc" },
+    })
+  } catch (error) {
+    console.error("Error fetching sponsorship projects:", error)
+    return []
+  }
+}
+
+async function getSponsorshipProjectCountriesForForm() {
+  try {
+    return await prisma.sponsorshipProjectCountry.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        projectType: true,
+        country: true,
+        pricePence: true,
+      },
+      orderBy: [{ projectType: "asc" }, { sortOrder: "asc" }, { country: "asc" }],
+    })
+  } catch (error) {
+    console.error("Error fetching sponsorship project countries:", error)
+    return []
+  }
+}
+
 export default async function HomePage() {
-  const [appeals, waterProjects, fallbackAppeal, waterProjectsForForm, waterProjectCountries] = await Promise.all([
+  const [
+    appeals,
+    fallbackAppeal,
+    waterProjectsForForm,
+    waterProjectCountries,
+    sponsorshipProjectsForForm,
+    sponsorshipProjectCountries,
+  ] = await Promise.all([
     getActiveAppeals(),
-    getActiveWaterProjects(),
     getOrCreateDefaultAppeal(), // Get any appeal or create default if none exist
     getWaterProjectsForForm(), // Get water projects for the form
     getWaterProjectCountriesForForm(), // Get water project countries with prices
+    getSponsorshipProjectsForForm(),
+    getSponsorshipProjectCountriesForForm(),
   ])
 
   // Calculate totals for each appeal
@@ -213,6 +226,8 @@ export default async function HomePage() {
             donationTypesEnabled={allDonationTypes}
             waterProjects={waterProjectsForForm}
             waterProjectCountries={waterProjectCountries}
+            sponsorshipProjects={sponsorshipProjectsForForm}
+            sponsorshipProjectCountries={sponsorshipProjectCountries}
           />
         ) : (
           <div className="mb-4 sm:mb-6 text-center p-6 border rounded-lg bg-muted/50">
@@ -225,87 +240,6 @@ export default async function HomePage() {
           </div>
         )}
       </div>
-
-
-      {/* Water Projects Section */}
-      {waterProjects.length > 0 && (
-        <div className="border-t">
-          <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:px-6 md:py-8 max-w-7xl">
-            <div className="mb-4 sm:mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-2 flex items-center gap-2">
-                <Droplet className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                Water for Life Projects
-              </h2>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Support clean water initiatives around the world.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {waterProjects.map((project) => {
-                const totalRaised = project.donations.reduce((sum, d) => sum + d.amountPence, 0)
-                const projectTypeLabels: Record<string, string> = {
-                  WATER_PUMP: "Water Pump",
-                  WATER_WELL: "Water Well",
-                  WATER_TANK: "Water Tank",
-                  WUDHU_AREA: "Wudhu Area",
-                }
-
-                return (
-                  <div key={project.id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="p-4 sm:p-6">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-base sm:text-lg font-semibold line-clamp-2 flex-1">
-                          {project.location || projectTypeLabels[project.projectType] || "Water Project"}
-                        </h3>
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          {projectTypeLabels[project.projectType] || project.projectType}
-                        </Badge>
-                      </div>
-                      {project.description && (
-                        <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-3">
-                          {project.description}
-                        </p>
-                      )}
-                      <div className="space-y-2 mb-4">
-                        {totalRaised > 0 && (
-                          <p className="text-xs sm:text-sm">
-                            <span className="text-muted-foreground">Raised: </span>
-                            <span className="font-semibold">{formatCurrency(totalRaised)}</span>
-                          </p>
-                        )}
-                        {project.status && (
-                          <p className="text-xs sm:text-sm">
-                            <span className="text-muted-foreground">Status: </span>
-                            <span className="font-medium">{project.status}</span>
-                          </p>
-                        )}
-                      </div>
-                      <Button asChild size="sm" className="w-full text-xs sm:text-sm">
-                        <Link href="/water-for-life">
-                          View Project
-                          <ArrowRight className="ml-2 h-3 w-3" />
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {waterProjects.length >= 6 && (
-              <div className="mt-6 text-center">
-                <Button asChild variant="outline" size="sm" className="text-xs sm:text-sm">
-                  <Link href="/water-for-life">
-                    View All Water Projects
-                    <ArrowRight className="ml-2 h-3 w-3" />
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

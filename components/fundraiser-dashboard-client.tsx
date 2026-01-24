@@ -108,7 +108,7 @@ export function FundraiserDashboardClient({
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-muted-foreground mb-4">
-                  You haven't created any fundraisers yet.
+                  You haven&apos;t created any fundraisers yet.
                 </p>
                 {eligibleAppeals.length > 0 && (
                   <Button asChild>

@@ -61,8 +61,8 @@ export function WaterProjectCountryForm({ country }: WaterProjectCountryFormProp
       toast.success(country ? "Country updated successfully" : "Country created successfully")
       router.push("/admin/water-projects/countries")
       router.refresh()
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "An error occurred")
     } finally {
       setLoading(false)
     }

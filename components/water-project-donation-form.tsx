@@ -52,8 +52,25 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
   React.useEffect(() => {
     fetch(`/api/admin/water-projects/countries?projectType=${projectType}`)
       .then(res => res.json())
-      .then(data => {
-        const filtered = data.filter((c: any) => c.projectType === projectType && c.isActive)
+      .then((data: unknown) => {
+        if (!Array.isArray(data)) {
+          setCountries([])
+          return
+        }
+        const filtered = data
+          .filter((c): c is { id: string; country: string; pricePence: number; projectType: string; isActive?: boolean } => {
+            return (
+              typeof c === "object" &&
+              c !== null &&
+              "id" in c &&
+              "country" in c &&
+              "pricePence" in c &&
+              "projectType" in c &&
+              (c as { projectType?: unknown }).projectType === projectType &&
+              (c as { isActive?: unknown }).isActive !== false
+            )
+          })
+          .map((c) => ({ id: c.id, country: c.country, pricePence: c.pricePence }))
         setCountries(filtered)
       })
       .catch(err => console.error("Error fetching countries:", err))
@@ -136,8 +153,8 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
       
       // TODO: Redirect to payment page or success page
       // router.push(`/water-for-life/success/${result.donationId}`)
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "An error occurred")
     } finally {
       setLoading(false)
     }

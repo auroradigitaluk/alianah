@@ -113,8 +113,8 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
       setNewCountryPrice("")
       setShowAddCountry(false)
       toast.success("Country added successfully")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add country")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add country")
     } finally {
       setAddingCountry(false)
     }
@@ -159,8 +159,8 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
       setEditCountryName("")
       setEditCountryPrice("")
       toast.success("Country updated successfully")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update country")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update country")
     }
   }
 
@@ -188,8 +188,8 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
 
       setLocalCountries(localCountries.filter(c => c.id !== countryId))
       toast.success("Country deleted successfully")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete country")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete country")
     } finally {
       setDeletingCountryId(null)
     }
@@ -218,8 +218,8 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
       const { urls } = await response.json()
       setCompletionImages((prev) => [...prev, ...urls])
       toast.success("Images uploaded successfully")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to upload images")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upload images")
     } finally {
       setUploading(false)
     }
@@ -251,8 +251,8 @@ Thank you for your support in making this project possible.`
 
       setCompletionReport(report)
       toast.success("Report generated successfully")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to generate report")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate report")
     } finally {
       setLoading(false)
     }
@@ -282,8 +282,8 @@ Thank you for your support in making this project possible.`
       toast.success("Project updated successfully")
       router.push("/admin/water-projects")
       router.refresh()
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "An error occurred")
     } finally {
       setLoading(false)
     }

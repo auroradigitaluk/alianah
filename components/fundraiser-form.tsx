@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useForm } from "react-hook-form"
+import type { Resolver, SubmitHandler } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { formatCurrency } from "@/lib/utils"
@@ -53,7 +54,7 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
     watch,
     formState: { errors },
   } = useForm<FormInput>({
-    resolver: zodResolver(fundraiserSchema) as any,
+    resolver: zodResolver(fundraiserSchema) as unknown as Resolver<FormInput>,
     defaultValues: {
       title: appealTitle,
     },
@@ -102,14 +103,15 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
     }
   }, [fundraiserName, appealTitle, setValue, message])
 
-  const onSubmit = async (data: FormOutput) => {
+  const onSubmit: SubmitHandler<FormInput> = async (data) => {
+    const parsed = fundraiserSchema.parse(data)
     setLoading(true)
     try {
       const response = await fetch("/api/fundraisers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...data,
+          ...parsed,
           appealId,
         }),
       })
@@ -121,7 +123,7 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
         if (errorData.requiresLogin) {
           // Get current path to redirect back to the same appeal page
           const currentPath = window.location.pathname
-          const loginUrl = `/fundraise/login?redirect=${encodeURIComponent(currentPath)}&email=${encodeURIComponent(data.email)}`
+          const loginUrl = `/fundraise/login?redirect=${encodeURIComponent(currentPath)}&email=${encodeURIComponent(parsed.email)}`
           router.push(loginUrl)
           return
         }
@@ -146,7 +148,7 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
         <CardDescription>Create your fundraising page for {appealTitle}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Fundraiser Name *</Label>
             <Input

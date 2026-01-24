@@ -74,8 +74,8 @@ export function SponsorshipCountryForm({ country }: SponsorshipCountryFormProps)
       toast.success(country ? "Country updated successfully" : "Country created successfully")
       router.push("/admin/sponsorships/countries")
       router.refresh()
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "An error occurred")
     } finally {
       setLoading(false)
     }

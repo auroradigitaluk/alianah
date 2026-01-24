@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useSidecart } from "@/components/sidecart-provider"
-import { formatCurrency, PAYMENT_METHODS, COLLECTION_SOURCES } from "@/lib/utils"
+import { formatCurrency } from "@/lib/utils"
 import { z } from "zod"
 
 const checkoutSchema = z.object({
@@ -87,79 +87,29 @@ export default function CheckoutPage() {
       
       setLoading(true)
 
-      // Separate water project donations from appeal donations
-      const appealItems = items.filter((item) => item.appealId && !item.waterProjectId)
-      const waterProjectItems = items.filter((item) => item.waterProjectId)
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items,
+          donor: {
+            ...validated,
+            title: validated.title === "none" ? undefined : validated.title,
+          },
+          subtotalPence,
+          feesPence,
+          totalPence,
+        }),
+      })
 
-      // Process water project donations separately
-      if (waterProjectItems.length > 0) {
-        for (const item of waterProjectItems) {
-          if (!item.waterProjectId || !item.waterProjectCountryId) {
-            throw new Error("Water project donation is missing required information")
-          }
-
-          const waterResponse = await fetch("/api/water-projects/donate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              waterProjectId: item.waterProjectId,
-              countryId: item.waterProjectCountryId,
-              title: validated.title === "none" ? undefined : validated.title,
-              firstName: validated.firstName,
-              lastName: validated.lastName,
-              email: validated.email,
-              phone: validated.phone || undefined,
-              address: validated.address || undefined,
-              city: validated.city || undefined,
-              postcode: validated.postcode || undefined,
-              country: validated.country || undefined,
-              billingAddress: validated.billingAddress || undefined,
-              billingCity: validated.billingCity || undefined,
-              billingPostcode: validated.billingPostcode || undefined,
-              billingCountry: validated.billingCountry || undefined,
-              amountPence: item.amountPence,
-              donationType: item.donationType,
-              paymentMethod: PAYMENT_METHODS.WEBSITE_STRIPE,
-              collectedVia: COLLECTION_SOURCES.WEBSITE,
-              giftAid: validated.giftAid,
-              // Store plaque name in notes if provided
-              notes: item.plaqueName ? `Plaque Name: ${item.plaqueName}` : undefined,
-            }),
-          })
-
-          if (!waterResponse.ok) {
-            const error = await waterResponse.json()
-            throw new Error(error.error || "Failed to process water project donation")
-          }
-        }
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to create order")
       }
 
-      // Process appeal donations through regular checkout
-      if (appealItems.length > 0) {
-        const response = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: appealItems,
-            donor: validated,
-            subtotalPence: appealItems.reduce((sum, item) => sum + item.amountPence, 0),
-            feesPence: formData.coverFees ? Math.round(appealItems.reduce((sum, item) => sum + item.amountPence, 0) * 0.012) + 20 : 0,
-            totalPence: appealItems.reduce((sum, item) => sum + item.amountPence, 0) + (formData.coverFees ? Math.round(appealItems.reduce((sum, item) => sum + item.amountPence, 0) * 0.012) + 20 : 0),
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to create order")
-        }
-
-        const { orderId } = await response.json()
-        clearCart()
-        router.push(`/success/${orderId}`)
-      } else if (waterProjectItems.length > 0) {
-        // Only water project donations - redirect to success
-        clearCart()
-        router.push("/success/water-project")
-      }
+      const { orderId } = await response.json()
+      clearCart()
+      router.push(`/success/${orderId}`)
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {}

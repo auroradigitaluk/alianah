@@ -112,8 +112,8 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
       // Reset rows to one empty row
       setCountryRows([{ id: `row-${Date.now()}`, name: "", price: "" }])
       toast.success(`${newCountries.length} countr${newCountries.length > 1 ? 'ies' : 'y'} added successfully`)
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add countries")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add countries")
     } finally {
       setAddingCountries(false)
     }
@@ -128,7 +128,16 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
       if (!project) {
         const existing = await fetch(`/api/admin/water-projects?projectType=${projectType}`)
           .then(res => res.json())
-          .then(projects => projects.find((p: any) => p.projectType === projectType))
+          .then((projects: unknown) => {
+            if (!Array.isArray(projects)) return null
+            return projects.find(
+              (p: unknown) =>
+                typeof p === "object" &&
+                p !== null &&
+                "projectType" in p &&
+                (p as { projectType?: unknown }).projectType === projectType
+            )
+          })
           .catch(() => null)
 
         if (existing) {
@@ -160,8 +169,8 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
       toast.success(project ? "Project updated successfully" : "Project created successfully")
       router.push("/admin/water-projects")
       router.refresh()
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "An error occurred")
     } finally {
       setLoading(false)
     }
@@ -346,8 +355,8 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
                       setNewCountryPrice("")
                       setShowAddCountry(false)
                       toast.success("Country added successfully")
-                    } catch (error: any) {
-                      toast.error(error.message || "Failed to add country")
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "Failed to add country")
                     } finally {
                       setAddingCountry(false)
                     }
