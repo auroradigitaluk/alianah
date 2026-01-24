@@ -123,6 +123,24 @@ export function AppealForm({ appeal }: AppealFormProps) {
     )
   }
 
+  const readErrorMessage = async (response: Response): Promise<string> => {
+    try {
+      const data: unknown = await response.json()
+      if (
+        data &&
+        typeof data === "object" &&
+        "error" in data &&
+        typeof (data as { error?: unknown }).error === "string" &&
+        (data as { error: string }).error.trim()
+      ) {
+        return (data as { error: string }).error
+      }
+    } catch {
+      // ignore
+    }
+    return `Upload failed (HTTP ${response.status})`
+  }
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -138,8 +156,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to upload: ${response.statusText}`)
+        throw new Error(await readErrorMessage(response))
       }
 
       const { url } = await response.json()
@@ -176,8 +193,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to upload: ${response.statusText}`)
+        throw new Error(await readErrorMessage(response))
       }
 
       const { url } = await response.json()
@@ -204,8 +220,8 @@ export function AppealForm({ appeal }: AppealFormProps) {
     setLoading(true)
 
     try {
-      if (allowFundraising && fundraisingImages.length < 3) {
-        alert("Please upload at least 3 fundraising images before enabling fundraising.")
+      if (allowFundraising && fundraisingImages.length < 1) {
+        alert("Please upload at least 1 fundraising image before enabling fundraising.")
         return
       }
 
@@ -392,7 +408,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
           <div className="space-y-2">
             <Label>Fundraising Images</Label>
             <p className="text-sm text-muted-foreground">
-              Upload at least 3 images to display as a slideshow on fundraising pages for this appeal
+              Upload at least 1 image to display on fundraising pages for this appeal
             </p>
             <Input
               type="file"
@@ -404,7 +420,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
             {uploadingFundraising && <p className="text-sm text-muted-foreground">Uploading...</p>}
           </div>
           <p className="text-xs text-muted-foreground">
-            {fundraisingImages.length}/3 minimum uploaded
+            {fundraisingImages.length}/1 minimum uploaded
           </p>
           {fundraisingImages.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

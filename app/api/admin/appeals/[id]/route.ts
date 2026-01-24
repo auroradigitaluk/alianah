@@ -37,11 +37,11 @@ const appealSchema = z.object({
 }).superRefine((data, ctx) => {
   if (data.allowFundraising) {
     const count = parseJsonArrayLength(data.fundraisingImageUrls)
-    if (count < 3) {
+    if (count < 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["fundraisingImageUrls"],
-        message: "At least 3 fundraising images are required when fundraising is enabled.",
+        message: "At least 1 fundraising image is required when fundraising is enabled.",
       })
     }
   }
