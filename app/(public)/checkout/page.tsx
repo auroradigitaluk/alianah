@@ -54,7 +54,7 @@ export default function CheckoutPage() {
   const { items, clearCart } = useSidecart()
   const [loading, setLoading] = React.useState(false)
   const [formData, setFormData] = React.useState({
-    title: "",
+    title: "none",
     firstName: "",
     lastName: "",
     email: "",
@@ -104,7 +104,7 @@ export default function CheckoutPage() {
             body: JSON.stringify({
               waterProjectId: item.waterProjectId,
               countryId: item.waterProjectCountryId,
-              title: validated.title || undefined,
+              title: validated.title === "none" ? undefined : validated.title,
               firstName: validated.firstName,
               lastName: validated.lastName,
               email: validated.email,
@@ -215,7 +215,7 @@ export default function CheckoutPage() {
                       <SelectValue placeholder="Select title" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       <SelectItem value="Mr">Mr</SelectItem>
                       <SelectItem value="Mrs">Mrs</SelectItem>
                       <SelectItem value="Miss">Miss</SelectItem>
@@ -502,7 +502,11 @@ export default function CheckoutPage() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{formatCurrency(item.amountPence)}</p>
+                        <p className="font-medium">
+                          {item.frequency === "MONTHLY"
+                            ? `${formatCurrency(item.amountPence)}/month`
+                            : formatCurrency(item.amountPence)}
+                        </p>
                       </div>
                     </div>
                   ))}
