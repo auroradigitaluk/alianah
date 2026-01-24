@@ -13,6 +13,15 @@ export async function POST(request: NextRequest) {
     const urls: string[] = []
 
     for (const file of files) {
+      if (!file.type.startsWith("image/")) {
+        return NextResponse.json({ error: "File must be an image" }, { status: 400 })
+      }
+
+      const maxSize = 5 * 1024 * 1024 // 5MB
+      if (file.size > maxSize) {
+        return NextResponse.json({ error: "File size must be less than 5MB" }, { status: 400 })
+      }
+
       const blob = await put(`water-projects/${Date.now()}-${file.name}`, file, {
         access: "public",
       })
