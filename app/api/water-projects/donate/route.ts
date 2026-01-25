@@ -2,7 +2,22 @@ import { NextRequest, NextResponse } from "next/server"
 import { PAYMENT_METHODS, COLLECTION_SOURCES } from "@/lib/utils"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { sendWaterProjectDonationEmail } from "@/lib/email"
+import Stripe from "stripe"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+let stripe: Stripe | null = null
+function getStripe(): Stripe {
+  if (!stripe) {
+    const apiKey = process.env.STRIPE_SECRET_KEY
+    if (!apiKey) throw new Error("STRIPE_SECRET_KEY is not set")
+    stripe = new Stripe(apiKey, {
+      apiVersion: "2024-12-18.acacia" as unknown as Stripe.LatestApiVersion,
+    })
+  }
+  return stripe
+}
 
 const donationSchema = z.object({
   waterProjectId: z.string(),
@@ -23,7 +38,6 @@ const donationSchema = z.object({
   amountPence: z.number().int().positive(),
   donationType: z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"]),
   paymentMethod: z.string(),
-  transactionId: z.string().optional(),
   giftAid: z.boolean().default(false),
 })
 
@@ -90,7 +104,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Country does not match project type" }, { status: 400 })
     }
 
-    // Create water project donation
+    if (data.amountPence !== country.pricePence) {
+      return NextResponse.json({ error: "Amount does not match country price" }, { status: 400 })
+    }
+
+    // Create order number + demo order (used by generic success page)
+    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+
+    const order = await prisma.demoOrder.create({
+      data: {
+        orderNumber,
+        status: "PENDING",
+        subtotalPence: data.amountPence,
+        feesPence: 0,
+        totalPence: data.amountPence,
+        coverFees: false,
+        giftAid: data.giftAid,
+        marketingEmail: false,
+        marketingSMS: false,
+        donorFirstName: data.firstName,
+        donorLastName: data.lastName,
+        donorEmail: data.email,
+        donorPhone: data.phone || null,
+        donorAddress: data.address || null,
+        donorCity: data.city || null,
+        donorPostcode: data.postcode || null,
+        donorCountry: data.country || null,
+        items: {
+          create: [
+            {
+              appealId: null,
+              fundraiserId: null,
+              productId: null,
+              appealTitle: `Water for Life • ${project.projectType}`,
+              productName: country.country,
+              frequency: "ONE_OFF",
+              donationType: data.donationType,
+              amountPence: data.amountPence,
+            },
+          ],
+        },
+      },
+      include: { items: true },
+    })
+
+    // Create water project donation (payment pending until webhook confirms)
     const donation = await prisma.waterProjectDonation.create({
       data: {
         waterProjectId: data.waterProjectId,
@@ -100,7 +158,7 @@ export async function POST(request: NextRequest) {
         donationType: data.donationType,
         paymentMethod: data.paymentMethod || PAYMENT_METHODS.WEBSITE_STRIPE,
         collectedVia: COLLECTION_SOURCES.WEBSITE,
-        transactionId: data.transactionId || null,
+        transactionId: null,
         giftAid: data.giftAid,
         billingAddress: data.billingAddress || null,
         billingCity: data.billingCity || null,
@@ -108,6 +166,8 @@ export async function POST(request: NextRequest) {
         billingCountry: data.billingCountry || null,
         emailSent: false,
         reportSent: false,
+        status: "PENDING",
+        notes: `OrderNumber:${orderNumber}`,
       },
       include: {
         waterProject: true,
@@ -116,36 +176,51 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Update water project status to WAITING_TO_REVIEW when first donation is made
-    if (!project.status) {
-      await prisma.waterProject.update({
-        where: { id: data.waterProjectId },
-        data: { status: "WAITING_TO_REVIEW" },
-      })
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+
+    const session = await getStripe().checkout.sessions.create({
+      mode: "payment",
+      customer_email: data.email,
+      client_reference_id: orderNumber,
+      line_items: [
+        {
+          price_data: {
+            currency: "gbp",
+            product_data: { name: `Water for Life • ${project.projectType} (${country.country})` },
+            unit_amount: data.amountPence,
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${baseUrl}/success/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/water-for-life?cancelled=1`,
+      metadata: {
+        orderId: order.id,
+        orderNumber,
+        donationCategory: "WATER_PROJECT",
+        waterProjectDonationId: donation.id,
+      },
+      payment_intent_data: {
+        description: `Donation ${orderNumber}`,
+        metadata: {
+          orderId: order.id,
+          orderNumber,
+          donationCategory: "WATER_PROJECT",
+          waterProjectDonationId: donation.id,
+        },
+      },
+    })
+
+    if (!session.url) {
+      throw new Error("Failed to create Stripe Checkout session URL")
     }
 
-    // Send confirmation email
-    try {
-      await sendWaterProjectDonationEmail({
-        donorEmail: donor.email,
-        donorName: `${donor.firstName} ${donor.lastName}`,
-        projectType: donation.waterProject.projectType,
-        country: donation.country.country,
-        amount: data.amountPence,
-        donationType: data.donationType,
-      })
-
-      // Mark email as sent
-      await prisma.waterProjectDonation.update({
-        where: { id: donation.id },
-        data: { emailSent: true },
-      })
-    } catch (emailError) {
-      console.error("Error sending donation email:", emailError)
-      // Don't fail the donation if email fails
-    }
-
-    return NextResponse.json({ donationId: donation.id, success: true })
+    return NextResponse.json({
+      success: true,
+      orderId: order.id,
+      donationId: donation.id,
+      checkoutUrl: session.url,
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 })

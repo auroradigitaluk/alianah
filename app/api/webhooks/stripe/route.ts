@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { sendFundraiserDonationNotification } from "@/lib/email"
 import Stripe from "stripe"
+import { finalizeOrderByOrderNumber } from "@/lib/payment-finalize"
 
 // Lazy initialization to avoid errors during build when API key is not available
 let stripe: Stripe | null = null
@@ -54,91 +54,38 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
-        
-        // Find donation by order number or transaction ID
+
+        // Find donation by order number
         const orderNumber = session.metadata?.orderNumber
-        const transactionId = session.payment_intent as string
+        const paidAt = new Date()
+
+        const isSubscriptionCheckout = session.mode === "subscription"
+        const paymentRef = (isSubscriptionCheckout
+          ? (session.subscription as string | null)
+          : (session.payment_intent as string | null)) || null
 
         if (orderNumber) {
-          // Get donations before updating to check for fundraisers
-          const pendingDonations = await prisma.donation.findMany({
-            where: {
-              orderNumber: orderNumber,
-              status: "PENDING",
-            },
-            include: {
-              donor: true,
-              fundraiser: {
-                include: {
-                  appeal: {
-                    select: {
-                      title: true,
-                    },
-                  },
-                },
-              },
-            },
-          })
-
-          // Update all donations for this order
-          await prisma.donation.updateMany({
-            where: {
-              orderNumber: orderNumber,
-              status: "PENDING",
-            },
-            data: {
-              status: "COMPLETED",
-              completedAt: new Date(),
-              transactionId: transactionId,
-            },
-          })
-
-          // Update demo order status
-          await prisma.demoOrder.updateMany({
-            where: {
-              orderNumber: orderNumber,
-            },
-            data: {
-              status: "COMPLETED",
-            },
-          })
-
-          // Activate recurring donations if any
-          await prisma.recurringDonation.updateMany({
-            where: {
-              donor: {
-                email: session.customer_email || undefined,
-              },
-              status: "PENDING",
-            },
-            data: {
-              status: "ACTIVE",
-              lastPaymentDate: new Date(),
-            },
-          })
-
-          // Send donation notifications to fundraisers
-          for (const donation of pendingDonations) {
-            if (donation.fundraiserId && donation.fundraiser) {
-              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-              const fundraiserUrl = `${baseUrl}/fundraise/${donation.fundraiser.slug}`
-              
-              try {
-                await sendFundraiserDonationNotification({
-                  fundraiserEmail: donation.fundraiser.email,
-                  fundraiserName: donation.fundraiser.fundraiserName,
-                  fundraiserTitle: donation.fundraiser.title,
-                  donorName: donation.donor.firstName || "Anonymous",
-                  amount: donation.amountPence,
-                  donationType: donation.donationType,
-                  fundraiserUrl,
-                })
-              } catch (emailError) {
-                // Log error but don't fail the webhook
-                console.error("Error sending fundraiser donation notification:", emailError)
+          let nextPaymentDate: Date | null = null
+          if (isSubscriptionCheckout && paymentRef) {
+            try {
+              const subscription = (await getStripe().subscriptions.retrieve(paymentRef)) as unknown as Stripe.Subscription
+              const currentPeriodEnd = (subscription as unknown as { current_period_end?: number | null }).current_period_end
+              if (currentPeriodEnd) {
+                nextPaymentDate = new Date(currentPeriodEnd * 1000)
               }
+            } catch (err) {
+              console.error("Error retrieving subscription:", err)
             }
           }
+
+          await finalizeOrderByOrderNumber({
+            orderNumber,
+            paidAt,
+            paymentRef,
+            isSubscription: isSubscriptionCheckout,
+            customerEmail: session.customer_email || null,
+            nextPaymentDate,
+          })
         }
 
         break
@@ -146,59 +93,16 @@ export async function POST(request: NextRequest) {
 
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
-        
-        // Update donation by transaction ID
-        if (paymentIntent.metadata?.donationId) {
-          const donation = await prisma.donation.findUnique({
-            where: {
-              id: paymentIntent.metadata.donationId,
-            },
-            include: {
-              donor: true,
-              fundraiser: {
-                include: {
-                  appeal: {
-                    select: {
-                      title: true,
-                    },
-                  },
-                },
-              },
-            },
+
+        const orderNumber = paymentIntent.metadata?.orderNumber
+        if (orderNumber) {
+          await finalizeOrderByOrderNumber({
+            orderNumber,
+            paidAt: new Date(),
+            paymentRef: paymentIntent.id,
+            isSubscription: false,
+            customerEmail: paymentIntent.receipt_email || null,
           })
-
-          if (donation && donation.status === "PENDING") {
-            await prisma.donation.update({
-              where: {
-                id: paymentIntent.metadata.donationId,
-              },
-              data: {
-                status: "COMPLETED",
-                completedAt: new Date(),
-                transactionId: paymentIntent.id,
-              },
-            })
-
-            // Send notification to fundraiser if applicable
-            if (donation.fundraiserId && donation.fundraiser) {
-              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-              const fundraiserUrl = `${baseUrl}/fundraise/${donation.fundraiser.slug}`
-              
-              try {
-                await sendFundraiserDonationNotification({
-                  fundraiserEmail: donation.fundraiser.email,
-                  fundraiserName: donation.fundraiser.fundraiserName,
-                  fundraiserTitle: donation.fundraiser.title,
-                  donorName: donation.donor.firstName || "Anonymous",
-                  amount: donation.amountPence,
-                  donationType: donation.donationType,
-                  fundraiserUrl,
-                })
-              } catch (emailError) {
-                console.error("Error sending fundraiser donation notification:", emailError)
-              }
-            }
-          }
         }
 
         break
@@ -208,21 +112,41 @@ export async function POST(request: NextRequest) {
         // Stripe's TS types vary by version; ensure `subscription` is accessible.
         const invoice = event.data.object as Stripe.Invoice & {
           subscription?: string | Stripe.Subscription | null
+          payment_intent?: string | Stripe.PaymentIntent | null
         }
         
         // Handle recurring donation payment
         if (invoice.subscription) {
           const subscriptionId = invoice.subscription as string
-          
-          await prisma.recurringDonation.updateMany({
-            where: {
-              subscriptionId: subscriptionId,
-            },
-            data: {
-              lastPaymentDate: new Date(),
-              status: "ACTIVE",
-            },
-          })
+
+          try {
+            const subscription = (await getStripe().subscriptions.retrieve(subscriptionId)) as unknown as Stripe.Subscription
+            const orderNumber = (subscription.metadata as Record<string, string> | null)?.orderNumber
+            const currentPeriodEnd = (subscription as unknown as { current_period_end?: number | null }).current_period_end
+            const nextPaymentDate = currentPeriodEnd ? new Date(currentPeriodEnd * 1000) : null
+            const paymentIntentId =
+              typeof invoice.payment_intent === "string" ? invoice.payment_intent : invoice.payment_intent?.id
+
+            if (orderNumber) {
+              await finalizeOrderByOrderNumber({
+                orderNumber,
+                paidAt: new Date(),
+                paymentRef: subscriptionId,
+                isSubscription: true,
+                customerEmail: null,
+                nextPaymentDate,
+              })
+            }
+
+            if (orderNumber && paymentIntentId) {
+              await getStripe().paymentIntents.update(paymentIntentId, {
+                description: `Donation ${orderNumber}`,
+                metadata: { orderNumber },
+              })
+            }
+          } catch (err) {
+            console.error("Error handling invoice.payment_succeeded:", err)
+          }
         }
 
         break
@@ -230,16 +154,31 @@ export async function POST(request: NextRequest) {
 
       case "customer.subscription.deleted":
       case "invoice.payment_failed": {
-        const subscription = event.data.object as Stripe.Subscription
-        
-        if (subscription.id) {
+        if (event.type === "customer.subscription.deleted") {
+          const subscription = event.data.object as Stripe.Subscription
+          if (subscription.id) {
+            await prisma.recurringDonation.updateMany({
+              where: { subscriptionId: subscription.id },
+              data: { status: "FAILED" },
+            })
+          }
+          break
+        }
+
+        // invoice.payment_failed -> Invoice object
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription | null
+        }
+
+        const subscriptionId =
+          typeof invoice.subscription === "string"
+            ? invoice.subscription
+            : invoice.subscription?.id || null
+
+        if (subscriptionId) {
           await prisma.recurringDonation.updateMany({
-            where: {
-              subscriptionId: subscription.id,
-            },
-            data: {
-              status: "FAILED",
-            },
+            where: { subscriptionId },
+            data: { status: "FAILED" },
           })
         }
 

@@ -79,6 +79,88 @@ interface FundraiserOTPEmailParams {
   code: string
 }
 
+export async function sendDonationConfirmationEmail(params: {
+  donorEmail: string
+  donorName: string
+  orderNumber: string
+  items: Array<{ title: string; amountPence: number; frequency?: string }>
+  totalPence: number
+  giftAid: boolean
+  manageSubscriptionUrl?: string
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { donorEmail, donorName, orderNumber, items, totalPence, giftAid, manageSubscriptionUrl } = params
+
+  const itemsHtml = items
+    .map((i) => {
+      const amount = `£${(i.amountPence / 100).toFixed(2)}`
+      const freq = i.frequency ? ` <span style="color:#6b7280; font-size: 12px;">(${i.frequency})</span>` : ""
+      return `<li style="margin: 6px 0;">${i.title} — <strong>${amount}</strong>${freq}</li>`
+    })
+    .join("")
+
+  try {
+    await getResend().emails.send({
+      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      to: donorEmail,
+      subject: `Donation confirmation • Order #${orderNumber}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb;">Thank you for your donation</h1>
+            <p>Dear ${donorName},</p>
+            <p>We’ve received your donation. <strong>Order #${orderNumber}</strong></p>
+
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0;"><strong>Donation summary</strong></p>
+              <ul style="margin: 0; padding-left: 18px;">
+                ${itemsHtml}
+              </ul>
+              <p style="margin: 12px 0 0 0; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+                <strong>Total:</strong> £${(totalPence / 100).toFixed(2)}
+              </p>
+              ${giftAid ? `<p style="margin: 8px 0 0 0; color:#16a34a;"><strong>Gift Aid:</strong> Claimed</p>` : ""}
+            </div>
+
+            ${
+              manageSubscriptionUrl
+                ? `
+                  <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                    <p style="margin: 0 0 10px 0;"><strong>Manage your subscription</strong></p>
+                    <p style="margin: 0;">
+                      <a href="${manageSubscriptionUrl}" target="_blank" rel="noopener noreferrer"
+                        style="display: inline-block; background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;">
+                        Manage subscription
+                      </a>
+                    </p>
+                    <p style="margin: 12px 0 0 0; font-size: 12px; color: #6b7280; word-break: break-all;">
+                      Or copy this link: ${manageSubscriptionUrl}
+                    </p>
+                  </div>
+                `
+                : ""
+            }
+
+            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
+          </body>
+        </html>
+      `,
+    })
+  } catch (error) {
+    console.error("Error sending donation confirmation email:", error)
+    throw error
+  }
+}
+
 export async function sendWaterProjectDonationEmail(params: DonationEmailParams) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set, skipping email")

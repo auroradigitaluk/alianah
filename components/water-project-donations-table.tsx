@@ -69,6 +69,12 @@ const PROJECT_TYPE_LABELS: Record<string, string> = {
   WUDHU_AREA: "Wudhu Area",
 }
 
+function getOrderNumberFromNotes(notes: string | null): string | null {
+  if (!notes) return null
+  const match = notes.match(/OrderNumber:([A-Z0-9-]+)/)
+  return match?.[1] || null
+}
+
 export function WaterProjectDonationsTable({ 
   donations, 
   projectType 
@@ -500,10 +506,19 @@ Thank you for your generous support in making this project possible.`
         columns={[
           {
             id: "donor",
-            header: "Header",
+            header: "Donor",
             cell: (donation) => (
               <div className="font-medium">
                 {formatDonorName(donation.donor)}
+              </div>
+            ),
+          },
+          {
+            id: "orderNumber",
+            header: "Order No.",
+            cell: (donation) => (
+              <div className="text-xs font-mono">
+                {getOrderNumberFromNotes(donation.notes) || <span className="text-muted-foreground">-</span>}
               </div>
             ),
           },
@@ -653,6 +668,12 @@ Thank you for your generous support in making this project possible.`
                   <div className="pt-2 border-t">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Transaction ID</p>
                     <p className="text-sm font-mono mt-1">{selectedDonation.transactionId}</p>
+                  </div>
+                )}
+                {getOrderNumberFromNotes(selectedDonation.notes) && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Order Number</p>
+                    <p className="text-sm font-mono mt-1">{getOrderNumberFromNotes(selectedDonation.notes)}</p>
                   </div>
                 )}
               </div>

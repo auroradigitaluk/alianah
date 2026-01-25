@@ -3,6 +3,8 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { loadStripe } from "@stripe/stripe-js"
+import { Elements, CardElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -49,10 +51,15 @@ const checkoutSchema = z.object({
   path: ["billingAddress"],
 })
 
-export default function CheckoutPage() {
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "")
+
+function CheckoutInner() {
   const router = useRouter()
   const { items, clearCart } = useSidecart()
+  const stripe = useStripe()
+  const elements = useElements()
   const [loading, setLoading] = React.useState(false)
+  const [paymentError, setPaymentError] = React.useState<string | null>(null)
   const [formData, setFormData] = React.useState({
     title: "none",
     firstName: "",
@@ -81,11 +88,16 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors({})
+    setPaymentError(null)
 
     try {
       const validated = checkoutSchema.parse(formData)
       
       setLoading(true)
+
+      if (!stripe || !elements) {
+        throw new Error("Payment system not ready. Please try again.")
+      }
 
       const response = await fetch("/api/checkout", {
         method: "POST",
@@ -107,9 +119,66 @@ export default function CheckoutPage() {
         throw new Error(err.error || "Failed to create order")
       }
 
-      const { orderId } = await response.json()
+      const data = (await response.json()) as {
+        orderId: string
+        orderNumber: string
+        mode: "payment" | "subscription"
+        clientSecret: string
+        paymentIntentId?: string
+        subscriptionId?: string
+      }
+
+      const card = elements.getElement(CardElement)
+      if (!card) throw new Error("Card details not ready")
+
+      const billing_details = {
+        name: `${validated.firstName} ${validated.lastName}`,
+        email: validated.email,
+        phone: validated.phone || undefined,
+        address: validated.giftAid
+          ? {
+              line1: validated.billingAddress || undefined,
+              city: validated.billingCity || undefined,
+              postal_code: validated.billingPostcode || undefined,
+              country: validated.billingCountry || undefined,
+            }
+          : {
+              line1: validated.address || undefined,
+              city: validated.city || undefined,
+              postal_code: validated.postcode || undefined,
+              country: validated.country || undefined,
+            },
+      }
+
+      const confirmResult = await stripe.confirmCardPayment(data.clientSecret, {
+        payment_method: {
+          card,
+          billing_details,
+        },
+      })
+
+      if (confirmResult.error) {
+        setPaymentError(confirmResult.error.message || "Payment failed. Please try again.")
+        return
+      }
+
+      // Best-effort immediate finalize (webhook remains the source of truth)
+      try {
+        await fetch("/api/checkout/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderNumber: data.orderNumber,
+            ...(data.paymentIntentId ? { paymentIntentId: data.paymentIntentId } : {}),
+            ...(data.subscriptionId ? { subscriptionId: data.subscriptionId } : {}),
+          }),
+        })
+      } catch {
+        // ignore
+      }
+
       clearCart()
-      router.push(`/success/${orderId}`)
+      router.push(`/success/${data.orderId}`)
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {}
@@ -120,7 +189,7 @@ export default function CheckoutPage() {
         })
         setErrors(fieldErrors)
       } else {
-        alert(error instanceof Error ? error.message : "An error occurred. Please try again.")
+        setPaymentError(error instanceof Error ? error.message : "An error occurred. Please try again.")
       }
     } finally {
       setLoading(false)
@@ -431,6 +500,30 @@ export default function CheckoutPage() {
                     Cover Stripe processing fees
                   </Label>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Card details</Label>
+                  <div className="rounded-md border bg-background px-3 py-3">
+                    <CardElement
+                      options={{
+                        hidePostalCode: true,
+                        style: {
+                          base: {
+                            fontSize: "16px",
+                            color: "hsl(222.2 84% 4.9%)",
+                            "::placeholder": { color: "hsl(215.4 16.3% 46.9%)" },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                  {paymentError && (
+                    <p className="text-sm text-destructive">{paymentError}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Your card details are processed securely by Stripe.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -488,5 +581,29 @@ export default function CheckoutPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  if (!publishableKey) {
+    return (
+      <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 md:px-6">
+        <Card>
+          <CardContent className="p-6 sm:p-12 text-center">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-2">Payments not configured</h2>
+            <p className="text-sm text-muted-foreground">
+              Missing <span className="font-mono">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</span>.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutInner />
+    </Elements>
   )
 }

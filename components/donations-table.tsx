@@ -23,6 +23,8 @@ interface Donation {
   donationType: string
   status: string
   paymentMethod: string
+  transactionId?: string | null
+  orderNumber?: string | null
   giftAid: boolean
   billingAddress: string | null
   billingCity: string | null
@@ -68,6 +70,15 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
           cell: (donation) => (
             <div className="text-sm">
               {donation.product?.name || donation.appeal?.title || "General"}
+            </div>
+          ),
+        },
+        {
+          id: "orderNumber",
+          header: "Order No.",
+          cell: (donation) => (
+            <div className="text-xs font-mono">
+              {donation.orderNumber || <span className="text-muted-foreground">-</span>}
             </div>
           ),
         },
@@ -324,6 +335,37 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
                                 Payment Method
                               </p>
                               <p className="text-base text-foreground">{formatPaymentMethod(selectedDonation.paymentMethod)}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Order Number
+                              </p>
+                              <p className="text-base font-mono text-foreground">
+                                {selectedDonation.orderNumber || "-"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <CreditCard className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Stripe Payment Reference
+                              </p>
+                              <p className="text-sm font-mono text-foreground break-all">
+                                {selectedDonation.transactionId || "-"}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                For one-off payments this is usually a PaymentIntent (`pi_...`). For recurring it may be a Subscription (`sub_...`).
+                              </p>
                             </div>
                           </div>
                         </div>

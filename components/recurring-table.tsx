@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { IconPlayerPause, IconX, IconLoader } from "@tabler/icons-react"
 import { formatCurrency, formatEnum, formatDate, formatDonorName } from "@/lib/utils"
 import {
@@ -16,6 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User, Mail, Wallet, Target, Calendar, RefreshCw, FileText } from "lucide-react"
+import { toast } from "sonner"
 
 interface RecurringDonation {
   id: string
@@ -23,6 +25,7 @@ interface RecurringDonation {
   donationType: string
   frequency: string
   status: string
+  subscriptionId?: string | null
   nextPaymentDate?: Date | null
   lastPaymentDate?: Date | null
   donor: { title?: string | null; firstName: string; lastName: string; email: string }
@@ -31,6 +34,26 @@ interface RecurringDonation {
 
 export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }) {
   const [selectedRecurring, setSelectedRecurring] = useState<RecurringDonation | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const cancelSubscription = async () => {
+    if (!selectedRecurring?.id) return
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/recurring/${selectedRecurring.id}/cancel`, {
+        method: "POST",
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Failed to cancel subscription")
+      toast.success("Subscription cancelled")
+      // Refresh to reflect updated status
+      window.location.reload()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to cancel subscription")
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   return (
     <>
@@ -53,6 +76,19 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
           cell: (item) => (
             <div className="text-sm">
               {item.appeal?.title || "General"}
+            </div>
+          ),
+        },
+        {
+          id: "stripeSub",
+          header: "Stripe Sub",
+          cell: (item) => (
+            <div className="text-xs font-mono">
+              {item.subscriptionId ? (
+                <span title={item.subscriptionId}>{item.subscriptionId.slice(0, 14)}…</span>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
             </div>
           ),
         },
@@ -113,12 +149,25 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
       >
         <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-2xl font-bold">
-              Recurring Donation Details
-            </DialogTitle>
-            <DialogDescription>
-              {selectedRecurring && `${formatCurrency(selectedRecurring.amountPence)} / ${formatEnum(selectedRecurring.frequency).toLowerCase()} from ${formatDonorName(selectedRecurring.donor)}`}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle className="text-2xl font-bold">
+                  Recurring Donation Details
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedRecurring && `${formatCurrency(selectedRecurring.amountPence)} / ${formatEnum(selectedRecurring.frequency).toLowerCase()} from ${formatDonorName(selectedRecurring.donor)}`}
+                </DialogDescription>
+              </div>
+              {selectedRecurring?.status === "ACTIVE" && selectedRecurring.subscriptionId && (
+                <Button
+                  variant="destructive"
+                  onClick={cancelSubscription}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? "Cancelling..." : "Cancel subscription"}
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           {selectedRecurring && (
@@ -307,6 +356,12 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
                           </div>
                         )}
                       </div>
+
+                      {selectedRecurring.subscriptionId && (
+                        <div className="text-xs text-muted-foreground">
+                          Stripe subscription ID: <span className="font-mono">{selectedRecurring.subscriptionId}</span>
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
                 </div>

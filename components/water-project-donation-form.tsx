@@ -130,7 +130,12 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
       }
 
       const result = await response.json()
-      toast.success("Donation submitted successfully! You will receive a confirmation email shortly.")
+      if (result?.checkoutUrl) {
+        toast.message("Redirecting to secure payment...")
+        window.location.assign(result.checkoutUrl as string)
+        return
+      }
+      toast.success("Donation created. Please proceed to payment.")
       
       // Reset form
       setAmount("")

@@ -56,10 +56,20 @@ export default async function SuccessPage({
             </div>
             <CardTitle className="text-xl sm:text-2xl">Thank You!</CardTitle>
             <p className="text-sm sm:text-base text-muted-foreground mt-2">
-              Your donation has been received. Order #{order.orderNumber}
+              {order.status === "COMPLETED"
+                ? `Your donation has been received. Order #${order.orderNumber}`
+                : `Your payment is processing. Order #${order.orderNumber}`}
             </p>
           </CardHeader>
           <CardContent className="space-y-4 sm:space-y-6">
+            {order.status !== "COMPLETED" && (
+              <div className="bg-muted p-3 sm:p-4 rounded-lg">
+                <p className="text-xs sm:text-sm font-medium mb-1">Processing</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Stripe is confirming your payment. This page should update shortly—please refresh in a moment.
+                </p>
+              </div>
+            )}
             <div>
               <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3">Donation Summary</h3>
               <div className="space-y-2">

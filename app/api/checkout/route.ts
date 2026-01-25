@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { COLLECTION_SOURCES, PAYMENT_METHODS } from "@/lib/utils"
-import { sendSponsorshipDonationEmail, sendWaterProjectDonationEmail } from "@/lib/email"
 import { z } from "zod"
+import Stripe from "stripe"
+
+// Ensure Node runtime for Stripe SDK
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+let stripe: Stripe | null = null
+
+function getStripe(): Stripe {
+  if (!stripe) {
+    const apiKey = process.env.STRIPE_SECRET_KEY
+    if (!apiKey) throw new Error("STRIPE_SECRET_KEY is not set")
+    stripe = new Stripe(apiKey, {
+      apiVersion: "2024-12-18.acacia" as unknown as Stripe.LatestApiVersion,
+    })
+  }
+  return stripe
+}
 
 const itemSchema = z.object({
   appealId: z.string().optional(),
@@ -144,8 +161,19 @@ export async function POST(request: NextRequest) {
     const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
     const collectedVia = COLLECTION_SOURCES.WEBSITE
 
+    // Stripe Checkout can't mix one-off + subscription items in one session.
+    const frequencies = new Set(validated.items.map((i) => i.frequency))
+    if (frequencies.size !== 1) {
+      return NextResponse.json(
+        { error: "Please checkout items with the same frequency together (one-off vs recurring)." },
+        { status: 400 }
+      )
+    }
+    const checkoutFrequency = validated.items[0]!.frequency
+
     // Appeal donations (+ recurring)
-    const donations = await Promise.all(
+    const recurringDonationIds: string[] = []
+    await Promise.all(
       validated.items
         .filter(isAppealItem)
         .map(async (item) => {
@@ -171,7 +199,7 @@ export async function POST(request: NextRequest) {
           })
 
           if (item.frequency === "MONTHLY" || item.frequency === "YEARLY") {
-            await prisma.recurringDonation.create({
+            const recurring = await prisma.recurringDonation.create({
               data: {
                 donorId: donor.id,
                 appealId: item.appealId!,
@@ -182,9 +210,10 @@ export async function POST(request: NextRequest) {
                 status: "PENDING",
               },
             })
+            recurringDonationIds.push(recurring.id)
           }
 
-          return donation
+          void donation
         })
     )
 
@@ -228,7 +257,13 @@ export async function POST(request: NextRequest) {
               billingCountry: validated.donor.billingCountry || null,
               emailSent: false,
               reportSent: false,
-              notes: item.plaqueName ? `Plaque Name: ${item.plaqueName}` : null,
+              status: "PENDING",
+              notes: [
+                item.plaqueName ? `Plaque Name: ${item.plaqueName}` : null,
+                `OrderNumber:${orderNumber}`,
+              ]
+                .filter(Boolean)
+                .join(" | ") || null,
             },
             include: {
               waterProject: true,
@@ -237,29 +272,8 @@ export async function POST(request: NextRequest) {
             },
           })
 
-          if (!project.status) {
-            await prisma.waterProject.update({
-              where: { id: project.id },
-              data: { status: "WAITING_TO_REVIEW" },
-            })
-          }
-
-          try {
-            await sendWaterProjectDonationEmail({
-              donorEmail: donation.donor.email,
-              donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
-              projectType: donation.waterProject.projectType,
-              country: donation.country.country,
-              amount: donation.amountPence,
-              donationType: donation.donationType,
-            })
-            await prisma.waterProjectDonation.update({
-              where: { id: donation.id },
-              data: { emailSent: true },
-            })
-          } catch (emailError) {
-            console.error("Error sending water project donation email:", emailError)
-          }
+          // Email + project status updates happen after successful payment via Stripe webhook.
+          void donation
         })
     )
 
@@ -303,6 +317,8 @@ export async function POST(request: NextRequest) {
               billingCountry: validated.donor.billingCountry || null,
               emailSent: false,
               reportSent: false,
+              status: "PENDING",
+              notes: `OrderNumber:${orderNumber}`,
             },
             include: {
               sponsorshipProject: true,
@@ -311,37 +327,133 @@ export async function POST(request: NextRequest) {
             },
           })
 
-          if (!project.status) {
-            await prisma.sponsorshipProject.update({
-              where: { id: project.id },
-              data: { status: "WAITING_TO_REVIEW" },
-            })
-          }
-
-          try {
-            await sendSponsorshipDonationEmail({
-              donorEmail: donation.donor.email,
-              donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
-              projectType: donation.sponsorshipProject.projectType,
-              country: donation.country.country,
-              location: donation.sponsorshipProject.location || undefined,
-              amount: donation.amountPence,
-              donationType: donation.donationType,
-            })
-            await prisma.sponsorshipDonation.update({
-              where: { id: donation.id },
-              data: { emailSent: true },
-            })
-          } catch (emailError) {
-            console.error("Error sending sponsorship donation email:", emailError)
-          }
+          // Email + project status updates happen after successful payment via Stripe webhook.
+          void donation
         })
     )
+
+    const isSubscription = checkoutFrequency === "MONTHLY" || checkoutFrequency === "YEARLY"
+
+    if (!isSubscription) {
+      const paymentIntent = await getStripe().paymentIntents.create({
+        amount: validated.totalPence,
+        currency: "gbp",
+        receipt_email: validated.donor.email,
+        description: `Donation ${orderNumber}`,
+        metadata: {
+          orderId: order.id,
+          orderNumber,
+          frequency: checkoutFrequency,
+        },
+      })
+
+      if (!paymentIntent.client_secret) {
+        throw new Error("Failed to create PaymentIntent client secret")
+      }
+
+      return NextResponse.json({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        mode: "payment",
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      })
+    }
+
+    const recurringInterval: "month" | "year" =
+      checkoutFrequency === "YEARLY" ? "year" : "month"
+
+    const customer = await getStripe().customers.create({
+      email: validated.donor.email,
+      name: `${validated.donor.firstName} ${validated.donor.lastName}`,
+      phone: validated.donor.phone || undefined,
+      address: validated.donor.billingAddress
+        ? {
+            line1: validated.donor.billingAddress,
+            city: validated.donor.billingCity || undefined,
+            postal_code: validated.donor.billingPostcode || undefined,
+            country: validated.donor.billingCountry || undefined,
+          }
+        : undefined,
+      metadata: {
+        orderNumber,
+      },
+    })
+
+    // Create Stripe Prices for subscription items (supports custom monthly/yearly amounts)
+    const createdPrices = await Promise.all(
+      [
+        ...validated.items.map(async (item) => {
+          const name = item.productName
+            ? `${item.appealTitle} • ${item.productName}`
+            : item.appealTitle
+          const price = await getStripe().prices.create({
+            currency: "gbp",
+            unit_amount: item.amountPence,
+            recurring: { interval: recurringInterval },
+            product_data: { name },
+            metadata: { orderNumber },
+          })
+          return { priceId: price.id }
+        }),
+        ...(validated.feesPence > 0
+          ? [
+              (async () => {
+                const price = await getStripe().prices.create({
+                  currency: "gbp",
+                  unit_amount: validated.feesPence,
+                  recurring: { interval: recurringInterval },
+                  product_data: { name: "Processing fees cover" },
+                  metadata: { orderNumber },
+                })
+                return { priceId: price.id }
+              })(),
+            ]
+          : []),
+      ]
+    )
+
+    const subscription = await getStripe().subscriptions.create({
+      customer: customer.id,
+      payment_behavior: "default_incomplete",
+      collection_method: "charge_automatically",
+      payment_settings: { save_default_payment_method: "on_subscription" },
+      metadata: {
+        orderId: order.id,
+        orderNumber,
+        frequency: checkoutFrequency,
+      },
+      items: createdPrices.map((p) => ({ price: p.priceId, quantity: 1 })),
+      expand: ["latest_invoice.payment_intent"],
+    })
+
+    // Stripe TS types vary by version; ensure `payment_intent` is accessible.
+    const latestInvoice = subscription.latest_invoice as (Stripe.Invoice & {
+      payment_intent?: string | Stripe.PaymentIntent | null
+    }) | null
+    const paymentIntent =
+      latestInvoice && typeof latestInvoice.payment_intent !== "string"
+        ? latestInvoice.payment_intent
+        : null
+
+    if (!paymentIntent?.client_secret) {
+      throw new Error("Failed to create subscription payment client secret")
+    }
+
+    if (recurringDonationIds.length > 0) {
+      await prisma.recurringDonation.updateMany({
+        where: { id: { in: recurringDonationIds } },
+        data: { subscriptionId: subscription.id },
+      })
+    }
 
     return NextResponse.json({
       orderId: order.id,
       orderNumber: order.orderNumber,
-      donations: donations.map((d) => d.id),
+      mode: "subscription",
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      subscriptionId: subscription.id,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
