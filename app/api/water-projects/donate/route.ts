@@ -3,6 +3,7 @@ import { PAYMENT_METHODS, COLLECTION_SOURCES } from "@/lib/utils"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import Stripe from "stripe"
+import { randomInt } from "crypto"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -40,6 +41,20 @@ const donationSchema = z.object({
   paymentMethod: z.string(),
   giftAid: z.boolean().default(false),
 })
+
+async function generateOrderNumber() {
+  // Format: 786-1######## (8 digits after the 1)
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const n = randomInt(0, 100_000_000)
+    const candidate = `786-1${String(n).padStart(8, "0")}`
+    const exists = await prisma.demoOrder.findUnique({
+      where: { orderNumber: candidate },
+      select: { id: true },
+    })
+    if (!exists) return candidate
+  }
+  throw new Error("Failed to generate donation number")
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -108,8 +123,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Amount does not match country price" }, { status: 400 })
     }
 
-    // Create order number + demo order (used by generic success page)
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+    // Create donation number + demo order (used by generic success page)
+    const orderNumber = await generateOrderNumber()
 
     const order = await prisma.demoOrder.create({
       data: {

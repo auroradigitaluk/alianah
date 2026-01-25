@@ -3,7 +3,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { prisma } from "@/lib/prisma"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency } from "@/lib/utils"
 import { ShareButton } from "@/components/share-button"
 
 export const dynamic = 'force-dynamic'
@@ -39,9 +39,9 @@ export default async function SuccessPage({
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader className="text-center">
-            <div className="mx-auto mb-3 sm:mb-4 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary/10">
+            <div className="mx-auto mb-3 sm:mb-4 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary">
               <svg
-                className="h-6 w-6 sm:h-8 sm:w-8 text-primary"
+                className="h-6 w-6 sm:h-8 sm:w-8 text-primary-foreground"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -54,11 +54,14 @@ export default async function SuccessPage({
                 />
               </svg>
             </div>
-            <CardTitle className="text-xl sm:text-2xl">Thank You!</CardTitle>
+            <CardTitle className="text-xl sm:text-2xl">Thank you!</CardTitle>
             <p className="text-sm sm:text-base text-muted-foreground mt-2">
               {order.status === "COMPLETED"
-                ? `Your donation has been received. Order #${order.orderNumber}`
-                : `Your payment is processing. Order #${order.orderNumber}`}
+                ? `Your donation has been received and 100% of it will go directly to the cause you selected.`
+                : `Your payment is processing — please refresh in a moment.`}
+            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Donation reference: <span className="font-medium">{order.orderNumber}</span>
             </p>
           </CardHeader>
           <CardContent className="space-y-4 sm:space-y-6">
@@ -91,30 +94,14 @@ export default async function SuccessPage({
               </div>
             </div>
 
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold mb-2">Donor Details</h3>
-              <div className="text-xs sm:text-sm space-y-1 text-muted-foreground">
-                <p>
-                  {order.donorFirstName} {order.donorLastName}
-                </p>
-                <p>{order.donorEmail}</p>
-                {order.donorPhone && <p>{order.donorPhone}</p>}
-              </div>
-            </div>
-
             {order.giftAid && (
-              <div className="bg-muted p-3 sm:p-4 rounded-lg">
-                <p className="text-xs sm:text-sm font-medium mb-1">Gift Aid Claimed</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Thank you for claiming Gift Aid. This will increase the value of your donation by 25%.
+              <div className="bg-primary text-primary-foreground p-3 sm:p-4 rounded-lg">
+                <p className="text-xs sm:text-sm font-medium mb-1">Gift Aid claimed</p>
+                <p className="text-xs sm:text-sm text-primary-foreground/90">
+                  JazakAllah — your Gift Aid declaration increases the value of your donation by 25%.
                 </p>
               </div>
             )}
-
-            <div className="text-xs sm:text-sm text-muted-foreground">
-              <p>Order Date: {formatDate(order.createdAt)}</p>
-              <p>Status: {order.status}</p>
-            </div>
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-4">
               <Button asChild className="flex-1">

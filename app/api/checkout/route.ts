@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { COLLECTION_SOURCES, PAYMENT_METHODS } from "@/lib/utils"
 import { z } from "zod"
 import Stripe from "stripe"
+import { randomInt } from "crypto"
 
 // Ensure Node runtime for Stripe SDK
 export const runtime = "nodejs"
@@ -80,6 +81,20 @@ function isSponsorshipItem(item: z.infer<typeof itemSchema>) {
   return Boolean(item.sponsorshipProjectId)
 }
 
+async function generateOrderNumber() {
+  // Format: 786-1######## (8 digits after the 1)
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const n = randomInt(0, 100_000_000)
+    const candidate = `786-1${String(n).padStart(8, "0")}`
+    const exists = await prisma.demoOrder.findUnique({
+      where: { orderNumber: candidate },
+      select: { id: true },
+    })
+    if (!exists) return candidate
+  }
+  throw new Error("Failed to generate donation number")
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -92,8 +107,8 @@ export async function POST(request: NextRequest) {
       country: validated.donor.billingCountry || validated.donor.country || null,
     }
 
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+    // Generate donation number
+    const orderNumber = await generateOrderNumber()
 
     // Get or create donor
     let donor = await prisma.donor.findUnique({
