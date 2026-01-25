@@ -85,6 +85,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validated = checkoutSchema.parse(body)
 
+    const billing = {
+      address: validated.donor.billingAddress || validated.donor.address || null,
+      city: validated.donor.billingCity || validated.donor.city || null,
+      postcode: validated.donor.billingPostcode || validated.donor.postcode || null,
+      country: validated.donor.billingCountry || validated.donor.country || null,
+    }
+
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
 
@@ -190,10 +197,10 @@ export async function POST(request: NextRequest) {
               collectedVia,
               status: "PENDING",
               giftAid: validated.donor.giftAid,
-              billingAddress: validated.donor.billingAddress || null,
-              billingCity: validated.donor.billingCity || null,
-              billingPostcode: validated.donor.billingPostcode || null,
-              billingCountry: validated.donor.billingCountry || null,
+              billingAddress: billing.address,
+              billingCity: billing.city,
+              billingPostcode: billing.postcode,
+              billingCountry: billing.country,
               orderNumber,
             },
           })
@@ -251,10 +258,10 @@ export async function POST(request: NextRequest) {
               collectedVia,
               transactionId: null,
               giftAid: validated.donor.giftAid,
-              billingAddress: validated.donor.billingAddress || null,
-              billingCity: validated.donor.billingCity || null,
-              billingPostcode: validated.donor.billingPostcode || null,
-              billingCountry: validated.donor.billingCountry || null,
+              billingAddress: billing.address,
+              billingCity: billing.city,
+              billingPostcode: billing.postcode,
+              billingCountry: billing.country,
               emailSent: false,
               reportSent: false,
               status: "PENDING",
@@ -311,10 +318,10 @@ export async function POST(request: NextRequest) {
               collectedVia,
               transactionId: null,
               giftAid: validated.donor.giftAid,
-              billingAddress: validated.donor.billingAddress || null,
-              billingCity: validated.donor.billingCity || null,
-              billingPostcode: validated.donor.billingPostcode || null,
-              billingCountry: validated.donor.billingCountry || null,
+              billingAddress: billing.address,
+              billingCity: billing.city,
+              billingPostcode: billing.postcode,
+              billingCountry: billing.country,
               emailSent: false,
               reportSent: false,
               status: "PENDING",
@@ -338,6 +345,8 @@ export async function POST(request: NextRequest) {
       const paymentIntent = await getStripe().paymentIntents.create({
         amount: validated.totalPence,
         currency: "gbp",
+        // Enable wallets (Apple Pay / Google Pay) + best available methods.
+        automatic_payment_methods: { enabled: true },
         receipt_email: validated.donor.email,
         description: `Donation ${orderNumber}`,
         metadata: {
@@ -367,12 +376,12 @@ export async function POST(request: NextRequest) {
       email: validated.donor.email,
       name: `${validated.donor.firstName} ${validated.donor.lastName}`,
       phone: validated.donor.phone || undefined,
-      address: validated.donor.billingAddress
+      address: billing.address
         ? {
-            line1: validated.donor.billingAddress,
-            city: validated.donor.billingCity || undefined,
-            postal_code: validated.donor.billingPostcode || undefined,
-            country: validated.donor.billingCountry || undefined,
+            line1: billing.address,
+            city: billing.city || undefined,
+            postal_code: billing.postcode || undefined,
+            country: billing.country || undefined,
           }
         : undefined,
       metadata: {
@@ -417,7 +426,10 @@ export async function POST(request: NextRequest) {
       customer: customer.id,
       payment_behavior: "default_incomplete",
       collection_method: "charge_automatically",
-      payment_settings: { save_default_payment_method: "on_subscription" },
+      payment_settings: {
+        // Allow card-based wallets on the underlying PaymentIntent.
+        save_default_payment_method: "on_subscription",
+      },
       metadata: {
         orderId: order.id,
         orderNumber,

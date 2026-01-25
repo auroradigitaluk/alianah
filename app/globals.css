@@ -124,6 +124,16 @@
   }
 }
 
+/* Stripe Elements */
+.StripeElement {
+  width: 100%;
+  pointer-events: auto;
+}
+.StripeElement iframe {
+  width: 100% !important;
+  pointer-events: auto;
+}
+
 /* Enhanced visual effects */
 @layer utilities {
   .glass-effect {
