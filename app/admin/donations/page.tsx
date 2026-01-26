@@ -41,11 +41,7 @@ export default async function DonationsPage() {
                   <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">Online donations</p>
                 </div>
                 <div>
-                  {donations.length === 0 ? (
-                    <p className="text-xs sm:text-sm text-muted-foreground">No donations yet</p>
-                  ) : (
-                    <DonationsTable donations={donations} />
-                  )}
+                  <DonationsTable donations={donations} />
                 </div>
               </div>
             </div>

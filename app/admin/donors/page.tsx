@@ -73,11 +73,7 @@ export default async function DonorsPage() {
                   <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">Donor information</p>
                 </div>
                 <div>
-                  {donors.length === 0 ? (
-                    <p className="text-xs sm:text-sm text-muted-foreground">No donors yet</p>
-                  ) : (
-                    <DonorsTable donors={donors} />
-                  )}
+                  <DonorsTable donors={donors} />
                 </div>
               </div>
             </div>
