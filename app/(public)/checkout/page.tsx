@@ -446,6 +446,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   const { stripePromise } = props
   const router = useRouter()
   const { items, clearCart } = useSidecart()
+  const formStorageKey = "checkout:billing-details"
   const [loading, setLoading] = React.useState(false)
   const [countryOpen, setCountryOpen] = React.useState(false)
   const [countryQuery, setCountryQuery] = React.useState("")
@@ -533,6 +534,23 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   const subtotalPence = items.reduce((sum, item) => sum + item.amountPence, 0)
   const feesPence = formData.coverFees ? Math.round(subtotalPence * 0.012) + 20 : 0
   const totalPence = subtotalPence + feesPence
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    const saved = window.sessionStorage.getItem(formStorageKey)
+    if (!saved) return
+    try {
+      const parsed = JSON.parse(saved) as Partial<typeof formData>
+      setFormData((prev) => ({ ...prev, ...parsed }))
+    } catch {
+      // ignore corrupt storage
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    window.sessionStorage.setItem(formStorageKey, JSON.stringify(formData))
+  }, [formData])
 
   const handleCreatePayment = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -632,7 +650,12 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
               stripe={stripePromise}
               options={{
                 clientSecret,
-                appearance: { theme: "stripe" },
+                appearance: {
+                  theme: "stripe",
+                  variables: {
+                    colorPrimary: "oklch(0.574 0.259 142.38)",
+                  },
+                },
               }}
               key={clientSecret}
             >
@@ -648,6 +671,9 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                 }}
                 onSuccess={(orderId) => {
                   clearCart()
+                  if (typeof window !== "undefined") {
+                    window.sessionStorage.removeItem(formStorageKey)
+                  }
                   router.push(`/success/${orderId}`)
                 }}
               />
