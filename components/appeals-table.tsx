@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
@@ -76,6 +76,13 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
   const [selectedAppeal, setSelectedAppeal] = useState<Appeal | null>(null)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [modalDateRange, setModalDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null)
+  const sortedAppeals = useMemo(
+    () =>
+      [...appeals].sort((a, b) =>
+        a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+      ),
+    [appeals]
+  )
 
   // Calculate date range from URL params (same logic as server-side)
   const getDateRange = (range: string | null, start?: string | null, end?: string | null) => {
@@ -223,7 +230,7 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
   return (
     <>
       <AdminTable
-        data={appeals}
+        data={sortedAppeals}
         onRowClick={(appeal) => setSelectedAppeal(appeal)}
         columns={[
         {

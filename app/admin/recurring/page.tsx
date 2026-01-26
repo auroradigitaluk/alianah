@@ -1,6 +1,7 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { RecurringTable } from "@/components/recurring-table"
+import { ExportCsvButton } from "@/components/export-csv-button"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -24,7 +25,10 @@ export default async function RecurringPage() {
 
   return (
     <>
-      <AdminHeader title="Recurring Donations" />
+      <AdminHeader
+        title="Recurring Donations"
+        actions={<ExportCsvButton variant="recurring" data={recurring} />}
+      />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
@@ -35,11 +39,7 @@ export default async function RecurringPage() {
                   <p className="text-xs sm:text-sm text-muted-foreground">Recurring donation subscriptions</p>
                 </div>
                 <div>
-                  {recurring.length === 0 ? (
-                    <p className="text-xs sm:text-sm text-muted-foreground">No recurring donations yet</p>
-                  ) : (
-                    <RecurringTable recurring={recurring} />
-                  )}
+                  <RecurringTable recurring={recurring} />
                 </div>
               </div>
             </div>

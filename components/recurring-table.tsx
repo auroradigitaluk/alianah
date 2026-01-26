@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,6 +44,44 @@ interface RecurringDonation {
 export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }) {
   const [selectedRecurring, setSelectedRecurring] = useState<RecurringDonation | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [appealQuery, setAppealQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
+
+  const statusOptions = useMemo(
+    () => Array.from(new Set(recurring.map((item) => item.status))).sort(),
+    [recurring]
+  )
+
+  const filteredRecurring = useMemo(() => {
+    const normalizedAppeal = appealQuery.trim().toLowerCase()
+    const from = fromDate ? new Date(fromDate) : null
+    const to = toDate ? new Date(toDate) : null
+    if (from) from.setHours(0, 0, 0, 0)
+    if (to) to.setHours(23, 59, 59, 999)
+
+    return recurring.filter((item) => {
+      const appealName = (item.appeal?.title || "General").toLowerCase()
+      const matchesAppeal = normalizedAppeal
+        ? appealName.includes(normalizedAppeal)
+        : true
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter
+      const dateValue = item.nextPaymentDate ? new Date(item.nextPaymentDate) : null
+      const matchesDate =
+        (!from || (dateValue && dateValue >= from)) &&
+        (!to || (dateValue && dateValue <= to))
+
+      return matchesAppeal && matchesStatus && matchesDate
+    })
+  }, [appealQuery, fromDate, recurring, statusFilter, toDate])
+
+  const clearFilters = () => {
+    setAppealQuery("")
+    setStatusFilter("all")
+    setFromDate("")
+    setToDate("")
+  }
 
   const cancelSubscription = async () => {
     if (!selectedRecurring?.id) return
@@ -57,8 +104,60 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
 
   return (
     <>
+      <div className="mb-4 rounded-lg border bg-card p-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-2">
+            <Label htmlFor="recurring-appeal">Appeal</Label>
+            <Input
+              id="recurring-appeal"
+              placeholder="Search appeal"
+              value={appealQuery}
+              onChange={(event) => setAppealQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {formatEnum(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="recurring-from">Next payment from</Label>
+            <Input
+              id="recurring-from"
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="recurring-to">Next payment to</Label>
+            <Input
+              id="recurring-to"
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      </div>
       <AdminTable
-        data={recurring}
+        data={filteredRecurring}
         onRowClick={(item) => setSelectedRecurring(item)}
         columns={[
         {

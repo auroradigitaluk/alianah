@@ -1,7 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { AdminTable } from "@/components/admin-table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { formatCurrency } from "@/lib/utils"
 import {
   Dialog,
@@ -29,11 +32,61 @@ interface Masjid {
 
 export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
   const [selectedMasjid, setSelectedMasjid] = useState<Masjid | null>(null)
+  const [nameQuery, setNameQuery] = useState("")
+  const [cityQuery, setCityQuery] = useState("")
+
+  const filteredMasjids = useMemo(() => {
+    const normalizedName = nameQuery.trim().toLowerCase()
+    const normalizedCity = cityQuery.trim().toLowerCase()
+
+    return masjids.filter((masjid) => {
+      const matchesName = normalizedName
+        ? masjid.name.toLowerCase().includes(normalizedName)
+        : true
+      const matchesCity = normalizedCity
+        ? masjid.city.toLowerCase().includes(normalizedCity)
+        : true
+
+      return matchesName && matchesCity
+    })
+  }, [cityQuery, masjids, nameQuery])
+
+  const clearFilters = () => {
+    setNameQuery("")
+    setCityQuery("")
+  }
 
   return (
     <>
+      <div className="mb-4 rounded-lg border bg-card p-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="masjids-name">Masjid name</Label>
+            <Input
+              id="masjids-name"
+              placeholder="Search masjid"
+              value={nameQuery}
+              onChange={(event) => setNameQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="masjids-city">City</Label>
+            <Input
+              id="masjids-city"
+              placeholder="Filter by city"
+              value={cityQuery}
+              onChange={(event) => setCityQuery(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      </div>
       <AdminTable
-        data={masjids}
+        data={filteredMasjids}
         onRowClick={(masjid) => setSelectedMasjid(masjid)}
         columns={[
         {

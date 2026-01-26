@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { OfflineIncomeTable } from "@/components/offline-income-table"
+import { ExportCsvButton } from "@/components/export-csv-button"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -27,12 +28,15 @@ export default async function OfflineIncomePage() {
       <AdminHeader
         title="Offline Income"
         actions={
-          <Button asChild>
-            <Link href="/admin/offline-income/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Entry
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportCsvButton variant="offlineIncome" data={income} />
+            <Button asChild>
+              <Link href="/admin/offline-income/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New Entry
+              </Link>
+            </Button>
+          </div>
         }
       />
       <div className="flex flex-1 flex-col">

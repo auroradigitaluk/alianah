@@ -1,10 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
+import {
+  IconArrowBackUp,
+  IconCheck,
+  IconCircleCheckFilled,
+  IconLoader,
+  IconX,
+} from "@tabler/icons-react"
 import {
   formatCurrency,
   formatEnum,
@@ -23,6 +29,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -151,6 +164,12 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
   const [refundType, setRefundType] = useState<"full" | "partial">("full")
   const [refundAmount, setRefundAmount] = useState("")
   const [refundReason, setRefundReason] = useState("")
+  const [appealQuery, setAppealQuery] = useState("")
+  const [nameQuery, setNameQuery] = useState("")
+  const [orderQuery, setOrderQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
 
   useEffect(() => {
     if (!selectedDonation) {
@@ -197,6 +216,55 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
     !stripeInfo?.refunded &&
     !stripeInfo?.subscriptionId
 
+  const statusOptions = useMemo(
+    () =>
+      Array.from(new Set(donations.map((donation) => donation.status))).sort(),
+    [donations]
+  )
+
+  const filteredDonations = useMemo(() => {
+    const normalizedAppeal = appealQuery.trim().toLowerCase()
+    const normalizedName = nameQuery.trim().toLowerCase()
+    const normalizedOrder = orderQuery.trim().toLowerCase()
+    const from = fromDate ? new Date(fromDate) : null
+    const to = toDate ? new Date(toDate) : null
+    if (from) from.setHours(0, 0, 0, 0)
+    if (to) to.setHours(23, 59, 59, 999)
+
+    return donations.filter((donation) => {
+      const appealName = (donation.appeal?.title || "General").toLowerCase()
+      const matchesAppeal = normalizedAppeal
+        ? appealName.includes(normalizedAppeal)
+        : true
+      const donorName = formatDonorName(donation.donor).toLowerCase()
+      const matchesName = normalizedName
+        ? donorName.includes(normalizedName)
+        : true
+      const orderNumber = (donation.orderNumber || "").toLowerCase()
+      const matchesOrder = normalizedOrder
+        ? orderNumber.includes(normalizedOrder)
+        : true
+      const matchesStatus =
+        statusFilter === "all" || donation.status === statusFilter
+      const rawDate = donation.completedAt || donation.createdAt
+      const dateValue = rawDate ? new Date(rawDate) : null
+      const matchesDate =
+        (!from || (dateValue && dateValue >= from)) &&
+        (!to || (dateValue && dateValue <= to))
+
+      return matchesAppeal && matchesName && matchesOrder && matchesStatus && matchesDate
+    })
+  }, [appealQuery, donations, fromDate, nameQuery, orderQuery, statusFilter, toDate])
+
+  const clearFilters = () => {
+    setAppealQuery("")
+    setNameQuery("")
+    setOrderQuery("")
+    setStatusFilter("all")
+    setFromDate("")
+    setToDate("")
+  }
+
   const handleRefund = async () => {
     if (!donation || !canRefund || refundLoading) return
 
@@ -237,8 +305,78 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
 
   return (
     <>
+      <div className="mb-4 rounded-lg border bg-card p-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="space-y-2">
+            <Label htmlFor="donations-name">Donor name</Label>
+            <Input
+              id="donations-name"
+              placeholder="Search donor"
+              value={nameQuery}
+              onChange={(event) => setNameQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="donations-order">Order number</Label>
+            <Input
+              id="donations-order"
+              placeholder="Search order"
+              value={orderQuery}
+              onChange={(event) => setOrderQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="donations-appeal">Appeal</Label>
+            <Input
+              id="donations-appeal"
+              placeholder="Search appeal"
+              value={appealQuery}
+              onChange={(event) => setAppealQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {formatEnum(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="donations-from">From</Label>
+            <Input
+              id="donations-from"
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="donations-to">To</Label>
+            <Input
+              id="donations-to"
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      </div>
       <AdminTable
-        data={donations}
+        data={filteredDonations}
         onRowClick={(donation) => setSelectedDonation(donation)}
         columns={[
         {
@@ -286,12 +424,16 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
               className={
                 donation.status === "REFUNDED"
                   ? "px-1.5 bg-orange-500 text-white border-orange-500"
-                  : "px-1.5"
+                  : donation.status === "FAILED"
+                    ? "px-1.5 bg-red-500 text-white border-red-500"
+                    : "px-1.5"
               }
             >
               {donation.status === "COMPLETED" ? (
                 <IconCircleCheckFilled className="mr-1 size-3 fill-white" />
               ) : donation.status === "REFUNDED" ? (
+                <IconArrowBackUp className="mr-1 size-3" />
+              ) : donation.status === "FAILED" ? (
                 <IconX className="mr-1 size-3" />
               ) : (
                 <IconLoader className="mr-1 size-3" />
@@ -365,12 +507,16 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
                   className={
                     donation.status === "REFUNDED"
                       ? "px-2 bg-orange-500 text-white border-orange-500"
-                      : "px-2"
+                      : donation.status === "FAILED"
+                        ? "px-2 bg-red-500 text-white border-red-500"
+                        : "px-2"
                   }
                 >
                   {donation.status === "COMPLETED" ? (
                     <IconCircleCheckFilled className="mr-1 size-3 fill-white" />
                   ) : donation.status === "REFUNDED" ? (
+                    <IconArrowBackUp className="mr-1 size-3" />
+                  ) : donation.status === "FAILED" ? (
                     <IconX className="mr-1 size-3" />
                   ) : (
                     <IconLoader className="mr-1 size-3" />

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { IconCalendarEvent } from "@tabler/icons-react"
 import { formatCurrency, formatEnum, formatDate, formatDateTime } from "@/lib/utils"
 import {
@@ -12,6 +13,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,11 +40,117 @@ interface Collection {
 
 export function CollectionsTable({ collections }: { collections: Collection[] }) {
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null)
+  const [appealQuery, setAppealQuery] = useState("")
+  const [masjidQuery, setMasjidQuery] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
+
+  const typeOptions = useMemo(
+    () => Array.from(new Set(collections.map((item) => item.type))).sort(),
+    [collections]
+  )
+
+  const filteredCollections = useMemo(() => {
+    const normalizedAppeal = appealQuery.trim().toLowerCase()
+    const normalizedMasjid = masjidQuery.trim().toLowerCase()
+    const from = fromDate ? new Date(fromDate) : null
+    const to = toDate ? new Date(toDate) : null
+    if (from) from.setHours(0, 0, 0, 0)
+    if (to) to.setHours(23, 59, 59, 999)
+
+    return collections.filter((item) => {
+      const appealName = (item.appeal?.title || "General").toLowerCase()
+      const masjidName = (item.masjid?.name || "No masjid").toLowerCase()
+      const matchesAppeal = normalizedAppeal
+        ? appealName.includes(normalizedAppeal)
+        : true
+      const matchesMasjid = normalizedMasjid
+        ? masjidName.includes(normalizedMasjid)
+        : true
+      const matchesType = typeFilter === "all" || item.type === typeFilter
+      const dateValue = item.collectedAt ? new Date(item.collectedAt) : null
+      const matchesDate =
+        (!from || (dateValue && dateValue >= from)) &&
+        (!to || (dateValue && dateValue <= to))
+
+      return matchesAppeal && matchesMasjid && matchesType && matchesDate
+    })
+  }, [appealQuery, collections, fromDate, masjidQuery, toDate, typeFilter])
+
+  const clearFilters = () => {
+    setAppealQuery("")
+    setMasjidQuery("")
+    setTypeFilter("all")
+    setFromDate("")
+    setToDate("")
+  }
 
   return (
     <>
+      <div className="mb-4 rounded-lg border bg-card p-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="space-y-2">
+            <Label htmlFor="collections-masjid">Masjid</Label>
+            <Input
+              id="collections-masjid"
+              placeholder="Search masjid"
+              value={masjidQuery}
+              onChange={(event) => setMasjidQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="collections-appeal">Appeal</Label>
+            <Input
+              id="collections-appeal"
+              placeholder="Search appeal"
+              value={appealQuery}
+              onChange={(event) => setAppealQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {typeOptions.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {formatEnum(type)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="collections-from">From</Label>
+            <Input
+              id="collections-from"
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="collections-to">To</Label>
+            <Input
+              id="collections-to"
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      </div>
       <AdminTable
-        data={collections}
+        data={filteredCollections}
         onRowClick={(item) => setSelectedCollection(item)}
         columns={[
         {

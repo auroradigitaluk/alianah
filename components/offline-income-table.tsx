@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { IconTag, IconCash, IconBuildingBank } from "@tabler/icons-react"
 import { formatCurrency, formatEnum, formatDate, formatDateTime } from "@/lib/utils"
 import {
@@ -12,6 +13,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,11 +39,101 @@ interface OfflineIncome {
 
 export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
   const [selectedIncome, setSelectedIncome] = useState<OfflineIncome | null>(null)
+  const [appealQuery, setAppealQuery] = useState("")
+  const [sourceFilter, setSourceFilter] = useState("all")
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
+
+  const sourceOptions = useMemo(
+    () => Array.from(new Set(income.map((item) => item.source))).sort(),
+    [income]
+  )
+
+  const filteredIncome = useMemo(() => {
+    const normalizedAppeal = appealQuery.trim().toLowerCase()
+    const from = fromDate ? new Date(fromDate) : null
+    const to = toDate ? new Date(toDate) : null
+    if (from) from.setHours(0, 0, 0, 0)
+    if (to) to.setHours(23, 59, 59, 999)
+
+    return income.filter((item) => {
+      const appealName = (item.appeal?.title || "General").toLowerCase()
+      const matchesAppeal = normalizedAppeal
+        ? appealName.includes(normalizedAppeal)
+        : true
+      const matchesSource = sourceFilter === "all" || item.source === sourceFilter
+      const dateValue = item.receivedAt ? new Date(item.receivedAt) : null
+      const matchesDate =
+        (!from || (dateValue && dateValue >= from)) &&
+        (!to || (dateValue && dateValue <= to))
+
+      return matchesAppeal && matchesSource && matchesDate
+    })
+  }, [appealQuery, fromDate, income, sourceFilter, toDate])
+
+  const clearFilters = () => {
+    setAppealQuery("")
+    setSourceFilter("all")
+    setFromDate("")
+    setToDate("")
+  }
 
   return (
     <>
+      <div className="mb-4 rounded-lg border bg-card p-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-2">
+            <Label htmlFor="offline-appeal">Appeal</Label>
+            <Input
+              id="offline-appeal"
+              placeholder="Search appeal"
+              value={appealQuery}
+              onChange={(event) => setAppealQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Source</Label>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                {sourceOptions.map((source) => (
+                  <SelectItem key={source} value={source}>
+                    {formatEnum(source)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="offline-from">From</Label>
+            <Input
+              id="offline-from"
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="offline-to">To</Label>
+            <Input
+              id="offline-to"
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      </div>
       <AdminTable
-        data={income}
+        data={filteredIncome}
         onRowClick={(item) => setSelectedIncome(item)}
         columns={[
         {

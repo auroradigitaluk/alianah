@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
 import {
@@ -13,6 +13,15 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -105,6 +114,37 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
   const [fundraiserDetails, setFundraiserDetails] = useState<FundraiserDetails | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [appealQuery, setAppealQuery] = useState("")
+  const [fundraiserQuery, setFundraiserQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+
+  const filteredFundraisers = useMemo(() => {
+    const normalizedAppeal = appealQuery.trim().toLowerCase()
+    const normalizedFundraiser = fundraiserQuery.trim().toLowerCase()
+
+    return fundraisers.filter((fundraiser) => {
+      const appealName = fundraiser.appeal.title.toLowerCase()
+      const fundraiserName = `${fundraiser.fundraiserName} ${fundraiser.title}`.toLowerCase()
+      const matchesAppeal = normalizedAppeal
+        ? appealName.includes(normalizedAppeal)
+        : true
+      const matchesFundraiser = normalizedFundraiser
+        ? fundraiserName.includes(normalizedFundraiser)
+        : true
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && fundraiser.isActive) ||
+        (statusFilter === "inactive" && !fundraiser.isActive)
+
+      return matchesAppeal && matchesFundraiser && matchesStatus
+    })
+  }, [appealQuery, fundraiserQuery, fundraisers, statusFilter])
+
+  const clearFilters = () => {
+    setAppealQuery("")
+    setFundraiserQuery("")
+    setStatusFilter("all")
+  }
 
   const handleToggleStatus = async (fundraiser: Fundraiser, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -183,7 +223,8 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
 
     // CSV headers
     const headers = [
-      "Donor Name",
+      "Donor First Name",
+      "Donor Last Name",
       "Donor Email",
       "Amount",
       "Status",
@@ -200,7 +241,6 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
 
     // Convert donations to CSV rows
     const rows = fundraiserDetails.donations.map((donation) => {
-      const donorName = formatDonorName(donation.donor)
       const amount = formatCurrency(donation.amountPence)
       const status = formatEnum(donation.status)
       const date = formatDate(
@@ -216,7 +256,8 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
       const transactionId = donation.transactionId || ""
 
       return [
-        donorName,
+        donation.donor.firstName,
+        donation.donor.lastName,
         donation.donor.email,
         amount,
         status,
@@ -254,8 +295,48 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
 
   return (
     <>
+      <div className="mb-4 rounded-lg border bg-card p-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="fundraisers-appeal">Appeal</Label>
+            <Input
+              id="fundraisers-appeal"
+              placeholder="Search appeal"
+              value={appealQuery}
+              onChange={(event) => setAppealQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fundraisers-name">Fundraiser or title</Label>
+            <Input
+              id="fundraisers-name"
+              placeholder="Search fundraiser"
+              value={fundraiserQuery}
+              onChange={(event) => setFundraiserQuery(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      </div>
       <AdminTable
-        data={fundraisers}
+        data={filteredFundraisers}
         onRowClick={(fundraiser) => setSelectedFundraiser(fundraiser)}
         columns={[
           {

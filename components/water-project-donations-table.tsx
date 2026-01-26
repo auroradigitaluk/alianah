@@ -330,9 +330,20 @@ Thank you for your generous support in making this project possible.`
   const handleExportDonations = () => {
     try {
       // Create CSV content
-      const headers = ["Donor Name", "Email", "Country", "Amount", "Status", "Type", "Date", "Gift Aid"]
+      const headers = [
+        "Donor First Name",
+        "Donor Last Name",
+        "Email",
+        "Country",
+        "Amount",
+        "Status",
+        "Type",
+        "Date",
+        "Gift Aid",
+      ]
       const rows = donations.map(d => [
-        formatDonorName(d.donor),
+        d.donor.firstName,
+        d.donor.lastName,
         d.donor.email,
         d.country.country,
         `£${(d.amountPence / 100).toFixed(2)}`,

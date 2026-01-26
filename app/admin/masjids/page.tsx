@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { MasjidsTable } from "@/components/masjids-table"
+import { ExportCsvButton } from "@/components/export-csv-button"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -53,12 +54,15 @@ export default async function MasjidsPage() {
       <AdminHeader
         title="Masjids"
         actions={
-          <Button asChild>
-            <Link href="/admin/masjids/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Masjid
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportCsvButton variant="masjids" data={masjids} />
+            <Button asChild>
+              <Link href="/admin/masjids/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New Masjid
+              </Link>
+            </Button>
+          </div>
         }
       />
       <div className="flex flex-1 flex-col">

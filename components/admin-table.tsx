@@ -175,6 +175,10 @@ export function AdminTable<T extends { id: string }>({
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    setData(initialData)
+  }, [initialData])
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
