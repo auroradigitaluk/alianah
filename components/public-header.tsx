@@ -9,6 +9,7 @@ import { useSidecart } from "@/components/sidecart-provider"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export function PublicHeader() {
   const router = useRouter()
@@ -48,6 +49,7 @@ export function PublicHeader() {
             </Link>
           </Button>
         )}
+        <ThemeToggle />
         <Button
           variant="ghost"
           size="icon"

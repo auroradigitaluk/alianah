@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 interface AdminHeaderProps {
   title: string
@@ -43,6 +44,7 @@ export function AdminHeader({ title, actions, monthFilter, dateFilter }: AdminHe
               />
             </>
           )}
+          <ThemeToggle />
           {isDemo && (
             <Badge variant="destructive" className="font-semibold">
               TEST MODE
