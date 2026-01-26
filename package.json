@@ -46,6 +46,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "jspdf": "^4.0.0",
+    "libphonenumber-js": "^1.12.35",
     "lucide-react": "^0.562.0",
     "nanoid": "^5.1.6",
     "next": "16.1.1",

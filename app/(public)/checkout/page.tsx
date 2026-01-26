@@ -11,9 +11,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useSidecart } from "@/components/sidecart-provider"
+import { CHECKOUT_COUNTRIES } from "@/lib/countries"
 import { formatCurrency } from "@/lib/utils"
 import { z } from "zod"
+import { ChevronDownIcon } from "lucide-react"
+import { getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js"
 
 function toTitleCase(input: string) {
   const s = input.trim().replace(/\s+/g, " ")
@@ -28,8 +32,18 @@ function toTitleCase(input: string) {
     .join(" ")
 }
 
+function isValidName(input: string) {
+  const value = input.trim()
+  if (value.length < 2 || value.length > 60) return false
+  return /^[A-Za-z][A-Za-z\s.'-]*$/.test(value)
+}
+
 function normalizeEmail(input: string) {
   return input.trim().toLowerCase()
+}
+
+function isValidEmail(input: string) {
+  return z.string().email().safeParse(input).success
 }
 
 function normalizeCountry(input: string) {
@@ -58,19 +72,51 @@ function normalizePhone(input: string) {
   return cleaned
 }
 
+function normalizePhoneNumber(input: string) {
+  return input.replace(/[^\d]/g, "")
+}
+
+function normalizePhoneCountryCode(input: string) {
+  const cleaned = input.replace(/[^\d]/g, "")
+  return cleaned ? `+${cleaned}` : ""
+}
+
+function isValidCity(input: string) {
+  const value = input.trim()
+  if (value.length < 2 || value.length > 60) return false
+  return /^[A-Za-z][A-Za-z\s.'-]*$/.test(value)
+}
+
+function isValidPostcode(input: string, country: string) {
+  const value = input.trim()
+  if (!value) return false
+  if (country === "GB") return isValidUkPostcode(value)
+  return /^[A-Za-z0-9][A-Za-z0-9\s-]{1,9}$/.test(value)
+}
+
 const checkoutSchema = z.object({
-  fullName: z
+  firstName: z
     .string()
-    .min(1, "Name is required")
+    .min(1, "First name is required")
+    .refine((v) => isValidName(v), "Invalid first name")
+    .transform((v) => toTitleCase(v)),
+  lastName: z
+    .string()
+    .min(1, "Last name is required")
+    .refine((v) => isValidName(v), "Invalid last name")
     .transform((v) => toTitleCase(v)),
   email: z
     .string()
     .transform((v) => normalizeEmail(v))
     .pipe(z.string().email("Invalid email address")),
-  phone: z
+  phoneCountryCode: z
     .string()
-    .optional()
-    .transform((v) => (v ? normalizePhone(v) : "")),
+    .min(1, "Country code is required")
+    .transform((v) => normalizePhoneCountryCode(v)),
+  phoneNumber: z
+    .string()
+    .min(1, "Phone number is required")
+    .transform((v) => normalizePhoneNumber(v)),
   address: z
     .string()
     .min(1, "Address is required")
@@ -92,16 +138,38 @@ const checkoutSchema = z.object({
   coverFees: z.boolean().default(false),
 })
   .superRefine((data, ctx) => {
-    // Phone validation (optional): require 7-16 digits (after stripping formatting)
-    if (data.phone) {
-      const digits = data.phone.replace(/[^\d]/g, "")
-      if (digits.length < 7 || digits.length > 16) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["phone"],
-          message: "Invalid phone number",
-        })
-      }
+    const codeDigits = data.phoneCountryCode.replace(/[^\d]/g, "")
+    const numberDigits = data.phoneNumber.replace(/[^\d]/g, "")
+    if (codeDigits.length < 1 || codeDigits.length > 4) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["phoneCountryCode"],
+        message: "Invalid country code",
+      })
+    }
+    const fullDigits = `${codeDigits}${numberDigits}`
+    if (fullDigits.length < 7 || fullDigits.length > 15) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["phoneNumber"],
+        message: "Invalid phone number",
+      })
+    }
+
+    const fullPhone = buildPhoneNumber(data.phoneCountryCode, data.phoneNumber)
+    const parsed = parsePhoneNumberFromString(fullPhone)
+    if (!parsed || !parsed.isValid()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["phoneNumber"],
+        message: "Invalid phone number",
+      })
+    } else if (parsed.countryCallingCode !== codeDigits) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["phoneCountryCode"],
+        message: "Phone code does not match number",
+      })
     }
 
     // Postcode validation: treat GB as UK postcode
@@ -113,15 +181,31 @@ const checkoutSchema = z.object({
           message: "Invalid UK postcode",
         })
       }
+    } else if (!isValidPostcode(data.postcode, data.country)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["postcode"],
+        message: "Invalid postcode",
+      })
+    }
+
+    if (!isValidCity(data.city)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["city"],
+        message: "Invalid city name",
+      })
     }
   })
 
-function splitFullName(fullName: string): { firstName: string; lastName: string } {
-  const trimmed = fullName.trim().replace(/\s+/g, " ")
-  if (!trimmed) return { firstName: "", lastName: "" }
-  const parts = trimmed.split(" ")
-  if (parts.length === 1) return { firstName: parts[0]!, lastName: "" }
-  return { firstName: parts[0]!, lastName: parts.slice(1).join(" ") }
+function buildFullName(firstName: string, lastName: string): string {
+  return [firstName.trim(), lastName.trim()].filter(Boolean).join(" ")
+}
+
+function buildPhoneNumber(countryCode: string, number: string): string {
+  const code = normalizePhoneCountryCode(countryCode)
+  const digits = normalizePhoneNumber(number)
+  return `${code}${digits}`
 }
 
 type CheckoutCreateResponse = {
@@ -162,7 +246,7 @@ function PaymentStep(props: {
         total: { label: "Total", amount: totalPence },
         requestPayerName: true,
         requestPayerEmail: true,
-        requestPayerPhone: Boolean(validated.phone),
+    requestPayerPhone: true,
       })
       const result = await pr.canMakePayment()
       if (cancelled) return
@@ -231,7 +315,18 @@ function PaymentStep(props: {
     return () => {
       cancelled = true
     }
-  }, [stripe, clientSecret, totalPence, validated.country, validated.phone, validated.email, validated.fullName, validated.address, validated.city, validated.postcode])
+  }, [
+    stripe,
+    clientSecret,
+    totalPence,
+    validated.country,
+    validated.email,
+    validated.firstName,
+    validated.lastName,
+    validated.address,
+    validated.city,
+    validated.postcode,
+  ])
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -249,9 +344,9 @@ function PaymentStep(props: {
         confirmParams: {
           payment_method_data: {
             billing_details: {
-              name: validated.fullName,
+              name: buildFullName(validated.firstName, validated.lastName),
               email: validated.email,
-              phone: validated.phone || undefined,
+              phone: buildPhoneNumber(validated.phoneCountryCode, validated.phoneNumber),
               address: {
                 line1: validated.address || undefined,
                 city: validated.city || undefined,
@@ -348,10 +443,16 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   const router = useRouter()
   const { items, clearCart } = useSidecart()
   const [loading, setLoading] = React.useState(false)
+  const [countryOpen, setCountryOpen] = React.useState(false)
+  const [countryQuery, setCountryQuery] = React.useState("")
+  const [phoneCodeOpen, setPhoneCodeOpen] = React.useState(false)
+  const [phoneCodeQuery, setPhoneCodeQuery] = React.useState("")
   const [formData, setFormData] = React.useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     email: "",
-    phone: "",
+    phoneCountryCode: "+44",
+    phoneNumber: "",
     address: "",
     city: "",
     postcode: "",
@@ -364,6 +465,66 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   const [clientSecret, setClientSecret] = React.useState<string | null>(null)
   const [createdOrder, setCreatedOrder] = React.useState<CheckoutCreateResponse | null>(null)
   const [validatedSnapshot, setValidatedSnapshot] = React.useState<z.infer<typeof checkoutSchema> | null>(null)
+  const clearFieldErrorIfValid = React.useCallback(
+    (field: string, isValid: boolean) => {
+      if (!isValid || !errors[field]) return
+      setErrors((prev) => ({ ...prev, [field]: "" }))
+    },
+    [errors]
+  )
+
+  const countryOptions = React.useMemo(() => {
+    const display = new Intl.DisplayNames(["en"], { type: "region" })
+    const items = CHECKOUT_COUNTRIES
+      .map((code) => {
+        const name = display.of(code) || code
+        return { code, label: name }
+      })
+      .sort((a, b) => a.label.localeCompare(b.label))
+    return items
+  }, [])
+
+  const phoneCodeOptions = React.useMemo(() => {
+    const items = CHECKOUT_COUNTRIES
+      .map((code) => {
+        try {
+          const callingCode = `+${getCountryCallingCode(code as any)}`
+          return { code, label: callingCode, value: callingCode }
+        } catch {
+          return null
+        }
+      })
+      .filter((item): item is { code: string; label: string; value: string } => Boolean(item))
+      .sort((a, b) => a.label.localeCompare(b.label))
+    const seen = new Set<string>()
+    const unique = items.filter((item) => (seen.has(item.value) ? false : (seen.add(item.value), true)))
+    const uk = items.find((item) => item.code === "GB")
+    const rest = unique.filter((item) => item.code !== "GB")
+    return uk ? [uk, ...rest] : unique
+  }, [])
+
+  const filteredCountries = React.useMemo(() => {
+    const query = countryQuery.trim().toLowerCase()
+    if (!query) return countryOptions
+    return countryOptions.filter((country) =>
+      country.label.toLowerCase().includes(query)
+    )
+  }, [countryOptions, countryQuery])
+
+  const filteredPhoneCodes = React.useMemo(() => {
+    const query = phoneCodeQuery.trim().toLowerCase()
+    if (!query) return phoneCodeOptions
+    return phoneCodeOptions.filter((item) =>
+      item.label.toLowerCase().includes(query)
+    )
+  }, [phoneCodeOptions, phoneCodeQuery])
+
+  const selectedCountryLabel =
+    countryOptions.find((country) => country.code === formData.country)?.label ||
+    "Select country"
+  const selectedPhoneCodeLabel =
+    phoneCodeOptions.find((item) => item.value === formData.phoneCountryCode)?.label ||
+    formData.phoneCountryCode
 
   const subtotalPence = items.reduce((sum, item) => sum + item.amountPence, 0)
   const feesPence = formData.coverFees ? Math.round(subtotalPence * 0.012) + 20 : 0
@@ -375,7 +536,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
 
     try {
       const validated = checkoutSchema.parse(formData)
-      const { firstName, lastName } = splitFullName(validated.fullName)
+      const fullPhone = buildPhoneNumber(validated.phoneCountryCode, validated.phoneNumber)
       
       setLoading(true)
 
@@ -385,9 +546,14 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
         body: JSON.stringify({
           items,
           donor: {
-            ...validated,
-            firstName,
-            lastName,
+            firstName: validated.firstName,
+            lastName: validated.lastName,
+            email: validated.email,
+            phone: fullPhone,
+            address: validated.address,
+            city: validated.city,
+            postcode: validated.postcode,
+            country: validated.country,
             // Server schema expects these fields.
             marketingEmail: validated.marketingConsent,
             marketingSMS: false,
@@ -396,6 +562,8 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
             billingCity: validated.city,
             billingPostcode: validated.postcode,
             billingCountry: validated.country,
+            giftAid: validated.giftAid,
+            coverFees: validated.coverFees,
           },
           subtotalPence,
           feesPence,
@@ -553,19 +721,41 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                 <CardTitle>Billing details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full name *</Label>
-                  <Input
-                    id="fullName"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    onBlur={() =>
-                      setFormData((prev) => ({ ...prev, fullName: toTitleCase(prev.fullName) }))
-                    }
-                    required
-                    autoComplete="name"
-                  />
-                  {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First name *</Label>
+                    <Input
+                      id="firstName"
+                      value={formData.firstName}
+                      onChange={(e) => {
+                        const next = toTitleCase(e.target.value)
+                        setFormData({ ...formData, firstName: next })
+                        clearFieldErrorIfValid("firstName", isValidName(next))
+                      }}
+                      required
+                      autoComplete="given-name"
+                    />
+                    {errors.firstName && (
+                      <p className="text-sm text-destructive">{errors.firstName}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last name *</Label>
+                    <Input
+                      id="lastName"
+                      value={formData.lastName}
+                      onChange={(e) => {
+                        const next = toTitleCase(e.target.value)
+                        setFormData({ ...formData, lastName: next })
+                        clearFieldErrorIfValid("lastName", isValidName(next))
+                      }}
+                      required
+                      autoComplete="family-name"
+                    />
+                    {errors.lastName && (
+                      <p className="text-sm text-destructive">{errors.lastName}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email *</Label>
@@ -573,9 +763,24 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value })
+                      if (errors.email) {
+                        setErrors((prev) => ({ ...prev, email: "" }))
+                      }
+                    }}
                     onBlur={() =>
-                      setFormData((prev) => ({ ...prev, email: normalizeEmail(prev.email) }))
+                      setFormData((prev) => {
+                        const normalized = normalizeEmail(prev.email)
+                        if (!normalized) return { ...prev, email: normalized }
+                        if (!isValidEmail(normalized)) {
+                          setErrors((curr) => ({
+                            ...curr,
+                            email: "Invalid email address",
+                          }))
+                        }
+                        return { ...prev, email: normalized }
+                      })
                     }
                     required
                     autoComplete="email"
@@ -585,27 +790,110 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone (optional)</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    onBlur={() =>
-                      setFormData((prev) => ({ ...prev, phone: normalizePhone(prev.phone) }))
-                    }
-                    placeholder="+44..."
-                    autoComplete="tel"
-                    disabled={loading}
-                  />
-                  {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
+                  <Label htmlFor="phone">Phone *</Label>
+                  <div className="flex gap-2">
+                    <Popover open={phoneCodeOpen} onOpenChange={setPhoneCodeOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-11 w-40 justify-between"
+                          disabled={loading}
+                        >
+                          <span className="truncate">{selectedPhoneCodeLabel}</span>
+                          <ChevronDownIcon className="h-4 w-4 opacity-60" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-2">
+                        <Input
+                          value={phoneCodeQuery}
+                          onChange={(e) => setPhoneCodeQuery(e.target.value)}
+                          placeholder="Search code..."
+                          className="h-9"
+                        />
+                        <div className="mt-2 max-h-64 overflow-auto">
+                          {filteredPhoneCodes.length === 0 ? (
+                            <p className="px-2 py-2 text-sm text-muted-foreground">
+                              No matching codes
+                            </p>
+                          ) : (
+                            filteredPhoneCodes.map((item) => (
+                              <button
+                                key={item.code}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({ ...formData, phoneCountryCode: item.value })
+                                  setPhoneCodeOpen(false)
+                                  setPhoneCodeQuery("")
+                                  if (errors.phoneCountryCode || errors.phoneNumber) {
+                                    setErrors((prev) => ({ ...prev, phoneCountryCode: "", phoneNumber: "" }))
+                                  }
+                                }}
+                            onBlur={() => {
+                              const fullPhone = buildPhoneNumber(
+                                formData.phoneCountryCode,
+                                formData.phoneNumber
+                              )
+                              const parsed = parsePhoneNumberFromString(fullPhone)
+                              if (!parsed || !parsed.isValid()) {
+                                setErrors((prev) => ({ ...prev, phoneNumber: "Invalid phone number" }))
+                              }
+                            }}
+                                className="w-full text-left px-2 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground"
+                              >
+                                {item.label}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phoneNumber}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          phoneNumber: normalizePhoneNumber(e.target.value),
+                        })
+                        if (errors.phoneNumber) {
+                          setErrors((prev) => ({ ...prev, phoneNumber: "" }))
+                        }
+                      }}
+                    onBlur={() => {
+                      const fullPhone = buildPhoneNumber(
+                        formData.phoneCountryCode,
+                        formData.phoneNumber
+                      )
+                      const parsed = parsePhoneNumberFromString(fullPhone)
+                      if (!parsed || !parsed.isValid()) {
+                        setErrors((prev) => ({ ...prev, phoneNumber: "Invalid phone number" }))
+                      }
+                    }}
+                      placeholder="Phone number"
+                      autoComplete="tel"
+                      disabled={loading}
+                      className="h-11 flex-1"
+                      required
+                    />
+                  </div>
+                  {(errors.phoneCountryCode || errors.phoneNumber) && (
+                    <p className="text-sm text-destructive">
+                      {errors.phoneCountryCode || errors.phoneNumber}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="address">Address *</Label>
                   <Input
                     id="address"
                     value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      onChange={(e) => {
+                        const next = toTitleCase(e.target.value)
+                        setFormData({ ...formData, address: next })
+                        clearFieldErrorIfValid("address", next.trim().length > 0)
+                      }}
                     onBlur={() =>
                       setFormData((prev) => ({ ...prev, address: toTitleCase(prev.address) }))
                     }
@@ -622,9 +910,19 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                     <Input
                       id="city"
                       value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      onChange={(e) => {
+                        const next = toTitleCase(e.target.value)
+                        setFormData({ ...formData, city: next })
+                        clearFieldErrorIfValid("city", next.trim().length > 0 && isValidCity(next))
+                      }}
                       onBlur={() =>
-                        setFormData((prev) => ({ ...prev, city: toTitleCase(prev.city) }))
+                        setFormData((prev) => {
+                          const next = toTitleCase(prev.city)
+                          if (next && !isValidCity(next)) {
+                            setErrors((curr) => ({ ...curr, city: "Invalid city name" }))
+                          }
+                          return { ...prev, city: next }
+                        })
                       }
                       required
                       autoComplete="address-level2"
@@ -637,9 +935,19 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                     <Input
                       id="postcode"
                       value={formData.postcode}
-                      onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
+                      onChange={(e) => {
+                        const next = normalizeUkPostcode(e.target.value)
+                        setFormData({ ...formData, postcode: next })
+                        clearFieldErrorIfValid("postcode", next.trim().length > 0 && isValidPostcode(next, formData.country))
+                      }}
                       onBlur={() =>
-                        setFormData((prev) => ({ ...prev, postcode: normalizeUkPostcode(prev.postcode) }))
+                        setFormData((prev) => {
+                          const next = normalizeUkPostcode(prev.postcode)
+                          if (next && !isValidPostcode(next, formData.country)) {
+                            setErrors((curr) => ({ ...curr, postcode: "Invalid postcode" }))
+                          }
+                          return { ...prev, postcode: next }
+                        })
                       }
                       required
                       autoComplete="postal-code"
@@ -650,40 +958,76 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="country">Country *</Label>
-                  <Input
-                    id="country"
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    onBlur={() =>
-                      setFormData((prev) => ({ ...prev, country: normalizeCountry(prev.country) }))
-                    }
-                    placeholder="GB"
-                    required
-                    autoComplete="country"
-                    disabled={loading}
-                  />
+                  <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-11 justify-between"
+                        disabled={loading}
+                      >
+                        <span className="truncate">{selectedCountryLabel}</span>
+                        <ChevronDownIcon className="h-4 w-4 opacity-60" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-2">
+                      <Input
+                        value={countryQuery}
+                        onChange={(e) => setCountryQuery(e.target.value)}
+                        placeholder="Search country..."
+                        className="h-9"
+                      />
+                      <div className="mt-2 max-h-64 overflow-auto">
+                        {filteredCountries.length === 0 ? (
+                          <p className="px-2 py-2 text-sm text-muted-foreground">
+                            No matching countries
+                          </p>
+                        ) : (
+                          filteredCountries.map((country) => (
+                            <button
+                              key={country.code}
+                              type="button"
+                              onClick={() => {
+                                const nextCountry = normalizeCountry(country.code)
+                                setFormData({ ...formData, country: nextCountry })
+                                setCountryOpen(false)
+                                setCountryQuery("")
+                                clearFieldErrorIfValid("country", true)
+                                if (formData.postcode.trim() && isValidPostcode(formData.postcode, nextCountry)) {
+                                  setErrors((prev) => ({ ...prev, postcode: "" }))
+                                }
+                              }}
+                              className="w-full text-left px-2 py-2 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground"
+                            >
+                              {country.label}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   {errors.country && <p className="text-sm text-destructive">{errors.country}</p>}
-                  <p className="text-xs text-muted-foreground">Use 2-letter country code (e.g. GB).</p>
+                  <p className="text-xs text-muted-foreground">Select your country.</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-white text-foreground">
               <CardHeader>
                 <CardTitle>Gift Aid</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Restored Gift Aid section (as before) */}
-                <div className="bg-primary text-primary-foreground rounded-lg p-4 space-y-3">
+                <div className="bg-white text-foreground rounded-lg p-4 space-y-3 border">
                   <div>
-                    <p className="font-semibold text-base mb-1">
+                    <p className="font-semibold text-base mb-1 text-foreground">
                       Boost your donation by 25% at no extra cost to you
                     </p>
-                    <p className="text-sm text-primary-foreground/90">
+                    <p className="text-sm text-foreground/80">
                       If you&apos;re a UK taxpayer, you can claim Gift Aid. The government will add 25% to your donation - you don&apos;t need to pay anything extra!
                     </p>
                   </div>
-                  <div className="bg-primary-foreground/10 border border-primary-foreground/20 rounded-lg p-3 space-y-2">
+                  <div className="bg-primary text-primary-foreground rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-primary-foreground/80">Your donation:</span>
                       <span className="font-medium text-primary-foreground">{formatCurrency(totalPence)}</span>
@@ -764,9 +1108,6 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                 <CardTitle>Payment</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  Next, we’ll securely collect your card details using Stripe.
-                </p>
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="coverFees"

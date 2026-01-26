@@ -139,7 +139,17 @@ export function OneNationDonationForm({
   
   // Get preset amounts for product
   const productPresetAmounts = selectedProductData?.presetAmountsPence
-    ? JSON.parse(selectedProductData.presetAmountsPence) as number[]
+    ? ((): number[] => {
+        try {
+          const arr: unknown = JSON.parse(selectedProductData.presetAmountsPence)
+          if (!Array.isArray(arr)) return []
+          return arr
+            .filter((n): n is number => typeof n === "number" && Number.isFinite(n) && n > 0)
+            .sort((a, b) => a - b)
+        } catch {
+          return []
+        }
+      })()
     : []
   
   // Get preset amount for monthly from appeal (appeals do not support yearly)
@@ -172,6 +182,7 @@ export function OneNationDonationForm({
           return null
         })
         .filter((p): p is Preset => Boolean(p))
+        .sort((a, b) => a.amountPence - b.amountPence)
     } catch {
       return []
     }
@@ -191,14 +202,26 @@ export function OneNationDonationForm({
 
   // Get available countries for selected water project
   const availableWaterCountries = selectedWaterProject
-    ? waterProjectCountries.filter((c) => c.projectType === selectedWaterProject)
+    ? waterProjectCountries
+        .filter((c) => c.projectType === selectedWaterProject)
+        .slice()
+        .sort((a, b) => {
+          if (a.pricePence !== b.pricePence) return a.pricePence - b.pricePence
+          return a.country.localeCompare(b.country)
+        })
     : []
   
   // Get selected water country data
   const selectedWaterCountryData = availableWaterCountries.find((c) => c.id === selectedWaterCountry)
 
   const availableSponsorshipCountries = selectedSponsorshipType
-    ? sponsorshipProjectCountries.filter((c) => c.projectType === selectedSponsorshipType)
+    ? sponsorshipProjectCountries
+        .filter((c) => c.projectType === selectedSponsorshipType)
+        .slice()
+        .sort((a, b) => {
+          if (a.pricePence !== b.pricePence) return a.pricePence - b.pricePence
+          return a.country.localeCompare(b.country)
+        })
     : []
 
   const selectedSponsorshipCountryData = availableSponsorshipCountries.find(
@@ -698,26 +721,34 @@ export function OneNationDonationForm({
                   Suggested Amounts
                 </Label>
                 <div className="grid grid-cols-2 gap-2">
-                  {appealPresets.map((preset) => (
-                    <Button
-                      key={preset.amountPence}
-                      type="button"
-                      variant={customAmount === (preset.amountPence / 100).toString() ? "default" : "outline"}
-                      onClick={() => setCustomAmount((preset.amountPence / 100).toString())}
-                      className={preset.label ? "group h-auto py-2.5" : "group h-11"}
-                    >
-                      <span className="flex flex-col items-center leading-tight">
-                        <span className="group-hover:text-white">
-                          £{(preset.amountPence / 100).toFixed(2)}{frequency === "MONTHLY" ? "/month" : ""}
-                        </span>
-                        {preset.label && (
-                          <span className="text-[11px] font-medium text-foreground/80 mt-0.5 leading-tight tracking-tight line-clamp-3 text-center whitespace-normal group-hover:text-white">
-                            {preset.label}
+                  {appealPresets.map((preset) => {
+                    const isSelected = customAmount === (preset.amountPence / 100).toString()
+                    return (
+                      <Button
+                        key={preset.amountPence}
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        onClick={() => setCustomAmount((preset.amountPence / 100).toString())}
+                        className={preset.label ? "group h-auto py-2.5" : "group h-11"}
+                      >
+                        <span className="flex flex-col items-center leading-tight">
+                          <span className="group-hover:text-white">
+                            £{(preset.amountPence / 100).toFixed(2)}{frequency === "MONTHLY" ? "/month" : ""}
                           </span>
-                        )}
-                      </span>
-                    </Button>
-                  ))}
+                          {preset.label && (
+                            <span
+                              className={[
+                                "text-[11px] font-medium mt-0.5 leading-tight tracking-tight line-clamp-3 text-center whitespace-normal group-hover:text-white",
+                                isSelected ? "text-primary-foreground/90" : "text-foreground/80",
+                              ].join(" ")}
+                            >
+                              {preset.label}
+                            </span>
+                          )}
+                        </span>
+                      </Button>
+                    )
+                  })}
                 </div>
               </div>
             )}

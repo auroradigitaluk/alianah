@@ -126,6 +126,7 @@ export function DonationForm({
           return null
         })
         .filter((p): p is Preset => Boolean(p))
+        .sort((a, b) => a.amountPence - b.amountPence)
     } catch {
       return []
     }
@@ -208,9 +209,18 @@ export function DonationForm({
     setCustomAmount("")
   }
 
-  const presetAmounts = selectedProductData?.presetAmountsPence
-    ? JSON.parse(selectedProductData.presetAmountsPence)
-    : []
+  const presetAmounts: number[] = React.useMemo(() => {
+    if (!selectedProductData?.presetAmountsPence) return []
+    try {
+      const arr: unknown = JSON.parse(selectedProductData.presetAmountsPence)
+      if (!Array.isArray(arr)) return []
+      return arr
+        .filter((n): n is number => typeof n === "number" && Number.isFinite(n) && n > 0)
+        .sort((a, b) => a - b)
+    } catch {
+      return []
+    }
+  }, [selectedProductData?.presetAmountsPence])
 
   const canUseCustom = selectedProductData?.allowCustom ?? false
 
@@ -274,36 +284,44 @@ export function DonationForm({
         <Label className="text-base">Amount</Label>
         {showAppealPresets && (
           <div className="grid grid-cols-2 gap-2 mb-2">
-            {appealPresets.map((preset) => (
-              <Button
-                key={preset.amountPence}
-                type="button"
-                variant={presetAmount === preset.amountPence ? "default" : "outline"}
-                onClick={() => {
-                  setPresetAmount(preset.amountPence)
-                  setCustomAmount("")
-                }}
-                className={preset.label ? "group h-auto py-2.5 text-base" : "group h-11 text-base"}
-              >
-                <span className="flex flex-col items-center leading-tight">
-                  <span className="font-semibold group-hover:text-white">
-                    {frequency === "MONTHLY"
-                      ? `${formatCurrency(preset.amountPence)}/month`
-                      : formatCurrency(preset.amountPence)}
-                  </span>
-                  {preset.label && (
-                    <span className="text-[11px] font-medium text-foreground/80 mt-0.5 leading-tight tracking-tight line-clamp-3 text-center whitespace-normal group-hover:text-white">
-                      {preset.label}
+            {appealPresets.map((preset) => {
+              const isSelected = presetAmount === preset.amountPence
+              return (
+                <Button
+                  key={preset.amountPence}
+                  type="button"
+                  variant={isSelected ? "default" : "outline"}
+                  onClick={() => {
+                    setPresetAmount(preset.amountPence)
+                    setCustomAmount("")
+                  }}
+                  className={preset.label ? "group h-auto py-2.5 text-base" : "group h-11 text-base"}
+                >
+                  <span className="flex flex-col items-center leading-tight">
+                    <span className="font-semibold group-hover:text-white">
+                      {frequency === "MONTHLY"
+                        ? `${formatCurrency(preset.amountPence)}/month`
+                        : formatCurrency(preset.amountPence)}
                     </span>
-                  )}
-                </span>
-              </Button>
-            ))}
+                    {preset.label && (
+                      <span
+                        className={[
+                          "text-[11px] font-medium mt-0.5 leading-tight tracking-tight line-clamp-3 text-center whitespace-normal group-hover:text-white",
+                          isSelected ? "text-primary-foreground/90" : "text-foreground/80",
+                        ].join(" ")}
+                      >
+                        {preset.label}
+                      </span>
+                    )}
+                  </span>
+                </Button>
+              )
+            })}
           </div>
         )}
         {selectedProductData && presetAmounts.length > 0 && (
           <div className="grid grid-cols-2 gap-2 mb-2">
-            {presetAmounts.map((amount: number) => (
+            {presetAmounts.map((amount) => (
               <Button
                 key={amount}
                 type="button"

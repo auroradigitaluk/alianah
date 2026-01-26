@@ -1,4 +1,12 @@
 import { Resend } from "resend"
+import {
+  buildDonationConfirmationEmail,
+  buildFundraiserDonationNotificationEmail,
+  buildFundraiserOtpEmail,
+  buildFundraiserWelcomeEmail,
+  buildSponsorshipDonationEmail,
+  buildWaterProjectDonationEmail,
+} from "@/lib/email-templates"
 
 // Lazy initialization to avoid errors during build when API key is not available
 let resend: Resend | null = null
@@ -93,67 +101,15 @@ export async function sendDonationConfirmationEmail(params: {
     return
   }
 
-  const { donorEmail, donorName, orderNumber, items, totalPence, giftAid, manageSubscriptionUrl } = params
-
-  const itemsHtml = items
-    .map((i) => {
-      const amount = `£${(i.amountPence / 100).toFixed(2)}`
-      const freq = i.frequency ? ` <span style="color:#6b7280; font-size: 12px;">(${i.frequency})</span>` : ""
-      return `<li style="margin: 6px 0;">${i.title} — <strong>${amount}</strong>${freq}</li>`
-    })
-    .join("")
+  const { donorEmail } = params
+  const { subject, html } = buildDonationConfirmationEmail(params)
 
   try {
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: donorEmail,
-      subject: `Donation confirmation • Order #${orderNumber}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #2563eb;">Thank you for your donation</h1>
-            <p>Dear ${donorName},</p>
-            <p>We’ve received your donation. <strong>Order #${orderNumber}</strong></p>
-
-            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0 0 10px 0;"><strong>Donation summary</strong></p>
-              <ul style="margin: 0; padding-left: 18px;">
-                ${itemsHtml}
-              </ul>
-              <p style="margin: 12px 0 0 0; border-top: 1px solid #e5e7eb; padding-top: 12px;">
-                <strong>Total:</strong> £${(totalPence / 100).toFixed(2)}
-              </p>
-              ${giftAid ? `<p style="margin: 8px 0 0 0; color:#16a34a;"><strong>Gift Aid:</strong> Claimed</p>` : ""}
-            </div>
-
-            ${
-              manageSubscriptionUrl
-                ? `
-                  <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                    <p style="margin: 0 0 10px 0;"><strong>Manage your subscription</strong></p>
-                    <p style="margin: 0;">
-                      <a href="${manageSubscriptionUrl}" target="_blank" rel="noopener noreferrer"
-                        style="display: inline-block; background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;">
-                        Manage subscription
-                      </a>
-                    </p>
-                    <p style="margin: 12px 0 0 0; font-size: 12px; color: #6b7280; word-break: break-all;">
-                      Or copy this link: ${manageSubscriptionUrl}
-                    </p>
-                  </div>
-                `
-                : ""
-            }
-
-            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
-          </body>
-        </html>
-      `,
+      subject,
+      html,
     })
   } catch (error) {
     console.error("Error sending donation confirmation email:", error)
@@ -170,34 +126,19 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
   const { donorEmail, donorName, projectType, location, country, amount, donationType } = params
 
   try {
+    const { subject, html } = buildWaterProjectDonationEmail({
+      donorName,
+      projectType,
+      location,
+      country,
+      amount,
+      donationType,
+    })
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: donorEmail,
-      subject: `Thank you for your ${PROJECT_TYPE_LABELS[projectType]} donation`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #2563eb;">Thank You for Your Donation</h1>
-            <p>Dear ${donorName},</p>
-            <p>Thank you for your generous donation towards our ${PROJECT_TYPE_LABELS[projectType]} project${location ? ` in ${location}, ${country}` : ` in ${country}`}.</p>
-            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
-              <p style="margin: 0;"><strong>Donation Details:</strong></p>
-              <p style="margin: 5px 0;">Type: ${PROJECT_TYPE_LABELS[projectType]}</p>
-              <p style="margin: 5px 0;">Country: ${country}${location ? `, ${location}` : ""}</p>
-              <p style="margin: 5px 0;">Amount: £${(amount / 100).toFixed(2)}</p>
-              <p style="margin: 5px 0;">Donation Type: ${DONATION_TYPE_LABELS[donationType]}</p>
-            </div>
-            <p>Your donation is now being reviewed by our team. We will keep you updated on the progress of this project.</p>
-            <p>May Allah (SWT) accept your donation and reward you abundantly.</p>
-            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
-          </body>
-        </html>
-      `,
+      subject,
+      html,
     })
   } catch (error) {
     console.error("Error sending donation email:", error)
@@ -284,34 +225,19 @@ export async function sendSponsorshipDonationEmail(params: {
   const { donorEmail, donorName, projectType, location, country, amount, donationType } = params
 
   try {
+    const { subject, html } = buildSponsorshipDonationEmail({
+      donorName,
+      projectType,
+      location,
+      country,
+      amount,
+      donationType,
+    })
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: donorEmail,
-      subject: `Thank you for your ${SPONSORSHIP_TYPE_LABELS[projectType] || projectType} sponsorship`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #2563eb;">Thank You for Your Sponsorship</h1>
-            <p>Dear ${donorName},</p>
-            <p>Thank you for your generous sponsorship towards our ${SPONSORSHIP_TYPE_LABELS[projectType] || projectType} programme${location ? ` in ${location}, ${country}` : ` in ${country}`}.</p>
-            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
-              <p style="margin: 0;"><strong>Sponsorship Details:</strong></p>
-              <p style="margin: 5px 0;">Type: ${SPONSORSHIP_TYPE_LABELS[projectType] || projectType}</p>
-              <p style="margin: 5px 0;">Country: ${country}${location ? `, ${location}` : ""}</p>
-              <p style="margin: 5px 0;">Amount: £${(amount / 100).toFixed(2)}</p>
-              <p style="margin: 5px 0;">Donation Type: ${DONATION_TYPE_LABELS[donationType]}</p>
-            </div>
-            <p>Your sponsorship is now being reviewed by our team. We will keep you updated on the progress.</p>
-            <p>May Allah (SWT) accept your donation and reward you abundantly.</p>
-            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
-          </body>
-        </html>
-      `,
+      subject,
+      html,
     })
   } catch (error) {
     console.error("Error sending sponsorship donation email:", error)
@@ -399,40 +325,17 @@ export async function sendFundraiserWelcomeEmail(params: FundraiserWelcomeEmailP
   const { fundraiserEmail, fundraiserName, fundraiserTitle, appealTitle, fundraiserUrl } = params
 
   try {
+    const { subject, html } = buildFundraiserWelcomeEmail({
+      fundraiserName,
+      fundraiserTitle,
+      appealTitle,
+      fundraiserUrl,
+    })
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: fundraiserEmail,
-      subject: `Your fundraising page is ready: ${fundraiserTitle}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #2563eb;">Your Fundraising Page is Ready!</h1>
-            <p>Dear ${fundraiserName},</p>
-            <p>Thank you for setting up a fundraiser for <strong>${appealTitle}</strong>!</p>
-            <p>Your fundraising page is now live and ready to share. You can start collecting donations right away.</p>
-            <div style="background-color: #eff6ff; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6; text-align: center;">
-              <p style="margin: 0 0 15px 0;"><strong>Your Fundraising Link:</strong></p>
-              <p style="margin: 0;"><a href="${fundraiserUrl}" style="color: #3b82f6; text-decoration: underline; font-size: 16px; word-break: break-all;">${fundraiserUrl}</a></p>
-            </div>
-            <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-              <p style="margin: 0 0 10px 0;"><strong>Next Steps:</strong></p>
-              <ul style="margin: 0; padding-left: 20px;">
-                <li>Share your fundraising link with friends, family, and on social media</li>
-                <li>Track your progress on your fundraising page</li>
-                <li>You'll receive email notifications when someone donates to your fundraiser</li>
-              </ul>
-            </div>
-            <p>Every donation made through your link will be tracked and you'll be notified immediately.</p>
-            <p>Thank you for your support in making a difference!</p>
-            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
-          </body>
-        </html>
-      `,
+      subject,
+      html,
     })
   } catch (error) {
     console.error("Error sending fundraiser welcome email:", error)
@@ -449,36 +352,19 @@ export async function sendFundraiserDonationNotification(params: FundraiserDonat
   const { fundraiserEmail, fundraiserName, fundraiserTitle, donorName, amount, donationType, fundraiserUrl } = params
 
   try {
+    const { subject, html } = buildFundraiserDonationNotificationEmail({
+      fundraiserName,
+      fundraiserTitle,
+      donorName,
+      amount,
+      donationType,
+      fundraiserUrl,
+    })
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: fundraiserEmail,
-      subject: `New donation to ${fundraiserTitle}!`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #16a34a;">🎉 New Donation Received!</h1>
-            <p>Dear ${fundraiserName},</p>
-            <p>Great news! Someone just made a donation to your fundraiser <strong>${fundraiserTitle}</strong>!</p>
-            <div style="background-color: #f0fdf4; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #16a34a;">
-              <p style="margin: 0 0 10px 0;"><strong>Donation Details:</strong></p>
-              <p style="margin: 5px 0;">Donor: ${donorName || "Anonymous"}</p>
-              <p style="margin: 5px 0;">Amount: <strong style="font-size: 18px; color: #16a34a;">£${(amount / 100).toFixed(2)}</strong></p>
-              <p style="margin: 5px 0;">Donation Type: ${DONATION_TYPE_LABELS[donationType] || donationType}</p>
-            </div>
-            <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center;">
-              <p style="margin: 0 0 10px 0;"><strong>View your fundraising page:</strong></p>
-              <p style="margin: 0;"><a href="${fundraiserUrl}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Fundraising Page</a></p>
-            </div>
-            <p>Thank you for your continued support in making a difference!</p>
-            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
-          </body>
-        </html>
-      `,
+      subject,
+      html,
     })
   } catch (error) {
     console.error("Error sending fundraiser donation notification:", error)
@@ -495,30 +381,12 @@ export async function sendFundraiserOTPEmail(params: FundraiserOTPEmailParams) {
   const { email, code } = params
 
   try {
+    const { subject, html } = buildFundraiserOtpEmail({ code })
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: email,
-      subject: "Your Fundraiser Login Code",
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #2563eb;">Your Login Code</h1>
-            <p>Hello,</p>
-            <p>You requested a login code for your fundraiser account. Use the code below to sign in:</p>
-            <div style="background-color: #eff6ff; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6; text-align: center;">
-              <p style="margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1e40af;">${code}</p>
-            </div>
-            <p style="color: #6b7280; font-size: 14px;">This code will expire in 10 minutes.</p>
-            <p>If you didn't request this code, you can safely ignore this email.</p>
-            <p style="margin-top: 30px;">Best regards,<br>Alianah Humanity Welfare</p>
-          </body>
-        </html>
-      `,
+      subject,
+      html,
     })
   } catch (error) {
     console.error("Error sending OTP email:", error)
