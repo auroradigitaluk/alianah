@@ -1042,13 +1042,13 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
               </CardContent>
             </Card>
 
-            <Card className="bg-white text-foreground">
+            <Card>
               <CardHeader>
                 <CardTitle>Gift Aid</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Restored Gift Aid section (as before) */}
-                <div className="bg-white text-foreground rounded-lg p-4 space-y-3 border">
+                <div className="bg-card text-card-foreground rounded-lg p-4 space-y-3 border">
                   <div>
                     <p className="font-semibold text-base mb-1 text-foreground">
                       Boost your donation by 25% at no extra cost to you
