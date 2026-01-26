@@ -2,7 +2,7 @@ type EmailDoc = { subject: string; html: string }
 
 // Brand / UI-aligned palette (email-safe)
 const BRAND = {
-  primary: "#16a34a", // close to app's green primary
+  primary: "#009900", // brand green
   primaryText: "#ffffff",
   background: "#f6f7fb",
   surface: "#ffffff",
@@ -28,15 +28,15 @@ function getPublicBaseUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 }
 
-function logoImageHtml() {
+function logoImageHtml(baseUrl?: string) {
   // Public asset in /public (space must be URL-encoded).
-  const src = `${getPublicBaseUrl()}/logo%20light.png`
+  const src = `${baseUrl || getPublicBaseUrl()}/logo%20light.png`
   return `
     <img
       src="${src}"
       alt="Alianah Humanity Welfare"
-      width="160"
-      style="display:block; width:160px; max-width:100%; height:auto; margin:0 auto 8px auto;"
+      width="80"
+      style="display:block; width:80px; max-width:100%; height:auto; margin:0 auto 8px auto;"
     />
   `
 }
@@ -62,6 +62,13 @@ function layout(params: {
   footerHtml?: string
 }): string {
   const { preheader, title, introHtml, contentHtml, footerHtml } = params
+  const standardFooter = `
+    Need help or want to update your details? Email support@alianah.org.
+    This mailbox is not monitored. Please use the email above for any questions.
+    <div style="margin-top: 8px;">
+      <a href="https://www.alianah.org" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; text-decoration:none;">www.alianah.org</a>
+    </div>
+  `
 
   // Table-based layout for best client compatibility.
   return `
@@ -105,7 +112,7 @@ function layout(params: {
             <tr>
               <td style="padding: 16px 8px 0 8px;">
                 <div style="color:${BRAND.muted}; font-size: 12px; line-height: 1.6;">
-                  ${footerHtml ?? ""}
+                  ${footerHtml ?? standardFooter}
                   <div style="margin-top: 10px;">
                     © ${new Date().getFullYear()} Alianah Humanity Welfare
                   </div>
@@ -154,13 +161,14 @@ export type DonationConfirmationEmailParams = {
   totalPence: number
   giftAid: boolean
   manageSubscriptionUrl?: string
+  baseUrl?: string
 }
 
 export function buildDonationConfirmationEmail(params: DonationConfirmationEmailParams): EmailDoc {
   const donorName = escapeHtml(params.donorName)
   const orderNumber = escapeHtml(params.orderNumber)
   const preheader = `Your donation has been received. Ref ${params.orderNumber}`
-  const subject = "Donate Confirmation - Alianah Humanity Welfare"
+  const subject = "Donation confirmation - Alianah Humanity Welfare"
 
   const rows = params.items
     .map((i) => {
@@ -196,9 +204,11 @@ export function buildDonationConfirmationEmail(params: DonationConfirmationEmail
 
   const giftAidLine = params.giftAid
     ? `<div style="margin-top: 10px; color:${BRAND.primary}; font-size: 13px; font-weight: 600;">
-         Gift Aid claimed — your Gift Aid declaration increases the value of your donation by 25%.
+         Gift Aid claimed — your donation is worth 25% more at no extra cost to you.
        </div>`
-    : ""
+    : `<div style="margin-top: 10px; color:${BRAND.muted}; font-size: 13px;">
+         Gift Aid not claimed.
+       </div>`
 
   const manage =
     params.manageSubscriptionUrl
@@ -219,7 +229,6 @@ export function buildDonationConfirmationEmail(params: DonationConfirmationEmail
     year: "numeric",
   })
 
-  // Flat UI-aligned email layout (no cards/boxed sections)
   const html = `
 <!DOCTYPE html>
 <html>
@@ -240,35 +249,36 @@ export function buildDonationConfirmationEmail(params: DonationConfirmationEmail
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 640px;">
             <tr>
               <td style="padding: 0 8px 12px 8px;">
-                ${logoImageHtml()}
+                ${logoImageHtml(params.baseUrl)}
                 ${logoTextHtml()}
               </td>
             </tr>
 
             <tr>
-              <td style="background:${BRAND.surface}; padding: 20px;">
-                <div style="text-align:center;">
-                  <div style="display:inline-block; width: 44px; height: 44px; border-radius: 999px; background:${BRAND.primary}; line-height: 44px; text-align:center;">
-                    <span style="display:inline-block; color:${BRAND.primaryText}; font-size: 20px; font-weight: 700;">✓</span>
-                  </div>
-                  <div style="margin-top: 12px; font-weight: 700; font-size: 20px; letter-spacing:-0.02em;">Thank you!</div>
-                  <div style="margin-top: 6px; color:${BRAND.muted}; font-size: 14px;">
-                    Dear ${donorName}, your donation has been received.
-                  </div>
-                  <div style="margin-top: 10px; color:${BRAND.muted}; font-size: 12px;">
-                    Donation reference: <span style="font-weight: 700; color:${BRAND.text};">${orderNumber}</span>
+              <td style="background:#f2fbf2; border: 1px solid ${BRAND.border}; border-radius: 16px; overflow:hidden;">
+                <div style="padding: 24px;">
+                  <div style="text-align:center;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width: 48px; height: 48px; border-radius: 999px; background:${BRAND.primary};">
+                      <span style="display:inline-block; color:${BRAND.primaryText}; font-size: 20px; font-weight: 700;">✓</span>
+                    </div>
+                    <div style="margin-top: 12px; font-weight: 700; font-size: 22px; letter-spacing:-0.02em;">Donation confirmed</div>
+                    <div style="margin-top: 6px; color:${BRAND.muted}; font-size: 14px;">
+                      Dear ${donorName}, we’ve received your donation.
+                    </div>
+                    <div style="margin-top: 10px; color:${BRAND.muted}; font-size: 12px;">
+                      Reference: <span style="font-weight: 700; color:${BRAND.text};">${orderNumber}</span>
+                      • Date: <span style="font-weight: 600; color:${BRAND.text};">${receiptDate}</span>
+                    </div>
                   </div>
                 </div>
-              </td>
-            </tr>
 
-            <tr>
-              <td style="padding: 12px 8px 0 8px;">
-                <div style="background:${BRAND.surface}; padding: 18px;">
-                  <div style="font-weight: 600; font-size: 14px; margin-bottom: 10px;">Donation summary</div>
-                  ${summaryTable}
-                  ${giftAidLine}
-                  ${manage}
+                <div style="padding: 0 24px 24px 24px;">
+                  <div style="background:#ffffff; border: 1px solid ${BRAND.border}; border-radius: 12px; padding: 16px;">
+                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 10px;">Donation summary</div>
+                    ${summaryTable}
+                    ${giftAidLine}
+                  </div>
+                  ${manage ? `<div style="margin-top: 14px;">${manage}</div>` : ""}
                 </div>
               </td>
             </tr>
@@ -276,7 +286,11 @@ export function buildDonationConfirmationEmail(params: DonationConfirmationEmail
             <tr>
               <td style="padding: 12px 8px 0 8px;">
                 <div style="color:${BRAND.muted}; font-size: 12px; line-height: 1.6;">
-                  If you have any questions about your donation, please reply to this email.
+                  Need help or want to update your details? Email support@alianah.org.
+                  This mailbox is not monitored. Please use the email above for any questions.
+                  <div style="margin-top: 8px;">
+                    <a href="https://www.alianah.org" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; text-decoration:none;">www.alianah.org</a>
+                  </div>
                   <div style="margin-top: 10px;">
                     © ${new Date().getFullYear()} Alianah Humanity Welfare
                   </div>
@@ -368,7 +382,7 @@ export function buildWaterProjectDonationEmail(params: WaterProjectDonationEmail
       title: "Thank you for your donation",
       introHtml,
       contentHtml,
-      footerHtml: "May Allah (SWT) accept your donation and reward you abundantly.",
+      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
     }),
   }
 }
@@ -422,7 +436,7 @@ export function buildSponsorshipDonationEmail(params: SponsorshipDonationEmailPa
       title: "Thank you for your sponsorship",
       introHtml,
       contentHtml,
-      footerHtml: "May Allah (SWT) accept your donation and reward you abundantly.",
+      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
     }),
   }
 }
@@ -467,7 +481,7 @@ export function buildFundraiserWelcomeEmail(params: FundraiserWelcomeEmailParams
       title: "Your fundraising page is ready",
       introHtml,
       contentHtml,
-      footerHtml: "Thank you for your support in making a difference.",
+      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
     }),
   }
 }
@@ -520,7 +534,7 @@ export function buildFundraiserDonationNotificationEmail(
       title: "New donation received",
       introHtml,
       contentHtml,
-      footerHtml: "Thank you for your continued support.",
+      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
     }),
   }
 }
@@ -564,7 +578,130 @@ export function buildFundraiserOtpEmail(params: FundraiserOtpEmailParams): Email
       title: "Your login code",
       introHtml,
       contentHtml,
-      footerHtml: "Best regards,<br/>Alianah Humanity Welfare",
+      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
+    }),
+  }
+}
+
+export type AbandonedCheckoutEmailParams = {
+  donorName: string
+  orderNumber: string
+  items: Array<{ title: string; amountPence: number; frequency?: string }>
+  totalPence: number
+  resumeUrl: string
+}
+
+export function buildAbandonedCheckoutEmail(params: AbandonedCheckoutEmailParams): EmailDoc {
+  const donorName = escapeHtml(params.donorName)
+  const orderNumber = escapeHtml(params.orderNumber)
+  const preheader = "You were so close to completing your donation."
+  const subject = "Complete your donation to Alianah Humanity Welfare"
+
+  const rows = params.items
+    .map((i) => {
+      const title = escapeHtml(i.title)
+      const amount = moneyPence(i.amountPence)
+      const freq = i.frequency
+        ? ` <span style="color:${BRAND.muted}; font-size: 12px;">(${escapeHtml(i.frequency)})</span>`
+        : ""
+      return `
+        <tr>
+          <td style="padding: 8px 0; border-bottom: 1px solid ${BRAND.border};">
+            <div style="font-weight: 600;">${title}${freq}</div>
+          </td>
+          <td align="right" style="padding: 8px 0; border-bottom: 1px solid ${BRAND.border}; font-weight: 700;">
+            ${amount}
+          </td>
+        </tr>
+      `
+    })
+    .join("")
+
+  const summaryTable = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+      ${rows}
+      <tr>
+        <td style="padding: 12px 0 0 0; border-top: 1px solid ${BRAND.border}; font-weight: 700;">
+          Total
+        </td>
+        <td align="right" style="padding: 12px 0 0 0; border-top: 1px solid ${BRAND.border}; font-weight: 700;">
+          ${moneyPence(params.totalPence)}
+        </td>
+      </tr>
+    </table>
+  `
+
+  const introHtml = `
+    <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
+      Dear ${donorName},
+      <br />
+      It looks like you were close to completing your donation. If you still wish to support this appeal, you can finish your donation below.
+    </div>
+  `
+
+  const contentHtml = `
+    ${card({ title: "Your intended donation", bodyHtml: summaryTable })}
+    <div style="height: 14px;"></div>
+    ${button({ href: params.resumeUrl, label: "Complete donation" })}
+    <div style="margin-top: 10px; font-size: 12px; color:${BRAND.muted};">
+      Donation reference: <strong>${orderNumber}</strong>
+    </div>
+  `
+
+  return {
+    subject,
+    html: layout({
+      preheader,
+      title: "Complete your donation",
+      introHtml,
+      contentHtml,
+      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
+    }),
+  }
+}
+
+export type RefundConfirmationEmailParams = {
+  donorName: string
+  amountPence: number
+  orderNumber?: string | null
+  donateUrl: string
+}
+
+export function buildRefundConfirmationEmail(params: RefundConfirmationEmailParams): EmailDoc {
+  const donorName = escapeHtml(params.donorName)
+  const preheader = "Your refund has been processed."
+  const subject = "Your refund has been processed"
+
+  const introHtml = `
+    <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
+      Dear ${donorName},
+      <br />
+      We’ve processed your refund for <strong style="color:${BRAND.text};">${moneyPence(params.amountPence)}</strong>.
+      ${params.orderNumber ? `Your reference is <strong>${escapeHtml(params.orderNumber)}</strong>.` : ""}
+    </div>
+  `
+
+  const contentHtml = `
+    ${card({
+      title: "Refund summary",
+      bodyHtml: `
+        <div style="color:${BRAND.muted}; font-size: 14px;">
+          Refund amount: <strong style="color:${BRAND.text};">${moneyPence(params.amountPence)}</strong>
+        </div>
+      `,
+    })}
+    <div style="height: 14px;"></div>
+    ${button({ href: params.donateUrl, label: "Make a donation" })}
+  `
+
+  return {
+    subject,
+    html: layout({
+      preheader,
+      title: "Refund processed",
+      introHtml,
+      contentHtml,
+      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
     }),
   }
 }

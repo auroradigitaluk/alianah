@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { COLLECTION_SOURCES, PAYMENT_METHODS } from "@/lib/utils"
 import { z } from "zod"
 import Stripe from "stripe"
 import { randomInt } from "crypto"
@@ -174,14 +173,17 @@ export async function POST(request: NextRequest) {
             frequency: item.frequency,
             donationType: item.donationType,
             amountPence: item.amountPence,
+            waterProjectId: item.waterProjectId || null,
+            waterProjectCountryId: item.waterProjectCountryId || null,
+            sponsorshipProjectId: item.sponsorshipProjectId || null,
+            sponsorshipCountryId: item.sponsorshipCountryId || null,
+            sponsorshipProjectType: item.sponsorshipProjectType || null,
+            plaqueName: item.plaqueName || null,
           })),
         },
       },
       include: { items: true },
     })
-
-    const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
-    const collectedVia = COLLECTION_SOURCES.WEBSITE
 
     // Stripe Checkout can't mix one-off + subscription items in one session.
     const frequencies = new Set(validated.items.map((i) => i.frequency))
@@ -193,53 +195,7 @@ export async function POST(request: NextRequest) {
     }
     const checkoutFrequency = validated.items[0]!.frequency
 
-    // Appeal donations (+ recurring)
-    const recurringDonationIds: string[] = []
-    await Promise.all(
-      validated.items
-        .filter(isAppealItem)
-        .map(async (item) => {
-          const donation = await prisma.donation.create({
-            data: {
-              donorId: donor.id,
-              appealId: item.appealId!,
-              fundraiserId: item.fundraiserId || null,
-              productId: item.productId || null,
-              amountPence: item.amountPence,
-              donationType: item.donationType,
-              frequency: item.frequency,
-              paymentMethod,
-              collectedVia,
-              status: "PENDING",
-              giftAid: validated.donor.giftAid,
-              billingAddress: billing.address,
-              billingCity: billing.city,
-              billingPostcode: billing.postcode,
-              billingCountry: billing.country,
-              orderNumber,
-            },
-          })
-
-          if (item.frequency === "MONTHLY" || item.frequency === "YEARLY") {
-            const recurring = await prisma.recurringDonation.create({
-              data: {
-                donorId: donor.id,
-                appealId: item.appealId!,
-                amountPence: item.amountPence,
-                donationType: item.donationType,
-                frequency: item.frequency,
-                paymentMethod,
-                status: "PENDING",
-              },
-            })
-            recurringDonationIds.push(recurring.id)
-          }
-
-          void donation
-        })
-    )
-
-    // Water project donations
+    // Water project validation (donations created on payment success)
     await Promise.all(
       validated.items
         .filter(isWaterProjectItem)
@@ -262,44 +218,11 @@ export async function POST(request: NextRequest) {
             throw new Error("Water project amount does not match selected country price")
           }
 
-          const donation = await prisma.waterProjectDonation.create({
-            data: {
-              waterProjectId: item.waterProjectId,
-              countryId: item.waterProjectCountryId,
-              donorId: donor.id,
-              amountPence: item.amountPence,
-              donationType: item.donationType,
-              paymentMethod,
-              collectedVia,
-              transactionId: null,
-              giftAid: validated.donor.giftAid,
-              billingAddress: billing.address,
-              billingCity: billing.city,
-              billingPostcode: billing.postcode,
-              billingCountry: billing.country,
-              emailSent: false,
-              reportSent: false,
-              status: "PENDING",
-              notes: [
-                item.plaqueName ? `Plaque Name: ${item.plaqueName}` : null,
-                `OrderNumber:${orderNumber}`,
-              ]
-                .filter(Boolean)
-                .join(" | ") || null,
-            },
-            include: {
-              waterProject: true,
-              country: true,
-              donor: true,
-            },
-          })
-
-          // Email + project status updates happen after successful payment via Stripe webhook.
-          void donation
+          return null
         })
     )
 
-    // Sponsorship donations
+    // Sponsorship validation (donations created on payment success)
     await Promise.all(
       validated.items
         .filter(isSponsorshipItem)
@@ -322,35 +245,7 @@ export async function POST(request: NextRequest) {
             throw new Error("Sponsorship amount does not match selected country price")
           }
 
-          const donation = await prisma.sponsorshipDonation.create({
-            data: {
-              sponsorshipProjectId: item.sponsorshipProjectId,
-              countryId: item.sponsorshipCountryId,
-              donorId: donor.id,
-              amountPence: item.amountPence,
-              donationType: item.donationType,
-              paymentMethod,
-              collectedVia,
-              transactionId: null,
-              giftAid: validated.donor.giftAid,
-              billingAddress: billing.address,
-              billingCity: billing.city,
-              billingPostcode: billing.postcode,
-              billingCountry: billing.country,
-              emailSent: false,
-              reportSent: false,
-              status: "PENDING",
-              notes: `OrderNumber:${orderNumber}`,
-            },
-            include: {
-              sponsorshipProject: true,
-              country: true,
-              donor: true,
-            },
-          })
-
-          // Email + project status updates happen after successful payment via Stripe webhook.
-          void donation
+          return null
         })
     )
 
@@ -465,13 +360,6 @@ export async function POST(request: NextRequest) {
 
     if (!paymentIntent?.client_secret) {
       throw new Error("Failed to create subscription payment client secret")
-    }
-
-    if (recurringDonationIds.length > 0) {
-      await prisma.recurringDonation.updateMany({
-        where: { id: { in: recurringDonationIds } },
-        data: { subscriptionId: subscription.id },
-      })
     }
 
     return NextResponse.json({

@@ -50,6 +50,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const markDonationRefunded = async (paymentIntentId: string | null | undefined) => {
+      if (!paymentIntentId) return
+      await prisma.donation.updateMany({
+        where: { transactionId: paymentIntentId },
+        data: { status: "REFUNDED" },
+      })
+    }
+
     // Handle the event
     switch (event.type) {
       case "checkout.session.completed": {
@@ -182,6 +190,26 @@ export async function POST(request: NextRequest) {
           })
         }
 
+        break
+      }
+
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge
+        const paymentIntentId =
+          typeof charge.payment_intent === "string"
+            ? charge.payment_intent
+            : charge.payment_intent?.id || null
+        await markDonationRefunded(paymentIntentId)
+        break
+      }
+
+      case "refund.updated": {
+        const refund = event.data.object as Stripe.Refund
+        const paymentIntentId =
+          typeof refund.payment_intent === "string"
+            ? refund.payment_intent
+            : refund.payment_intent?.id || null
+        await markDonationRefunded(paymentIntentId)
         break
       }
 

@@ -8,6 +8,7 @@ export const revalidate = 0
 async function getDonations() {
   try {
     return await prisma.donation.findMany({
+      where: { status: { not: "PENDING" } },
       orderBy: { createdAt: "desc" },
       include: {
         donor: { select: { title: true, firstName: true, lastName: true, email: true } },

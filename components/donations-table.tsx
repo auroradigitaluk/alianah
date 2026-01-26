@@ -1,28 +1,51 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
-import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod } from "@/lib/utils"
+import {
+  formatCurrency,
+  formatEnum,
+  formatDate,
+  formatDateTime,
+  formatDonorName,
+  formatPaymentMethod,
+} from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, Mail, Wallet, Target, Calendar, CreditCard, Gift, MapPin, FileText } from "lucide-react"
+import {
+  Calendar,
+  CreditCard,
+  FileText,
+  Gift,
+  Mail,
+  MapPin,
+  Receipt,
+  ShieldCheck,
+  User,
+  Wallet,
+} from "lucide-react"
 
 interface Donation {
   id: string
   amountPence: number
   donationType: string
+  frequency: string
   status: string
   paymentMethod: string
+  collectedVia?: string | null
   transactionId?: string | null
   orderNumber?: string | null
   giftAid: boolean
@@ -32,13 +55,185 @@ interface Donation {
   billingCountry: string | null
   createdAt: Date
   completedAt?: Date | null
-  donor: { title?: string | null; firstName: string; lastName: string; email: string }
+  donor: {
+    title?: string | null
+    firstName: string
+    lastName: string
+    email: string
+    phone?: string | null
+    address?: string | null
+    city?: string | null
+    postcode?: string | null
+    country?: string | null
+  }
   appeal?: { title: string } | null
   product?: { name: string } | null
+  fundraiser?: { fundraiserName: string; title: string; slug: string } | null
+}
+
+type StripeInfo = {
+  paymentIntentId?: string | null
+  chargeId?: string | null
+  status?: string | null
+  amount?: number | null
+  amountReceived?: number | null
+  currency?: string | null
+  created?: number | null
+  description?: string | null
+  receiptEmail?: string | null
+  paymentMethodTypes?: string[] | null
+  card?: {
+    brand?: string | null
+    last4?: string | null
+    expMonth?: number | null
+    expYear?: number | null
+    funding?: string | null
+    country?: string | null
+    network?: string | null
+  } | null
+  riskLevel?: string | null
+  riskScore?: number | null
+  fees?: number | null
+  net?: number | null
+  refunded?: boolean | null
+  amountRefunded?: number | null
+  subscriptionId?: string | null
+  subscriptionStatus?: string | null
+  nextPaymentDate?: string | null
+}
+
+type DemoOrder = {
+  orderNumber: string
+  subtotalPence: number
+  feesPence: number
+  totalPence: number
+  coverFees: boolean
+  giftAid: boolean
+  marketingEmail: boolean
+  marketingSMS: boolean
+  donorFirstName: string
+  donorLastName: string
+  donorEmail: string
+  donorPhone?: string | null
+  donorAddress?: string | null
+  donorCity?: string | null
+  donorPostcode?: string | null
+  donorCountry?: string | null
+  createdAt: string
+}
+
+type DonationDetailsResponse = {
+  donation: Donation
+  order: DemoOrder | null
+  stripe: StripeInfo | null
+}
+
+function InfoRow(props: { label: string; value?: string | null; mono?: boolean }) {
+  const { label, value, mono } = props
+  return (
+    <div className="flex items-start justify-between gap-6 py-2.5 border-b border-border/60 last:border-0">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+      <p className={`text-sm text-foreground text-right ${mono ? "font-mono" : ""}`}>
+        {value || "-"}
+      </p>
+    </div>
+  )
 }
 
 export function DonationsTable({ donations }: { donations: Donation[] }) {
   const [selectedDonation, setSelectedDonation] = useState<Donation | null>(null)
+  const [details, setDetails] = useState<DonationDetailsResponse | null>(null)
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsError, setDetailsError] = useState<string | null>(null)
+  const [refundLoading, setRefundLoading] = useState(false)
+  const [refundError, setRefundError] = useState<string | null>(null)
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false)
+  const [refundType, setRefundType] = useState<"full" | "partial">("full")
+  const [refundAmount, setRefundAmount] = useState("")
+  const [refundReason, setRefundReason] = useState("")
+
+  useEffect(() => {
+    if (!selectedDonation) {
+      setDetails(null)
+      setDetailsError(null)
+      return
+    }
+
+    const controller = new AbortController()
+    const loadDetails = async () => {
+      setDetailsLoading(true)
+      setDetailsError(null)
+      try {
+        const response = await fetch(`/api/admin/donations/${selectedDonation.id}/details`, {
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          throw new Error("Failed to load donation details")
+        }
+        const data = (await response.json()) as DonationDetailsResponse
+        setDetails(data)
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setDetailsError(error instanceof Error ? error.message : "Failed to load details")
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setDetailsLoading(false)
+        }
+      }
+    }
+
+    void loadDetails()
+
+    return () => controller.abort()
+  }, [selectedDonation])
+
+  const stripeInfo = details?.stripe || null
+  const donation = details?.donation || selectedDonation
+  const order = details?.order || null
+  const canRefund =
+    Boolean(stripeInfo?.paymentIntentId) &&
+    stripeInfo?.status === "succeeded" &&
+    !stripeInfo?.refunded &&
+    !stripeInfo?.subscriptionId
+
+  const handleRefund = async () => {
+    if (!donation || !canRefund || refundLoading) return
+
+    setRefundLoading(true)
+    setRefundError(null)
+
+    try {
+      const amountPence =
+        refundType === "partial" ? Math.round(parseFloat(refundAmount || "0") * 100) : undefined
+      if (refundType === "partial" && (!amountPence || amountPence <= 0)) {
+        throw new Error("Enter a valid partial refund amount.")
+      }
+      if (!refundReason.trim()) {
+        throw new Error("Please enter a reason for the refund.")
+      }
+      const response = await fetch(`/api/admin/donations/${donation.id}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: refundType,
+          amountPence,
+          reason: refundReason.trim(),
+        }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || "Refund failed")
+      }
+      const refreshed = (await response.json()) as DonationDetailsResponse
+      setDetails(refreshed)
+      setRefundDialogOpen(false)
+    } catch (error) {
+      setRefundError(error instanceof Error ? error.message : "Refund failed")
+    } finally {
+      setRefundLoading(false)
+    }
+  }
 
   return (
     <>
@@ -88,10 +283,16 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
           cell: (donation) => (
             <Badge
               variant={donation.status === "COMPLETED" ? "default" : "outline"}
-              className="px-1.5"
+              className={
+                donation.status === "REFUNDED"
+                  ? "px-1.5 bg-orange-500 text-white border-orange-500"
+                  : "px-1.5"
+              }
             >
               {donation.status === "COMPLETED" ? (
                 <IconCircleCheckFilled className="mr-1 size-3 fill-white" />
+              ) : donation.status === "REFUNDED" ? (
+                <IconX className="mr-1 size-3" />
               ) : (
                 <IconLoader className="mr-1 size-3" />
               )}
@@ -149,279 +350,328 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
         open={!!selectedDonation}
         onOpenChange={(open) => !open && setSelectedDonation(null)}
       >
-        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-2xl font-bold">
-              Donation Details
-            </DialogTitle>
-            <DialogDescription>
-              {selectedDonation && formatCurrency(selectedDonation.amountPence)} donation from {selectedDonation && formatDonorName(selectedDonation.donor)}
-            </DialogDescription>
+        <DialogContent className="max-w-5xl h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b flex flex-row items-start justify-between gap-4">
+            <div>
+              <DialogTitle className="text-2xl font-semibold">Donation Details</DialogTitle>
+              <DialogDescription>
+                {donation && `${formatCurrency(donation.amountPence)} donation from ${formatDonorName(donation.donor)}`}
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {donation && (
+                <Badge
+                  variant={donation.status === "COMPLETED" ? "default" : "outline"}
+                  className={
+                    donation.status === "REFUNDED"
+                      ? "px-2 bg-orange-500 text-white border-orange-500"
+                      : "px-2"
+                  }
+                >
+                  {donation.status === "COMPLETED" ? (
+                    <IconCircleCheckFilled className="mr-1 size-3 fill-white" />
+                  ) : donation.status === "REFUNDED" ? (
+                    <IconX className="mr-1 size-3" />
+                  ) : (
+                    <IconLoader className="mr-1 size-3" />
+                  )}
+                  {formatEnum(donation.status)}
+                </Badge>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setRefundType("full")
+                  setRefundAmount("")
+                  setRefundReason("")
+                  setRefundDialogOpen(true)
+                }}
+                disabled={!canRefund || refundLoading}
+              >
+                {refundLoading ? "Refunding..." : "Refund"}
+              </Button>
+            </div>
           </DialogHeader>
 
-          {selectedDonation && (
+          {donation && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
                 <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="payment">Payment</TabsTrigger>
+                    <TabsTrigger value="metadata">Metadata</TabsTrigger>
                   </TabsList>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-6">
-                  <TabsContent value="overview" className="space-y-6 mt-0">
-                    {/* Key Metrics */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12" />
-                        <CardHeader className="pb-0 px-6 pt-3 relative z-10">
-                          <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Amount
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                          <div className="text-2xl font-bold text-primary">
-                            {formatCurrency(selectedDonation.amountPence)}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-blue-500/5 via-card to-card border-blue-500/20">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -mr-12 -mt-12" />
-                        <CardHeader className="pb-0 px-6 pt-3 relative z-10">
-                          <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Status
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                          <Badge
-                            variant={selectedDonation.status === "COMPLETED" ? "default" : "outline"}
-                            className="px-1.5"
-                          >
-                            {selectedDonation.status === "COMPLETED" ? (
-                              <IconCircleCheckFilled className="mr-1 size-3 fill-white" />
-                            ) : (
-                              <IconLoader className="mr-1 size-3" />
-                            )}
-                            {formatEnum(selectedDonation.status)}
-                          </Badge>
-                        </CardContent>
-                      </Card>
-                      <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-green-500/5 via-card to-card border-green-500/20">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl -mr-12 -mt-12" />
-                        <CardHeader className="pb-0 px-6 pt-3 relative z-10">
-                          <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Gift Aid
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                          <div className="flex items-center gap-2">
-                            {selectedDonation.giftAid ? (
-                              <>
-                                <IconCheck className="h-5 w-5 text-primary" />
-                                <span className="text-lg font-semibold">Yes</span>
-                              </>
-                            ) : (
-                              <>
-                                <IconX className="h-5 w-5 text-muted-foreground" />
-                                <span className="text-lg font-semibold">No</span>
-                              </>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
+                  {detailsLoading && (
+                    <p className="text-sm text-muted-foreground">Loading full donation details…</p>
+                  )}
+                  {detailsError && (
+                    <p className="text-sm text-destructive">{detailsError}</p>
+                  )}
+                  {refundError && (
+                    <p className="text-sm text-destructive">{refundError}</p>
+                  )}
 
-                    <Separator className="my-6" />
+                  <TabsContent value="overview" className="space-y-8 mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <section className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          <Receipt className="h-4 w-4" />
+                          Donation
+                        </div>
+                        <div className="rounded-lg border border-border/60 px-4">
+                          <InfoRow label="Amount" value={formatCurrency(donation.amountPence)} />
+                          <InfoRow label="Donation Type" value={formatEnum(donation.donationType)} />
+                          <InfoRow label="Frequency" value={formatEnum(donation.frequency)} />
+                          <InfoRow label="Campaign / Appeal / Product" value={donation.product?.name || donation.appeal?.title || "General"} />
+                          <InfoRow label="Fundraiser" value={donation.fundraiser?.fundraiserName || "-"} />
+                          <InfoRow label="Gift Aid" value={donation.giftAid ? "Yes" : "No"} />
+                          <InfoRow label="Collected Via" value={donation.collectedVia ? formatEnum(donation.collectedVia) : "-"} />
+                          <InfoRow label="Created" value={formatDateTime(donation.createdAt)} />
+                          <InfoRow label="Completed" value={donation.completedAt ? formatDateTime(donation.completedAt) : "-"} />
+                        </div>
+                      </section>
 
-                    {/* Donor Information */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3 pb-2">
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <User className="h-4 w-4 text-muted-foreground" />
+                      <section className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          <User className="h-4 w-4" />
+                          Donor
                         </div>
-                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Donor Information</h3>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <User className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Donor Name
-                              </p>
-                              <p className="text-base font-semibold text-foreground">{formatDonorName(selectedDonation.donor)}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Mail className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Email
-                              </p>
-                              <p className="text-base text-foreground break-all">{selectedDonation.donor.email}</p>
-                            </div>
-                          </div>
+                        <div className="rounded-lg border border-border/60 px-4">
+                          <InfoRow label="Name" value={formatDonorName(donation.donor)} />
+                          <InfoRow label="Email" value={donation.donor.email} />
+                          <InfoRow label="Phone" value={donation.donor.phone || "-"} />
+                          <InfoRow
+                            label="Address"
+                            value={
+                              donation.donor.address
+                                ? `${donation.donor.address}${donation.donor.city ? `, ${donation.donor.city}` : ""}${donation.donor.postcode ? ` ${donation.donor.postcode}` : ""}${donation.donor.country ? `, ${donation.donor.country}` : ""}`
+                                : "-"
+                            }
+                          />
+                          <InfoRow
+                            label="Billing Address"
+                            value={
+                              donation.billingAddress
+                                ? `${donation.billingAddress}${donation.billingCity ? `, ${donation.billingCity}` : ""}${donation.billingPostcode ? ` ${donation.billingPostcode}` : ""}${donation.billingCountry ? `, ${donation.billingCountry}` : ""}`
+                                : "-"
+                            }
+                          />
                         </div>
-                        
-                        <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Target className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Campaign / Appeal / Product
-                              </p>
-                              <p className="text-base font-semibold text-foreground">
-                                {selectedDonation.product?.name || selectedDonation.appeal?.title || "General"}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Date
-                              </p>
-                              <p className="text-base text-foreground">
-                                {formatDateTime(selectedDonation.completedAt || selectedDonation.createdAt)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      </section>
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="details" className="space-y-6 mt-0">
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3 pb-2">
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
+                  <TabsContent value="payment" className="space-y-8 mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <section className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          <Wallet className="h-4 w-4" />
+                          Payment
                         </div>
-                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Donation Details</h3>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Wallet className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Donation Type
-                              </p>
-                              <p className="text-base font-semibold text-foreground">{formatEnum(selectedDonation.donationType)}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <CreditCard className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Payment Method
-                              </p>
-                              <p className="text-base text-foreground">{formatPaymentMethod(selectedDonation.paymentMethod)}</p>
-                            </div>
-                          </div>
+                        <div className="rounded-lg border border-border/60 px-4">
+                          <InfoRow label="Payment Method" value={formatPaymentMethod(donation.paymentMethod)} />
+                          <InfoRow label="Order Number" value={donation.orderNumber || "-"} mono />
+                          <InfoRow label="Stripe Reference" value={donation.transactionId || "-"} mono />
+                          <InfoRow label="Payment ID" value={stripeInfo?.paymentIntentId || "-"} mono />
+                          <InfoRow label="Charge ID" value={stripeInfo?.chargeId || "-"} mono />
+                          <InfoRow label="Stripe Status" value={stripeInfo?.status || "-"} />
+                          <InfoRow label="Receipt Email" value={stripeInfo?.receiptEmail || "-"} />
+                          <InfoRow label="Description" value={stripeInfo?.description || "-"} />
+                          <InfoRow
+                            label="Payment Created"
+                            value={
+                              stripeInfo?.created ? formatDateTime(new Date(stripeInfo.created * 1000)) : "-"
+                            }
+                          />
+                          <InfoRow
+                            label="Amount Charged"
+                            value={
+                              stripeInfo?.amount != null && stripeInfo?.currency
+                                ? formatCurrency(stripeInfo.amount)
+                                : "-"
+                            }
+                          />
+                          <InfoRow
+                            label="Amount Refunded"
+                            value={
+                              stripeInfo?.amountRefunded
+                                ? formatCurrency(stripeInfo.amountRefunded)
+                                : stripeInfo?.refunded
+                                  ? formatCurrency(stripeInfo.amount || 0)
+                                  : "-"
+                            }
+                          />
+                          <InfoRow
+                            label="Fees"
+                            value={
+                              stripeInfo?.fees != null ? formatCurrency(stripeInfo.fees) : "-"
+                            }
+                          />
+                          <InfoRow
+                            label="Net"
+                            value={
+                              stripeInfo?.net != null ? formatCurrency(stripeInfo.net) : "-"
+                            }
+                          />
+                          <InfoRow label="Subscription ID" value={stripeInfo?.subscriptionId || "-"} mono />
+                          <InfoRow label="Subscription Status" value={stripeInfo?.subscriptionStatus || "-"} />
+                          <InfoRow
+                            label="Next Payment Date"
+                            value={stripeInfo?.nextPaymentDate ? formatDateTime(stripeInfo.nextPaymentDate) : "-"}
+                          />
+                        </div>
+                      </section>
 
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <FileText className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Order Number
-                              </p>
-                              <p className="text-base font-mono text-foreground">
-                                {selectedDonation.orderNumber || "-"}
-                              </p>
-                            </div>
-                          </div>
+                      <section className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          <CreditCard className="h-4 w-4" />
+                          Card & Risk
+                        </div>
+                        <div className="rounded-lg border border-border/60 px-4">
+                          <InfoRow
+                            label="Card"
+                            value={
+                              stripeInfo?.card?.brand
+                                ? `${formatEnum(stripeInfo.card.brand)} •••• ${stripeInfo.card.last4}`
+                                : "-"
+                            }
+                          />
+                          <InfoRow
+                            label="Expiry"
+                            value={
+                              stripeInfo?.card?.expMonth && stripeInfo?.card?.expYear
+                                ? `${stripeInfo.card.expMonth}/${stripeInfo.card.expYear}`
+                                : "-"
+                            }
+                          />
+                          <InfoRow label="Funding" value={stripeInfo?.card?.funding ? formatEnum(stripeInfo.card.funding) : "-"} />
+                          <InfoRow label="Card Country" value={stripeInfo?.card?.country || "-"} />
+                          <InfoRow label="Network" value={stripeInfo?.card?.network || "-"} />
+                          <InfoRow label="Risk Level" value={stripeInfo?.riskLevel || "-"} />
+                          <InfoRow label="Risk Score" value={stripeInfo?.riskScore != null ? `${stripeInfo.riskScore}` : "-"} />
+                        </div>
+                      </section>
+                    </div>
+                  </TabsContent>
 
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <CreditCard className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Stripe Payment Reference
-                              </p>
-                              <p className="text-sm font-mono text-foreground break-all">
-                                {selectedDonation.transactionId || "-"}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                For one-off payments this is usually a PaymentIntent (`pi_...`). For recurring it may be a Subscription (`sub_...`).
-                              </p>
-                            </div>
-                          </div>
+                  <TabsContent value="metadata" className="space-y-8 mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <section className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          <ShieldCheck className="h-4 w-4" />
+                          Checkout Metadata
                         </div>
-                        
-                        <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Gift className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Gift Aid
-                              </p>
-                              <div className="flex items-center gap-2">
-                                {selectedDonation.giftAid ? (
-                                  <>
-                                    <IconCheck className="h-4 w-4 text-primary" />
-                                    <span className="text-base font-semibold">Yes</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <IconX className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-base font-semibold">No</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {selectedDonation.billingAddress && (
-                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
-                              <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                                <MapPin className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                  Billing Address
-                                </p>
-                                <div className="text-base">
-                                  <p className="font-semibold">{selectedDonation.billingAddress}</p>
-                                  <p className="text-muted-foreground">
-                                    {selectedDonation.billingCity && `${selectedDonation.billingCity}, `}
-                                    {selectedDonation.billingPostcode} {selectedDonation.billingCountry}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                        <div className="rounded-lg border border-border/60 px-4">
+                          <InfoRow label="Cover Fees" value={order ? (order.coverFees ? "Yes" : "No") : "-"} />
+                          <InfoRow label="Marketing Email" value={order ? (order.marketingEmail ? "Yes" : "No") : "-"} />
+                          <InfoRow label="Marketing SMS" value={order ? (order.marketingSMS ? "Yes" : "No") : "-"} />
+                          <InfoRow label="Gift Aid" value={order ? (order.giftAid ? "Yes" : "No") : "-"} />
+                          <InfoRow label="Checkout Created" value={order ? formatDateTime(new Date(order.createdAt)) : "-"} />
                         </div>
-                      </div>
+                      </section>
+
+                      <section className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          <Mail className="h-4 w-4" />
+                          Donor Snapshot
+                        </div>
+                        <div className="rounded-lg border border-border/60 px-4">
+                          <InfoRow label="Name" value={order ? `${order.donorFirstName} ${order.donorLastName}` : "-"} />
+                          <InfoRow label="Email" value={order?.donorEmail || "-"} />
+                          <InfoRow label="Phone" value={order?.donorPhone || "-"} />
+                          <InfoRow
+                            label="Address"
+                            value={
+                              order?.donorAddress
+                                ? `${order.donorAddress}${order.donorCity ? `, ${order.donorCity}` : ""}${order.donorPostcode ? ` ${order.donorPostcode}` : ""}${order.donorCountry ? `, ${order.donorCountry}` : ""}`
+                                : "-"
+                            }
+                          />
+                          <InfoRow
+                            label="Totals"
+                            value={
+                              order
+                                ? `${formatCurrency(order.subtotalPence)} + ${formatCurrency(order.feesPence)} fees = ${formatCurrency(order.totalPence)}`
+                                : "-"
+                            }
+                          />
+                        </div>
+                      </section>
                     </div>
                   </TabsContent>
                 </div>
               </Tabs>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Issue Refund</DialogTitle>
+            <DialogDescription>
+              Choose a refund type and add a reason for your records.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Refund Type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={refundType === "full" ? "default" : "outline"}
+                  onClick={() => setRefundType("full")}
+                >
+                  Full
+                </Button>
+                <Button
+                  type="button"
+                  variant={refundType === "partial" ? "default" : "outline"}
+                  onClick={() => setRefundType("partial")}
+                >
+                  Partial
+                </Button>
+              </div>
+            </div>
+            {refundType === "partial" && (
+              <div className="space-y-2">
+                <Label htmlFor="refundAmount">Refund Amount (GBP)</Label>
+                <Input
+                  id="refundAmount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  placeholder="e.g. 10.00"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="refundReason">Reason</Label>
+              <Input
+                id="refundReason"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                placeholder="Reason for refund"
+              />
+            </div>
+            {refundError && <p className="text-sm text-destructive">{refundError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRefundDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRefund} disabled={refundLoading}>
+              {refundLoading ? "Refunding..." : "Confirm Refund"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

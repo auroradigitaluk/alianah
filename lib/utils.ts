@@ -37,7 +37,10 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
-export function formatDonorName(donor: { title?: string | null; firstName: string; lastName: string }): string {
+export function formatDonorName(
+  donor?: { title?: string | null; firstName: string; lastName: string } | null
+): string {
+  if (!donor) return "Unknown donor"
   const parts = []
   if (donor.title) {
     parts.push(donor.title)

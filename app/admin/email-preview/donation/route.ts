@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     ? "https://example.com/manage-subscription?token=example"
     : undefined
 
+  const baseUrl = new URL(req.url).origin
   const { html } = buildDonationConfirmationEmail({
     donorName,
     orderNumber,
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
     totalPence: Number.isFinite(amountPence) ? amountPence : 2500,
     giftAid,
     ...(manageSubscriptionUrl ? { manageSubscriptionUrl } : {}),
+    baseUrl,
   })
 
   return new NextResponse(html, {

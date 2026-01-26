@@ -340,6 +340,12 @@ model DemoOrderItem {
   frequency    String // ONE_OFF | MONTHLY | YEARLY
   donationType String // GENERAL | SADAQAH | ZAKAT | LILLAH
   amountPence  Int
+  waterProjectId        String?
+  waterProjectCountryId String?
+  sponsorshipProjectId  String?
+  sponsorshipCountryId  String?
+  sponsorshipProjectType String?
+  plaqueName            String?
   createdAt    DateTime @default(now())
 
   order DemoOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)

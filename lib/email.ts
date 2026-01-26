@@ -1,5 +1,7 @@
 import { Resend } from "resend"
 import {
+  buildAbandonedCheckoutEmail,
+  buildRefundConfirmationEmail,
   buildDonationConfirmationEmail,
   buildFundraiserDonationNotificationEmail,
   buildFundraiserOtpEmail,
@@ -113,6 +115,63 @@ export async function sendDonationConfirmationEmail(params: {
     })
   } catch (error) {
     console.error("Error sending donation confirmation email:", error)
+    throw error
+  }
+}
+
+export async function sendAbandonedCheckoutEmail(params: {
+  donorEmail: string
+  donorName: string
+  orderNumber: string
+  items: Array<{ title: string; amountPence: number; frequency?: string }>
+  totalPence: number
+  resumeUrl: string
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { donorEmail } = params
+  const { subject, html } = buildAbandonedCheckoutEmail(params)
+
+  try {
+    await getResend().emails.send({
+      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      to: donorEmail,
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error("Error sending abandoned checkout email:", error)
+    throw error
+  }
+}
+
+export async function sendRefundConfirmationEmail(params: {
+  donorEmail: string
+  donorName: string
+  amountPence: number
+  orderNumber?: string | null
+  donateUrl: string
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { donorEmail } = params
+  const { subject, html } = buildRefundConfirmationEmail(params)
+
+  try {
+    await getResend().emails.send({
+      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      to: donorEmail,
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error("Error sending refund confirmation email:", error)
     throw error
   }
 }
