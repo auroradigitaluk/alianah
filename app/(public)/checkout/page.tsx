@@ -32,6 +32,10 @@ function toTitleCase(input: string) {
     .join(" ")
 }
 
+function toTitleCaseLive(input: string) {
+  return input.replace(/(^|\s+)([A-Za-z])/g, (match, sep, letter) => `${sep}${letter.toUpperCase()}`)
+}
+
 function isValidName(input: string) {
   const value = input.trim()
   if (value.length < 2 || value.length > 60) return false
@@ -728,7 +732,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                       id="firstName"
                       value={formData.firstName}
                       onChange={(e) => {
-                        const next = toTitleCase(e.target.value)
+                        const next = toTitleCaseLive(e.target.value)
                         setFormData({ ...formData, firstName: next })
                         clearFieldErrorIfValid("firstName", isValidName(next))
                       }}
@@ -745,7 +749,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                       id="lastName"
                       value={formData.lastName}
                       onChange={(e) => {
-                        const next = toTitleCase(e.target.value)
+                        const next = toTitleCaseLive(e.target.value)
                         setFormData({ ...formData, lastName: next })
                         clearFieldErrorIfValid("lastName", isValidName(next))
                       }}
@@ -889,11 +893,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                   <Input
                     id="address"
                     value={formData.address}
-                      onChange={(e) => {
-                        const next = toTitleCase(e.target.value)
-                        setFormData({ ...formData, address: next })
-                        clearFieldErrorIfValid("address", next.trim().length > 0)
-                      }}
+                    onChange={(e) => {
+                      const next = toTitleCaseLive(e.target.value)
+                      setFormData({ ...formData, address: next })
+                      clearFieldErrorIfValid("address", next.trim().length > 0)
+                    }}
                     onBlur={() =>
                       setFormData((prev) => ({ ...prev, address: toTitleCase(prev.address) }))
                     }
@@ -911,7 +915,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                       id="city"
                       value={formData.city}
                       onChange={(e) => {
-                        const next = toTitleCase(e.target.value)
+                        const next = toTitleCaseLive(e.target.value)
                         setFormData({ ...formData, city: next })
                         clearFieldErrorIfValid("city", next.trim().length > 0 && isValidCity(next))
                       }}
