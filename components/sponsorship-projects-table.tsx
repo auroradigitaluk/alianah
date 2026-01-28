@@ -156,7 +156,15 @@ export function SponsorshipProjectsTable({ projects }: { projects: SponsorshipPr
             header: "Actions",
             cell: (p) => (
               <Link
-                href={`/admin/sponsorships/${p.id}/edit`}
+                href={`/sponsors/${
+                  p.projectType === "ORPHANS"
+                    ? "orphans"
+                    : p.projectType === "HIFZ"
+                    ? "hifz"
+                    : "families"
+                }`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >

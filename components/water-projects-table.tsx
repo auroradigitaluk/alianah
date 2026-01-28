@@ -203,7 +203,9 @@ export function WaterProjectsTable({ projects }: { projects: WaterProject[] }) {
             header: "Actions",
             cell: (project) => (
               <Link
-                href={`/admin/water-projects/${project.id}/edit`}
+                href="/water"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >

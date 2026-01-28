@@ -80,7 +80,15 @@ export function SponsorshipCountriesTable({ countries }: { countries: Sponsorshi
                   header: "Actions",
                   cell: (country) => (
                     <Link
-                      href={`/admin/sponsorships/countries/${country.id}/edit`}
+                      href={`/sponsors/${
+                        country.projectType === "ORPHANS"
+                          ? "orphans"
+                          : country.projectType === "HIFZ"
+                          ? "hifz"
+                          : "families"
+                      }`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     >

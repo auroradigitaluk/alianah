@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       success_url: `${baseUrl}/success/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/water-for-life?cancelled=1`,
+      cancel_url: `${baseUrl}/water?cancelled=1`,
       metadata: {
         orderId: order.id,
         orderNumber,

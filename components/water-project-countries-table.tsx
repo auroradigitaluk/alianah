@@ -81,7 +81,9 @@ export function WaterProjectCountriesTable({ countries }: { countries: WaterProj
                   header: "Actions",
                   cell: (country) => (
                     <Link
-                      href={`/admin/water-projects/countries/${country.id}/edit`}
+                      href="/water"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     >
