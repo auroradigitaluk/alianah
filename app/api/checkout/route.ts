@@ -185,15 +185,16 @@ export async function POST(request: NextRequest) {
       include: { items: true },
     })
 
-    // Stripe Checkout can't mix one-off + subscription items in one session.
-    const frequencies = new Set(validated.items.map((i) => i.frequency))
-    if (frequencies.size !== 1) {
+    const oneOffItems = validated.items.filter((item) => item.frequency === "ONE_OFF")
+    const recurringItems = validated.items.filter((item) => item.frequency !== "ONE_OFF")
+    const recurringFrequencies = new Set(recurringItems.map((item) => item.frequency))
+    if (recurringFrequencies.size > 1) {
       return NextResponse.json(
-        { error: "Please checkout items with the same frequency together (one-off vs recurring)." },
+        { error: "Please checkout monthly and yearly donations separately." },
         { status: 400 }
       )
     }
-    const checkoutFrequency = validated.items[0]!.frequency
+    const recurringFrequency = recurringItems[0]?.frequency
 
     // Water project validation (donations created on payment success)
     await Promise.all(
@@ -249,11 +250,29 @@ export async function POST(request: NextRequest) {
         })
     )
 
-    const isSubscription = checkoutFrequency === "MONTHLY" || checkoutFrequency === "YEARLY"
+    const oneOffSubtotalPence = oneOffItems.reduce((sum, item) => sum + item.amountPence, 0)
+    const recurringSubtotalPence = recurringItems.reduce((sum, item) => sum + item.amountPence, 0)
+    const subtotalPence = oneOffSubtotalPence + recurringSubtotalPence
+    const feesPence = validated.feesPence
+    let oneOffFeesPence = 0
+    let recurringFeesPence = 0
+    if (feesPence > 0) {
+      if (recurringSubtotalPence === 0) {
+        oneOffFeesPence = feesPence
+      } else if (oneOffSubtotalPence === 0) {
+        recurringFeesPence = feesPence
+      } else if (subtotalPence > 0) {
+        oneOffFeesPence = Math.round((feesPence * oneOffSubtotalPence) / subtotalPence)
+        recurringFeesPence = feesPence - oneOffFeesPence
+      }
+    }
+    const oneOffTotalPence = oneOffSubtotalPence + oneOffFeesPence
+    const recurringTotalPence = recurringSubtotalPence + recurringFeesPence
+    const isSubscription = recurringItems.length > 0
 
     if (!isSubscription) {
       const paymentIntent = await getStripe().paymentIntents.create({
-        amount: validated.totalPence,
+        amount: oneOffTotalPence,
         currency: "gbp",
         // Enable wallets (Apple Pay / Google Pay) + best available methods.
         automatic_payment_methods: { enabled: true },
@@ -262,7 +281,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           orderId: order.id,
           orderNumber,
-          frequency: checkoutFrequency,
+          frequency: "ONE_OFF",
         },
       })
 
@@ -274,13 +293,12 @@ export async function POST(request: NextRequest) {
         orderId: order.id,
         orderNumber: order.orderNumber,
         mode: "payment",
-        clientSecret: paymentIntent.client_secret,
+        paymentClientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
       })
     }
 
-    const recurringInterval: "month" | "year" =
-      checkoutFrequency === "YEARLY" ? "year" : "month"
+    const recurringInterval: "month" | "year" = recurringFrequency === "YEARLY" ? "year" : "month"
 
     const customer = await getStripe().customers.create({
       email: validated.donor.email,
@@ -302,7 +320,7 @@ export async function POST(request: NextRequest) {
     // Create Stripe Prices for subscription items (supports custom monthly/yearly amounts)
     const createdPrices = await Promise.all(
       [
-        ...validated.items.map(async (item) => {
+        ...recurringItems.map(async (item) => {
           const name = item.productName
             ? `${item.appealTitle} • ${item.productName}`
             : item.appealTitle
@@ -315,12 +333,12 @@ export async function POST(request: NextRequest) {
           })
           return { priceId: price.id }
         }),
-        ...(validated.feesPence > 0
+        ...(recurringFeesPence > 0
           ? [
               (async () => {
                 const price = await getStripe().prices.create({
                   currency: "gbp",
-                  unit_amount: validated.feesPence,
+                  unit_amount: recurringFeesPence,
                   recurring: { interval: recurringInterval },
                   product_data: { name: "Processing fees cover" },
                   metadata: { orderNumber },
@@ -343,7 +361,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         orderId: order.id,
         orderNumber,
-        frequency: checkoutFrequency,
+        frequency: recurringFrequency || "MONTHLY",
       },
       items: createdPrices.map((p) => ({ price: p.priceId, quantity: 1 })),
       expand: ["latest_invoice.payment_intent"],
@@ -353,21 +371,50 @@ export async function POST(request: NextRequest) {
     const latestInvoice = subscription.latest_invoice as (Stripe.Invoice & {
       payment_intent?: string | Stripe.PaymentIntent | null
     }) | null
-    const paymentIntent =
+    const subscriptionPaymentIntent =
       latestInvoice && typeof latestInvoice.payment_intent !== "string"
         ? latestInvoice.payment_intent
         : null
 
-    if (!paymentIntent?.client_secret) {
+    if (!subscriptionPaymentIntent?.client_secret) {
       throw new Error("Failed to create subscription payment client secret")
+    }
+
+    if (oneOffItems.length === 0) {
+      return NextResponse.json({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        mode: "subscription",
+        subscriptionClientSecret: subscriptionPaymentIntent.client_secret,
+        subscriptionId: subscription.id,
+      })
+    }
+
+    const oneOffPaymentIntent = await getStripe().paymentIntents.create({
+      amount: oneOffTotalPence,
+      currency: "gbp",
+      automatic_payment_methods: { enabled: true },
+      receipt_email: validated.donor.email,
+      description: `Donation ${orderNumber}`,
+      metadata: {
+        orderId: order.id,
+        orderNumber,
+        frequency: "ONE_OFF",
+        hasSubscription: "true",
+      },
+    })
+
+    if (!oneOffPaymentIntent.client_secret) {
+      throw new Error("Failed to create PaymentIntent client secret")
     }
 
     return NextResponse.json({
       orderId: order.id,
       orderNumber: order.orderNumber,
-      mode: "subscription",
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
+      mode: "mixed",
+      paymentClientSecret: oneOffPaymentIntent.client_secret,
+      subscriptionClientSecret: subscriptionPaymentIntent.client_secret,
+      paymentIntentId: oneOffPaymentIntent.id,
       subscriptionId: subscription.id,
     })
   } catch (error) {

@@ -59,6 +59,7 @@ interface WaterProject {
   projectType: string // WATER_PUMP | WATER_WELL | WATER_TANK | WUDHU_AREA
   location: string | null
   description: string | null
+  plaqueAvailable: boolean
 }
 
 interface WaterProjectCountry {
@@ -239,10 +240,7 @@ export function OneNationDonationForm({
   })
   
   // Check if water project requires plaque name
-  const requiresPlaqueName =
-    waterProjectData?.projectType === "WATER_PUMP" ||
-    waterProjectData?.projectType === "WATER_WELL" ||
-    waterProjectData?.projectType === "WUDHU_AREA"
+  const requiresPlaqueName = !!waterProjectData?.plaqueAvailable
 
   const handleAddToBag = () => {
     if (donationType === "appeal" && !selectedAppeal) {
@@ -413,7 +411,7 @@ export function OneNationDonationForm({
         <CardHeader className="pb-4">
           <h2 className="text-xl font-semibold tracking-tight">Make a Donation</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Select your donation preferences and add items to your donation bag
+            Choose how you'd like to give and where your donation will be used. Secure, fast, and impactful.
           </p>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -524,15 +522,20 @@ export function OneNationDonationForm({
                 <Label htmlFor="project-select" className="text-sm font-medium text-foreground">
                   Select Project
                 </Label>
-                <Select value={selectedAppeal} onValueChange={(value) => {
-                  setSelectedAppeal(value)
-                  setSelectedProduct("")
-                }}>
-                  <SelectTrigger id="project-select" className="h-11">
+                <Select
+                  value={selectedAppeal}
+                  onValueChange={(value) => {
+                    setSelectedAppeal(value)
+                    setSelectedProduct("")
+                  }}
+                >
+                  <SelectTrigger id="project-select" className="h-11 w-full data-[size=default]:h-11">
                     <SelectValue placeholder="Choose a project to support" />
                   </SelectTrigger>
                   <SelectContent>
-                    {appeals.map((appeal) => (
+                    {[...appeals]
+                      .sort((a, b) => a.title.localeCompare(b.title))
+                      .map((appeal) => (
                       <SelectItem key={appeal.id} value={appeal.id}>
                         {appeal.title}
                       </SelectItem>
@@ -809,7 +812,7 @@ export function OneNationDonationForm({
                   className="h-11"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  This name will be displayed on the water pump plaque
+                  This name will be displayed on the project plaque
                 </p>
               </div>
             )}

@@ -26,6 +26,13 @@ export async function finalizeOrderByOrderNumber(params: {
   if (!order) return
 
   const wasAlreadyCompleted = order.status === "COMPLETED"
+  const hasRecurringItems = order.items.some(
+    (item) => item.frequency === "MONTHLY" || item.frequency === "YEARLY"
+  )
+  const targetFrequencies: Array<"ONE_OFF" | "MONTHLY" | "YEARLY"> = isSubscription
+    ? ["MONTHLY", "YEARLY"]
+    : ["ONE_OFF"]
+  const shouldFinalizeOrder = !hasRecurringItems || isSubscription
   const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
   const collectedVia = COLLECTION_SOURCES.WEBSITE
 
@@ -44,8 +51,7 @@ export async function finalizeOrderByOrderNumber(params: {
       },
     }))
 
-  // Legacy flow: if pending donations already exist, complete them.
-  const legacyDonations = await prisma.donation.findMany({
+  const existingDonations = await prisma.donation.findMany({
     where: { orderNumber },
     include: {
       donor: true,
@@ -57,9 +63,13 @@ export async function finalizeOrderByOrderNumber(params: {
     },
   })
 
-  if (legacyDonations.length > 0) {
+  if (existingDonations.length > 0) {
     await prisma.donation.updateMany({
-      where: { orderNumber, status: "PENDING" },
+      where: {
+        orderNumber,
+        status: "PENDING",
+        frequency: { in: targetFrequencies },
+      },
       data: {
         status: "COMPLETED",
         completedAt: paidAt,
@@ -68,7 +78,7 @@ export async function finalizeOrderByOrderNumber(params: {
     })
   }
 
-  let createdAppealDonations: typeof legacyDonations = []
+  let createdAppealDonations: typeof existingDonations = []
   let createdWaterDonations: Array<{
     id: string
     waterProjectId: string
@@ -94,16 +104,51 @@ export async function finalizeOrderByOrderNumber(params: {
     donationType: string
   }> = []
 
-  if (!wasAlreadyCompleted && legacyDonations.length === 0) {
-    const billingAddress = order.donorAddress || null
-    const billingCity = order.donorCity || null
-    const billingPostcode = order.donorPostcode || null
-    const billingCountry = order.donorCountry || null
+  const billingAddress = order.donorAddress || null
+  const billingCity = order.donorCity || null
+  const billingPostcode = order.donorPostcode || null
+  const billingCountry = order.donorCountry || null
 
-    const appealItems = order.items.filter((item) => item.appealId)
-    if (appealItems.length > 0) {
+  const donationKeyForItem = (item: {
+    appealId?: string | null
+    fundraiserId?: string | null
+    productId?: string | null
+    frequency: string
+    amountPence: number
+    donationType: string
+  }) =>
+    [
+      item.appealId || "",
+      item.fundraiserId || "",
+      item.productId || "",
+      item.frequency,
+      item.amountPence.toString(),
+      item.donationType,
+    ].join("|")
+
+  const existingDonationCounts = new Map<string, number>()
+  existingDonations.forEach((donation) => {
+    const key = donationKeyForItem(donation)
+    existingDonationCounts.set(key, (existingDonationCounts.get(key) ?? 0) + 1)
+  })
+
+  const appealItems = order.items.filter(
+    (item) => item.appealId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY")
+  )
+  if (appealItems.length > 0) {
+    const appealItemsToCreate = appealItems.filter((item) => {
+      const key = donationKeyForItem(item)
+      const count = existingDonationCounts.get(key) ?? 0
+      if (count > 0) {
+        existingDonationCounts.set(key, count - 1)
+        return false
+      }
+      return true
+    })
+
+    if (appealItemsToCreate.length > 0) {
       createdAppealDonations = await Promise.all(
-        appealItems.map((item) =>
+        appealItemsToCreate.map((item) =>
           prisma.donation.create({
             data: {
               donorId: donor.id,
@@ -137,82 +182,95 @@ export async function finalizeOrderByOrderNumber(params: {
         )
       )
     }
-
-    const waterItems = order.items.filter((item) => item.waterProjectId)
-    if (waterItems.length > 0) {
-      createdWaterDonations = await Promise.all(
-        waterItems.map((item) =>
-          prisma.waterProjectDonation.create({
-            data: {
-              waterProjectId: item.waterProjectId!,
-              countryId: item.waterProjectCountryId!,
-              donorId: donor.id,
-              amountPence: item.amountPence,
-              donationType: item.donationType,
-              paymentMethod,
-              collectedVia,
-              transactionId: paymentRef,
-              giftAid: order.giftAid,
-              billingAddress,
-              billingCity,
-              billingPostcode,
-              billingCountry,
-              emailSent: false,
-              reportSent: false,
-              status: "WAITING_TO_REVIEW",
-              notes: [
-                item.plaqueName ? `Plaque Name: ${item.plaqueName}` : null,
-                `OrderNumber:${orderNumber}`,
-              ]
-                .filter(Boolean)
-                .join(" | ") || null,
-            },
-            include: {
-              waterProject: true,
-              country: true,
-              donor: true,
-            },
-          })
-        )
-      )
-    }
-
-    const sponsorshipItems = order.items.filter((item) => item.sponsorshipProjectId)
-    if (sponsorshipItems.length > 0) {
-      createdSponsorshipDonations = await Promise.all(
-        sponsorshipItems.map((item) =>
-          prisma.sponsorshipDonation.create({
-            data: {
-              sponsorshipProjectId: item.sponsorshipProjectId!,
-              countryId: item.sponsorshipCountryId!,
-              donorId: donor.id,
-              amountPence: item.amountPence,
-              donationType: item.donationType,
-              paymentMethod,
-              collectedVia,
-              transactionId: paymentRef,
-              giftAid: order.giftAid,
-              billingAddress,
-              billingCity,
-              billingPostcode,
-              billingCountry,
-              emailSent: false,
-              reportSent: false,
-              status: "WAITING_TO_REVIEW",
-              notes: `OrderNumber:${orderNumber}`,
-            },
-            include: {
-              sponsorshipProject: true,
-              country: true,
-              donor: true,
-            },
-          })
-        )
-      )
-    }
   }
 
-  if (!wasAlreadyCompleted) {
+  const existingWaterDonations = await prisma.waterProjectDonation.findMany({
+    where: { notes: { contains: `OrderNumber:${orderNumber}` } },
+    select: { id: true },
+  })
+  const waterItems = order.items.filter(
+    (item) => item.waterProjectId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY")
+  )
+  if (waterItems.length > 0 && existingWaterDonations.length === 0) {
+    createdWaterDonations = await Promise.all(
+      waterItems.map((item) =>
+        prisma.waterProjectDonation.create({
+          data: {
+            waterProjectId: item.waterProjectId!,
+            countryId: item.waterProjectCountryId!,
+            donorId: donor.id,
+            amountPence: item.amountPence,
+            donationType: item.donationType,
+            paymentMethod,
+            collectedVia,
+            transactionId: paymentRef,
+            giftAid: order.giftAid,
+            billingAddress,
+            billingCity,
+            billingPostcode,
+            billingCountry,
+            emailSent: false,
+            reportSent: false,
+            status: "WAITING_TO_REVIEW",
+            notes: [
+              item.plaqueName ? `Plaque Name: ${item.plaqueName}` : null,
+              `OrderNumber:${orderNumber}`,
+            ]
+              .filter(Boolean)
+              .join(" | ") || null,
+          },
+          include: {
+            waterProject: true,
+            country: true,
+            donor: true,
+          },
+        })
+      )
+    )
+  }
+
+  const existingSponsorshipDonations = await prisma.sponsorshipDonation.findMany({
+    where: { notes: { contains: `OrderNumber:${orderNumber}` } },
+    select: { id: true },
+  })
+  const sponsorshipItems = order.items.filter(
+    (item) =>
+      item.sponsorshipProjectId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY")
+  )
+  if (sponsorshipItems.length > 0 && existingSponsorshipDonations.length === 0) {
+    createdSponsorshipDonations = await Promise.all(
+      sponsorshipItems.map((item) =>
+        prisma.sponsorshipDonation.create({
+          data: {
+            sponsorshipProjectId: item.sponsorshipProjectId!,
+            countryId: item.sponsorshipCountryId!,
+            donorId: donor.id,
+            amountPence: item.amountPence,
+            donationType: item.donationType,
+            paymentMethod,
+            collectedVia,
+            transactionId: paymentRef,
+            giftAid: order.giftAid,
+            billingAddress,
+            billingCity,
+            billingPostcode,
+            billingCountry,
+            emailSent: false,
+            reportSent: false,
+            status: "WAITING_TO_REVIEW",
+            notes: `OrderNumber:${orderNumber}`,
+          },
+          include: {
+            sponsorshipProject: true,
+            country: true,
+            donor: true,
+          },
+        })
+      )
+    )
+  }
+
+  if (!wasAlreadyCompleted && shouldFinalizeOrder) {
     await prisma.demoOrder.update({
       where: { orderNumber },
       data: { status: "COMPLETED" },
@@ -233,7 +291,7 @@ export async function finalizeOrderByOrderNumber(params: {
           ...(nextPaymentDate ? { nextPaymentDate } : {}),
         },
       })
-    } else if (!wasAlreadyCompleted) {
+    } else {
       const recurringItems = order.items.filter(
         (item) => item.frequency === "MONTHLY" || item.frequency === "YEARLY"
       )
@@ -260,7 +318,7 @@ export async function finalizeOrderByOrderNumber(params: {
   }
 
   // Send donor confirmation email once
-  if (!wasAlreadyCompleted) {
+  if (!wasAlreadyCompleted && shouldFinalizeOrder) {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       const manageSubscriptionUrl =
@@ -382,7 +440,8 @@ export async function finalizeOrderByOrderNumber(params: {
     }
   }
 
-  const fundraiserDonations = legacyDonations.length > 0 ? legacyDonations : createdAppealDonations
+  const fundraiserDonations =
+    createdAppealDonations.length > 0 ? createdAppealDonations : existingDonations
 
   // Send fundraiser notifications (best-effort)
   for (const donation of fundraiserDonations) {

@@ -24,6 +24,7 @@ interface WaterProjectFormProps {
     projectType: string
     location: string | null
     description: string | null
+    plaqueAvailable?: boolean
     isActive: boolean
     status: string | null
     amountPence: number
@@ -38,12 +39,18 @@ const PROJECT_TYPES = [
   { value: "WUDHU_AREA", label: "Wudhu Area" },
 ]
 
+const defaultPlaqueAvailableForType = (type: string) =>
+  type === "WATER_PUMP" || type === "WATER_WELL" || type === "WUDHU_AREA"
+
 
 export function WaterProjectForm({ project, countries }: WaterProjectFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [projectType, setProjectType] = useState(project?.projectType || "")
   const [description, setDescription] = useState(project?.description || "")
+  const [plaqueAvailable, setPlaqueAvailable] = useState(
+    project?.plaqueAvailable ?? (project?.projectType ? defaultPlaqueAvailableForType(project.projectType) : false)
+  )
   const [isActive, setIsActive] = useState(project?.isActive ?? true)
   const [countryRows, setCountryRows] = useState<Array<{ id: string; name: string; price: string }>>([
     { id: `row-${Date.now()}`, name: "", price: "" }
@@ -54,6 +61,12 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
   const [newCountryName, setNewCountryName] = useState("")
   const [newCountryPrice, setNewCountryPrice] = useState("")
   const [addingCountry, setAddingCountry] = useState(false)
+
+  useEffect(() => {
+    if (!project && projectType) {
+      setPlaqueAvailable(defaultPlaqueAvailableForType(projectType))
+    }
+  }, [project, projectType])
 
   const filteredCountries = localCountries.filter(
     (c) => c.projectType === projectType || (project && c.projectType === project.projectType)
@@ -156,6 +169,7 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
         body: JSON.stringify({
           projectType,
           description: description || null,
+          plaqueAvailable,
           isActive,
           amountPence: 0,
         }),
@@ -405,6 +419,17 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
           placeholder="Additional details about this project"
           rows={4}
         />
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="plaqueAvailable"
+          checked={plaqueAvailable}
+          onCheckedChange={(checked) => setPlaqueAvailable(checked === true)}
+        />
+        <Label htmlFor="plaqueAvailable" className="font-normal cursor-pointer">
+          Plaque available
+        </Label>
       </div>
 
       <div className="flex items-center space-x-2">

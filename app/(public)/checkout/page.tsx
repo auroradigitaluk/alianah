@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, PaymentRequestButtonElement, useElements, useStripe } from "@stripe/react-stripe-js"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -215,21 +216,37 @@ function buildPhoneNumber(countryCode: string, number: string): string {
 type CheckoutCreateResponse = {
   orderId: string
   orderNumber: string
-  mode: "payment" | "subscription"
-  clientSecret: string
+  mode: "payment" | "subscription" | "mixed"
+  paymentClientSecret?: string
+  subscriptionClientSecret?: string
   paymentIntentId?: string
   subscriptionId?: string
 }
 
 function PaymentStep(props: {
   clientSecret: string
+  subscriptionClientSecret?: string | null
   order: CheckoutCreateResponse
   validated: z.infer<typeof checkoutSchema>
   totalPence: number
+  recurringTotalPence: number
+  recurringFrequency: "MONTHLY" | "YEARLY" | null
+  isMixedCheckout: boolean
   onBack: () => void
   onSuccess: (orderId: string) => void
 }) {
-  const { clientSecret, order, validated, totalPence, onBack, onSuccess } = props
+  const {
+    clientSecret,
+    subscriptionClientSecret,
+    order,
+    validated,
+    totalPence,
+    recurringTotalPence,
+    recurringFrequency,
+    isMixedCheckout,
+    onBack,
+    onSuccess,
+  } = props
   const stripe = useStripe()
   const elements = useElements()
   const [submitting, setSubmitting] = React.useState(false)
@@ -239,6 +256,27 @@ function PaymentStep(props: {
   > | null>(null)
   const [walletLabel, setWalletLabel] = React.useState<string | null>(null)
 
+  const confirmRecurringPayment = React.useCallback(
+    async (paymentMethodId: string) => {
+      if (!stripe || !subscriptionClientSecret) return
+      const { error, paymentIntent } = await stripe.confirmCardPayment(
+        subscriptionClientSecret,
+        { payment_method: paymentMethodId },
+        { handleActions: false }
+      )
+      if (error) {
+        throw new Error(error.message || "Subscription payment failed. Please try again.")
+      }
+      if (paymentIntent && paymentIntent.status === "requires_action") {
+        const { error: actionError } = await stripe.confirmCardPayment(subscriptionClientSecret)
+        if (actionError) {
+          throw new Error(actionError.message || "Subscription payment failed. Please try again.")
+        }
+      }
+    },
+    [stripe, subscriptionClientSecret]
+  )
+
   React.useEffect(() => {
     let cancelled = false
     async function setup() {
@@ -247,7 +285,7 @@ function PaymentStep(props: {
       const pr = stripe.paymentRequest({
         country: validated.country || "GB",
         currency: "gbp",
-        total: { label: "Total", amount: totalPence },
+        total: { label: isMixedCheckout ? "One-off total" : "Total", amount: totalPence },
         requestPayerName: true,
         requestPayerEmail: true,
     requestPayerPhone: true,
@@ -290,6 +328,10 @@ function PaymentStep(props: {
               }
             }
 
+            if (isMixedCheckout && subscriptionClientSecret) {
+              await confirmRecurringPayment(ev.paymentMethod.id)
+            }
+
             // Best-effort immediate finalize (webhook remains the source of truth)
             try {
               await fetch("/api/checkout/confirm", {
@@ -330,6 +372,9 @@ function PaymentStep(props: {
     validated.address,
     validated.city,
     validated.postcode,
+    isMixedCheckout,
+    subscriptionClientSecret,
+    confirmRecurringPayment,
   ])
 
   const handlePay = async (e: React.FormEvent) => {
@@ -365,6 +410,18 @@ function PaymentStep(props: {
       if (confirm.error) {
         setPaymentError(confirm.error.message || "Payment failed. Please try again.")
         return
+      }
+
+      const paymentMethodId =
+        typeof confirm.paymentIntent?.payment_method === "string"
+          ? confirm.paymentIntent.payment_method
+          : confirm.paymentIntent?.payment_method?.id || null
+
+      if (isMixedCheckout && subscriptionClientSecret) {
+        if (!paymentMethodId) {
+          throw new Error("Unable to reuse payment method for subscription.")
+        }
+        await confirmRecurringPayment(paymentMethodId)
       }
 
       // Best-effort immediate finalize (webhook remains the source of truth)
@@ -425,15 +482,43 @@ function PaymentStep(props: {
             <PaymentElement />
           </div>
           {paymentError && <p className="text-sm text-destructive">{paymentError}</p>}
-          <p className="text-xs text-muted-foreground">
-            Total to pay: <span className="font-medium">{formatCurrency(totalPence)}</span>
-          </p>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>
+              Due now:{" "}
+              <span className="font-medium">
+                {formatCurrency(isMixedCheckout ? totalPence + recurringTotalPence : totalPence)}
+              </span>
+            </p>
+            {isMixedCheckout && recurringFrequency && (
+              <p>
+                Charged now:{" "}
+                <span className="font-medium">
+                  {formatCurrency(totalPence)} one-off + {formatCurrency(recurringTotalPence)}/
+                  {recurringFrequency === "YEARLY" ? "year" : "month"}
+                </span>
+              </p>
+            )}
+            {recurringTotalPence > 0 && recurringFrequency && !isMixedCheckout && (
+              <p>
+                Recurring total:{" "}
+                <span className="font-medium">
+                  {formatCurrency(recurringTotalPence)}/{recurringFrequency === "YEARLY" ? "year" : "month"}
+                </span>
+              </p>
+            )}
+          </div>
+          {isMixedCheckout && recurringFrequency && (
+            <p className="text-xs text-muted-foreground">
+              Your card will be charged now and your {recurringFrequency === "YEARLY" ? "yearly" : "monthly"} donation
+              will start today.
+            </p>
+          )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Button type="button" variant="outline" onClick={onBack} disabled={submitting}>
               Back
             </Button>
             <Button type="submit" size="lg" disabled={submitting || !stripe || !elements}>
-              {submitting ? "Processing..." : "Pay now"}
+              {submitting ? "Processing..." : "Donate now"}
             </Button>
           </div>
         </CardContent>
@@ -445,6 +530,7 @@ function PaymentStep(props: {
 function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) {
   const { stripePromise } = props
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
   const { items, clearCart } = useSidecart()
   const formStorageKey = "checkout:billing-details"
   const [loading, setLoading] = React.useState(false)
@@ -467,7 +553,9 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
     coverFees: false,
   })
   const [errors, setErrors] = React.useState<Record<string, string>>({})
-  const [clientSecret, setClientSecret] = React.useState<string | null>(null)
+  const [primaryClientSecret, setPrimaryClientSecret] = React.useState<string | null>(null)
+  const [paymentClientSecret, setPaymentClientSecret] = React.useState<string | null>(null)
+  const [subscriptionClientSecret, setSubscriptionClientSecret] = React.useState<string | null>(null)
   const [createdOrder, setCreatedOrder] = React.useState<CheckoutCreateResponse | null>(null)
   const [validatedSnapshot, setValidatedSnapshot] = React.useState<z.infer<typeof checkoutSchema> | null>(null)
   const clearFieldErrorIfValid = React.useCallback(
@@ -531,9 +619,34 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
     phoneCodeOptions.find((item) => item.value === formData.phoneCountryCode)?.label ||
     formData.phoneCountryCode
 
-  const subtotalPence = items.reduce((sum, item) => sum + item.amountPence, 0)
+  const oneOffItems = items.filter((item) => item.frequency === "ONE_OFF")
+  const recurringItems = items.filter((item) => item.frequency !== "ONE_OFF")
+  const recurringFrequency = (() => {
+    const frequencies = new Set(recurringItems.map((item) => item.frequency))
+    if (frequencies.size === 1) {
+      return recurringItems[0]?.frequency === "YEARLY" ? "YEARLY" : "MONTHLY"
+    }
+    return null
+  })()
+  const oneOffSubtotalPence = oneOffItems.reduce((sum, item) => sum + item.amountPence, 0)
+  const recurringSubtotalPence = recurringItems.reduce((sum, item) => sum + item.amountPence, 0)
+  const subtotalPence = oneOffSubtotalPence + recurringSubtotalPence
   const feesPence = formData.coverFees ? Math.round(subtotalPence * 0.012) + 20 : 0
-  const totalPence = subtotalPence + feesPence
+  let oneOffFeesPence = 0
+  let recurringFeesPence = 0
+  if (feesPence > 0) {
+    if (recurringSubtotalPence === 0) {
+      oneOffFeesPence = feesPence
+    } else if (oneOffSubtotalPence === 0) {
+      recurringFeesPence = feesPence
+    } else if (subtotalPence > 0) {
+      oneOffFeesPence = Math.round((feesPence * oneOffSubtotalPence) / subtotalPence)
+      recurringFeesPence = feesPence - oneOffFeesPence
+    }
+  }
+  const oneOffTotalPence = oneOffSubtotalPence + oneOffFeesPence
+  const recurringTotalPence = recurringSubtotalPence + recurringFeesPence
+  const totalPence = oneOffTotalPence + recurringTotalPence
 
   React.useEffect(() => {
     if (typeof window === "undefined") return
@@ -601,7 +714,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
       const data = (await response.json()) as CheckoutCreateResponse
       setValidatedSnapshot(validated)
       setCreatedOrder(data)
-      setClientSecret(data.clientSecret)
+      const nextPaymentSecret = data.paymentClientSecret || null
+      const nextSubscriptionSecret = data.subscriptionClientSecret || null
+      setPaymentClientSecret(nextPaymentSecret)
+      setSubscriptionClientSecret(nextSubscriptionSecret)
+      setPrimaryClientSecret(nextPaymentSecret || nextSubscriptionSecret)
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {}
@@ -638,7 +755,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
     )
   }
 
-  if (clientSecret && createdOrder && validatedSnapshot) {
+  if (primaryClientSecret && createdOrder && validatedSnapshot) {
     // Render PaymentElement only after we have a client secret.
     return (
       <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:px-6 md:py-12">
@@ -649,23 +766,32 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
             <Elements
               stripe={stripePromise}
               options={{
-                clientSecret,
+                clientSecret: primaryClientSecret,
                 appearance: {
-                  theme: "stripe",
+                  theme: resolvedTheme === "dark" ? "night" : "stripe",
                   variables: {
                     colorPrimary: "oklch(0.574 0.259 142.38)",
+                    colorBackground: "hsl(var(--card))",
+                    colorText: "hsl(var(--foreground))",
+                    colorTextSecondary: "hsl(var(--muted-foreground))",
                   },
                 },
               }}
-              key={clientSecret}
+              key={`${primaryClientSecret}-${resolvedTheme ?? "system"}`}
             >
               <PaymentStep
-                clientSecret={clientSecret}
+                clientSecret={primaryClientSecret}
+                subscriptionClientSecret={subscriptionClientSecret}
                 order={createdOrder}
                 validated={validatedSnapshot}
-                totalPence={totalPence}
+                totalPence={oneOffItems.length > 0 ? oneOffTotalPence : recurringTotalPence}
+                recurringTotalPence={recurringTotalPence}
+                recurringFrequency={recurringFrequency}
+                isMixedCheckout={oneOffItems.length > 0 && recurringItems.length > 0}
                 onBack={() => {
-                  setClientSecret(null)
+                  setPrimaryClientSecret(null)
+                  setPaymentClientSecret(null)
+                  setSubscriptionClientSecret(null)
                   setCreatedOrder(null)
                   setValidatedSnapshot(null)
                 }}
@@ -700,6 +826,8 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                         <p className="font-medium">
                           {item.frequency === "MONTHLY"
                             ? `${formatCurrency(item.amountPence)}/month`
+                            : item.frequency === "YEARLY"
+                            ? `${formatCurrency(item.amountPence)}/year`
                             : formatCurrency(item.amountPence)}
                         </p>
                       </div>
@@ -708,21 +836,78 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                 </div>
                 <Separator />
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>{formatCurrency(subtotalPence)}</span>
-                  </div>
-                  {feesPence > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Processing Fees</span>
-                      <span>{formatCurrency(feesPence)}</span>
-                    </div>
+                  {oneOffItems.length > 0 && recurringItems.length > 0 ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">One-off subtotal</span>
+                        <span>{formatCurrency(oneOffSubtotalPence)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {recurringFrequency === "YEARLY" ? "Yearly subtotal" : "Monthly subtotal"}
+                        </span>
+                        <span>{formatCurrency(recurringSubtotalPence)}</span>
+                      </div>
+                      {oneOffFeesPence > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Processing fees (due now)</span>
+                          <span>{formatCurrency(oneOffFeesPence)}</span>
+                        </div>
+                      )}
+                      {recurringFeesPence > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Processing fees ({recurringFrequency === "YEARLY" ? "yearly" : "monthly"})
+                          </span>
+                          <span>{formatCurrency(recurringFeesPence)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between text-base font-semibold">
+                        <span>Due now</span>
+                        <span>{formatCurrency(oneOffTotalPence + recurringTotalPence)}</span>
+                      </div>
+                    </>
+                  ) : recurringItems.length > 0 ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>{formatCurrency(recurringSubtotalPence)}</span>
+                      </div>
+                      {recurringFeesPence > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Processing Fees</span>
+                          <span>{formatCurrency(recurringFeesPence)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between text-base font-semibold">
+                        <span>Recurring total</span>
+                        <span>
+                          {formatCurrency(recurringTotalPence)}/
+                          {recurringFrequency === "YEARLY" ? "year" : "month"}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>{formatCurrency(oneOffSubtotalPence)}</span>
+                      </div>
+                      {oneOffFeesPence > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Processing Fees</span>
+                          <span>{formatCurrency(oneOffFeesPence)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between text-base font-semibold">
+                        <span>Total</span>
+                        <span>{formatCurrency(oneOffTotalPence)}</span>
+                      </div>
+                    </>
                   )}
-                  <Separator />
-                  <div className="flex justify-between text-base font-semibold">
-                    <span>Total</span>
-                    <span>{formatCurrency(totalPence)}</span>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1175,6 +1360,8 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                         <p className="font-medium">
                           {item.frequency === "MONTHLY"
                             ? `${formatCurrency(item.amountPence)}/month`
+                            : item.frequency === "YEARLY"
+                            ? `${formatCurrency(item.amountPence)}/year`
                             : formatCurrency(item.amountPence)}
                         </p>
                       </div>
@@ -1183,21 +1370,78 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                 </div>
                 <Separator />
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>{formatCurrency(subtotalPence)}</span>
-                  </div>
-                  {feesPence > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Processing Fees</span>
-                      <span>{formatCurrency(feesPence)}</span>
-                    </div>
+                  {oneOffItems.length > 0 && recurringItems.length > 0 ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">One-off subtotal</span>
+                        <span>{formatCurrency(oneOffSubtotalPence)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {recurringFrequency === "YEARLY" ? "Yearly subtotal" : "Monthly subtotal"}
+                        </span>
+                        <span>{formatCurrency(recurringSubtotalPence)}</span>
+                      </div>
+                      {oneOffFeesPence > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Processing fees (due now)</span>
+                          <span>{formatCurrency(oneOffFeesPence)}</span>
+                        </div>
+                      )}
+                      {recurringFeesPence > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Processing fees ({recurringFrequency === "YEARLY" ? "yearly" : "monthly"})
+                          </span>
+                          <span>{formatCurrency(recurringFeesPence)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between text-base font-semibold">
+                        <span>Due now</span>
+                        <span>{formatCurrency(oneOffTotalPence + recurringTotalPence)}</span>
+                      </div>
+                    </>
+                  ) : recurringItems.length > 0 ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>{formatCurrency(recurringSubtotalPence)}</span>
+                      </div>
+                      {recurringFeesPence > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Processing Fees</span>
+                          <span>{formatCurrency(recurringFeesPence)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between text-base font-semibold">
+                        <span>Recurring total</span>
+                        <span>
+                          {formatCurrency(recurringTotalPence)}/
+                          {recurringFrequency === "YEARLY" ? "year" : "month"}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>{formatCurrency(oneOffSubtotalPence)}</span>
+                      </div>
+                      {oneOffFeesPence > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Processing Fees</span>
+                          <span>{formatCurrency(oneOffFeesPence)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between text-base font-semibold">
+                        <span>Total</span>
+                        <span>{formatCurrency(oneOffTotalPence)}</span>
+                      </div>
+                    </>
                   )}
-                  <Separator />
-                  <div className="flex justify-between text-base font-semibold">
-                    <span>Total</span>
-                    <span>{formatCurrency(totalPence)}</span>
-                  </div>
                 </div>
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
                   {loading ? "Preparing payment..." : "Continue to payment"}

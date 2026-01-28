@@ -25,6 +25,7 @@ interface WaterProjectEditFormProps {
     projectType: string
     location: string | null
     description: string | null
+    plaqueAvailable: boolean
     isActive: boolean
     status: string | null
     amountPence: number
@@ -54,6 +55,7 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
   const [uploading, setUploading] = useState(false)
   const [projectType] = useState(project.projectType)
   const [description, setDescription] = useState(project.description || "")
+  const [plaqueAvailable, setPlaqueAvailable] = useState(project.plaqueAvailable)
   const [isActive, setIsActive] = useState(project.isActive)
   const [status] = useState(project.status)
   const [completionImages, setCompletionImages] = useState<string[]>(() => {
@@ -268,6 +270,7 @@ Thank you for your support in making this project possible.`
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: description || null,
+          plaqueAvailable,
           isActive,
           completionImages,
           completionReport: completionReport || null,
@@ -460,6 +463,17 @@ Thank you for your support in making this project possible.`
           placeholder="Additional details about this project"
           rows={4}
         />
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="plaqueAvailable"
+          checked={plaqueAvailable}
+          onCheckedChange={(checked) => setPlaqueAvailable(checked === true)}
+        />
+        <Label htmlFor="plaqueAvailable" className="font-normal cursor-pointer">
+          Plaque available
+        </Label>
       </div>
 
       <div className="flex items-center space-x-2">

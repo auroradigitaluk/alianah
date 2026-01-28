@@ -7,6 +7,7 @@ const waterProjectSchema = z.object({
   projectType: z.enum(["WATER_PUMP", "WATER_WELL", "WATER_TANK", "WUDHU_AREA"]),
   location: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  plaqueAvailable: z.boolean().optional().default(false),
   isActive: z.boolean().default(true),
   amountPence: z.number().int().default(0),
 })

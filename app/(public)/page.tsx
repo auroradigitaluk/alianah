@@ -79,6 +79,7 @@ async function getWaterProjectsForForm() {
         projectType: true,
         location: true,
         description: true,
+        plaqueAvailable: true,
       },
       orderBy: { createdAt: "desc" },
     })
@@ -202,8 +203,8 @@ export default async function HomePage() {
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:px-6 md:py-8">
         {/* Minimal Header */}
         <div className="mb-6 sm:mb-8 text-center">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight md:text-3xl mb-2">
-            Make a Difference Today
+          <h1 className="text-2xl sm:text-2xl font-bold tracking-tight md:text-3xl mb-2">
+            Give with Purpose
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
             Support our humanitarian efforts and help those in need. Every donation makes a meaningful impact.

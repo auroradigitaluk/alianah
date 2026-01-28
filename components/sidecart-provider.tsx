@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { Sidecart } from "@/components/sidecart"
-import { toast } from "sonner"
 
 interface CartItem {
   id: string
@@ -56,11 +55,6 @@ export function SidecartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = React.useCallback((item: CartItem) => {
     setItems((prev) => {
-      // Stripe Checkout can't mix one-off + subscription items in one session.
-      if (prev.length > 0 && prev[0]?.frequency !== item.frequency) {
-        toast.error("Please checkout one-off and recurring donations separately.")
-        return prev
-      }
       const baseId =
         item.appealId ||
         item.waterProjectId ||

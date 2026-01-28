@@ -377,6 +377,7 @@ model WaterProject {
   projectType      String    @unique // WATER_PUMP | WATER_WELL | WATER_TANK | WUDHU_AREA (only one project per type)
   location         String?   // Optional location name
   description      String?
+  plaqueAvailable  Boolean   @default(false)
   isActive         Boolean   @default(true)
   status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (set when donation is made)
   amountPence      Int       @default(0) // Not used - countries have their own prices

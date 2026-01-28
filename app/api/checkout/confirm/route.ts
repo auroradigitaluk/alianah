@@ -74,22 +74,22 @@ export async function POST(request: NextRequest) {
         customerEmail,
         nextPaymentDate,
       })
-
-      return NextResponse.json({ success: true })
     }
 
-    const pi = await getStripe().paymentIntents.retrieve(paymentIntentId!)
-    if (pi.status !== "succeeded" && pi.status !== "processing") {
-      return NextResponse.json({ error: "Payment not completed" }, { status: 400 })
-    }
+    if (paymentIntentId) {
+      const pi = await getStripe().paymentIntents.retrieve(paymentIntentId)
+      if (pi.status !== "succeeded" && pi.status !== "processing") {
+        return NextResponse.json({ error: "Payment not completed" }, { status: 400 })
+      }
 
-    await finalizeOrderByOrderNumber({
-      orderNumber,
-      paidAt,
-      paymentRef: pi.id,
-      isSubscription: false,
-      customerEmail: pi.receipt_email || null,
-    })
+      await finalizeOrderByOrderNumber({
+        orderNumber,
+        paidAt,
+        paymentRef: pi.id,
+        isSubscription: false,
+        customerEmail: pi.receipt_email || null,
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

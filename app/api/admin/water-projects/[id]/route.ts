@@ -8,11 +8,12 @@ const waterProjectSchema = z.object({
   projectType: z.enum(["WATER_PUMP", "WATER_WELL", "WATER_TANK", "WUDHU_AREA"]).optional(),
   location: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  plaqueAvailable: z.boolean().optional(),
   isActive: z.boolean().optional(),
   status: z.enum(["WAITING_TO_REVIEW", "ORDERED", "PENDING", "COMPLETE"]).nullable().optional(),
   amountPence: z.number().int().default(0).optional(),
   completionImages: z.array(z.string()).optional(),
-  completionReport: z.string().optional(),
+  completionReport: z.string().nullable().optional(),
 })
 
 export async function GET(
@@ -77,6 +78,7 @@ export async function PUT(
       projectType: data.projectType,
       location: data.location,
       description: data.description,
+      plaqueAvailable: data.plaqueAvailable,
       isActive: data.isActive,
       status: data.status,
       amountPence: data.amountPence,
