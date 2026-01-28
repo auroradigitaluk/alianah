@@ -16,15 +16,15 @@ const TYPE_CONTENT: Record<
 > = {
   ORPHANS: {
     title: "Orphan Sponsorship",
-    description: "Support orphans with monthly sponsorship. Select a country to donate.",
+    description: "Support orphans with monthly or yearly sponsorship. Select a country to donate.",
   },
   HIFZ: {
     title: "Hifz Sponsorship",
-    description: "Support students memorising the Quran. Select a country to donate.",
+    description: "Support students memorising the Quran with monthly or yearly sponsorship.",
   },
   FAMILIES: {
     title: "Family Sponsorship",
-    description: "Support families in need with monthly sponsorship. Select a country to donate.",
+    description: "Support families in need with monthly or yearly sponsorship. Select a country to donate.",
   },
 }
 
@@ -55,6 +55,7 @@ async function getSponsorshipProjectCountriesForForm() {
         projectType: true,
         country: true,
         pricePence: true,
+        yearlyPricePence: true,
       },
       orderBy: [{ projectType: "asc" }, { sortOrder: "asc" }, { country: "asc" }],
     })

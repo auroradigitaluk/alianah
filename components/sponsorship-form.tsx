@@ -16,6 +16,7 @@ interface SponsorshipCountry {
   projectType: string
   country: string
   pricePence: number
+  yearlyPricePence?: number | null
 }
 
 interface SponsorshipFormProps {
@@ -44,14 +45,15 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
   const [projectType, setProjectType] = useState(project?.projectType || "")
   const [description, setDescription] = useState(project?.description || "")
   const [isActive, setIsActive] = useState(project?.isActive ?? true)
-  const [countryRows, setCountryRows] = useState<Array<{ id: string; name: string; price: string }>>([
-    { id: `row-${Date.now()}`, name: "", price: "" }
+  const [countryRows, setCountryRows] = useState<Array<{ id: string; name: string; price: string; yearlyPrice: string }>>([
+    { id: `row-${Date.now()}`, name: "", price: "", yearlyPrice: "" }
   ])
   const [localCountries, setLocalCountries] = useState(countries)
   const [addingCountries, setAddingCountries] = useState(false)
   const [showAddCountry, setShowAddCountry] = useState(false)
   const [newCountryName, setNewCountryName] = useState("")
   const [newCountryPrice, setNewCountryPrice] = useState("")
+  const [newCountryYearlyPrice, setNewCountryYearlyPrice] = useState("")
   const [addingCountry, setAddingCountry] = useState(false)
 
   const filteredCountries = localCountries.filter(
@@ -59,7 +61,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
   )
 
   const addCountryRow = () => {
-    setCountryRows([...countryRows, { id: `row-${Date.now()}`, name: "", price: "" }])
+    setCountryRows([...countryRows, { id: `row-${Date.now()}`, name: "", price: "", yearlyPrice: "" }])
   }
 
   const removeCountryRow = (id: string) => {
@@ -68,7 +70,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
     }
   }
 
-  const updateCountryRow = (id: string, field: "name" | "price", value: string) => {
+  const updateCountryRow = (id: string, field: "name" | "price" | "yearlyPrice", value: string) => {
     setCountryRows(countryRows.map(row => 
       row.id === id ? { ...row, [field]: value } : row
     ))
@@ -92,6 +94,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
         projectType,
         country: row.name.trim(),
         pricePence: Math.round(parseFloat(row.price) * 100),
+        ...(row.yearlyPrice ? { yearlyPricePence: Math.round(parseFloat(row.yearlyPrice) * 100) } : {}),
         isActive: true,
         sortOrder: 0,
       }))
@@ -109,7 +112,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
       setLocalCountries([...localCountries, ...newCountries])
       
       // Reset rows to one empty row
-      setCountryRows([{ id: `row-${Date.now()}`, name: "", price: "" }])
+      setCountryRows([{ id: `row-${Date.now()}`, name: "", price: "", yearlyPrice: "" }])
       toast.success(`${newCountries.length} countr${newCountries.length > 1 ? 'ies' : 'y'} added successfully`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add countries")
@@ -161,8 +164,11 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to save project")
+        const error = await response.json().catch(() => null)
+        const message = Array.isArray(error?.error)
+          ? error.error.map((issue: { message?: string }) => issue.message).filter(Boolean).join(", ")
+          : error?.error
+        throw new Error(message || "Failed to save project")
       }
 
       toast.success(project ? "Project updated successfully" : "Project created successfully")
@@ -205,7 +211,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
           <div className="space-y-3">
             {countryRows.map((row, index) => (
               <div key={row.id} className="flex gap-2 items-start">
-                <div className="flex-1 grid grid-cols-2 gap-2">
+                <div className="flex-1 grid grid-cols-3 gap-2">
                   <Input
                     placeholder="Country name"
                     value={row.name}
@@ -218,6 +224,14 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                     placeholder="Price (GBP)"
                     value={row.price}
                     onChange={(e) => updateCountryRow(row.id, "price", e.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Yearly (GBP)"
+                    value={row.yearlyPrice}
+                    onChange={(e) => updateCountryRow(row.id, "yearlyPrice", e.target.value)}
                   />
                 </div>
                 {countryRows.length > 1 && (
@@ -264,7 +278,8 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="text-left p-3 text-sm font-medium">Country</th>
-                      <th className="text-left p-3 text-sm font-medium">Price</th>
+                      <th className="text-left p-3 text-sm font-medium">Monthly</th>
+                      <th className="text-left p-3 text-sm font-medium">Yearly</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -272,6 +287,11 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                       <tr key={country.id} className="border-t">
                         <td className="p-3 text-sm font-medium">{country.country}</td>
                         <td className="p-3 text-sm">£{(country.pricePence / 100).toFixed(2)}</td>
+                        <td className="p-3 text-sm">
+                          {country.yearlyPricePence
+                            ? `£${(country.yearlyPricePence / 100).toFixed(2)}`
+                            : "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -312,6 +332,15 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                   onChange={(e) => setNewCountryPrice(e.target.value)}
                   className="w-32"
                 />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Yearly (GBP)"
+                  value={newCountryYearlyPrice}
+                  onChange={(e) => setNewCountryYearlyPrice(e.target.value)}
+                  className="w-36"
+                />
               </div>
               <div className="flex gap-2">
                 <Button
@@ -329,6 +358,16 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                       return
                     }
 
+                    let yearlyPriceValue: number | null = null
+                    if (newCountryYearlyPrice) {
+                      const parsed = Math.round(parseFloat(newCountryYearlyPrice) * 100)
+                      if (!Number.isFinite(parsed) || parsed <= 0) {
+                        toast.error("Please enter a valid yearly price")
+                        return
+                      }
+                      yearlyPriceValue = parsed
+                    }
+
                     setAddingCountry(true)
                     try {
                       const response = await fetch("/api/admin/sponsorships/countries", {
@@ -338,20 +377,25 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                           projectType,
                           country: newCountryName.trim(),
                           pricePence,
+                          yearlyPricePence: yearlyPriceValue,
                           isActive: true,
                           sortOrder: 0,
                         }),
                       })
 
                       if (!response.ok) {
-                        const error = await response.json()
-                        throw new Error(error.error || "Failed to add country")
+                        const error = await response.json().catch(() => null)
+                        const message = Array.isArray(error?.error)
+                          ? error.error.map((issue: { message?: string }) => issue.message).filter(Boolean).join(", ")
+                          : error?.error
+                        throw new Error(message || "Failed to add country")
                       }
 
                       const newCountry = await response.json()
                       setLocalCountries([...localCountries, newCountry])
                       setNewCountryName("")
                       setNewCountryPrice("")
+                      setNewCountryYearlyPrice("")
                       setShowAddCountry(false)
                       toast.success("Country added successfully")
                     } catch (error) {
@@ -372,6 +416,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                     setShowAddCountry(false)
                     setNewCountryName("")
                     setNewCountryPrice("")
+                    setNewCountryYearlyPrice("")
                   }}
                 >
                   <IconX className="h-4 w-4" />
@@ -386,7 +431,12 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                 {filteredCountries.map((country) => (
                   <div key={country.id} className="p-2 border rounded text-sm">
                     <div className="font-medium">{country.country}</div>
-                    <div className="text-muted-foreground">£{(country.pricePence / 100).toFixed(2)}</div>
+                    <div className="text-muted-foreground">£{(country.pricePence / 100).toFixed(2)} / month</div>
+                    {country.yearlyPricePence ? (
+                      <div className="text-muted-foreground">
+                        £{(country.yearlyPricePence / 100).toFixed(2)} / year
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

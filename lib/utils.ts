@@ -55,6 +55,7 @@ export const PAYMENT_METHODS = {
   CARD_SUMUP: "CARD_SUMUP",
   CASH: "CASH",
   BANK_TRANSFER: "BANK_TRANSFER",
+  OFFICE_BUCKETS: "OFFICE_BUCKETS",
 } as const
 
 export type PaymentMethod = typeof PAYMENT_METHODS[keyof typeof PAYMENT_METHODS]
@@ -65,6 +66,7 @@ export function formatPaymentMethod(value: string): string {
     CARD_SUMUP: "Card (SumUp)",
     CASH: "Cash",
     BANK_TRANSFER: "Bank Transfer",
+    OFFICE_BUCKETS: "Office Buckets",
     // Legacy values for backward compatibility
     STRIPE: "Website (Stripe)",
     CARD: "Card (SumUp)",

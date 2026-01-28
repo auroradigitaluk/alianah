@@ -81,6 +81,7 @@ interface SponsorshipProjectCountry {
   projectType: string
   country: string
   pricePence: number
+  yearlyPricePence?: number | null
 }
 
 interface OneNationDonationFormProps {
@@ -111,6 +112,7 @@ export function OneNationDonationForm({
   const [selectedWaterProject, setSelectedWaterProject] = React.useState<string>("")
   const [selectedSponsorshipType, setSelectedSponsorshipType] = React.useState<string>("")
   const [selectedSponsorshipCountry, setSelectedSponsorshipCountry] = React.useState<string>("")
+  const [sponsorshipFrequency, setSponsorshipFrequency] = React.useState<"MONTHLY" | "YEARLY">("MONTHLY")
   const [selectedIntention, setSelectedIntention] = React.useState<DonationType | "">("")
   const [selectedWaterCountry, setSelectedWaterCountry] = React.useState<string>("")
   const [customAmount, setCustomAmount] = React.useState<string>("")
@@ -228,6 +230,23 @@ export function OneNationDonationForm({
   const selectedSponsorshipCountryData = availableSponsorshipCountries.find(
     (c) => c.id === selectedSponsorshipCountry
   )
+  const sponsorshipHasYearly = availableSponsorshipCountries.some((c) => (c.yearlyPricePence || 0) > 0)
+
+  React.useEffect(() => {
+    if (!sponsorshipHasYearly && sponsorshipFrequency === "YEARLY") {
+      setSponsorshipFrequency("MONTHLY")
+    }
+  }, [sponsorshipHasYearly, sponsorshipFrequency])
+
+  React.useEffect(() => {
+    if (
+      sponsorshipFrequency === "YEARLY" &&
+      selectedSponsorshipCountryData &&
+      !selectedSponsorshipCountryData.yearlyPricePence
+    ) {
+      setSponsorshipFrequency("MONTHLY")
+    }
+  }, [selectedSponsorshipCountryData, sponsorshipFrequency])
 
   const availableSponsorshipTypes = ([
     { value: "ORPHANS", label: "Orphans" },
@@ -293,7 +312,15 @@ export function OneNationDonationForm({
     } else if (donationType === "sponsorship") {
       // Sponsorship donation - fixed price (no custom amounts)
       if (selectedSponsorshipCountryData) {
-        amountPence = selectedSponsorshipCountryData.pricePence
+        if (sponsorshipFrequency === "YEARLY") {
+          if (!selectedSponsorshipCountryData.yearlyPricePence) {
+            alert("Yearly price not available for this country")
+            return
+          }
+          amountPence = selectedSponsorshipCountryData.yearlyPricePence
+        } else {
+          amountPence = selectedSponsorshipCountryData.pricePence
+        }
       } else {
         alert("Please select a country")
         return
@@ -376,12 +403,16 @@ export function OneNationDonationForm({
       addItem({
         id: "",
         appealTitle: `Sponsorship - ${labels[sponsorshipProjectData.projectType] || sponsorshipProjectData.projectType}`,
-        frequency: "MONTHLY",
+        frequency: sponsorshipFrequency === "YEARLY" ? "ONE_OFF" : "MONTHLY",
         donationType: selectedIntention,
         amountPence,
         sponsorshipProjectId: sponsorshipProjectData.id,
         sponsorshipCountryId: selectedSponsorshipCountry,
         sponsorshipProjectType: sponsorshipProjectData.projectType,
+        productName:
+          sponsorshipFrequency === "YEARLY"
+            ? `${selectedSponsorshipCountryData?.country ?? ""} (Yearly)`
+            : selectedSponsorshipCountryData?.country,
       })
     } else {
       // Appeal donation
@@ -605,13 +636,20 @@ export function OneNationDonationForm({
                     <Label className="text-sm font-medium text-foreground">Select Country</Label>
                     <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
                       {availableSponsorshipCountries.map((country) => {
+                        const yearlyAvailable = !!country.yearlyPricePence && country.yearlyPricePence > 0
+                        const isYearly = sponsorshipFrequency === "YEARLY"
+                        const isDisabled = isYearly && !yearlyAvailable
+                        const displayPrice = isYearly
+                          ? country.yearlyPricePence || country.pricePence
+                          : country.pricePence
                         const isSelected = selectedSponsorshipCountry === country.id
                         return (
                           <Button
                             key={country.id}
                             type="button"
                             variant={isSelected ? "default" : "outline"}
-                            onClick={() => setSelectedSponsorshipCountry(country.id)}
+                            onClick={() => !isDisabled && setSelectedSponsorshipCountry(country.id)}
+                            disabled={isDisabled}
                             className={cn(
                               "group w-full h-16 flex-col items-center justify-center px-3 py-2.5 text-center",
                               isSelected && "shadow-sm"
@@ -621,11 +659,43 @@ export function OneNationDonationForm({
                               {country.country}
                             </span>
                             <span className="text-base font-semibold leading-tight">
-                              £{(country.pricePence / 100).toFixed(2)}/month
+                              {isDisabled
+                                ? "Yearly not set"
+                                : `£${(displayPrice / 100).toFixed(2)}${isYearly ? "/year" : "/month"}`}
                             </span>
                           </Button>
                         )
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {selectedSponsorshipType && sponsorshipHasYearly && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-foreground">Sponsorship Length</Label>
+                    <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
+                      <Button
+                        type="button"
+                        variant={sponsorshipFrequency === "MONTHLY" ? "default" : "outline"}
+                        onClick={() => setSponsorshipFrequency("MONTHLY")}
+                        className={cn(
+                          "w-full h-11 justify-center",
+                          sponsorshipFrequency === "MONTHLY" && "shadow-sm"
+                        )}
+                      >
+                        Monthly
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={sponsorshipFrequency === "YEARLY" ? "default" : "outline"}
+                        onClick={() => setSponsorshipFrequency("YEARLY")}
+                        className={cn(
+                          "w-full h-11 justify-center",
+                          sponsorshipFrequency === "YEARLY" && "shadow-sm"
+                        )}
+                      >
+                        Yearly (one-off)
+                      </Button>
                     </div>
                   </div>
                 )}

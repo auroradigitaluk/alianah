@@ -157,23 +157,31 @@ export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
         {
           id: "source",
           header: "Source",
-          cell: (item) => (
-            <Badge 
-              variant={item.source === "CASH" ? "default" : "outline"} 
-              className={`px-1.5 ${
-                item.source === "CASH" 
-                  ? "" 
-                  : "bg-blue-500 text-white border-blue-500"
-              }`}
-            >
-              {item.source === "CASH" ? (
-                <IconCash className="mr-1 size-3" />
-              ) : (
-                <IconBuildingBank className="mr-1 size-3" />
-              )}
-              {formatEnum(item.source)}
-            </Badge>
-          ),
+          cell: (item) => {
+            const sourceStyles: Record<string, string> = {
+              CASH: "bg-primary text-primary-foreground border-primary",
+              CARD_SUMUP: "bg-orange-500 text-white border-orange-500",
+              BANK_TRANSFER: "bg-blue-500 text-white border-blue-500",
+              OFFICE_BUCKETS: "bg-purple-500 text-white border-purple-500",
+            }
+            const Icon =
+              item.source === "CASH"
+                ? IconCash
+                : item.source === "CARD_SUMUP"
+                ? IconTag
+                : item.source === "OFFICE_BUCKETS"
+                ? IconCash
+                : IconBuildingBank
+            return (
+              <Badge
+                variant="outline"
+                className={`px-1.5 ${sourceStyles[item.source] || ""}`}
+              >
+                <Icon className="mr-1 size-3" />
+                {formatEnum(item.source)}
+              </Badge>
+            )
+          },
         },
         {
           id: "date",

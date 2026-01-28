@@ -30,6 +30,7 @@ async function getSponsorshipProjectCountriesForForm() {
         projectType: true,
         country: true,
         pricePence: true,
+        yearlyPricePence: true,
       },
       orderBy: [{ projectType: "asc" }, { sortOrder: "asc" }, { country: "asc" }],
     })

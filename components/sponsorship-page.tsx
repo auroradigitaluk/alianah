@@ -26,6 +26,7 @@ interface SponsorshipCountry {
   projectType: string
   country: string
   pricePence: number
+  yearlyPricePence?: number | null
 }
 
 interface SponsorshipProject {
@@ -56,6 +57,7 @@ export function SponsorshipPage({
   const [selectedProjectType, setSelectedProjectType] = useState<string>(initialProjectType || "")
   const [selectedCountryId, setSelectedCountryId] = useState<string>("")
   const [donationType, setDonationType] = useState("GENERAL")
+  const [sponsorshipFrequency, setSponsorshipFrequency] = useState<"MONTHLY" | "YEARLY">("MONTHLY")
 
   useEffect(() => {
     if (initialProjectType) {
@@ -84,6 +86,23 @@ export function SponsorshipPage({
   }, [countries, selectedProjectType])
 
   const selectedCountry = filteredCountries.find((c) => c.id === selectedCountryId) || null
+  const hasYearlyOption = filteredCountries.some((c) => (c.yearlyPricePence || 0) > 0)
+
+  useEffect(() => {
+    if (!hasYearlyOption && sponsorshipFrequency === "YEARLY") {
+      setSponsorshipFrequency("MONTHLY")
+    }
+  }, [hasYearlyOption, sponsorshipFrequency])
+
+  useEffect(() => {
+    if (
+      sponsorshipFrequency === "YEARLY" &&
+      selectedCountry &&
+      !selectedCountry.yearlyPricePence
+    ) {
+      setSponsorshipFrequency("MONTHLY")
+    }
+  }, [selectedCountry, sponsorshipFrequency])
 
   const handleAddToBasket = () => {
     if (!selectedProjectType) {
@@ -98,18 +117,26 @@ export function SponsorshipPage({
       toast.error("Sponsorship project not available")
       return
     }
+    if (sponsorshipFrequency === "YEARLY" && (!selectedCountry?.yearlyPricePence || selectedCountry.yearlyPricePence <= 0)) {
+      toast.error("Yearly price not available for this country")
+      return
+    }
 
     const label =
       SPONSORSHIP_TYPES.find((type) => type.value === selectedProjectType)?.label ||
       selectedProjectType
+    const isYearly = sponsorshipFrequency === "YEARLY"
+    const amountPence = isYearly
+      ? selectedCountry.yearlyPricePence || selectedCountry.pricePence
+      : selectedCountry.pricePence
 
     addItem({
       id: "",
       appealTitle: `Sponsorship - ${label}`,
-      productName: selectedCountry.country,
-      frequency: "MONTHLY",
+      productName: isYearly ? `${selectedCountry.country} (Yearly)` : selectedCountry.country,
+      frequency: isYearly ? "ONE_OFF" : "MONTHLY",
       donationType: donationType as "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH",
-      amountPence: selectedCountry.pricePence,
+      amountPence,
       sponsorshipProjectId: selectedProject.id,
       sponsorshipCountryId: selectedCountry.id,
       sponsorshipProjectType: selectedProject.projectType,
@@ -171,13 +198,20 @@ export function SponsorshipPage({
                   <Label className="text-sm font-medium text-foreground">Select Country</Label>
                   <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
                     {filteredCountries.map((country) => {
+                      const yearlyAvailable = !!country.yearlyPricePence && country.yearlyPricePence > 0
+                      const isYearly = sponsorshipFrequency === "YEARLY"
+                      const isDisabled = isYearly && !yearlyAvailable
                       const isSelected = selectedCountryId === country.id
+                      const displayPrice = isYearly
+                        ? country.yearlyPricePence || country.pricePence
+                        : country.pricePence
                       return (
                         <Button
                           key={country.id}
                           type="button"
                           variant={isSelected ? "default" : "outline"}
-                          onClick={() => setSelectedCountryId(country.id)}
+                          onClick={() => !isDisabled && setSelectedCountryId(country.id)}
+                          disabled={isDisabled}
                           className={[
                             "group w-full h-16 flex-col items-center justify-center px-3 py-2.5 text-center",
                             isSelected && "shadow-sm",
@@ -187,11 +221,43 @@ export function SponsorshipPage({
                             {country.country}
                           </span>
                           <span className="text-base font-semibold leading-tight">
-                            £{(country.pricePence / 100).toFixed(2)}/month
+                            {isDisabled
+                              ? "Yearly not set"
+                              : `£${(displayPrice / 100).toFixed(2)}${isYearly ? "/year" : "/month"}`}
                           </span>
                         </Button>
                       )
                     })}
+                  </div>
+                </div>
+              )}
+
+              {selectedProjectType && hasYearlyOption && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">Sponsorship Length</Label>
+                  <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
+                    <Button
+                      type="button"
+                      variant={sponsorshipFrequency === "MONTHLY" ? "default" : "outline"}
+                      onClick={() => setSponsorshipFrequency("MONTHLY")}
+                      className={[
+                        "w-full h-11 justify-center",
+                        sponsorshipFrequency === "MONTHLY" && "shadow-sm",
+                      ].filter(Boolean).join(" ")}
+                    >
+                      Monthly
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={sponsorshipFrequency === "YEARLY" ? "default" : "outline"}
+                      onClick={() => setSponsorshipFrequency("YEARLY")}
+                      className={[
+                        "w-full h-11 justify-center",
+                        sponsorshipFrequency === "YEARLY" && "shadow-sm",
+                      ].filter(Boolean).join(" ")}
+                    >
+                      Yearly (one-off)
+                    </Button>
                   </div>
                 </div>
               )}

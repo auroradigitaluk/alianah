@@ -15,6 +15,7 @@ interface SponsorshipCountryFormProps {
     projectType: string
     country: string
     pricePence: number
+    yearlyPricePence?: number | null
     isActive: boolean
     sortOrder: number
   }
@@ -32,6 +33,9 @@ export function SponsorshipCountryForm({ country }: SponsorshipCountryFormProps)
   const [projectType, setProjectType] = useState(country?.projectType || "")
   const [countryName, setCountryName] = useState(country?.country || "")
   const [pricePence, setPricePence] = useState<string>(country ? (country.pricePence / 100).toFixed(2) : "")
+  const [yearlyPricePence, setYearlyPricePence] = useState<string>(
+    country?.yearlyPricePence ? (country.yearlyPricePence / 100).toFixed(2) : ""
+  )
   const [isActive, setIsActive] = useState(country?.isActive ?? true)
   const [sortOrder, setSortOrder] = useState<string>(country?.sortOrder.toString() || "0")
 
@@ -56,8 +60,16 @@ export function SponsorshipCountryForm({ country }: SponsorshipCountryFormProps)
           return
         }
         payload.pricePence = p
+        if (yearlyPricePence) {
+          payload.yearlyPricePence = Math.round(parseFloat(yearlyPricePence) * 100)
+        }
       } else if (pricePence) {
         payload.pricePence = Math.round(parseFloat(pricePence) * 100)
+      }
+      if (country) {
+        payload.yearlyPricePence = yearlyPricePence
+          ? Math.round(parseFloat(yearlyPricePence) * 100)
+          : null
       }
 
       const response = await fetch(url, {
@@ -67,8 +79,11 @@ export function SponsorshipCountryForm({ country }: SponsorshipCountryFormProps)
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to save country")
+        const error = await response.json().catch(() => null)
+        const message = Array.isArray(error?.error)
+          ? error.error.map((issue: { message?: string }) => issue.message).filter(Boolean).join(", ")
+          : error?.error
+        throw new Error(message || "Failed to save country")
       }
 
       toast.success(country ? "Country updated successfully" : "Country created successfully")
@@ -122,6 +137,20 @@ export function SponsorshipCountryForm({ country }: SponsorshipCountryFormProps)
           placeholder="e.g., 25.00"
           required={!country}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="yearly-price">Yearly Price (GBP)</Label>
+        <Input
+          id="yearly-price"
+          type="number"
+          step="0.01"
+          min="0"
+          value={yearlyPricePence}
+          onChange={(e) => setYearlyPricePence(e.target.value)}
+          placeholder="e.g., 300.00"
+        />
+        <p className="text-sm text-muted-foreground">Optional one-off yearly price</p>
       </div>
 
       <div className="space-y-2">

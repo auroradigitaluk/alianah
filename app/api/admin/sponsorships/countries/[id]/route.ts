@@ -6,6 +6,7 @@ const countrySchema = z.object({
   projectType: z.enum(["ORPHANS", "HIFZ", "FAMILIES"]).optional(),
   country: z.string().min(1).optional(),
   pricePence: z.number().int().positive().optional(),
+  yearlyPricePence: z.number().int().positive().nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 })

@@ -1,13 +1,15 @@
 -- AlterTable
-ALTER TABLE "demo_order_items" ADD COLUMN     "plaqueName" TEXT,
-ADD COLUMN     "sponsorshipCountryId" TEXT,
-ADD COLUMN     "sponsorshipProjectId" TEXT,
-ADD COLUMN     "sponsorshipProjectType" TEXT,
-ADD COLUMN     "waterProjectCountryId" TEXT,
-ADD COLUMN     "waterProjectId" TEXT;
+ALTER TABLE "demo_order_items"
+  ADD COLUMN IF NOT EXISTS "plaqueName" TEXT,
+  ADD COLUMN IF NOT EXISTS "sponsorshipCountryId" TEXT,
+  ADD COLUMN IF NOT EXISTS "sponsorshipProjectId" TEXT,
+  ADD COLUMN IF NOT EXISTS "sponsorshipProjectType" TEXT,
+  ADD COLUMN IF NOT EXISTS "waterProjectCountryId" TEXT,
+  ADD COLUMN IF NOT EXISTS "waterProjectId" TEXT;
 
 -- AlterTable
-ALTER TABLE "water_projects" ADD COLUMN     "plaqueAvailable" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "water_projects"
+  ADD COLUMN IF NOT EXISTS "plaqueAvailable" BOOLEAN NOT NULL DEFAULT false;
 
 -- Preserve previous plaque behavior for existing project types
 UPDATE "water_projects"

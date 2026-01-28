@@ -81,7 +81,15 @@ export function WaterProjectCountriesTable({ countries }: { countries: WaterProj
                   header: "Actions",
                   cell: (country) => (
                     <Link
-                      href="/water"
+                      href={`/water/${
+                        country.projectType === "WATER_PUMP"
+                          ? "pumps"
+                          : country.projectType === "WATER_WELL"
+                          ? "wells"
+                          : country.projectType === "WATER_TANK"
+                          ? "tanks"
+                          : "wudhu"
+                      }`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"

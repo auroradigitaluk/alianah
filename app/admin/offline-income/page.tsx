@@ -1,10 +1,8 @@
 import { AdminHeader } from "@/components/admin-header"
-import { Button } from "@/components/ui/button"
 import { prisma } from "@/lib/prisma"
-import Link from "next/link"
-import { Plus } from "lucide-react"
 import { OfflineIncomeTable } from "@/components/offline-income-table"
 import { ExportCsvButton } from "@/components/export-csv-button"
+import { OfflineIncomeModal } from "@/components/offline-income-modal"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -21,7 +19,109 @@ async function getOfflineIncome() {
 }
 
 export default async function OfflineIncomePage() {
-  const income = await getOfflineIncome()
+  const [
+    income,
+    waterDonations,
+    sponsorshipDonations,
+    appeals,
+    waterProjects,
+    waterProjectCountries,
+    sponsorshipProjects,
+    sponsorshipProjectCountries,
+  ] = await Promise.all([
+    getOfflineIncome(),
+    prisma.waterProjectDonation.findMany({
+      where: { collectedVia: "office" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        waterProject: { select: { projectType: true, location: true } },
+        country: { select: { country: true } },
+      },
+    }),
+    prisma.sponsorshipDonation.findMany({
+      where: { collectedVia: "office" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        sponsorshipProject: { select: { projectType: true, location: true } },
+        country: { select: { country: true } },
+      },
+    }),
+    prisma.appeal.findMany({
+      where: { archivedAt: null },
+      select: { id: true, title: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.waterProject.findMany({
+      where: { isActive: true },
+      select: { id: true, projectType: true, location: true, description: true },
+      orderBy: { projectType: "asc" },
+    }),
+    prisma.waterProjectCountry.findMany({
+      where: { isActive: true },
+      select: { id: true, projectType: true, country: true, pricePence: true },
+      orderBy: [{ projectType: "asc" }, { sortOrder: "asc" }, { country: "asc" }],
+    }),
+    prisma.sponsorshipProject.findMany({
+      where: { isActive: true },
+      select: { id: true, projectType: true, location: true, description: true },
+      orderBy: { projectType: "asc" },
+    }),
+    prisma.sponsorshipProjectCountry.findMany({
+      where: { isActive: true },
+      select: { id: true, projectType: true, country: true, pricePence: true, yearlyPricePence: true },
+      orderBy: [{ projectType: "asc" }, { sortOrder: "asc" }, { country: "asc" }],
+    }),
+  ])
+
+  const waterRows = waterDonations.map((donation) => {
+    const labels: Record<string, string> = {
+      WATER_PUMP: "Water Pump",
+      WATER_WELL: "Water Well",
+      WATER_TANK: "Water Tank",
+      WUDHU_AREA: "Wudhu Area",
+    }
+    const projectLabel = labels[donation.waterProject.projectType] || donation.waterProject.projectType
+    const location = donation.waterProject.location ? ` - ${donation.waterProject.location}` : ""
+    const country = donation.country?.country ? ` (${donation.country.country})` : ""
+    return {
+      id: `water-${donation.id}`,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      source: donation.paymentMethod,
+      receivedAt: donation.createdAt,
+      appeal: { title: `Water Project - ${projectLabel}${location}${country}` },
+      notes: donation.notes || null,
+    }
+  })
+
+  const sponsorshipRows = sponsorshipDonations.map((donation) => {
+    const labels: Record<string, string> = {
+      ORPHANS: "Orphans",
+      HIFZ: "Hifz",
+      FAMILIES: "Families",
+    }
+    const projectLabel =
+      labels[donation.sponsorshipProject.projectType] || donation.sponsorshipProject.projectType
+    const location = donation.sponsorshipProject.location
+      ? ` - ${donation.sponsorshipProject.location}`
+      : ""
+    const country = donation.country?.country ? ` (${donation.country.country})` : ""
+    return {
+      id: `sponsorship-${donation.id}`,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      source: donation.paymentMethod,
+      receivedAt: donation.createdAt,
+      appeal: { title: `Sponsorship - ${projectLabel}${location}${country}` },
+      notes: donation.notes || null,
+    }
+  })
+
+  const tableIncome = [...income, ...waterRows, ...sponsorshipRows].sort((a, b) => {
+    const aDate = new Date(a.receivedAt as unknown as string | Date).getTime()
+    const bDate = new Date(b.receivedAt as unknown as string | Date).getTime()
+    return bDate - aDate
+  })
 
   return (
     <>
@@ -29,13 +129,14 @@ export default async function OfflineIncomePage() {
         title="Offline Income"
         actions={
           <div className="flex items-center gap-2">
-            <ExportCsvButton variant="offlineIncome" data={income} />
-            <Button asChild>
-              <Link href="/admin/offline-income/new">
-                <Plus className="mr-2 h-4 w-4" />
-                New Entry
-              </Link>
-            </Button>
+            <ExportCsvButton variant="offlineIncome" data={tableIncome} />
+            <OfflineIncomeModal
+              appeals={appeals}
+              waterProjects={waterProjects}
+              waterProjectCountries={waterProjectCountries}
+              sponsorshipProjects={sponsorshipProjects}
+              sponsorshipProjectCountries={sponsorshipProjectCountries}
+            />
           </div>
         }
       />
@@ -49,7 +150,7 @@ export default async function OfflineIncomePage() {
                   <p className="text-xs sm:text-sm text-muted-foreground">Cash and bank transfer income</p>
                 </div>
                 <div>
-                  <OfflineIncomeTable income={income} />
+                  <OfflineIncomeTable income={tableIncome} />
                 </div>
               </div>
             </div>

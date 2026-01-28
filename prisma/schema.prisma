@@ -435,6 +435,7 @@ model SponsorshipProjectCountry {
   projectType String   // ORPHANS | HIFZ | FAMILIES
   country     String
   pricePence  Int
+  yearlyPricePence Int?
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())

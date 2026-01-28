@@ -11,7 +11,7 @@ const sponsorshipProjectSchema = z.object({
   status: z.enum(["WAITING_TO_REVIEW", "ORDERED", "PENDING", "COMPLETE"]).nullable().optional(),
   amountPence: z.number().int().default(0).optional(),
   completionImages: z.array(z.string()).optional(),
-  completionReport: z.string().optional(),
+  completionReport: z.string().nullable().optional(),
 })
 
 export async function GET(
