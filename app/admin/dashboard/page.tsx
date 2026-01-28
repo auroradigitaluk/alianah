@@ -1050,7 +1050,7 @@ export default async function AdminDashboardPage({
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                   {/* Total Amount */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-primary/5 to-card border-primary/20">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
@@ -1084,7 +1084,7 @@ export default async function AdminDashboardPage({
                   </Card>
 
                   {/* Total Online */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/5 via-card to-card border-blue-500/20">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-card border-blue-500/20">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Total Online</CardTitle>
@@ -1118,7 +1118,7 @@ export default async function AdminDashboardPage({
                   </Card>
 
                   {/* Total Offline */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-purple-500/5 via-card to-card border-purple-500/20">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-card border-purple-500/20">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Total Offline</CardTitle>
@@ -1152,7 +1152,7 @@ export default async function AdminDashboardPage({
                   </Card>
 
                   {/* Total Collections */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500/5 via-card to-card border-orange-500/20">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-card border-orange-500/20">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Total Collections</CardTitle>
@@ -1191,7 +1191,7 @@ export default async function AdminDashboardPage({
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
                   {/* Active Recurring */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-green-500/5 via-card to-card border-green-500/20">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-green-500/10 via-green-500/5 to-card border-green-500/20">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Active Recurring</CardTitle>
@@ -1214,7 +1214,7 @@ export default async function AdminDashboardPage({
                   </Card>
 
                   {/* Monthly Total */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/5 via-card to-card border-blue-500/20">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-card border-blue-500/20">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Monthly Total</CardTitle>
@@ -1237,7 +1237,7 @@ export default async function AdminDashboardPage({
                   </Card>
 
                   {/* Cancelled */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500/5 via-card to-card border-orange-500/20">
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-card border-orange-500/20">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                       <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
