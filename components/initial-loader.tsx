@@ -1,3 +1,5 @@
+"use client"
+
 import Image from "next/image"
 
 export function InitialLoader() {
@@ -24,9 +26,22 @@ export function InitialLoader() {
           Assisting those in need.
         </p>
         <div className="w-full h-1 rounded-full bg-muted overflow-hidden">
-          <div className="h-full w-1/3 bg-primary animate-pulse" />
+          <div
+            className="h-full bg-primary motion-reduce:animate-none motion-reduce:w-full"
+            style={{ animation: "initial-loader-progress 1.6s ease-out forwards" }}
+          />
         </div>
       </div>
+      <style jsx>{`
+        @keyframes initial-loader-progress {
+          from {
+            width: 0%;
+          }
+          to {
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   )
 }
