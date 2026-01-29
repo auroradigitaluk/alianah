@@ -25,6 +25,7 @@ interface Donation {
     lastName: string
     email: string
   }
+  isAnonymous?: boolean | null
   appeal?: {
     title: string
   } | null
@@ -139,7 +140,7 @@ export function FundraiserDonationsView({
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-lg">
+                        <p className="font-semibold text-lg">
                             {formatCurrency(donation.amountPence)}
                           </p>
                           <Badge
@@ -155,9 +156,11 @@ export function FundraiserDonationsView({
                           </Badge>
                         </div>
                         <p className="text-sm font-medium">
-                          {formatDonorName(donation.donor)}
+                          {donation.isAnonymous ? "Anonymous" : formatDonorName(donation.donor)}
                         </p>
-                        <p className="text-xs text-muted-foreground">{donation.donor.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {donation.isAnonymous ? "Anonymous" : donation.donor.email}
+                        </p>
                       </div>
                     </div>
 

@@ -13,6 +13,7 @@ interface CartItem {
   frequency: "ONE_OFF" | "MONTHLY" | "YEARLY"
   donationType: "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
   amountPence: number
+  isAnonymous?: boolean
   // Water project specific fields
   waterProjectId?: string
   waterProjectCountryId?: string

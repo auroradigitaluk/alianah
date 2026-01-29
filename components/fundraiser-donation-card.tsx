@@ -49,7 +49,9 @@ type FundraiserDonationCardProps = {
     amountPence: number
     donor: {
       firstName: string | null
+      lastName?: string | null
     }
+    isAnonymous?: boolean | null
     createdAt: Date
     timeAgo: string
   }>
@@ -89,13 +91,16 @@ export function FundraiserDonationCard({
               size={140}
               strokeWidth={10}
             >
-              <div className="text-center">
-                <p className="text-2xl font-bold leading-tight">{formatCurrency(totalRaised)}</p>
-                {targetAmountPence && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    of {formatCurrency(targetAmountPence)}
-                  </p>
-                )}
+              <div className="text-center max-w-[110px]">
+                <p className="font-bold leading-tight text-[clamp(1rem,3vw,1.5rem)] break-words">
+                  {formatCurrency(totalRaised)}
+                </p>
+                <p className="mt-1 text-[clamp(0.65rem,1.8vw,0.8rem)] font-normal text-muted-foreground">
+                  raised of
+                </p>
+                <p className="text-[clamp(0.75rem,2.2vw,0.9rem)] font-semibold text-muted-foreground break-words">
+                  {formatCurrency(targetAmountPence ?? 0)}
+                </p>
               </div>
             </ProgressRing>
             <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 border w-full justify-center">
@@ -156,7 +161,11 @@ export function FundraiserDonationCard({
                     <Heart className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate">
-                        {donation.donor.firstName || "Anonymous"}
+                        {donation.isAnonymous
+                          ? "Anonymous"
+                          : [donation.donor.firstName, donation.donor.lastName]
+                              .filter(Boolean)
+                              .join(" ") || "Anonymous"}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {donation.timeAgo}

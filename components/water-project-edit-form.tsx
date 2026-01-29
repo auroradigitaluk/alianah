@@ -32,6 +32,7 @@ interface WaterProjectEditFormProps {
     amountPence: number
     projectImageUrls: string
     fundraisingImageUrls: string
+    fundraisingDefaultMessage?: string | null
     completionImages: string
     completionReport: string | null
   }
@@ -62,6 +63,9 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
   const [plaqueAvailable, setPlaqueAvailable] = useState(project.plaqueAvailable)
   const [isActive, setIsActive] = useState(project.isActive)
   const [allowFundraising, setAllowFundraising] = useState(project.allowFundraising)
+  const [fundraisingDefaultMessage, setFundraisingDefaultMessage] = useState(
+    project.fundraisingDefaultMessage || ""
+  )
   const [status] = useState(project.status)
   const [projectImages, setProjectImages] = useState<string[]>(() => {
     try {
@@ -392,6 +396,7 @@ Thank you for your support in making this project possible.`
           plaqueAvailable,
           isActive,
           allowFundraising,
+          fundraisingDefaultMessage: fundraisingDefaultMessage || null,
           fundraisingImageUrls: fundraisingImages,
           projectImageUrls: projectImages,
           completionImages,
@@ -673,6 +678,19 @@ Thank you for your support in making this project possible.`
 
       {allowFundraising && (
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
+            <Textarea
+              id="fundraisingDefaultMessage"
+              value={fundraisingDefaultMessage}
+              onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
+              placeholder="Enter the default message shown on the fundraiser page."
+              rows={4}
+            />
+            <p className="text-sm text-muted-foreground">
+              This message is pre-filled for fundraisers and can be edited by them.
+            </p>
+          </div>
           <div className="space-y-2">
             <Label>Fundraising Images</Label>
             <p className="text-sm text-muted-foreground">

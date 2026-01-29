@@ -39,6 +39,7 @@ interface FundraiserFormProps {
   waterProjectId?: string
   waterProjectType?: string
   campaignTitle: string
+  defaultMessage?: string | null
 }
 
 export function FundraiserForm({
@@ -46,6 +47,7 @@ export function FundraiserForm({
   waterProjectId,
   waterProjectType,
   campaignTitle,
+  defaultMessage,
 }: FundraiserFormProps) {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
@@ -67,6 +69,7 @@ export function FundraiserForm({
     resolver: zodResolver(fundraiserSchema) as unknown as Resolver<FormInput>,
     defaultValues: {
       title: campaignTitle,
+      message: defaultMessage || "",
     },
   })
 
@@ -150,11 +153,23 @@ export function FundraiserForm({
 
   // Generate default message with fundraiser name
   const getDefaultMessage = () => {
+    if (defaultMessage && defaultMessage.trim()) {
+      return defaultMessage
+    }
     if (fundraiserName) {
       return `${fundraiserName} is fundraising for ${campaignTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
     }
     return `I am fundraising for ${campaignTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
   }
+
+  // Seed the message from defaultMessage when provided
+  React.useEffect(() => {
+    if (!defaultMessage || defaultMessage.trim().length === 0) return
+    const currentMessage = message || ""
+    if (!currentMessage.trim()) {
+      setValue("message", defaultMessage, { shouldDirty: false })
+    }
+  }, [defaultMessage, message, setValue])
 
   // Update message when fundraiser name changes (only if message is empty or matches default pattern)
   React.useEffect(() => {
@@ -162,12 +177,16 @@ export function FundraiserForm({
       previousNameRef.current = fundraiserName
       const currentMessage = message || ""
       // Only update if message is empty or matches the default pattern (contains "fundraising for")
-      if (!currentMessage || (currentMessage.includes("fundraising for") && currentMessage.includes(campaignTitle))) {
+      if (
+        !defaultMessage &&
+        (!currentMessage ||
+          (currentMessage.includes("fundraising for") && currentMessage.includes(campaignTitle)))
+      ) {
         const newMessage = `${fundraiserName} is fundraising for ${campaignTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
         setValue("message", newMessage, { shouldDirty: false })
       }
     }
-  }, [fundraiserName, campaignTitle, setValue, message])
+  }, [fundraiserName, campaignTitle, defaultMessage, setValue, message])
 
   const onSubmit: SubmitHandler<FormInput> = async (data) => {
     const parsed = fundraiserSchema.parse(data)

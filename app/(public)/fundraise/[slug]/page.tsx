@@ -31,6 +31,7 @@ async function getAppeal(slug: string) {
         isActive: true,
         archivedAt: true,
         allowFundraising: true,
+        fundraisingDefaultMessage: true,
       },
     })
 
@@ -55,6 +56,7 @@ async function getWaterProject(projectType: "WATER_PUMP" | "WATER_WELL" | "WATER
         description: true,
         isActive: true,
         allowFundraising: true,
+        fundraisingDefaultMessage: true,
       },
     })
 
@@ -118,9 +120,11 @@ async function getFundraiser(slug: string) {
           },
           select: {
             amountPence: true,
+            isAnonymous: true,
             donor: {
               select: {
                 firstName: true,
+                lastName: true,
               },
             },
             createdAt: true,
@@ -138,9 +142,11 @@ async function getFundraiser(slug: string) {
           },
           select: {
             amountPence: true,
+            isAnonymous: true,
             donor: {
               select: {
                 firstName: true,
+                lastName: true,
               },
             },
             createdAt: true,
@@ -348,7 +354,11 @@ export default async function FundraisePage({
           </div>
 
           <div className="mb-4 sm:mb-6">
-            <FundraiserForm appealId={appeal.id} campaignTitle={appeal.title} />
+            <FundraiserForm
+              appealId={appeal.id}
+              campaignTitle={appeal.title}
+              defaultMessage={appeal.fundraisingDefaultMessage}
+            />
           </div>
         </div>
       </div>
@@ -377,6 +387,7 @@ export default async function FundraisePage({
               waterProjectId={project.id}
               waterProjectType={project.projectType}
               campaignTitle={title}
+              defaultMessage={project.fundraisingDefaultMessage}
             />
           </div>
         </div>

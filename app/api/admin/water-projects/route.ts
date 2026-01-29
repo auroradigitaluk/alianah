@@ -12,6 +12,7 @@ const waterProjectSchema = z
     isActive: z.boolean().default(true),
     allowFundraising: z.boolean().optional().default(false),
     fundraisingImageUrls: z.array(z.string()).optional(),
+    fundraisingDefaultMessage: z.string().nullable().optional(),
     amountPence: z.number().int().default(0),
     projectImageUrls: z.array(z.string()).optional(),
   })
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { projectImageUrls, fundraisingImageUrls, ...rest } = data
+    const { projectImageUrls, fundraisingImageUrls, fundraisingDefaultMessage, ...rest } = data
     const project = await prisma.waterProject.create({
       data: {
         ...rest,
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
         ...(fundraisingImageUrls
           ? { fundraisingImageUrls: JSON.stringify(fundraisingImageUrls) }
           : {}),
+        fundraisingDefaultMessage: fundraisingDefaultMessage || null,
       },
     })
 

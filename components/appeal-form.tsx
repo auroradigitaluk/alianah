@@ -23,6 +23,7 @@ interface AppealFormProps {
     allowFundraising?: boolean
     appealImageUrls?: string
     fundraisingImageUrls?: string
+    fundraisingDefaultMessage?: string | null
     monthlyPricePence?: number | null
     yearlyPricePence?: number | null
     oneOffPresetAmountsPence?: string
@@ -50,6 +51,9 @@ export function AppealForm({ appeal }: AppealFormProps) {
   )
   const [allowMonthly, setAllowMonthly] = useState(appeal?.allowMonthly ?? false)
   const [allowFundraising, setAllowFundraising] = useState(appeal?.allowFundraising ?? false)
+  const [fundraisingDefaultMessage, setFundraisingDefaultMessage] = useState(
+    appeal?.fundraisingDefaultMessage || ""
+  )
   const [oneOffPresets, setOneOffPresets] = useState<string>(() => {
     if (appeal?.oneOffPresetAmountsPence) {
       try {
@@ -332,6 +336,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
           allowFundraising,
           appealImageUrls: JSON.stringify(appealImages),
           fundraisingImageUrls: JSON.stringify(fundraisingImages),
+          fundraisingDefaultMessage: fundraisingDefaultMessage || null,
           monthlyPricePence: null,
           yearlyPricePence: null,
           oneOffPresetAmountsPence,
@@ -483,6 +488,19 @@ export function AppealForm({ appeal }: AppealFormProps) {
       </div>
       {allowFundraising && (
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
+            <Textarea
+              id="fundraisingDefaultMessage"
+              value={fundraisingDefaultMessage}
+              onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
+              placeholder="Enter the default message shown on the fundraiser page."
+              rows={4}
+            />
+            <p className="text-sm text-muted-foreground">
+              This message is pre-filled for fundraisers and can be edited by them.
+            </p>
+          </div>
           <div className="space-y-2">
             <Label>Fundraising Images</Label>
             <p className="text-sm text-muted-foreground">

@@ -4,6 +4,7 @@ import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { useSidecart } from "@/components/sidecart-provider"
 
@@ -36,6 +37,7 @@ export function WaterProjectDonationForm({
   const [countryId, setCountryId] = useState<string>("")
   const [donationType, setDonationType] = useState("GENERAL")
   const [countries, setCountries] = useState<Array<{ id: string; country: string; pricePence: number }>>([])
+  const [isAnonymous, setIsAnonymous] = useState(false)
 
   // Fetch countries for this project type
   React.useEffect(() => {
@@ -93,6 +95,7 @@ export function WaterProjectDonationForm({
       waterProjectId: projectId,
       waterProjectCountryId: selectedCountry.id,
       ...(fundraiserId ? { fundraiserId } : {}),
+      ...(fundraiserId ? { isAnonymous } : {}),
     })
     toast.success("Added to basket")
   }
@@ -158,6 +161,18 @@ export function WaterProjectDonationForm({
           </SelectContent>
         </Select>
       </div>
+      {fundraiserId && (
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="donate-anonymous"
+            checked={isAnonymous}
+            onCheckedChange={(checked) => setIsAnonymous(checked === true)}
+          />
+          <Label htmlFor="donate-anonymous" className="font-normal cursor-pointer">
+            Donate anonymously
+          </Label>
+        </div>
+      )}
       <Button type="submit" className="w-full">
         Add to basket
       </Button>

@@ -51,6 +51,7 @@ model Appeal {
   allowFundraising     Boolean  @default(false)
   appealImageUrls      String   @default("[]") // JSON string array of Vercel Blob URLs
   fundraisingImageUrls String   @default("[]") // JSON string array of Vercel Blob URLs for fundraising pages
+  fundraisingDefaultMessage String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -237,6 +238,7 @@ model Donation {
   transactionId String?
   orderNumber   String? // Link to demoOrder for tracking
   giftAid       Boolean   @default(false)
+  isAnonymous   Boolean   @default(false)
   billingAddress String? // Billing address for gift aid purposes
   billingCity    String?
   billingPostcode String?
@@ -344,6 +346,7 @@ model DemoOrderItem {
   frequency    String // ONE_OFF | MONTHLY | YEARLY
   donationType String // GENERAL | SADAQAH | ZAKAT | LILLAH
   amountPence  Int
+  isAnonymous  Boolean  @default(false)
   waterProjectId        String?
   waterProjectCountryId String?
   sponsorshipProjectId  String?
@@ -385,6 +388,7 @@ model WaterProject {
   isActive         Boolean   @default(true)
   allowFundraising Boolean   @default(false)
   fundraisingImageUrls String @default("[]") // JSON string array of image URLs
+  fundraisingDefaultMessage String?
   status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (set when donation is made)
   amountPence      Int       @default(0) // Not used - countries have their own prices
   projectImageUrls String    @default("[]") // JSON string array of image URLs
@@ -415,6 +419,7 @@ model WaterProjectDonation {
   collectedVia   String? // website | office | events | collections | masjid_collections | fundraising
   transactionId  String?
   giftAid        Boolean   @default(false)
+  isAnonymous   Boolean   @default(false)
   billingAddress String? // Billing address for gift aid purposes
   billingCity    String?
   billingPostcode String?

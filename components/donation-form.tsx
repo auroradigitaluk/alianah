@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -82,6 +83,7 @@ export function DonationForm({
   const [presetAmount, setPresetAmount] = React.useState<number | null>(
     initialPreset || null
   )
+  const [isAnonymous, setIsAnonymous] = React.useState(false)
 
   // Set initial values from URL params on mount
   React.useEffect(() => {
@@ -202,6 +204,7 @@ export function DonationForm({
       frequency,
       donationType,
       amountPence,
+      ...(fundraiserId ? { isAnonymous } : {}),
     })
 
     // Reset form
@@ -386,6 +389,19 @@ export function DonationForm({
           </SelectContent>
         </Select>
       </div>
+
+      {fundraiserId && (
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="donate-anonymous"
+            checked={isAnonymous}
+            onCheckedChange={(checked) => setIsAnonymous(checked === true)}
+          />
+          <Label htmlFor="donate-anonymous" className="font-normal cursor-pointer">
+            Donate anonymously
+          </Label>
+        </div>
+      )}
 
       {/* Add to Basket Button */}
       <Button
