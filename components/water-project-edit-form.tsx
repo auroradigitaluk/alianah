@@ -11,6 +11,7 @@ import { toast } from "sonner"
 import { IconX, IconUpload, IconPlus, IconPencil, IconTrash, IconCheck } from "@tabler/icons-react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface WaterProjectCountry {
   id: string
@@ -421,7 +422,13 @@ Thank you for your support in making this project possible.`
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-2">
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="fundraising">Fundraising</TabsTrigger>
+        </TabsList>
+        <TabsContent value="details" className="mt-4 space-y-6">
+          <div className="space-y-2">
         <Label>Project Type</Label>
         <Input value={PROJECT_TYPES.find((t) => t.value === projectType)?.label || projectType} disabled />
       </div>
@@ -661,98 +668,6 @@ Thank you for your support in making this project possible.`
         </Label>
       </div>
 
-      <div className="space-y-2">
-        <Label>Fundraising</Label>
-        <Button
-          type="button"
-          variant={allowFundraising ? "default" : "outline"}
-          onClick={() => setAllowFundraising(!allowFundraising)}
-          className="h-9"
-        >
-          {allowFundraising ? "Fundraising Enabled" : "Fundraising Disabled"}
-        </Button>
-        <p className="text-sm text-muted-foreground">
-          When enabled, supporters can create fundraising pages for this water project.
-        </p>
-      </div>
-
-      {allowFundraising && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
-            <Textarea
-              id="fundraisingDefaultMessage"
-              value={fundraisingDefaultMessage}
-              onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
-              placeholder="Enter the default message shown on the fundraiser page."
-              rows={4}
-            />
-            <p className="text-sm text-muted-foreground">
-              This message is pre-filled for fundraisers and can be edited by them.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Fundraising Images</Label>
-            <p className="text-sm text-muted-foreground">
-              Upload at least 1 image to display on fundraising pages for this project.
-            </p>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFundraisingImageUpload}
-              className="hidden"
-              id="fundraising-image-upload"
-              disabled={uploading}
-            />
-            <Label htmlFor="fundraising-image-upload">
-              <Button type="button" variant="outline" asChild disabled={uploading}>
-                <span>
-                  <IconUpload className="h-4 w-4 mr-2" />
-                  {uploading ? "Uploading..." : "Upload Images"}
-                </span>
-              </Button>
-            </Label>
-          </div>
-          <p className="text-xs text-muted-foreground">{fundraisingImages.length}/1 minimum uploaded</p>
-          {fundraisingImages.length > 0 && (
-            <div className="grid grid-cols-3 gap-4">
-              {fundraisingImages.map((url, index) => (
-                <div key={index} className="relative group">
-                  <img
-                    src={url}
-                    alt={`Fundraising ${index + 1}`}
-                    className="w-full h-32 object-cover rounded-lg"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100"
-                    onClick={() => removeFundraisingImage(index)}
-                  >
-                    <IconX className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      
-      {status && (
-        <div className="space-y-2">
-          <Label>Donation Status</Label>
-          <div className="p-2 bg-muted rounded-lg">
-            <Badge className={status === "COMPLETE" ? "bg-primary/10 text-primary" : status === "PENDING" ? "bg-orange-500/10 text-orange-700" : status === "ORDERED" ? "bg-blue-500/10 text-blue-700" : "bg-yellow-500/10 text-yellow-700"}>
-              {STATUS_OPTIONS.find(opt => opt.value === status)?.label || status}
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">Status is set automatically when donations are made</p>
-        </div>
-      )}
-
-
       {status === "COMPLETE" && (
         <div className="space-y-4 border-t pt-4">
           <div>
@@ -817,6 +732,91 @@ Thank you for your support in making this project possible.`
           </div>
         </div>
       )}
+
+        </TabsContent>
+        <TabsContent value="fundraising" className="mt-4 space-y-6">
+          <div className="space-y-2">
+            <Label>Fundraising</Label>
+            <Button
+              type="button"
+              variant={allowFundraising ? "default" : "outline"}
+              onClick={() => setAllowFundraising(!allowFundraising)}
+              className="h-9"
+            >
+              {allowFundraising ? "Fundraising Enabled" : "Fundraising Disabled"}
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              When enabled, supporters can create fundraising pages for this water project.
+            </p>
+          </div>
+
+          {allowFundraising && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
+                <Textarea
+                  id="fundraisingDefaultMessage"
+                  value={fundraisingDefaultMessage}
+                  onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
+                  placeholder="Enter the default message shown on the fundraiser page."
+                  rows={4}
+                />
+                <p className="text-sm text-muted-foreground">
+                  This message is pre-filled for fundraisers and can be edited by them.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Fundraising Images</Label>
+                <p className="text-sm text-muted-foreground">
+                  Upload at least 1 image to display on fundraising pages for this project.
+                </p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFundraisingImageUpload}
+                  className="hidden"
+                  id="fundraising-image-upload"
+                  disabled={uploading}
+                />
+                <Label htmlFor="fundraising-image-upload">
+                  <Button type="button" variant="outline" asChild disabled={uploading}>
+                    <span>
+                      <IconUpload className="h-4 w-4 mr-2" />
+                      {uploading ? "Uploading..." : "Upload Images"}
+                    </span>
+                  </Button>
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {fundraisingImages.length}/1 minimum uploaded
+              </p>
+              {fundraisingImages.length > 0 && (
+                <div className="grid grid-cols-3 gap-4">
+                  {fundraisingImages.map((url, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={url}
+                        alt={`Fundraising ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100"
+                        onClick={() => removeFundraisingImage(index)}
+                      >
+                        <IconX className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <div className="flex gap-2">
         <Button type="submit" disabled={loading}>

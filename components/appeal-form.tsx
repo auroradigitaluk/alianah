@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 
 interface AppealFormProps {
@@ -363,7 +364,13 @@ export function AppealForm({ appeal }: AppealFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-2">
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="fundraising">Fundraising</TabsTrigger>
+        </TabsList>
+        <TabsContent value="details" className="mt-4 space-y-6">
+          <div className="space-y-2">
         <Label htmlFor="title">Title</Label>
         <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
       </div>
@@ -471,79 +478,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
             {isActive ? "Active" : "Inactive"}
           </Button>
         </div>
-        <div className="space-y-2">
-          <Label>Fundraising</Label>
-          <Button
-            type="button"
-            variant={allowFundraising ? "default" : "outline"}
-            onClick={() => setAllowFundraising(!allowFundraising)}
-            className="h-9"
-          >
-            {allowFundraising ? "Fundraising Enabled" : "Fundraising Disabled"}
-          </Button>
-          <p className="text-sm text-muted-foreground">
-            When enabled, supporters can create fundraising pages for this appeal
-          </p>
-        </div>
       </div>
-      {allowFundraising && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
-            <Textarea
-              id="fundraisingDefaultMessage"
-              value={fundraisingDefaultMessage}
-              onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
-              placeholder="Enter the default message shown on the fundraiser page."
-              rows={4}
-            />
-            <p className="text-sm text-muted-foreground">
-              This message is pre-filled for fundraisers and can be edited by them.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Fundraising Images</Label>
-            <p className="text-sm text-muted-foreground">
-              Upload at least 1 image to display on fundraising pages for this appeal
-            </p>
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={handleFundraisingImageUpload}
-              disabled={uploadingFundraising}
-              className="cursor-pointer"
-            />
-            {uploadingFundraising && <p className="text-sm text-muted-foreground">Uploading...</p>}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {fundraisingImages.length}/1 minimum uploaded
-          </p>
-          {fundraisingImages.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {fundraisingImages.map((url, index) => (
-                <div key={index} className="relative group">
-                  <div className="relative aspect-video rounded-lg overflow-hidden border bg-muted">
-                    <img
-                      src={url}
-                      alt={`Fundraising image ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removeFundraisingImage(index)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Appeal Images</Label>
@@ -584,6 +519,82 @@ export function AppealForm({ appeal }: AppealFormProps) {
           </div>
         )}
       </div>
+        </TabsContent>
+        <TabsContent value="fundraising" className="mt-4 space-y-6">
+          <div className="space-y-2">
+            <Label>Fundraising</Label>
+            <Button
+              type="button"
+              variant={allowFundraising ? "default" : "outline"}
+              onClick={() => setAllowFundraising(!allowFundraising)}
+              className="h-9"
+            >
+              {allowFundraising ? "Fundraising Enabled" : "Fundraising Disabled"}
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              When enabled, supporters can create fundraising pages for this appeal
+            </p>
+          </div>
+          {allowFundraising && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
+                <Textarea
+                  id="fundraisingDefaultMessage"
+                  value={fundraisingDefaultMessage}
+                  onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
+                  placeholder="Enter the default message shown on the fundraiser page."
+                  rows={4}
+                />
+                <p className="text-sm text-muted-foreground">
+                  This message is pre-filled for fundraisers and can be edited by them.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Fundraising Images</Label>
+                <p className="text-sm text-muted-foreground">
+                  Upload at least 1 image to display on fundraising pages for this appeal
+                </p>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFundraisingImageUpload}
+                  disabled={uploadingFundraising}
+                  className="cursor-pointer"
+                />
+                {uploadingFundraising && <p className="text-sm text-muted-foreground">Uploading...</p>}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {fundraisingImages.length}/1 minimum uploaded
+              </p>
+              {fundraisingImages.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {fundraisingImages.map((url, index) => (
+                    <div key={index} className="relative group">
+                      <div className="relative aspect-video rounded-lg overflow-hidden border bg-muted">
+                        <img
+                          src={url}
+                          alt={`Fundraising image ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeFundraisingImage(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
       <div className="flex gap-2">
         <Button type="submit" disabled={loading}>
           {loading ? "Saving..." : appeal ? "Update" : "Create"}
