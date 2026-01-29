@@ -168,7 +168,7 @@ type FundraisersRow = {
   email?: string
   isActive: boolean
   amountRaised: number
-  appeal: { title: string }
+  campaign: { title: string }
 }
 
 type DonorsRow = {
@@ -601,9 +601,9 @@ function buildConfig(variant: ExportVariant, data: unknown[]): ExportConfig<unkn
           getValue: (item) => (item as FundraisersRow).email || "",
         },
         {
-          key: "appeal",
-          label: "Appeal",
-          getValue: (item) => (item as FundraisersRow).appeal.title,
+          key: "campaign",
+          label: "Campaign",
+          getValue: (item) => (item as FundraisersRow).campaign.title,
         },
         {
           key: "status",
@@ -625,10 +625,10 @@ function buildConfig(variant: ExportVariant, data: unknown[]): ExportConfig<unkn
       filters: [
         {
           type: "text",
-          id: "appeal",
-          label: "Appeal",
-          placeholder: "Search appeal",
-          getValue: (item) => (item as FundraisersRow).appeal.title,
+          id: "campaign",
+          label: "Campaign",
+          placeholder: "Search campaign",
+          getValue: (item) => (item as FundraisersRow).campaign.title,
         },
         {
           type: "text",

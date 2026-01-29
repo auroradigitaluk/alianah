@@ -862,15 +862,32 @@ export default async function AdminDashboardPage({
     const topFundraisers = await prisma.fundraiser.findMany({
       where: {
         isActive: true,
-        donations: {
-          some: {
-            status: "COMPLETED",
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
+        OR: [
+          {
+            donations: {
+              some: {
+                status: "COMPLETED",
+                createdAt: {
+                  gte: startDate,
+                  lte: endDate,
+                },
+              },
             },
           },
-        },
+          {
+            waterProjectDonations: {
+              some: {
+                status: {
+                  in: ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"],
+                },
+                createdAt: {
+                  gte: startDate,
+                  lte: endDate,
+                },
+              },
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -879,6 +896,11 @@ export default async function AdminDashboardPage({
         appeal: {
           select: {
             title: true,
+          },
+        },
+        waterProject: {
+          select: {
+            projectType: true,
           },
         },
         donations: {
@@ -893,20 +915,49 @@ export default async function AdminDashboardPage({
             amountPence: true,
           },
         },
+        waterProjectDonations: {
+          where: {
+            status: {
+              in: ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"],
+            },
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: {
+            amountPence: true,
+          },
+        },
       },
       take: 5,
     }).catch(() => [])
 
-    const fundraisersWithTotals = topFundraisers.map((fundraiser) => {
-      const totalRaised = fundraiser.donations.reduce((sum, d) => sum + d.amountPence, 0)
-      return {
-        id: fundraiser.id,
-        title: fundraiser.title,
-        fundraiserName: fundraiser.fundraiserName,
-        appealTitle: fundraiser.appeal?.title || "General",
-        totalRaised,
-      }
-    }).sort((a, b) => b.totalRaised - a.totalRaised)
+    const fundraisersWithTotals = topFundraisers
+      .map((fundraiser) => {
+        const totalRaised = fundraiser.donations
+          .concat(fundraiser.waterProjectDonations)
+          .reduce((sum, d) => sum + d.amountPence, 0)
+        const appealTitle = fundraiser.appeal?.title
+          ? fundraiser.appeal.title
+          : fundraiser.waterProject?.projectType === "WATER_PUMP"
+            ? "Water Pumps"
+            : fundraiser.waterProject?.projectType === "WATER_WELL"
+              ? "Water Wells"
+              : fundraiser.waterProject?.projectType === "WATER_TANK"
+                ? "Water Tanks"
+                : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+                  ? "Wudhu Areas"
+                  : "Water Project"
+        return {
+          id: fundraiser.id,
+          title: fundraiser.title,
+          fundraiserName: fundraiser.fundraiserName,
+          appealTitle,
+          totalRaised,
+        }
+      })
+      .sort((a, b) => b.totalRaised - a.totalRaised)
 
     // Get recent activity (last 30 events for pagination)
     const recentActivity: Array<{ type: string; message: string; timestamp: Date }> = []
@@ -1001,13 +1052,29 @@ export default async function AdminDashboardPage({
             title: true,
           },
         },
+        waterProject: {
+          select: {
+            projectType: true,
+          },
+        },
       },
     }).catch(() => [])
 
     recentFundraisers.forEach((fundraiser) => {
+      const campaignTitle = fundraiser.appeal?.title
+        ? fundraiser.appeal.title
+        : fundraiser.waterProject?.projectType === "WATER_PUMP"
+          ? "Water Pumps"
+          : fundraiser.waterProject?.projectType === "WATER_WELL"
+            ? "Water Wells"
+            : fundraiser.waterProject?.projectType === "WATER_TANK"
+              ? "Water Tanks"
+              : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+                ? "Wudhu Areas"
+                : "Water Project"
       recentActivity.push({
         type: "fundraiser",
-        message: `Fundraiser created: ${fundraiser.title} for ${fundraiser.appeal?.title || "General"}`,
+        message: `Fundraiser created: ${fundraiser.title} for ${campaignTitle}`,
         timestamp: fundraiser.createdAt,
       })
     })

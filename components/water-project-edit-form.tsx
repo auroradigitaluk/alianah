@@ -27,9 +27,11 @@ interface WaterProjectEditFormProps {
     description: string | null
     plaqueAvailable: boolean
     isActive: boolean
+    allowFundraising: boolean
     status: string | null
     amountPence: number
     projectImageUrls: string
+    fundraisingImageUrls: string
     completionImages: string
     completionReport: string | null
   }
@@ -59,10 +61,18 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
   const [description, setDescription] = useState(project.description || "")
   const [plaqueAvailable, setPlaqueAvailable] = useState(project.plaqueAvailable)
   const [isActive, setIsActive] = useState(project.isActive)
+  const [allowFundraising, setAllowFundraising] = useState(project.allowFundraising)
   const [status] = useState(project.status)
   const [projectImages, setProjectImages] = useState<string[]>(() => {
     try {
       return project.projectImageUrls ? JSON.parse(project.projectImageUrls) : []
+    } catch {
+      return []
+    }
+  })
+  const [fundraisingImages, setFundraisingImages] = useState<string[]>(() => {
+    try {
+      return project.fundraisingImageUrls ? JSON.parse(project.fundraisingImageUrls) : []
     } catch {
       return []
     }
@@ -284,12 +294,55 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
     }
   }
 
+  const handleFundraisingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    const filesArray = Array.from(files)
+    if (filesArray.some((file) => !file.type.startsWith("image/"))) {
+      toast.error("Please choose a valid image file.")
+      return
+    }
+    if (filesArray.some((file) => file.size > maxUploadBytes)) {
+      toast.error("File size too large. Keep it under 5MB.")
+      return
+    }
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      Array.from(files).forEach((file) => {
+        formData.append("files", file)
+      })
+
+      const response = await fetch("/api/admin/water-projects/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to upload images")
+      }
+
+      const { urls } = await response.json()
+      setFundraisingImages((prev) => [...prev, ...urls])
+      toast.success("Images uploaded successfully")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upload images")
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const removeImage = (index: number) => {
     setCompletionImages((prev) => prev.filter((_, i) => i !== index))
   }
 
   const removeProjectImage = (index: number) => {
     setProjectImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const removeFundraisingImage = (index: number) => {
+    setFundraisingImages((prev) => prev.filter((_, i) => i !== index))
   }
 
   const generateReport = async () => {
@@ -326,6 +379,11 @@ Thank you for your support in making this project possible.`
     setLoading(true)
 
     try {
+      if (allowFundraising && fundraisingImages.length < 1) {
+        toast.error("Please upload at least 1 fundraising image before enabling fundraising.")
+        setLoading(false)
+        return
+      }
       const response = await fetch(`/api/admin/water-projects/${project.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -333,6 +391,8 @@ Thank you for your support in making this project possible.`
           description: description || null,
           plaqueAvailable,
           isActive,
+          allowFundraising,
+          fundraisingImageUrls: fundraisingImages,
           projectImageUrls: projectImages,
           completionImages,
           completionReport: completionReport || null,
@@ -595,6 +655,72 @@ Thank you for your support in making this project possible.`
           Active
         </Label>
       </div>
+
+      <div className="space-y-2">
+        <Label>Fundraising</Label>
+        <Button
+          type="button"
+          variant={allowFundraising ? "default" : "outline"}
+          onClick={() => setAllowFundraising(!allowFundraising)}
+          className="h-9"
+        >
+          {allowFundraising ? "Fundraising Enabled" : "Fundraising Disabled"}
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          When enabled, supporters can create fundraising pages for this water project.
+        </p>
+      </div>
+
+      {allowFundraising && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Fundraising Images</Label>
+            <p className="text-sm text-muted-foreground">
+              Upload at least 1 image to display on fundraising pages for this project.
+            </p>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFundraisingImageUpload}
+              className="hidden"
+              id="fundraising-image-upload"
+              disabled={uploading}
+            />
+            <Label htmlFor="fundraising-image-upload">
+              <Button type="button" variant="outline" asChild disabled={uploading}>
+                <span>
+                  <IconUpload className="h-4 w-4 mr-2" />
+                  {uploading ? "Uploading..." : "Upload Images"}
+                </span>
+              </Button>
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">{fundraisingImages.length}/1 minimum uploaded</p>
+          {fundraisingImages.length > 0 && (
+            <div className="grid grid-cols-3 gap-4">
+              {fundraisingImages.map((url, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={url}
+                    alt={`Fundraising ${index + 1}`}
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100"
+                    onClick={() => removeFundraisingImage(index)}
+                  >
+                    <IconX className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       
       {status && (
         <div className="space-y-2">

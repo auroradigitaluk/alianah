@@ -16,9 +16,24 @@ async function getFundraisers() {
             title: true,
           },
         },
+        waterProject: {
+          select: {
+            projectType: true,
+          },
+        },
         donations: {
           where: {
             status: "COMPLETED",
+          },
+          select: {
+            amountPence: true,
+          },
+        },
+        waterProjectDonations: {
+          where: {
+            status: {
+              in: ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"],
+            },
           },
           select: {
             amountPence: true,
@@ -28,10 +43,23 @@ async function getFundraisers() {
     })
 
     return fundraisers.map((fundraiser) => {
-      const amountRaised = fundraiser.donations.reduce(
+      const amountRaised = fundraiser.donations
+        .concat(fundraiser.waterProjectDonations)
+        .reduce(
         (sum, d) => sum + d.amountPence,
         0
       )
+      const campaignTitle = fundraiser.appeal?.title
+        ? fundraiser.appeal.title
+        : fundraiser.waterProject?.projectType === "WATER_PUMP"
+          ? "Water Pumps"
+          : fundraiser.waterProject?.projectType === "WATER_WELL"
+            ? "Water Wells"
+            : fundraiser.waterProject?.projectType === "WATER_TANK"
+              ? "Water Tanks"
+              : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+                ? "Wudhu Areas"
+                : "Water Project"
 
       return {
         id: fundraiser.id,
@@ -40,8 +68,9 @@ async function getFundraisers() {
         fundraiserName: fundraiser.fundraiserName,
         email: fundraiser.email,
         isActive: fundraiser.isActive,
-        appeal: {
-          title: fundraiser.appeal.title,
+        campaign: {
+          title: campaignTitle,
+          type: (fundraiser.appeal ? "APPEAL" : "WATER") as "APPEAL" | "WATER",
         },
         amountRaised,
       }

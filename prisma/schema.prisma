@@ -107,7 +107,8 @@ model AppealProduct {
 
 model Fundraiser {
   id                String   @id @default(cuid())
-  appealId          String
+  appealId          String?
+  waterProjectId    String?
   title             String
   slug              String   @unique
   fundraiserName    String // Display name of the person creating the fundraiser
@@ -117,10 +118,13 @@ model Fundraiser {
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
 
-  appeal    Appeal     @relation(fields: [appealId], references: [id], onDelete: Cascade)
-  donations Donation[]
+  appeal      Appeal?      @relation(fields: [appealId], references: [id], onDelete: Cascade)
+  waterProject WaterProject? @relation(fields: [waterProjectId], references: [id], onDelete: Cascade)
+  donations   Donation[]
+  waterProjectDonations WaterProjectDonation[]
 
   @@index([appealId])
+  @@index([waterProjectId])
   @@index([slug])
   @@index([isActive])
   @@index([email])
@@ -379,6 +383,8 @@ model WaterProject {
   description      String?
   plaqueAvailable  Boolean   @default(false)
   isActive         Boolean   @default(true)
+  allowFundraising Boolean   @default(false)
+  fundraisingImageUrls String @default("[]") // JSON string array of image URLs
   status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (set when donation is made)
   amountPence      Int       @default(0) // Not used - countries have their own prices
   projectImageUrls String    @default("[]") // JSON string array of image URLs
@@ -389,7 +395,8 @@ model WaterProject {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  donations WaterProjectDonation[]
+  donations   WaterProjectDonation[]
+  fundraisers Fundraiser[]
 
   @@index([projectType, isActive])
   @@index([status])
@@ -401,6 +408,7 @@ model WaterProjectDonation {
   waterProjectId String
   countryId      String    // Country chosen for this donation
   donorId        String
+  fundraiserId   String?
   amountPence    Int
   donationType   String // GENERAL | SADAQAH | ZAKAT | LILLAH
   paymentMethod  String // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
@@ -422,10 +430,12 @@ model WaterProjectDonation {
   waterProject WaterProject        @relation(fields: [waterProjectId], references: [id], onDelete: Cascade)
   country      WaterProjectCountry @relation(fields: [countryId], references: [id], onDelete: Cascade)
   donor        Donor               @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  fundraiser   Fundraiser?         @relation(fields: [fundraiserId], references: [id], onDelete: SetNull)
 
   @@index([waterProjectId])
   @@index([countryId])
   @@index([donorId])
+  @@index([fundraiserId])
   @@index([status])
   @@index([createdAt])
   @@map("water_project_donations")

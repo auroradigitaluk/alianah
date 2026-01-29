@@ -10,6 +10,7 @@ import { useSidecart } from "@/components/sidecart-provider"
 interface WaterProjectDonationFormProps {
   projectId: string
   projectType: string
+  fundraiserId?: string
 }
 
 const DONATION_TYPES = [
@@ -26,7 +27,11 @@ const PROJECT_TYPE_LABELS: Record<string, string> = {
   WUDHU_AREA: "Wudhu Area",
 }
 
-export function WaterProjectDonationForm({ projectId, projectType }: WaterProjectDonationFormProps) {
+export function WaterProjectDonationForm({
+  projectId,
+  projectType,
+  fundraiserId,
+}: WaterProjectDonationFormProps) {
   const { addItem } = useSidecart()
   const [countryId, setCountryId] = useState<string>("")
   const [donationType, setDonationType] = useState("GENERAL")
@@ -87,6 +92,7 @@ export function WaterProjectDonationForm({ projectId, projectType }: WaterProjec
       amountPence: selectedCountry.pricePence,
       waterProjectId: projectId,
       waterProjectCountryId: selectedCountry.id,
+      ...(fundraiserId ? { fundraiserId } : {}),
     })
     toast.success("Added to basket")
   }

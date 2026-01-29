@@ -18,27 +18,29 @@ interface Fundraiser {
   progressPercentage: number
   donationCount: number
   createdAt: Date
-  appeal: {
+  campaign: {
     title: string
     slug: string
+    type: "APPEAL" | "WATER"
   }
 }
 
-interface EligibleAppeal {
+interface EligibleCampaign {
   id: string
   title: string
   slug: string
   summary: string | null
+  type: "APPEAL" | "WATER"
 }
 
 interface FundraiserDashboardClientProps {
   fundraisers: Fundraiser[]
-  eligibleAppeals: EligibleAppeal[]
+  eligibleCampaigns: EligibleCampaign[]
 }
 
 export function FundraiserDashboardClient({
   fundraisers,
-  eligibleAppeals,
+  eligibleCampaigns,
 }: FundraiserDashboardClientProps) {
   const [selectedFundraiserId, setSelectedFundraiserId] = useState<string | null>(null)
   const [selectedFundraiserTitle, setSelectedFundraiserTitle] = useState<string>("")
@@ -68,7 +70,7 @@ export function FundraiserDashboardClient({
           </div>
 
           {/* Create New Fundraiser */}
-          {eligibleAppeals.length > 0 && (
+          {eligibleCampaigns.length > 0 && (
             <Card className="mb-6 sm:mb-8 border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg">Create New Fundraiser</CardTitle>
@@ -78,20 +80,20 @@ export function FundraiserDashboardClient({
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {eligibleAppeals.map((appeal) => (
+                  {eligibleCampaigns.map((campaign) => (
                     <Button
-                      key={appeal.id}
+                      key={campaign.id}
                       asChild
                       variant="outline"
                       className="h-auto py-4 justify-start hover:bg-primary/5 hover:border-primary/30 transition-all"
                     >
-                      <Link href={`/fundraise/${appeal.slug}`}>
+                      <Link href={`/fundraise/${campaign.slug}`}>
                         <Plus className="mr-2 h-4 w-4" />
                         <div className="text-left">
-                          <div className="font-medium">{appeal.title}</div>
-                          {appeal.summary && (
+                          <div className="font-medium">{campaign.title}</div>
+                          {campaign.summary && (
                             <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {appeal.summary}
+                              {campaign.summary}
                             </div>
                           )}
                         </div>
@@ -110,9 +112,9 @@ export function FundraiserDashboardClient({
                 <p className="text-muted-foreground mb-4">
                   You haven&apos;t created any fundraisers yet.
                 </p>
-                {eligibleAppeals.length > 0 && (
+                {eligibleCampaigns.length > 0 && (
                   <Button asChild>
-                    <Link href={`/fundraise/${eligibleAppeals[0].slug}`}>
+                    <Link href={`/fundraise/${eligibleCampaigns[0].slug}`}>
                       <Plus className="mr-2 h-4 w-4" />
                       Create Your First Fundraiser
                     </Link>
@@ -135,7 +137,7 @@ export function FundraiserDashboardClient({
                           {fundraiser.title}
                         </CardTitle>
                         <CardDescription className="mt-1">
-                          For {fundraiser.appeal.title}
+                          For {fundraiser.campaign.title}
                         </CardDescription>
                       </div>
                       <Button

@@ -22,6 +22,13 @@ export async function GET(
         id,
         email,
       },
+      include: {
+        waterProject: {
+          select: {
+            projectType: true,
+          },
+        },
+      },
     })
 
     if (!fundraiser) {
@@ -29,41 +36,107 @@ export async function GET(
     }
 
     // Fetch all donations for this fundraiser
-    const donations = await prisma.donation.findMany({
-      where: {
-        fundraiserId: id,
-      },
-      include: {
-        donor: {
-          select: {
-            title: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+    const [donations, waterDonations] = await Promise.all([
+      prisma.donation.findMany({
+        where: {
+          fundraiserId: id,
+        },
+        include: {
+          donor: {
+            select: {
+              title: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          appeal: {
+            select: {
+              title: true,
+            },
+          },
+          product: {
+            select: {
+              name: true,
+            },
           },
         },
-        appeal: {
-          select: {
-            title: true,
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+      prisma.waterProjectDonation.findMany({
+        where: {
+          fundraiserId: id,
+        },
+        include: {
+          donor: {
+            select: {
+              title: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
         },
-        product: {
-          select: {
-            name: true,
-          },
+        orderBy: {
+          createdAt: "desc",
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
+      }),
+    ])
+
+    const waterCampaignTitle =
+      fundraiser.waterProject?.projectType === "WATER_PUMP"
+        ? "Water Pumps"
+        : fundraiser.waterProject?.projectType === "WATER_WELL"
+          ? "Water Wells"
+          : fundraiser.waterProject?.projectType === "WATER_TANK"
+            ? "Water Tanks"
+            : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+              ? "Wudhu Areas"
+              : "Water Project"
+
+    const normalizedDonations = donations.map((donation) => ({
+      id: donation.id,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      frequency: donation.frequency,
+      status: donation.status,
+      paymentMethod: donation.paymentMethod,
+      giftAid: donation.giftAid,
+      transactionId: donation.transactionId,
+      createdAt: donation.createdAt,
+      completedAt: donation.completedAt,
+      donor: donation.donor,
+      appeal: donation.appeal,
+      product: donation.product,
+    }))
+
+    const normalizedWaterDonations = waterDonations.map((donation) => ({
+      id: donation.id,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      frequency: "ONE_OFF",
+      status: donation.status === "PENDING" ? "PENDING" : "COMPLETED",
+      paymentMethod: donation.paymentMethod,
+      giftAid: donation.giftAid,
+      transactionId: donation.transactionId,
+      createdAt: donation.createdAt,
+      completedAt: donation.completedAt,
+      donor: donation.donor,
+      appeal: fundraiser.waterProject ? { title: waterCampaignTitle } : null,
+      product: null,
+    }))
 
     // Serialize dates
-    const serializedDonations = donations.map((donation) => ({
-      ...donation,
-      createdAt: donation.createdAt.toISOString(),
-      completedAt: donation.completedAt?.toISOString() || null,
-    }))
+    const serializedDonations = normalizedDonations
+      .concat(normalizedWaterDonations)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map((donation) => ({
+        ...donation,
+        createdAt: donation.createdAt.toISOString(),
+        completedAt: donation.completedAt?.toISOString() || null,
+      }))
 
     return NextResponse.json(serializedDonations)
   } catch (error) {

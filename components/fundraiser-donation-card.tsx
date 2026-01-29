@@ -7,6 +7,7 @@ import { ProgressRing } from "@/components/ui/progress-ring"
 import { formatCurrency } from "@/lib/utils"
 import { Share2, Heart, ShieldCheck } from "lucide-react"
 import { DonationForm } from "@/components/donation-form"
+import { WaterProjectDonationForm } from "@/components/water-project-donation-form"
 
 type AppealProduct = {
   productId: string
@@ -23,12 +24,12 @@ type AppealProduct = {
   }
 }
 
-interface FundraiserDonationCardProps {
+type FundraiserDonationCardProps = {
   totalRaised: number
   targetAmountPence: number | null
   progressPercentage: number
   donationCount: number
-  appeal: {
+  appeal?: {
     id: string
     title: string
     allowMonthly: boolean
@@ -37,8 +38,12 @@ interface FundraiserDonationCardProps {
     monthlyPresetAmountsPence?: string
     yearlyPresetAmountsPence?: string
   }
-  products: AppealProduct[]
-  donationTypesEnabled: string[]
+  products?: AppealProduct[]
+  donationTypesEnabled?: string[]
+  waterProject?: {
+    id: string
+    projectType: string
+  }
   fundraiserId: string
   recentDonations: Array<{
     amountPence: number
@@ -58,6 +63,7 @@ export function FundraiserDonationCard({
   appeal,
   products,
   donationTypesEnabled,
+  waterProject,
   fundraiserId,
   recentDonations,
 }: FundraiserDonationCardProps) {
@@ -104,13 +110,25 @@ export function FundraiserDonationCard({
           {/* Donation Form */}
           <div className="space-y-6">
             <h3 className="font-semibold text-sm">Donate</h3>
-            <DonationForm
-              appeal={appeal}
-              products={products}
-              donationTypesEnabled={donationTypesEnabled}
-              fundraiserId={fundraiserId}
-              noCard={true}
-            />
+            {waterProject ? (
+              <WaterProjectDonationForm
+                projectId={waterProject.id}
+                projectType={waterProject.projectType}
+                fundraiserId={fundraiserId}
+              />
+            ) : (
+              appeal &&
+              products &&
+              donationTypesEnabled && (
+                <DonationForm
+                  appeal={appeal}
+                  products={products}
+                  donationTypesEnabled={donationTypesEnabled}
+                  fundraiserId={fundraiserId}
+                  noCard={true}
+                />
+              )
+            )}
           </div>
         </CardContent>
       </Card>

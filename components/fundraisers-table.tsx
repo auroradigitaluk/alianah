@@ -44,7 +44,7 @@ interface Fundraiser {
   fundraiserName: string
   email?: string
   isActive: boolean
-  appeal: { title: string }
+  campaign: { title: string; type: "APPEAL" | "WATER" }
   amountRaised: number
 }
 
@@ -58,12 +58,13 @@ interface FundraiserDetails {
   targetAmountPence: number | null
   isActive: boolean
   createdAt: string
-  appeal: {
+  campaign: {
     id: string
     title: string
     slug: string
     summary: string | null
     isActive: boolean
+    type: "APPEAL" | "WATER"
   }
   statistics: {
     totalRaised: number
@@ -123,7 +124,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
     const normalizedFundraiser = fundraiserQuery.trim().toLowerCase()
 
     return fundraisers.filter((fundraiser) => {
-      const appealName = fundraiser.appeal.title.toLowerCase()
+      const appealName = fundraiser.campaign.title.toLowerCase()
       const fundraiserName = `${fundraiser.fundraiserName} ${fundraiser.title}`.toLowerCase()
       const matchesAppeal = normalizedAppeal
         ? appealName.includes(normalizedAppeal)
@@ -298,10 +299,10 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
       <div className="mb-4 rounded-lg border bg-card p-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
-            <Label htmlFor="fundraisers-appeal">Appeal</Label>
+            <Label htmlFor="fundraisers-appeal">Campaign</Label>
             <Input
               id="fundraisers-appeal"
-              placeholder="Search appeal"
+              placeholder="Search campaign"
               value={appealQuery}
               onChange={(event) => setAppealQuery(event.target.value)}
             />
@@ -348,9 +349,9 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
           },
           {
             id: "campaign",
-            header: "Appeal",
+            header: "Campaign",
             cell: (fundraiser) => (
-              <div className="text-sm">{fundraiser.appeal.title}</div>
+              <div className="text-sm">{fundraiser.campaign.title}</div>
             ),
           },
           {
@@ -589,7 +590,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
                         <div className="p-2 rounded-lg bg-muted/50">
                           <Megaphone className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Campaign / Appeal</h3>
+                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Campaign</h3>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -600,9 +601,9 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Appeal Title
+                                Campaign Title
                               </p>
-                              <p className="text-base font-semibold text-foreground">{fundraiserDetails.appeal.title}</p>
+                              <p className="text-base font-semibold text-foreground">{fundraiserDetails.campaign.title}</p>
                             </div>
                           </div>
                         </div>
@@ -614,14 +615,14 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Appeal Status
+                                Campaign Status
                               </p>
-                              <StatusBadge isActive={fundraiserDetails.appeal.isActive} />
+                              <StatusBadge isActive={fundraiserDetails.campaign.isActive} />
                             </div>
                           </div>
                         </div>
                         
-                        {fundraiserDetails.appeal.summary && (
+                        {fundraiserDetails.campaign.summary && (
                           <div className="md:col-span-2 pt-2">
                             <div className="flex items-start gap-4 py-4 px-4 rounded-lg bg-muted/20 border border-border/50">
                               <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
@@ -631,7 +632,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                                   Summary
                                 </p>
-                                <p className="text-base text-foreground leading-relaxed">{fundraiserDetails.appeal.summary}</p>
+                                <p className="text-base text-foreground leading-relaxed">{fundraiserDetails.campaign.summary}</p>
                               </div>
                             </div>
                           </div>

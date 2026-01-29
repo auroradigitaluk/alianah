@@ -4,14 +4,27 @@ import { z } from "zod"
 import { nanoid } from "nanoid"
 import { sendFundraiserWelcomeEmail } from "@/lib/email"
 
-const fundraiserSchema = z.object({
-  appealId: z.string(),
-  title: z.string().min(1),
-  fundraiserName: z.string().min(1),
-  email: z.string().email(),
-  message: z.string().optional(),
-  targetAmountPence: z.number().min(1, "Target amount is required"),
-})
+const fundraiserSchema = z
+  .object({
+    appealId: z.string().optional(),
+    waterProjectId: z.string().optional(),
+    title: z.string().min(1),
+    fundraiserName: z.string().min(1),
+    email: z.string().email(),
+    message: z.string().optional(),
+    targetAmountPence: z.number().min(1, "Target amount is required"),
+  })
+  .superRefine((data, ctx) => {
+    const hasAppeal = Boolean(data.appealId)
+    const hasWaterProject = Boolean(data.waterProjectId)
+    if (hasAppeal === hasWaterProject) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["appealId"],
+        message: "Provide either appealId or waterProjectId",
+      })
+    }
+  })
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,28 +52,73 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify appeal exists and allows fundraising
-    const appeal = await prisma.appeal.findUnique({
-      where: { id: data.appealId },
-      select: { id: true, title: true, allowFundraising: true, isActive: true },
-    })
+    let campaignTitle = data.title
+    let appealTitleForEmail = "the appeal"
+    let appealId: string | null = null
+    let waterProjectId: string | null = null
 
-    if (!appeal) {
-      return NextResponse.json({ error: "Appeal not found" }, { status: 404 })
+    if (data.appealId) {
+      const appeal = await prisma.appeal.findUnique({
+        where: { id: data.appealId },
+        select: { id: true, title: true, allowFundraising: true, isActive: true },
+      })
+
+      if (!appeal) {
+        return NextResponse.json({ error: "Appeal not found" }, { status: 404 })
+      }
+
+      if (!appeal.allowFundraising) {
+        return NextResponse.json(
+          { error: "Fundraising is not enabled for this appeal" },
+          { status: 403 }
+        )
+      }
+
+      if (!appeal.isActive) {
+        return NextResponse.json(
+          { error: "This appeal is not active" },
+          { status: 403 }
+        )
+      }
+
+      campaignTitle = appeal.title
+      appealTitleForEmail = appeal.title
+      appealId = appeal.id
     }
 
-    if (!appeal.allowFundraising) {
-      return NextResponse.json(
-        { error: "Fundraising is not enabled for this appeal" },
-        { status: 403 }
-      )
-    }
+    if (data.waterProjectId) {
+      const project = await prisma.waterProject.findUnique({
+        where: { id: data.waterProjectId },
+        select: { id: true, projectType: true, allowFundraising: true, isActive: true },
+      })
 
-    if (!appeal.isActive) {
-      return NextResponse.json(
-        { error: "This appeal is not active" },
-        { status: 403 }
-      )
+      if (!project) {
+        return NextResponse.json({ error: "Water project not found" }, { status: 404 })
+      }
+
+      if (!project.allowFundraising) {
+        return NextResponse.json(
+          { error: "Fundraising is not enabled for this water project" },
+          { status: 403 }
+        )
+      }
+
+      if (!project.isActive) {
+        return NextResponse.json(
+          { error: "This water project is not active" },
+          { status: 403 }
+        )
+      }
+
+      const waterProjectLabels: Record<string, string> = {
+        WATER_PUMP: "Water Pumps",
+        WATER_WELL: "Water Wells",
+        WATER_TANK: "Water Tanks",
+        WUDHU_AREA: "Wudhu Areas",
+      }
+      campaignTitle = waterProjectLabels[project.projectType] || "Water Project"
+      appealTitleForEmail = campaignTitle
+      waterProjectId = project.id
     }
 
     // Generate unique slug
@@ -73,8 +131,9 @@ export async function POST(request: NextRequest) {
 
     const fundraiser = await prisma.fundraiser.create({
       data: {
-        appealId: data.appealId,
-        title: data.title,
+        ...(appealId ? { appealId } : {}),
+        ...(waterProjectId ? { waterProjectId } : {}),
+        title: campaignTitle,
         slug,
         fundraiserName: data.fundraiserName,
         email: data.email,
@@ -93,7 +152,7 @@ export async function POST(request: NextRequest) {
         fundraiserEmail: fundraiser.email,
         fundraiserName: fundraiser.fundraiserName,
         fundraiserTitle: fundraiser.title,
-        appealTitle: appeal.title || "the appeal",
+        appealTitle: appealTitleForEmail,
         fundraiserUrl,
       })
     } catch (emailError) {

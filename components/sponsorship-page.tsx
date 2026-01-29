@@ -157,165 +157,168 @@ export function SponsorshipPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12 md:px-6">
-        <div className="w-full max-w-4xl mx-auto">
-          {selectedProject && selectedProjectImages.length > 0 && (
-            <div className="mb-6 sm:mb-8">
-              <div className="space-y-4">
-                {selectedProjectImages.map((imageUrl, index) => (
-                  <div
-                    key={index}
-                    className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted"
-                  >
-                    <Image
-                      src={imageUrl}
-                      alt={`Sponsorship - Image ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 672px"
-                    />
-                  </div>
-                ))}
-              </div>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:px-6 md:py-8 max-w-2xl">
+        {selectedProject && selectedProjectImages.length > 0 && (
+          <div className="mb-6 sm:mb-8">
+            <div className="space-y-4">
+              {selectedProjectImages.map((imageUrl, index) => (
+                <div
+                  key={index}
+                  className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted"
+                >
+                  <Image
+                    src={imageUrl}
+                    alt={`Sponsorship - Image ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 672px"
+                  />
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          <Card className="shadow-sm border">
-            <CardHeader className="pb-4">
-              <h2 className="text-xl font-semibold tracking-tight">{headerTitle}</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                {headerDescription}
+        <div className="mb-4 sm:mb-6 text-center">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight md:text-3xl mb-2">
+            {headerTitle}
+          </h1>
+          {headerDescription && (
+            <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
+              {headerDescription}
+            </p>
+          )}
+        </div>
+
+        <Card className="shadow-sm border">
+          <CardContent className="space-y-5 pt-6">
+            {!lockProjectType && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">Select Sponsorship Type</Label>
+                <div className="grid grid-cols-3 gap-2 w-full place-items-stretch">
+                  {availableTypes.map((type) => (
+                    <Button
+                      key={type.value}
+                      type="button"
+                      onClick={() => {
+                        setSelectedProjectType(type.value)
+                        setSelectedCountryId("")
+                      }}
+                      variant={selectedProjectType === type.value ? "default" : "outline"}
+                      className={[
+                        "w-full h-11 justify-center",
+                        selectedProjectType === type.value && "shadow-sm",
+                      ].filter(Boolean).join(" ")}
+                    >
+                      {type.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!selectedProjectType && (
+              <p className="text-sm text-muted-foreground">
+                Select a sponsorship type to continue.
               </p>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {!lockProjectType && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">Select Sponsorship Type</Label>
-                  <div className="grid grid-cols-3 gap-2 w-full place-items-stretch">
-                    {availableTypes.map((type) => (
+            )}
+
+            {selectedProjectType && !selectedProject && (
+              <p className="text-sm text-muted-foreground">
+                No active project available for this sponsorship type.
+              </p>
+            )}
+
+            {selectedProjectType && filteredCountries.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">Select Country</Label>
+                <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
+                  {filteredCountries.map((country) => {
+                    const yearlyAvailable = !!country.yearlyPricePence && country.yearlyPricePence > 0
+                    const isYearly = sponsorshipFrequency === "YEARLY"
+                    const isDisabled = isYearly && !yearlyAvailable
+                    const isSelected = selectedCountryId === country.id
+                    const displayPrice = isYearly
+                      ? country.yearlyPricePence || country.pricePence
+                      : country.pricePence
+                    return (
                       <Button
-                        key={type.value}
+                        key={country.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedProjectType(type.value)
-                          setSelectedCountryId("")
-                        }}
-                        variant={selectedProjectType === type.value ? "default" : "outline"}
+                        variant={isSelected ? "default" : "outline"}
+                        onClick={() => !isDisabled && setSelectedCountryId(country.id)}
+                        disabled={isDisabled}
                         className={[
-                          "w-full h-11 justify-center",
-                          selectedProjectType === type.value && "shadow-sm",
+                          "group w-full h-16 flex-col items-center justify-center px-3 py-2.5 text-center",
+                          isSelected && "shadow-sm",
                         ].filter(Boolean).join(" ")}
                       >
-                        {type.label}
+                        <span className="text-sm font-medium leading-tight">
+                          {country.country}
+                        </span>
+                        <span className="text-base font-semibold leading-tight">
+                          {isDisabled
+                            ? "Yearly not set"
+                            : `£${(displayPrice / 100).toFixed(2)}${isYearly ? "/year" : "/month"}`}
+                        </span>
                       </Button>
-                    ))}
-                  </div>
+                    )
+                  })}
                 </div>
-              )}
-
-              {!selectedProjectType && (
-                <p className="text-sm text-muted-foreground">
-                  Select a sponsorship type to continue.
-                </p>
-              )}
-
-              {selectedProjectType && !selectedProject && (
-                <p className="text-sm text-muted-foreground">
-                  No active project available for this sponsorship type.
-                </p>
-              )}
-
-              {selectedProjectType && filteredCountries.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">Select Country</Label>
-                  <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
-                    {filteredCountries.map((country) => {
-                      const yearlyAvailable = !!country.yearlyPricePence && country.yearlyPricePence > 0
-                      const isYearly = sponsorshipFrequency === "YEARLY"
-                      const isDisabled = isYearly && !yearlyAvailable
-                      const isSelected = selectedCountryId === country.id
-                      const displayPrice = isYearly
-                        ? country.yearlyPricePence || country.pricePence
-                        : country.pricePence
-                      return (
-                        <Button
-                          key={country.id}
-                          type="button"
-                          variant={isSelected ? "default" : "outline"}
-                          onClick={() => !isDisabled && setSelectedCountryId(country.id)}
-                          disabled={isDisabled}
-                          className={[
-                            "group w-full h-16 flex-col items-center justify-center px-3 py-2.5 text-center",
-                            isSelected && "shadow-sm",
-                          ].filter(Boolean).join(" ")}
-                        >
-                          <span className="text-sm font-medium leading-tight">
-                            {country.country}
-                          </span>
-                          <span className="text-base font-semibold leading-tight">
-                            {isDisabled
-                              ? "Yearly not set"
-                              : `£${(displayPrice / 100).toFixed(2)}${isYearly ? "/year" : "/month"}`}
-                          </span>
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {selectedProjectType && hasYearlyOption && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">Sponsorship Length</Label>
-                  <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
-                    <Button
-                      type="button"
-                      variant={sponsorshipFrequency === "MONTHLY" ? "default" : "outline"}
-                      onClick={() => setSponsorshipFrequency("MONTHLY")}
-                      className={[
-                        "w-full h-11 justify-center",
-                        sponsorshipFrequency === "MONTHLY" && "shadow-sm",
-                      ].filter(Boolean).join(" ")}
-                    >
-                      Monthly
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={sponsorshipFrequency === "YEARLY" ? "default" : "outline"}
-                      onClick={() => setSponsorshipFrequency("YEARLY")}
-                      className={[
-                        "w-full h-11 justify-center",
-                        sponsorshipFrequency === "YEARLY" && "shadow-sm",
-                      ].filter(Boolean).join(" ")}
-                    >
-                      Yearly (one-off)
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Donation Type</Label>
-                <Select value={donationType} onValueChange={setDonationType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DONATION_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
+            )}
 
-              <Button type="button" className="w-full" onClick={handleAddToBasket}>
-                Add to basket
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            {selectedProjectType && hasYearlyOption && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">Sponsorship Length</Label>
+                <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
+                  <Button
+                    type="button"
+                    variant={sponsorshipFrequency === "MONTHLY" ? "default" : "outline"}
+                    onClick={() => setSponsorshipFrequency("MONTHLY")}
+                    className={[
+                      "w-full h-11 justify-center",
+                      sponsorshipFrequency === "MONTHLY" && "shadow-sm",
+                    ].filter(Boolean).join(" ")}
+                  >
+                    Monthly
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={sponsorshipFrequency === "YEARLY" ? "default" : "outline"}
+                    onClick={() => setSponsorshipFrequency("YEARLY")}
+                    className={[
+                      "w-full h-11 justify-center",
+                      sponsorshipFrequency === "YEARLY" && "shadow-sm",
+                    ].filter(Boolean).join(" ")}
+                  >
+                    Yearly (one-off)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Donation Type</Label>
+              <Select value={donationType} onValueChange={setDonationType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DONATION_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button type="button" className="w-full" onClick={handleAddToBasket}>
+              Add to basket
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

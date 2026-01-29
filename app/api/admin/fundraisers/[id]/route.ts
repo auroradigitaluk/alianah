@@ -27,6 +27,14 @@ export async function GET(
             isActive: true,
           },
         },
+        waterProject: {
+          select: {
+            id: true,
+            projectType: true,
+            description: true,
+            isActive: true,
+          },
+        },
         donations: {
           include: {
             donor: {
@@ -52,6 +60,21 @@ export async function GET(
             createdAt: "desc",
           },
         },
+        waterProjectDonations: {
+          include: {
+            donor: {
+              select: {
+                title: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
       },
     })
 
@@ -59,8 +82,65 @@ export async function GET(
       return NextResponse.json({ error: "Fundraiser not found" }, { status: 404 })
     }
 
+    const normalizedWaterDonations = fundraiser.waterProjectDonations.map((donation) => ({
+      id: donation.id,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      frequency: "ONE_OFF",
+      status: donation.status === "PENDING" ? "PENDING" : "COMPLETED",
+      paymentMethod: donation.paymentMethod,
+      giftAid: donation.giftAid,
+      transactionId: donation.transactionId,
+      billingAddress: donation.billingAddress,
+      billingCity: donation.billingCity,
+      billingPostcode: donation.billingPostcode,
+      billingCountry: donation.billingCountry,
+      createdAt: donation.createdAt,
+      completedAt: donation.completedAt,
+      donor: donation.donor,
+      appeal: fundraiser.waterProject
+        ? {
+            title:
+              fundraiser.waterProject.projectType === "WATER_PUMP"
+                ? "Water Pumps"
+                : fundraiser.waterProject.projectType === "WATER_WELL"
+                  ? "Water Wells"
+                  : fundraiser.waterProject.projectType === "WATER_TANK"
+                    ? "Water Tanks"
+                    : fundraiser.waterProject.projectType === "WUDHU_AREA"
+                      ? "Wudhu Areas"
+                      : "Water Project",
+          }
+        : null,
+      product: null,
+    }))
+
+    const normalizedDonations = fundraiser.donations.map((donation) => ({
+      id: donation.id,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      frequency: donation.frequency,
+      status: donation.status,
+      paymentMethod: donation.paymentMethod,
+      giftAid: donation.giftAid,
+      transactionId: donation.transactionId,
+      billingAddress: donation.billingAddress,
+      billingCity: donation.billingCity,
+      billingPostcode: donation.billingPostcode,
+      billingCountry: donation.billingCountry,
+      createdAt: donation.createdAt,
+      completedAt: donation.completedAt,
+      donor: donation.donor,
+      appeal: donation.appeal,
+      product: donation.product,
+    }))
+
+    const combinedDonations = normalizedDonations
+      .concat(normalizedWaterDonations)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
     // Calculate statistics
-    const completedDonations = fundraiser.donations.filter((d) => d.status === "COMPLETED")
+    const completedDonations = combinedDonations.filter((d) => d.status === "COMPLETED")
     const totalRaised = completedDonations.reduce((sum, d) => sum + d.amountPence, 0)
     const donationCount = completedDonations.length
     const averageDonation = donationCount > 0 ? totalRaised / donationCount : 0
@@ -84,9 +164,29 @@ export async function GET(
     const giftAidCount = completedDonations.filter((d) => d.giftAid).length
 
     // Serialize dates
+    const campaignTitle = fundraiser.appeal?.title
+      ? fundraiser.appeal.title
+      : fundraiser.waterProject?.projectType === "WATER_PUMP"
+        ? "Water Pumps"
+        : fundraiser.waterProject?.projectType === "WATER_WELL"
+          ? "Water Wells"
+          : fundraiser.waterProject?.projectType === "WATER_TANK"
+            ? "Water Tanks"
+            : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+              ? "Wudhu Areas"
+              : "Water Project"
+
     const serialized = {
       ...fundraiser,
       createdAt: fundraiser.createdAt.toISOString(),
+      campaign: {
+        id: fundraiser.appeal?.id || fundraiser.waterProject?.id || "",
+        title: campaignTitle,
+        slug: fundraiser.appeal?.slug || "",
+        summary: fundraiser.appeal?.summary || fundraiser.waterProject?.description || null,
+        isActive: fundraiser.appeal?.isActive ?? fundraiser.waterProject?.isActive ?? false,
+        type: fundraiser.appeal ? "APPEAL" : "WATER",
+      },
       statistics: {
         totalRaised,
         donationCount,
@@ -98,7 +198,7 @@ export async function GET(
         giftAidCount,
         giftAidPercentage: donationCount > 0 ? (giftAidCount / donationCount) * 100 : 0,
       },
-      donations: fundraiser.donations.map((donation) => ({
+      donations: combinedDonations.map((donation) => ({
         ...donation,
         createdAt: donation.createdAt.toISOString(),
         completedAt: donation.completedAt?.toISOString() || null,

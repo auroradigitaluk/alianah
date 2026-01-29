@@ -3,15 +3,27 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { sendWaterProjectDonationEmail } from "@/lib/email"
 
-const waterProjectSchema = z.object({
-  projectType: z.enum(["WATER_PUMP", "WATER_WELL", "WATER_TANK", "WUDHU_AREA"]),
-  location: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  plaqueAvailable: z.boolean().optional().default(false),
-  isActive: z.boolean().default(true),
-  amountPence: z.number().int().default(0),
-  projectImageUrls: z.array(z.string()).optional(),
-})
+const waterProjectSchema = z
+  .object({
+    projectType: z.enum(["WATER_PUMP", "WATER_WELL", "WATER_TANK", "WUDHU_AREA"]),
+    location: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
+    plaqueAvailable: z.boolean().optional().default(false),
+    isActive: z.boolean().default(true),
+    allowFundraising: z.boolean().optional().default(false),
+    fundraisingImageUrls: z.array(z.string()).optional(),
+    amountPence: z.number().int().default(0),
+    projectImageUrls: z.array(z.string()).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.allowFundraising && (!data.fundraisingImageUrls || data.fundraisingImageUrls.length < 1)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fundraisingImageUrls"],
+        message: "At least 1 fundraising image is required when fundraising is enabled.",
+      })
+    }
+  })
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,11 +42,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { projectImageUrls, ...rest } = data
+    const { projectImageUrls, fundraisingImageUrls, ...rest } = data
     const project = await prisma.waterProject.create({
       data: {
         ...rest,
         ...(projectImageUrls ? { projectImageUrls: JSON.stringify(projectImageUrls) } : {}),
+        ...(fundraisingImageUrls
+          ? { fundraisingImageUrls: JSON.stringify(fundraisingImageUrls) }
+          : {}),
       },
     })
 

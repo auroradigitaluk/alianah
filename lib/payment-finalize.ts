@@ -82,12 +82,14 @@ export async function finalizeOrderByOrderNumber(params: {
   let createdWaterDonations: Array<{
     id: string
     waterProjectId: string
+    fundraiserId?: string | null
     status?: string | null
     transactionId?: string | null
     emailSent?: boolean | null
     donor: { firstName: string; lastName: string; email: string }
     country: { country: string }
     waterProject: { projectType: string; location: string | null; status?: string | null }
+    fundraiser?: { id: string; slug: string; fundraiserName: string; email: string; title: string } | null
     amountPence: number
     donationType: string
   }> = []
@@ -199,6 +201,7 @@ export async function finalizeOrderByOrderNumber(params: {
             waterProjectId: item.waterProjectId!,
             countryId: item.waterProjectCountryId!,
             donorId: donor.id,
+            fundraiserId: item.fundraiserId || null,
             amountPence: item.amountPence,
             donationType: item.donationType,
             paymentMethod,
@@ -223,6 +226,7 @@ export async function finalizeOrderByOrderNumber(params: {
             waterProject: true,
             country: true,
             donor: true,
+            fundraiser: true,
           },
         })
       )
@@ -445,6 +449,26 @@ export async function finalizeOrderByOrderNumber(params: {
 
   // Send fundraiser notifications (best-effort)
   for (const donation of fundraiserDonations) {
+    if (donation.fundraiserId && donation.fundraiser) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      const fundraiserUrl = `${baseUrl}/fundraise/${donation.fundraiser.slug}`
+      try {
+        await sendFundraiserDonationNotification({
+          fundraiserEmail: donation.fundraiser.email,
+          fundraiserName: donation.fundraiser.fundraiserName,
+          fundraiserTitle: donation.fundraiser.title,
+          donorName: donation.donor.firstName || "Anonymous",
+          amount: donation.amountPence,
+          donationType: donation.donationType,
+          fundraiserUrl,
+        })
+      } catch (err) {
+        console.error("Error sending fundraiser donation notification:", err)
+      }
+    }
+  }
+
+  for (const donation of createdWaterDonations) {
     if (donation.fundraiserId && donation.fundraiser) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       const fundraiserUrl = `${baseUrl}/fundraise/${donation.fundraiser.slug}`

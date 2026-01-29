@@ -35,11 +35,12 @@ const fundraiserSchema = z.object({
 type FundraiserFormData = z.infer<typeof fundraiserSchema>
 
 interface FundraiserFormProps {
-  appealId: string
-  appealTitle: string
+  appealId?: string
+  waterProjectId?: string
+  campaignTitle: string
 }
 
-export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
+export function FundraiserForm({ appealId, waterProjectId, campaignTitle }: FundraiserFormProps) {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
   const previousNameRef = React.useRef<string>("")
@@ -56,14 +57,14 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
   } = useForm<FormInput>({
     resolver: zodResolver(fundraiserSchema) as unknown as Resolver<FormInput>,
     defaultValues: {
-      title: appealTitle,
+      title: campaignTitle,
     },
   })
 
   // Ensure the title is always set to appeal title
   React.useEffect(() => {
-    setValue("title", appealTitle)
-  }, [appealTitle, setValue])
+    setValue("title", campaignTitle)
+  }, [campaignTitle, setValue])
 
   const targetAmountPence = watch("targetAmountPence")
   const fundraiserName = watch("fundraiserName")
@@ -85,9 +86,9 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
   // Generate default message with fundraiser name
   const getDefaultMessage = () => {
     if (fundraiserName) {
-      return `${fundraiserName} is fundraising for ${appealTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
+      return `${fundraiserName} is fundraising for ${campaignTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
     }
-    return `I am fundraising for ${appealTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
+    return `I am fundraising for ${campaignTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
   }
 
   // Update message when fundraiser name changes (only if message is empty or matches default pattern)
@@ -96,12 +97,12 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
       previousNameRef.current = fundraiserName
       const currentMessage = message || ""
       // Only update if message is empty or matches the default pattern (contains "fundraising for")
-      if (!currentMessage || (currentMessage.includes("fundraising for") && currentMessage.includes(appealTitle))) {
-        const newMessage = `${fundraiserName} is fundraising for ${appealTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
+      if (!currentMessage || (currentMessage.includes("fundraising for") && currentMessage.includes(campaignTitle))) {
+        const newMessage = `${fundraiserName} is fundraising for ${campaignTitle} to make a meaningful impact and support those in need. Every contribution brings us closer to our goal and helps create positive change in our community.`
         setValue("message", newMessage, { shouldDirty: false })
       }
     }
-  }, [fundraiserName, appealTitle, setValue, message])
+  }, [fundraiserName, campaignTitle, setValue, message])
 
   const onSubmit: SubmitHandler<FormInput> = async (data) => {
     const parsed = fundraiserSchema.parse(data)
@@ -112,7 +113,8 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...parsed,
-          appealId,
+          ...(appealId ? { appealId } : {}),
+          ...(waterProjectId ? { waterProjectId } : {}),
         }),
       })
 
@@ -145,7 +147,7 @@ export function FundraiserForm({ appealId, appealTitle }: FundraiserFormProps) {
     <Card>
       <CardHeader>
         <CardTitle>Start a Fundraiser</CardTitle>
-        <CardDescription>Create your fundraising page for {appealTitle}</CardDescription>
+        <CardDescription>Create your fundraising page for {campaignTitle}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

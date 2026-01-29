@@ -4,18 +4,30 @@ import type { Prisma } from "@prisma/client"
 import { z } from "zod"
 import { sendWaterProjectCompletionEmail } from "@/lib/email"
 
-const waterProjectSchema = z.object({
-  projectType: z.enum(["WATER_PUMP", "WATER_WELL", "WATER_TANK", "WUDHU_AREA"]).optional(),
-  location: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  plaqueAvailable: z.boolean().optional(),
-  isActive: z.boolean().optional(),
-  status: z.enum(["WAITING_TO_REVIEW", "ORDERED", "PENDING", "COMPLETE"]).nullable().optional(),
-  amountPence: z.number().int().default(0).optional(),
-  projectImageUrls: z.array(z.string()).optional(),
-  completionImages: z.array(z.string()).optional(),
-  completionReport: z.string().nullable().optional(),
-})
+const waterProjectSchema = z
+  .object({
+    projectType: z.enum(["WATER_PUMP", "WATER_WELL", "WATER_TANK", "WUDHU_AREA"]).optional(),
+    location: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
+    plaqueAvailable: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    allowFundraising: z.boolean().optional(),
+    fundraisingImageUrls: z.array(z.string()).optional(),
+    status: z.enum(["WAITING_TO_REVIEW", "ORDERED", "PENDING", "COMPLETE"]).nullable().optional(),
+    amountPence: z.number().int().default(0).optional(),
+    projectImageUrls: z.array(z.string()).optional(),
+    completionImages: z.array(z.string()).optional(),
+    completionReport: z.string().nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.allowFundraising && (!data.fundraisingImageUrls || data.fundraisingImageUrls.length < 1)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fundraisingImageUrls"],
+        message: "At least 1 fundraising image is required when fundraising is enabled.",
+      })
+    }
+  })
 
 export async function GET(
   request: NextRequest,
@@ -81,9 +93,13 @@ export async function PUT(
       description: data.description,
       plaqueAvailable: data.plaqueAvailable,
       isActive: data.isActive,
+      allowFundraising: data.allowFundraising,
       status: data.status,
       amountPence: data.amountPence,
       completionReport: data.completionReport,
+      ...(data.fundraisingImageUrls
+        ? { fundraisingImageUrls: JSON.stringify(data.fundraisingImageUrls) }
+        : {}),
       ...(data.projectImageUrls ? { projectImageUrls: JSON.stringify(data.projectImageUrls) } : {}),
       ...(data.completionImages ? { completionImages: JSON.stringify(data.completionImages) } : {}),
       ...(isCompleting ? { completedAt: new Date() } : {}),
