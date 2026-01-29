@@ -373,7 +373,11 @@ export default async function FundraisePage({
             )}
           </div>
           <div className="mb-4 sm:mb-6">
-            <FundraiserForm waterProjectId={project.id} campaignTitle={title} />
+            <FundraiserForm
+              waterProjectId={project.id}
+              waterProjectType={project.projectType}
+              campaignTitle={title}
+            />
           </div>
         </div>
       </div>

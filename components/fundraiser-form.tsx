@@ -37,13 +37,22 @@ type FundraiserFormData = z.infer<typeof fundraiserSchema>
 interface FundraiserFormProps {
   appealId?: string
   waterProjectId?: string
+  waterProjectType?: string
   campaignTitle: string
 }
 
-export function FundraiserForm({ appealId, waterProjectId, campaignTitle }: FundraiserFormProps) {
+export function FundraiserForm({
+  appealId,
+  waterProjectId,
+  waterProjectType,
+  campaignTitle,
+}: FundraiserFormProps) {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
   const previousNameRef = React.useRef<string>("")
+  const [countries, setCountries] = React.useState<Array<{ id: string; country: string; pricePence: number }>>([])
+  const [selectedCountryId, setSelectedCountryId] = React.useState<string>("")
+  const [quantity, setQuantity] = React.useState<number>(1)
 
   type FormInput = z.input<typeof fundraiserSchema>
   type FormOutput = z.output<typeof fundraiserSchema>
@@ -61,14 +70,70 @@ export function FundraiserForm({ appealId, waterProjectId, campaignTitle }: Fund
     },
   })
 
-  // Ensure the title is always set to appeal title
-  React.useEffect(() => {
-    setValue("title", campaignTitle)
-  }, [campaignTitle, setValue])
-
   const targetAmountPence = watch("targetAmountPence")
   const fundraiserName = watch("fundraiserName")
   const message = watch("message")
+
+  const getFundraiserTitle = React.useCallback(() => {
+    const selectedCountry = countries.find((c) => c.id === selectedCountryId)
+    const countryLabel = waterProjectId && selectedCountry ? `${selectedCountry.country} ` : ""
+    if (fundraiserName) {
+      return `${fundraiserName} is fundraising for ${countryLabel}${campaignTitle}`
+    }
+    return `Fundraising for ${countryLabel}${campaignTitle}`
+  }, [campaignTitle, countries, fundraiserName, selectedCountryId, waterProjectId])
+
+  // Ensure the title is always set to the required format
+  React.useEffect(() => {
+    setValue("title", getFundraiserTitle())
+  }, [getFundraiserTitle, setValue])
+
+  React.useEffect(() => {
+    if (!waterProjectType) return
+    fetch(`/api/admin/water-projects/countries?projectType=${waterProjectType}`)
+      .then((res) => res.json())
+      .then((data: unknown) => {
+        if (!Array.isArray(data)) {
+          setCountries([])
+          return
+        }
+        const filtered = data
+          .filter((c): c is { id: string; country: string; pricePence: number; projectType: string; isActive?: boolean } => {
+            return (
+              typeof c === "object" &&
+              c !== null &&
+              "id" in c &&
+              "country" in c &&
+              "pricePence" in c &&
+              "projectType" in c &&
+              typeof (c as { id?: unknown }).id === "string" &&
+              Boolean((c as { id?: string }).id?.trim()) &&
+              typeof (c as { country?: unknown }).country === "string" &&
+              typeof (c as { pricePence?: unknown }).pricePence === "number" &&
+              (c as { projectType?: unknown }).projectType === waterProjectType &&
+              (c as { isActive?: unknown }).isActive !== false
+            )
+          })
+          .map((c) => ({ id: c.id, country: c.country, pricePence: c.pricePence }))
+        setCountries(filtered)
+      })
+      .catch((err) => {
+        console.error("Error fetching countries:", err)
+        setCountries([])
+      })
+  }, [waterProjectType])
+
+  React.useEffect(() => {
+    if (!waterProjectId) return
+    const selected = countries.find((c) => c.id === selectedCountryId)
+    const totalPence = selected ? selected.pricePence * Math.max(1, quantity) : 0
+    if (!selected) {
+      setValue("targetAmountPence", "", { shouldValidate: true })
+      return
+    }
+    setValue("targetAmountPence", (totalPence / 100).toFixed(2), { shouldValidate: true })
+  }, [countries, quantity, selectedCountryId, setValue, waterProjectId])
+
   const presetAmounts = [100000, 250000, 500000, 1000000] // £1000, £2500, £5000, £10000 in pence
 
   const handlePresetClick = (amountPence: number) => {
@@ -108,6 +173,9 @@ export function FundraiserForm({ appealId, waterProjectId, campaignTitle }: Fund
     const parsed = fundraiserSchema.parse(data)
     setLoading(true)
     try {
+      if (waterProjectId && !selectedCountryId) {
+        throw new Error("Please select a country for your fundraiser.")
+      }
       const response = await fetch("/api/fundraisers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -202,21 +270,86 @@ export function FundraiserForm({ appealId, waterProjectId, campaignTitle }: Fund
             )}
           </div>
 
+          {waterProjectId && (
+            <>
+              <div className="space-y-2">
+                <Label>Choose Country *</Label>
+                <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
+                  {countries
+                    .slice()
+                    .sort((a, b) => a.pricePence - b.pricePence || a.country.localeCompare(b.country))
+                    .map((country) => {
+                      const isSelected = selectedCountryId === country.id
+                      return (
+                        <Button
+                          key={country.id}
+                          type="button"
+                          variant={isSelected ? "default" : "outline"}
+                          onClick={() => setSelectedCountryId(country.id)}
+                          className={[
+                            "group w-full h-16 flex-col items-center justify-center px-3 py-2.5 text-center hover:!bg-primary hover:!text-primary-foreground hover:!border-primary",
+                            isSelected && "shadow-sm",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                        >
+                          <span className="text-sm font-medium leading-tight">
+                            {country.country}
+                          </span>
+                          <span
+                            className={[
+                              "text-base font-semibold mt-0.5 leading-tight text-center group-hover:text-white",
+                              isSelected ? "text-primary-foreground/90" : "text-foreground/80",
+                            ].join(" ")}
+                          >
+                            {formatCurrency(country.pricePence)}
+                          </span>
+                        </Button>
+                      )
+                    })}
+                </div>
+                {!selectedCountryId && errors.targetAmountPence && (
+                  <p className="text-sm text-destructive">Please choose a country to set your target.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="quantity">How many projects? *</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantity}
+                  onChange={(event) => {
+                    const nextValue = Math.max(1, Number(event.target.value || 1))
+                    setQuantity(nextValue)
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your target is calculated using the selected country price × quantity.
+                </p>
+              </div>
+            </>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="targetAmountPence">Target Amount *</Label>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              {presetAmounts.map((amountPence) => (
-                <Button
-                  key={amountPence}
-                  type="button"
-                  variant={isPresetSelected(amountPence) ? "default" : "outline"}
-                  onClick={() => handlePresetClick(amountPence)}
-                  className="h-11 text-base"
-                >
-                  {formatCurrency(amountPence)}
-                </Button>
-              ))}
-            </div>
+            {!waterProjectId && (
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {presetAmounts.map((amountPence) => (
+                  <Button
+                    key={amountPence}
+                    type="button"
+                    variant={isPresetSelected(amountPence) ? "default" : "outline"}
+                    onClick={() => handlePresetClick(amountPence)}
+                    className="h-11 text-base"
+                  >
+                    {formatCurrency(amountPence)}
+                  </Button>
+                ))}
+              </div>
+            )}
             <Input
               id="targetAmountPence"
               type="number"
@@ -224,6 +357,8 @@ export function FundraiserForm({ appealId, waterProjectId, campaignTitle }: Fund
               min="0.01"
               placeholder="0.00"
               {...register("targetAmountPence")}
+              disabled={Boolean(waterProjectId)}
+              className={waterProjectId ? "bg-muted cursor-not-allowed" : undefined}
             />
             {errors.targetAmountPence && (
               <p className="text-sm text-destructive">{errors.targetAmountPence.message}</p>
