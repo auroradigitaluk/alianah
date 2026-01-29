@@ -23,7 +23,7 @@ const toCsvRows = (rows: ReportRow[]) =>
   rows.map((row) => ({
     label: row.label,
     count: row.count ?? 0,
-    amountPence: row.amountPence ?? 0,
+    amountPence: formatAmount(row.amountPence),
   }))
 
 export function ReportsPageClient() {
@@ -135,7 +135,7 @@ export function ReportsPageClient() {
                   columns={[
                   { key: "label", label: "Payment method", getValue: (row) => row.label },
                     { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                    { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                    { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                   ]}
                 data={toCsvRows(paymentRows)}
                 />
@@ -215,7 +215,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Donation type", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(donationRows)}
                     />
@@ -243,7 +243,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Payment method", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(paymentRows)}
                     />
@@ -271,7 +271,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Status", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(donationStatusRows)}
                     />
@@ -299,7 +299,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Appeal", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(appealRows)}
                     />
@@ -327,7 +327,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Fundraiser", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(fundraiserRows)}
                     />
@@ -355,7 +355,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Channel", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(donationChannelRows)}
                     />
@@ -385,7 +385,7 @@ export function ReportsPageClient() {
                           columns={[
                             { key: "label", label: "Country", getValue: (row) => row.label },
                             { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                           ]}
                           data={toCsvRows(donationCountryRows)}
                         />
@@ -412,7 +412,7 @@ export function ReportsPageClient() {
                           columns={[
                             { key: "label", label: "City", getValue: (row) => row.label },
                             { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                           ]}
                           data={toCsvRows(donationCityRows)}
                         />
@@ -442,7 +442,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Donation type", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(donationGiftAidRows)}
                     />
@@ -485,7 +485,7 @@ export function ReportsPageClient() {
                         { key: "name", label: "Donor", getValue: (row) => row.name },
                         { key: "email", label: "Email", getValue: (row) => row.email },
                         { key: "donationCount", label: "Donations", getValue: (row) => row.donationCount },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence },
                       ]}
                       data={data.donors.topDonors}
                     />
@@ -549,7 +549,7 @@ export function ReportsPageClient() {
                           columns={[
                             { key: "label", label: "Country", getValue: (row) => row.label },
                             { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                           ]}
                           data={toCsvRows(donorCountryRows)}
                         />
@@ -576,7 +576,7 @@ export function ReportsPageClient() {
                           columns={[
                             { key: "label", label: "City", getValue: (row) => row.label },
                             { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                           ]}
                           data={toCsvRows(donorCityRows)}
                         />
@@ -647,7 +647,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Type", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(collectionTypeRows)}
                     />
@@ -675,7 +675,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Masjid", getValue: (row) => row.label },
                         { key: "count", label: "Collections", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(masjidRows)}
                     />
@@ -703,7 +703,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Appeal", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(collectionAppealRows)}
                     />
@@ -767,7 +767,7 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Fundraiser", getValue: (row) => row.label },
                         { key: "count", label: "Donations", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                       ]}
                       data={toCsvRows(fundraisingRows)}
                     />
@@ -794,8 +794,12 @@ export function ReportsPageClient() {
                       filename="fundraising-targets.csv"
                       columns={[
                         { key: "label", label: "Fundraiser", getValue: (row) => row.label },
-                        { key: "amountPence", label: "Raised (pence)", getValue: (row) => row.amountPence },
-                        { key: "targetPence", label: "Target (pence)", getValue: (row) => row.targetPence ?? "" },
+                        { key: "amountPence", label: "Raised", getValue: (row) => formatAmount(row.amountPence) },
+                        {
+                          key: "targetPence",
+                          label: "Target",
+                          getValue: (row) => (row.targetPence ? formatAmount(row.targetPence) : "-"),
+                        },
                         { key: "percent", label: "Percent", getValue: (row) => row.percent ?? "" },
                       ]}
                       data={fundraisingTargetRows}
@@ -839,7 +843,7 @@ export function ReportsPageClient() {
                   columns={[
                     { key: "label", label: "Project type", getValue: (row) => row.label },
                     { key: "count", label: "Donations", getValue: (row) => row.count ?? 0 },
-                    { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                    { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                   ]}
                   data={toCsvRows([...waterProjectRows, ...sponsorshipProjectRows])}
                 />
@@ -960,7 +964,7 @@ export function ReportsPageClient() {
                   columns={[
                     { key: "label", label: "Segment", getValue: (row) => row.label },
                     { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                    { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                    { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
                   ]}
                   data={toCsvRows(recurringStatusRows)}
                 />
@@ -1053,10 +1057,22 @@ export function ReportsPageClient() {
                   filename="appeals-performance.csv"
                   columns={[
                     { key: "label", label: "Appeal", getValue: (row) => row.label },
-                    { key: "donationAmountPence", label: "Donations (pence)", getValue: (row) => row.donationAmountPence },
-                    { key: "offlineAmountPence", label: "Offline (pence)", getValue: (row) => row.offlineAmountPence },
-                    { key: "collectionAmountPence", label: "Collections (pence)", getValue: (row) => row.collectionAmountPence },
-                    { key: "totalPence", label: "Total (pence)", getValue: (row) => row.totalPence },
+                    {
+                      key: "donationAmountPence",
+                      label: "Donations",
+                      getValue: (row) => formatAmount(row.donationAmountPence),
+                    },
+                    {
+                      key: "offlineAmountPence",
+                      label: "Offline",
+                      getValue: (row) => formatAmount(row.offlineAmountPence),
+                    },
+                    {
+                      key: "collectionAmountPence",
+                      label: "Collections",
+                      getValue: (row) => formatAmount(row.collectionAmountPence),
+                    },
+                    { key: "totalPence", label: "Total", getValue: (row) => formatAmount(row.totalPence) },
                   ]}
                   data={appealsReportRows}
                 />
