@@ -23,6 +23,28 @@ function getStripe(): Stripe {
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+function getWebhookSecrets() {
+  const inline = process.env.STRIPE_WEBHOOK_SECRET
+  const list = process.env.STRIPE_WEBHOOK_SECRETS
+  const live = process.env.STRIPE_WEBHOOK_SECRET_LIVE
+  const test = process.env.STRIPE_WEBHOOK_SECRET_TEST
+
+  const candidates = [
+    inline,
+    live,
+    test,
+    ...(list ? list.split(",") : []),
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+
+  return Array.from(new Set(candidates))
+}
+
+export async function GET() {
+  return NextResponse.json({ ok: true })
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text()
   const signature = request.headers.get("stripe-signature")
@@ -31,22 +53,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No signature" }, { status: 400 })
   }
 
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  const webhookSecrets = getWebhookSecrets()
+  if (webhookSecrets.length === 0) {
     return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 })
   }
 
-  let event: Stripe.Event
+  let event: Stripe.Event | null = null
 
   try {
-    event = getStripe().webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    )
+    let lastError: Error | null = null
+    for (const secret of webhookSecrets) {
+      try {
+        event = getStripe().webhooks.constructEvent(body, signature, secret)
+        lastError = null
+        break
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error("Unknown error")
+      }
+    }
+
+    if (lastError) {
+      throw lastError
+    }
+    if (!event) {
+      throw new Error("Webhook signature verification failed")
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error"
     console.error("Webhook signature verification failed:", message)
     return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 })
+  }
+
+  if (!event) {
+    return NextResponse.json({ error: "Webhook event missing" }, { status: 400 })
   }
 
   try {
