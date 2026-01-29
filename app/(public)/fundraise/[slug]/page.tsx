@@ -108,6 +108,7 @@ async function getFundraiser(slug: string) {
           select: {
             id: true,
             projectType: true,
+            plaqueAvailable: true,
             isActive: true,
             allowFundraising: true,
             projectImageUrls: true,
@@ -308,6 +309,7 @@ export default async function FundraisePage({
                         waterProject: {
                           id: fundraiser.waterProject!.id,
                           projectType: fundraiser.waterProject!.projectType,
+                          plaqueAvailable: fundraiser.waterProject!.plaqueAvailable,
                         },
                       }
                     : {

@@ -28,6 +28,7 @@ interface Project {
   projectType: string
   location: string | null
   description: string | null
+  plaqueAvailable?: boolean
   allowFundraising?: boolean
   status: string | null
   amountPence: number
@@ -181,6 +182,7 @@ export function WaterForLifePage({
               <WaterProjectDonationForm
                 projectId={selectedProject.id}
                 projectType={selectedProject.projectType}
+                plaqueAvailable={selectedProject.plaqueAvailable}
               />
             )}
           </CardContent>

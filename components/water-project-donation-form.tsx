@@ -2,6 +2,7 @@
 
 import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -12,6 +13,7 @@ interface WaterProjectDonationFormProps {
   projectId: string
   projectType: string
   fundraiserId?: string
+  plaqueAvailable?: boolean
 }
 
 const DONATION_TYPES = [
@@ -32,12 +34,14 @@ export function WaterProjectDonationForm({
   projectId,
   projectType,
   fundraiserId,
+  plaqueAvailable,
 }: WaterProjectDonationFormProps) {
   const { addItem } = useSidecart()
   const [countryId, setCountryId] = useState<string>("")
   const [donationType, setDonationType] = useState("GENERAL")
   const [countries, setCountries] = useState<Array<{ id: string; country: string; pricePence: number }>>([])
   const [isAnonymous, setIsAnonymous] = useState(false)
+  const [plaqueName, setPlaqueName] = useState("")
 
   // Fetch countries for this project type
   React.useEffect(() => {
@@ -84,6 +88,11 @@ export function WaterProjectDonationForm({
       return
     }
 
+    if (plaqueAvailable && !plaqueName.trim()) {
+      toast.error("Please enter a name for the plaque")
+      return
+    }
+
     const projectLabel = PROJECT_TYPE_LABELS[projectType] || "Water Project"
     addItem({
       id: "",
@@ -94,6 +103,7 @@ export function WaterProjectDonationForm({
       amountPence: selectedCountry.pricePence,
       waterProjectId: projectId,
       waterProjectCountryId: selectedCountry.id,
+      ...(plaqueAvailable ? { plaqueName: plaqueName.trim() } : {}),
       ...(fundraiserId ? { fundraiserId } : {}),
       ...(fundraiserId ? { isAnonymous } : {}),
     })
@@ -171,6 +181,21 @@ export function WaterProjectDonationForm({
           <Label htmlFor="donate-anonymous" className="font-normal cursor-pointer">
             Donate anonymously
           </Label>
+        </div>
+      )}
+      {plaqueAvailable && (
+        <div className="space-y-2">
+          <Label htmlFor="plaque-name">Name on Plaque</Label>
+          <Input
+            id="plaque-name"
+            value={plaqueName}
+            onChange={(event) => setPlaqueName(event.target.value)}
+            placeholder="Enter name to appear on plaque"
+            className="h-11"
+          />
+          <p className="text-xs text-muted-foreground">
+            This name will be displayed on the project plaque.
+          </p>
         </div>
       )}
       <Button type="submit" className="w-full">

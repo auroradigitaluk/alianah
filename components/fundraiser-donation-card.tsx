@@ -43,6 +43,7 @@ type FundraiserDonationCardProps = {
   waterProject?: {
     id: string
     projectType: string
+    plaqueAvailable?: boolean
   }
   fundraiserId: string
   recentDonations: Array<{
@@ -119,6 +120,7 @@ export function FundraiserDonationCard({
               <WaterProjectDonationForm
                 projectId={waterProject.id}
                 projectType={waterProject.projectType}
+                plaqueAvailable={waterProject.plaqueAvailable}
                 fundraiserId={fundraiserId}
               />
             ) : (
