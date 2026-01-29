@@ -54,6 +54,7 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
   )
   const [isActive, setIsActive] = useState(project?.isActive ?? true)
   const [uploading, setUploading] = useState(false)
+  const maxUploadBytes = 5 * 1024 * 1024
   const [projectImages, setProjectImages] = useState<string[]>(() => {
     try {
       return project?.projectImageUrls ? JSON.parse(project.projectImageUrls) : []
@@ -144,6 +145,15 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
   const handleProjectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
+    const filesArray = Array.from(files)
+    if (filesArray.some((file) => !file.type.startsWith("image/"))) {
+      toast.error("Please choose a valid image file.")
+      return
+    }
+    if (filesArray.some((file) => file.size > maxUploadBytes)) {
+      toast.error("File size too large. Keep it under 5MB.")
+      return
+    }
 
     setUploading(true)
     try {

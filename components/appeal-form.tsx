@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "sonner"
 
 interface AppealFormProps {
   appeal?: {
@@ -38,6 +39,7 @@ const formatDonationType = (type: string): string => {
 export function AppealForm({ appeal }: AppealFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const maxUploadBytes = 5 * 1024 * 1024
   const [title, setTitle] = useState(appeal?.title || "")
   const [slug, setSlug] = useState(appeal?.slug || "")
   const [summary, setSummary] = useState(appeal?.summary || "")
@@ -204,6 +206,14 @@ export function AppealForm({ appeal }: AppealFormProps) {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose a valid image file.")
+      return
+    }
+    if (file.size > maxUploadBytes) {
+      toast.error("File size too large. Keep it under 5MB.")
+      return
+    }
 
     setUploading(true)
     try {
@@ -227,7 +237,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
     } catch (error) {
       console.error("Image upload error:", error)
       const errorMessage = error instanceof Error ? error.message : "Failed to upload image"
-      alert(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setUploading(false)
       e.target.value = ""
@@ -241,6 +251,14 @@ export function AppealForm({ appeal }: AppealFormProps) {
   const handleFundraisingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose a valid image file.")
+      return
+    }
+    if (file.size > maxUploadBytes) {
+      toast.error("File size too large. Keep it under 5MB.")
+      return
+    }
 
     setUploadingFundraising(true)
     try {
@@ -264,7 +282,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
     } catch (error) {
       console.error("Fundraising image upload error:", error)
       const errorMessage = error instanceof Error ? error.message : "Failed to upload image"
-      alert(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setUploadingFundraising(false)
       e.target.value = ""
@@ -281,7 +299,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
 
     try {
       if (allowFundraising && fundraisingImages.length < 1) {
-        alert("Please upload at least 1 fundraising image before enabling fundraising.")
+        toast.error("Please upload at least 1 fundraising image before enabling fundraising.")
         return
       }
 
@@ -292,7 +310,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
         monthlyPresetAmountsPence = parsePresetInputToJson(monthlyPresets)
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Invalid preset amounts"
-        alert(msg)
+        toast.error(msg)
         return
       }
 
@@ -332,7 +350,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
     } catch (error) {
       console.error("Appeal save error:", error)
       const errorMessage = error instanceof Error ? error.message : "Failed to save appeal"
-      alert(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

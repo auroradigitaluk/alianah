@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
 
       const maxSize = 5 * 1024 * 1024 // 5MB
       if (file.size > maxSize) {
-        return NextResponse.json({ error: "File size must be less than 5MB" }, { status: 400 })
+        return NextResponse.json(
+          { error: "File size too large. Keep it under 5MB." },
+          { status: 400 }
+        )
       }
 
       const blob = await put(`water-projects/${Date.now()}-${file.name}`, file, {

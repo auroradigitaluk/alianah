@@ -54,6 +54,7 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const maxUploadBytes = 5 * 1024 * 1024
   const [projectType] = useState(project.projectType)
   const [description, setDescription] = useState(project.description || "")
   const [plaqueAvailable, setPlaqueAvailable] = useState(project.plaqueAvailable)
@@ -208,6 +209,15 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
+    const filesArray = Array.from(files)
+    if (filesArray.some((file) => !file.type.startsWith("image/"))) {
+      toast.error("Please choose a valid image file.")
+      return
+    }
+    if (filesArray.some((file) => file.size > maxUploadBytes)) {
+      toast.error("File size too large. Keep it under 5MB.")
+      return
+    }
 
     setUploading(true)
     try {
@@ -238,6 +248,15 @@ export function WaterProjectEditForm({ project, countries }: WaterProjectEditFor
   const handleProjectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
+    const filesArray = Array.from(files)
+    if (filesArray.some((file) => !file.type.startsWith("image/"))) {
+      toast.error("Please choose a valid image file.")
+      return
+    }
+    if (filesArray.some((file) => file.size > maxUploadBytes)) {
+      toast.error("File size too large. Keep it under 5MB.")
+      return
+    }
 
     setUploading(true)
     try {
