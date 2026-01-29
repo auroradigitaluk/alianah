@@ -1,4 +1,5 @@
 import { AdminHeader } from "@/components/admin-header"
+import { ReportsPageClient } from "@/components/reports/reports-page-client"
 
 export default async function ReportsPage() {
   return (
@@ -8,15 +9,7 @@ export default async function ReportsPage() {
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
             <div className="px-2 sm:px-4 lg:px-6">
-              <div className="flex flex-col gap-4 sm:gap-6">
-                <div>
-                  <h2 className="text-base sm:text-lg font-semibold">Reports</h2>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Financial and donation reports</p>
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Reports coming soon</p>
-                </div>
-              </div>
+              <ReportsPageClient />
             </div>
           </div>
         </div>
