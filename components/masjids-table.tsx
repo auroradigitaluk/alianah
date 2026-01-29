@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react"
 import { AdminTable } from "@/components/admin-table"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { formatCurrency } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { formatCurrency, formatDate, formatEnum } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -16,16 +18,32 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Building2, User, Phone, Mail, MapPin, Wallet, Calendar } from "lucide-react"
+import { Building2, User, Phone, Mail, MapPin, Calendar } from "lucide-react"
 
 interface Masjid {
   id: string
   name: string
+  status: string
   city: string
   address: string
+  postcode?: string | null
+  country?: string | null
+  region?: string | null
   contactName?: string | null
+  contactRole?: string | null
   phone?: string | null
+  phoneAlt?: string | null
   email?: string | null
+  emailAlt?: string | null
+  secondaryContactName?: string | null
+  secondaryContactRole?: string | null
+  website?: string | null
+  preferredContactMethod?: string | null
+  lastContactedAt?: string | null
+  nextFollowUpAt?: string | null
+  notes?: string | null
+  createdAt: string
+  updatedAt: string
   collectionCount: number
   totalAmountRaised: number
 }
@@ -34,6 +52,7 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
   const [selectedMasjid, setSelectedMasjid] = useState<Masjid | null>(null)
   const [nameQuery, setNameQuery] = useState("")
   const [cityQuery, setCityQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   const filteredMasjids = useMemo(() => {
     const normalizedName = nameQuery.trim().toLowerCase()
@@ -46,20 +65,23 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
       const matchesCity = normalizedCity
         ? masjid.city.toLowerCase().includes(normalizedCity)
         : true
+      const matchesStatus =
+        statusFilter === "all" ? true : masjid.status === statusFilter
 
-      return matchesName && matchesCity
+      return matchesName && matchesCity && matchesStatus
     })
-  }, [cityQuery, masjids, nameQuery])
+  }, [cityQuery, masjids, nameQuery, statusFilter])
 
   const clearFilters = () => {
     setNameQuery("")
     setCityQuery("")
+    setStatusFilter("all")
   }
 
   return (
     <>
       <div className="mb-4 rounded-lg border bg-card p-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="masjids-name">Masjid name</Label>
             <Input
@@ -78,6 +100,21 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
               onChange={(event) => setCityQuery(event.target.value)}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="masjids-status">Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger id="masjids-status">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="PROSPECT">Prospect</SelectItem>
+                <SelectItem value="ON_HOLD">On hold</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="mt-4 flex justify-end">
           <Button variant="outline" onClick={clearFilters}>
@@ -94,6 +131,13 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
           header: "Masjid Name",
           cell: (masjid) => (
             <div className="font-medium">{masjid.name}</div>
+          ),
+        },
+        {
+          id: "status",
+          header: "Status",
+          cell: (masjid) => (
+            <Badge variant="outline">{formatEnum(masjid.status)}</Badge>
           ),
         },
         {
@@ -126,6 +170,13 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
           id: "address",
           header: "Address",
           cell: (masjid) => <div className="text-sm">{masjid.address}</div>,
+        },
+        {
+          id: "nextFollowUpAt",
+          header: "Next Follow-up",
+          cell: (masjid) => (
+            <div className="text-sm">{formatDate(masjid.nextFollowUpAt)}</div>
+          ),
         },
         {
           id: "collectionCount",
@@ -235,6 +286,17 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
                               <p className="text-base text-foreground">{selectedMasjid.contactName || "-"}</p>
                             </div>
                           </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Contact Role
+                              </p>
+                              <p className="text-base text-foreground">{selectedMasjid.contactRole || "-"}</p>
+                            </div>
+                          </div>
                           
                           <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
                             <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
@@ -245,6 +307,22 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
                                 Phone Number
                               </p>
                               <p className="text-base text-foreground">{selectedMasjid.phone || "-"}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Phone className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Preferred Contact
+                              </p>
+                              <p className="text-base text-foreground">
+                                {selectedMasjid.preferredContactMethod
+                                  ? formatEnum(selectedMasjid.preferredContactMethod)
+                                  : "-"}
+                              </p>
                             </div>
                           </div>
                           
@@ -262,6 +340,17 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
                         </div>
                         
                         <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Status
+                              </p>
+                              <Badge variant="outline">{formatEnum(selectedMasjid.status)}</Badge>
+                            </div>
+                          </div>
                           <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
                             <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
                               <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -285,7 +374,183 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
                               <p className="text-base text-foreground">{selectedMasjid.address}</p>
                             </div>
                           </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Postcode / Country
+                              </p>
+                              <p className="text-base text-foreground">
+                                {[selectedMasjid.postcode, selectedMasjid.country, selectedMasjid.region]
+                                  .filter(Boolean)
+                                  .join(", ") || "-"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Website
+                              </p>
+                              <p className="text-base text-foreground break-all">
+                                {selectedMasjid.website || "-"}
+                              </p>
+                            </div>
+                          </div>
                         </div>
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3 pb-2">
+                        <div className="p-2 rounded-lg bg-muted/50">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">
+                          Secondary Contact
+                        </h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Contact Name
+                              </p>
+                              <p className="text-base text-foreground">
+                                {selectedMasjid.secondaryContactName || "-"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Contact Role
+                              </p>
+                              <p className="text-base text-foreground">
+                                {selectedMasjid.secondaryContactRole || "-"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Phone className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Secondary Phone
+                              </p>
+                              <p className="text-base text-foreground">{selectedMasjid.phoneAlt || "-"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Secondary Email
+                              </p>
+                              <p className="text-base text-foreground break-all">
+                                {selectedMasjid.emailAlt || "-"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3 pb-2">
+                        <div className="p-2 rounded-lg bg-muted/50">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">
+                          Relationship Tracking
+                        </h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Last Contacted
+                              </p>
+                              <p className="text-base text-foreground">
+                                {formatDate(selectedMasjid.lastContactedAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Next Follow-up
+                              </p>
+                              <p className="text-base text-foreground">
+                                {formatDate(selectedMasjid.nextFollowUpAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-0">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Created
+                              </p>
+                              <p className="text-base text-foreground">
+                                {formatDate(selectedMasjid.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Last Updated
+                              </p>
+                              <p className="text-base text-foreground">
+                                {formatDate(selectedMasjid.updatedAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border bg-muted/20 p-4">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                          Notes
+                        </p>
+                        <p className="text-sm text-foreground whitespace-pre-wrap">
+                          {selectedMasjid.notes || "-"}
+                        </p>
                       </div>
                     </div>
 

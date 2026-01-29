@@ -1,10 +1,8 @@
 import { AdminHeader } from "@/components/admin-header"
-import { Button } from "@/components/ui/button"
 import { prisma } from "@/lib/prisma"
-import Link from "next/link"
-import { Plus } from "lucide-react"
 import { MasjidsTable } from "@/components/masjids-table"
 import { ExportCsvButton } from "@/components/export-csv-button"
+import { MasjidCreateButton } from "@/components/masjid-create-button"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -32,11 +30,27 @@ async function getMasjids() {
       return {
         id: masjid.id,
         name: masjid.name,
+        status: masjid.status,
         city: masjid.city,
         address: masjid.address,
+        postcode: masjid.postcode,
+        country: masjid.country,
+        region: masjid.region,
         contactName: masjid.contactName,
+        contactRole: masjid.contactRole,
         phone: masjid.phone,
+        phoneAlt: masjid.phoneAlt,
         email: masjid.email,
+        emailAlt: masjid.emailAlt,
+        secondaryContactName: masjid.secondaryContactName,
+        secondaryContactRole: masjid.secondaryContactRole,
+        website: masjid.website,
+        preferredContactMethod: masjid.preferredContactMethod,
+        lastContactedAt: masjid.lastContactedAt?.toISOString() ?? null,
+        nextFollowUpAt: masjid.nextFollowUpAt?.toISOString() ?? null,
+        notes: masjid.notes,
+        createdAt: masjid.createdAt.toISOString(),
+        updatedAt: masjid.updatedAt.toISOString(),
         collectionCount,
         totalAmountRaised,
       }
@@ -56,12 +70,7 @@ export default async function MasjidsPage() {
         actions={
           <div className="flex items-center gap-2">
             <ExportCsvButton variant="masjids" data={masjids} />
-            <Button asChild>
-              <Link href="/admin/masjids/new">
-                <Plus className="mr-2 h-4 w-4" />
-                New Masjid
-              </Link>
-            </Button>
+            <MasjidCreateButton />
           </div>
         }
       />

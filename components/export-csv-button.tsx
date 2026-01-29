@@ -186,11 +186,27 @@ type DonorsRow = {
 
 type MasjidsRow = {
   name: string
+  status: string
   city: string
   address: string
+  postcode?: string | null
+  country?: string | null
+  region?: string | null
   contactName?: string | null
+  contactRole?: string | null
   phone?: string | null
+  phoneAlt?: string | null
   email?: string | null
+  emailAlt?: string | null
+  secondaryContactName?: string | null
+  secondaryContactRole?: string | null
+  website?: string | null
+  preferredContactMethod?: string | null
+  lastContactedAt?: string | Date | null
+  nextFollowUpAt?: string | Date | null
+  notes?: string | null
+  createdAt?: string | Date
+  updatedAt?: string | Date
   collectionCount: number
   totalAmountRaised: number
 }
@@ -739,6 +755,11 @@ function buildConfig(variant: ExportVariant, data: unknown[]): ExportConfig<unkn
     filename: "masjids",
     columns: [
       { key: "name", label: "Name", getValue: (item) => (item as MasjidsRow).name },
+      {
+        key: "status",
+        label: "Status",
+        getValue: (item) => formatEnum((item as MasjidsRow).status || ""),
+      },
       { key: "city", label: "City", getValue: (item) => (item as MasjidsRow).city },
       {
         key: "address",
@@ -746,9 +767,33 @@ function buildConfig(variant: ExportVariant, data: unknown[]): ExportConfig<unkn
         getValue: (item) => (item as MasjidsRow).address,
       },
       {
+        key: "postcode",
+        label: "Postcode",
+        getValue: (item) => (item as MasjidsRow).postcode || "",
+        defaultVisible: false,
+      },
+      {
+        key: "country",
+        label: "Country",
+        getValue: (item) => (item as MasjidsRow).country || "",
+        defaultVisible: false,
+      },
+      {
+        key: "region",
+        label: "Region",
+        getValue: (item) => (item as MasjidsRow).region || "",
+        defaultVisible: false,
+      },
+      {
         key: "contactName",
         label: "Contact Name",
         getValue: (item) => (item as MasjidsRow).contactName || "",
+      },
+      {
+        key: "contactRole",
+        label: "Contact Role",
+        getValue: (item) => (item as MasjidsRow).contactRole || "",
+        defaultVisible: false,
       },
       {
         key: "phone",
@@ -756,9 +801,66 @@ function buildConfig(variant: ExportVariant, data: unknown[]): ExportConfig<unkn
         getValue: (item) => (item as MasjidsRow).phone || "",
       },
       {
+        key: "phoneAlt",
+        label: "Secondary Phone",
+        getValue: (item) => (item as MasjidsRow).phoneAlt || "",
+        defaultVisible: false,
+      },
+      {
         key: "email",
         label: "Email",
         getValue: (item) => (item as MasjidsRow).email || "",
+      },
+      {
+        key: "emailAlt",
+        label: "Secondary Email",
+        getValue: (item) => (item as MasjidsRow).emailAlt || "",
+        defaultVisible: false,
+      },
+      {
+        key: "secondaryContactName",
+        label: "Secondary Contact Name",
+        getValue: (item) => (item as MasjidsRow).secondaryContactName || "",
+        defaultVisible: false,
+      },
+      {
+        key: "secondaryContactRole",
+        label: "Secondary Contact Role",
+        getValue: (item) => (item as MasjidsRow).secondaryContactRole || "",
+        defaultVisible: false,
+      },
+      {
+        key: "website",
+        label: "Website",
+        getValue: (item) => (item as MasjidsRow).website || "",
+        defaultVisible: false,
+      },
+      {
+        key: "preferredContactMethod",
+        label: "Preferred Contact Method",
+        getValue: (item) =>
+          (item as MasjidsRow).preferredContactMethod
+            ? formatEnum((item as MasjidsRow).preferredContactMethod || "")
+            : "",
+        defaultVisible: false,
+      },
+      {
+        key: "lastContactedAt",
+        label: "Last Contacted",
+        getValue: (item) => formatDate((item as MasjidsRow).lastContactedAt),
+        defaultVisible: false,
+      },
+      {
+        key: "nextFollowUpAt",
+        label: "Next Follow-up",
+        getValue: (item) => formatDate((item as MasjidsRow).nextFollowUpAt),
+        defaultVisible: false,
+      },
+      {
+        key: "notes",
+        label: "Notes",
+        getValue: (item) => (item as MasjidsRow).notes || "",
+        defaultVisible: false,
       },
       {
         key: "collectionCount",
@@ -769,6 +871,18 @@ function buildConfig(variant: ExportVariant, data: unknown[]): ExportConfig<unkn
         key: "totalAmountRaised",
         label: "Total Raised",
         getValue: (item) => formatCurrency((item as MasjidsRow).totalAmountRaised),
+      },
+      {
+        key: "createdAt",
+        label: "Created",
+        getValue: (item) => formatDate((item as MasjidsRow).createdAt),
+        defaultVisible: false,
+      },
+      {
+        key: "updatedAt",
+        label: "Updated",
+        getValue: (item) => formatDate((item as MasjidsRow).updatedAt),
+        defaultVisible: false,
       },
     ],
     filters: [
@@ -785,6 +899,19 @@ function buildConfig(variant: ExportVariant, data: unknown[]): ExportConfig<unkn
         label: "City",
         placeholder: "Filter by city",
         getValue: (item) => (item as MasjidsRow).city,
+      },
+      {
+        type: "select",
+        id: "status",
+        label: "Status",
+        allLabel: "All statuses",
+        options: [
+          { value: "ACTIVE", label: "Active" },
+          { value: "INACTIVE", label: "Inactive" },
+          { value: "PROSPECT", label: "Prospect" },
+          { value: "ON_HOLD", label: "On hold" },
+        ],
+        getValue: (item) => (item as MasjidsRow).status || "",
       },
     ],
   }

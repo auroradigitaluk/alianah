@@ -164,19 +164,35 @@ model OfflineIncome {
 }
 
 model Masjid {
-  id          String   @id @default(cuid())
-  name        String
-  city        String
-  address     String
-  contactName String?
-  phone       String?
-  email       String?
-  notes       String?
-  createdAt   DateTime @default(now())
+  id                     String   @id @default(cuid())
+  name                   String
+  status                 String   @default("ACTIVE")
+  city                   String
+  address                String
+  postcode               String?
+  country                String?
+  region                 String?
+  contactName            String?
+  contactRole            String?
+  phone                  String?
+  phoneAlt               String?
+  email                  String?
+  emailAlt               String?
+  secondaryContactName   String?
+  secondaryContactRole   String?
+  website                String?
+  preferredContactMethod String?
+  lastContactedAt        DateTime?
+  nextFollowUpAt         DateTime?
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now()) @updatedAt
 
   collections Collection[]
 
   @@index([city])
+  @@index([status])
+  @@index([nextFollowUpAt])
   @@map("masjids")
 }
 

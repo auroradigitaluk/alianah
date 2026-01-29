@@ -5,7 +5,9 @@ import { AdminTable } from "@/components/admin-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { formatCurrency, formatDonorName } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { formatCurrency, formatDate, formatDonorName, formatEnum, formatPaymentMethod } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -16,7 +18,24 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, Mail, Phone, MapPin, Wallet } from "lucide-react"
+import { Gift, Mail, MapPin, Phone, User, Wallet } from "lucide-react"
+
+interface DonorDonation {
+  id: string
+  category: string
+  amountPence: number
+  donationType?: string | null
+  frequency?: string | null
+  status?: string | null
+  paymentMethod?: string | null
+  collectedVia?: string | null
+  transactionId?: string | null
+  orderNumber?: string | null
+  giftAid?: boolean | null
+  createdAt: string
+  completedAt?: string | null
+  reference?: string | null
+}
 
 interface Donor {
   id: string
@@ -30,6 +49,13 @@ interface Donor {
   postcode?: string | null
   country?: string | null
   totalAmountDonated: number
+  totalRecurringAmount: number
+  donationCount: number
+  recurringDonationCount: number
+  giftAidCount: number
+  firstDonationAt: string | null
+  lastDonationAt: string | null
+  donations: DonorDonation[]
 }
 
 export function DonorsTable({ donors }: { donors: Donor[] }) {
@@ -65,6 +91,19 @@ export function DonorsTable({ donors }: { donors: Donor[] }) {
     setCityQuery("")
     setCountryQuery("")
   }
+
+  const selectedDonorDonations = useMemo(() => {
+    if (!selectedDonor) return []
+    return [...selectedDonor.donations].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [selectedDonor])
+
+  const donorGiftAidLabel = selectedDonor
+    ? selectedDonor.giftAidCount > 0
+      ? `Enabled (${selectedDonor.giftAidCount} donations)`
+      : "Not used"
+    : "-"
 
   return (
     <>
@@ -180,13 +219,14 @@ export function DonorsTable({ donors }: { donors: Donor[] }) {
                 <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="donations">Donations</TabsTrigger>
                   </TabsList>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-6">
                   <TabsContent value="overview" className="space-y-6 mt-0">
                     {/* Key Metrics */}
-                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12" />
                         <CardHeader className="pb-0 px-6 pt-3 relative z-10">
@@ -198,6 +238,36 @@ export function DonorsTable({ donors }: { donors: Donor[] }) {
                           <div className="text-2xl font-bold text-primary">
                             {formatCurrency(selectedDonor.totalAmountDonated)}
                           </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="py-2 gap-1">
+                        <CardHeader className="pb-0 px-6 pt-3">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Donations Count
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-3 pt-0">
+                          <div className="text-2xl font-bold">{selectedDonor.donationCount}</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="py-2 gap-1">
+                        <CardHeader className="pb-0 px-6 pt-3">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Gift Aid
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-3 pt-0">
+                          <div className="text-2xl font-bold">{selectedDonor.giftAidCount}</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="py-2 gap-1">
+                        <CardHeader className="pb-0 px-6 pt-3">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Recurring Active
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-3 pt-0">
+                          <div className="text-2xl font-bold">{selectedDonor.recurringDonationCount}</div>
                         </CardContent>
                       </Card>
                     </div>
@@ -273,8 +343,118 @@ export function DonorsTable({ donors }: { donors: Donor[] }) {
                               </p>
                             </div>
                           </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Wallet className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                First Donation
+                              </p>
+                              <p className="text-base text-foreground">
+                                {formatDate(selectedDonor.firstDonationAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Wallet className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Last Donation
+                              </p>
+                              <p className="text-base text-foreground">
+                                {formatDate(selectedDonor.lastDonationAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Gift className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Gift Aid Status
+                              </p>
+                              <p className="text-base text-foreground">{donorGiftAidLabel}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <Wallet className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Total Recurring
+                              </p>
+                              <p className="text-base text-foreground">
+                                {formatCurrency(selectedDonor.totalRecurringAmount)}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="donations" className="space-y-4 mt-0">
+                    <div className="rounded-lg border bg-card">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Reference</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Payment</TableHead>
+                            <TableHead>Gift Aid</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedDonorDonations.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                                No donations linked to this donor yet.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            selectedDonorDonations.map((donation) => (
+                              <TableRow key={donation.id}>
+                                <TableCell className="text-sm">
+                                  {formatDate(donation.createdAt)}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  <div className="font-medium">{donation.category}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {donation.donationType ? formatEnum(donation.donationType) : "-"}
+                                    {donation.frequency ? ` • ${formatEnum(donation.frequency)}` : ""}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {donation.reference || "-"}
+                                </TableCell>
+                                <TableCell className="text-sm font-medium">
+                                  {formatCurrency(donation.amountPence)}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {donation.status ? (
+                                    <Badge variant="outline">{formatEnum(donation.status)}</Badge>
+                                  ) : (
+                                    "-"
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {donation.paymentMethod ? formatPaymentMethod(donation.paymentMethod) : "-"}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {donation.giftAid ? "Yes" : "No"}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
                     </div>
                   </TabsContent>
                 </div>
