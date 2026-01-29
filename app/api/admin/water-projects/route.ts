@@ -10,6 +10,7 @@ const waterProjectSchema = z.object({
   plaqueAvailable: z.boolean().optional().default(false),
   isActive: z.boolean().default(true),
   amountPence: z.number().int().default(0),
+  projectImageUrls: z.array(z.string()).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -29,8 +30,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const { projectImageUrls, ...rest } = data
     const project = await prisma.waterProject.create({
-      data,
+      data: {
+        ...rest,
+        ...(projectImageUrls ? { projectImageUrls: JSON.stringify(projectImageUrls) } : {}),
+      },
     })
 
     return NextResponse.json(project)

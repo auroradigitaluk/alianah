@@ -10,6 +10,7 @@ const sponsorshipProjectSchema = z.object({
   isActive: z.boolean().optional(),
   status: z.enum(["WAITING_TO_REVIEW", "ORDERED", "PENDING", "COMPLETE"]).nullable().optional(),
   amountPence: z.number().int().default(0).optional(),
+  projectImageUrls: z.array(z.string()).optional(),
   completionImages: z.array(z.string()).optional(),
   completionReport: z.string().nullable().optional(),
 })
@@ -72,6 +73,9 @@ export async function PUT(
     const hasCompletionData = data.completionImages && data.completionImages.length > 0
 
     const updateData: Record<string, unknown> = { ...data }
+    if (data.projectImageUrls) {
+      updateData.projectImageUrls = JSON.stringify(data.projectImageUrls)
+    }
     if (data.completionImages) {
       updateData.completionImages = JSON.stringify(data.completionImages)
     }

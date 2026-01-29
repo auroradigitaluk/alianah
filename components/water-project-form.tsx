@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
-import { IconPlus, IconX } from "@tabler/icons-react"
+import { IconPlus, IconUpload, IconX } from "@tabler/icons-react"
 
 interface WaterProjectCountry {
   id: string
@@ -28,6 +28,7 @@ interface WaterProjectFormProps {
     isActive: boolean
     status: string | null
     amountPence: number
+    projectImageUrls?: string
   }
   countries: WaterProjectCountry[]
 }
@@ -52,6 +53,14 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
     project?.plaqueAvailable ?? (project?.projectType ? defaultPlaqueAvailableForType(project.projectType) : false)
   )
   const [isActive, setIsActive] = useState(project?.isActive ?? true)
+  const [uploading, setUploading] = useState(false)
+  const [projectImages, setProjectImages] = useState<string[]>(() => {
+    try {
+      return project?.projectImageUrls ? JSON.parse(project.projectImageUrls) : []
+    } catch {
+      return []
+    }
+  })
   const [countryRows, setCountryRows] = useState<Array<{ id: string; name: string; price: string }>>([
     { id: `row-${Date.now()}`, name: "", price: "" }
   ])
@@ -132,6 +141,40 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
     }
   }
 
+  const handleProjectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      Array.from(files).forEach((file) => {
+        formData.append("files", file)
+      })
+
+      const response = await fetch("/api/admin/water-projects/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to upload images")
+      }
+
+      const { urls } = await response.json()
+      setProjectImages((prev) => [...prev, ...urls])
+      toast.success("Images uploaded successfully")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upload images")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removeProjectImage = (index: number) => {
+    setProjectImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -171,6 +214,7 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
           description: description || null,
           plaqueAvailable,
           isActive,
+          projectImageUrls: projectImages,
           amountPence: 0,
         }),
       })
@@ -419,6 +463,53 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
           placeholder="Additional details about this project"
           rows={4}
         />
+      </div>
+
+      <div className="space-y-4 border-t pt-4">
+        <div>
+          <Label>Project Images</Label>
+          <div className="mt-2">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleProjectImageUpload}
+              className="hidden"
+              id="project-image-upload"
+              disabled={uploading}
+            />
+            <Label htmlFor="project-image-upload">
+              <Button type="button" variant="outline" asChild disabled={uploading}>
+                <span>
+                  <IconUpload className="h-4 w-4 mr-2" />
+                  {uploading ? "Uploading..." : "Upload Images"}
+                </span>
+              </Button>
+            </Label>
+          </div>
+          {projectImages.length > 0 && (
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              {projectImages.map((url, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={url}
+                    alt={`Project ${index + 1}`}
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100"
+                    onClick={() => removeProjectImage(index)}
+                  >
+                    <IconX className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center space-x-2">

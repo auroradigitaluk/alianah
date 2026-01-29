@@ -12,6 +12,7 @@ const waterProjectSchema = z.object({
   isActive: z.boolean().optional(),
   status: z.enum(["WAITING_TO_REVIEW", "ORDERED", "PENDING", "COMPLETE"]).nullable().optional(),
   amountPence: z.number().int().default(0).optional(),
+  projectImageUrls: z.array(z.string()).optional(),
   completionImages: z.array(z.string()).optional(),
   completionReport: z.string().nullable().optional(),
 })
@@ -83,6 +84,7 @@ export async function PUT(
       status: data.status,
       amountPence: data.amountPence,
       completionReport: data.completionReport,
+      ...(data.projectImageUrls ? { projectImageUrls: JSON.stringify(data.projectImageUrls) } : {}),
       ...(data.completionImages ? { completionImages: JSON.stringify(data.completionImages) } : {}),
       ...(isCompleting ? { completedAt: new Date() } : {}),
     }

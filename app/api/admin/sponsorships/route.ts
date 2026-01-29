@@ -8,6 +8,7 @@ const sponsorshipProjectSchema = z.object({
   description: z.string().nullable().optional(),
   isActive: z.boolean().default(true),
   amountPence: z.number().int().default(0),
+  projectImageUrls: z.array(z.string()).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -26,8 +27,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const { projectImageUrls, ...rest } = data
     const project = await prisma.sponsorshipProject.create({
-      data,
+      data: {
+        ...rest,
+        ...(projectImageUrls ? { projectImageUrls: JSON.stringify(projectImageUrls) } : {}),
+      },
     })
 
     return NextResponse.json(project)

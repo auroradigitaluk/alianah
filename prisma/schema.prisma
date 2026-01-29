@@ -381,6 +381,7 @@ model WaterProject {
   isActive         Boolean   @default(true)
   status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (set when donation is made)
   amountPence      Int       @default(0) // Not used - countries have their own prices
+  projectImageUrls String    @default("[]") // JSON string array of image URLs
   completionImages String    @default("[]") // JSON string array of image URLs
   completionReport String? // Generated report text
   completedAt      DateTime?
@@ -456,6 +457,7 @@ model SponsorshipProject {
   isActive         Boolean   @default(true)
   status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE
   amountPence      Int       @default(0)
+  projectImageUrls String    @default("[]") // JSON string array of image URLs
   completionImages String    @default("[]")
   completionReport String?
   completedAt      DateTime?

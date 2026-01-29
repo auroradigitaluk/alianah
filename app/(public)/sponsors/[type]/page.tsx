@@ -37,6 +37,7 @@ async function getSponsorshipProjectsForForm() {
         projectType: true,
         location: true,
         description: true,
+        projectImageUrls: true,
       },
       orderBy: { projectType: "asc" },
     })

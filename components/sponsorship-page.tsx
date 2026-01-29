@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import Image from "next/image"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useSidecart } from "@/components/sidecart-provider"
@@ -34,6 +35,7 @@ interface SponsorshipProject {
   projectType: string
   location: string | null
   description: string | null
+  projectImageUrls?: string | null
 }
 
 interface SponsorshipPageProps {
@@ -77,6 +79,15 @@ export function SponsorshipPage({
     () => projects.find((project) => project.projectType === selectedProjectType) || null,
     [projects, selectedProjectType]
   )
+
+  const selectedProjectImages = useMemo(() => {
+    if (!selectedProject?.projectImageUrls) return []
+    try {
+      return JSON.parse(selectedProject.projectImageUrls) as string[]
+    } catch {
+      return []
+    }
+  }, [selectedProject?.projectImageUrls])
 
   const filteredCountries = useMemo(() => {
     return countries
@@ -148,6 +159,27 @@ export function SponsorshipPage({
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12 md:px-6">
         <div className="w-full max-w-4xl mx-auto">
+          {selectedProject && selectedProjectImages.length > 0 && (
+            <div className="mb-6 sm:mb-8">
+              <div className="space-y-4">
+                {selectedProjectImages.map((imageUrl, index) => (
+                  <div
+                    key={index}
+                    className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted"
+                  >
+                    <Image
+                      src={imageUrl}
+                      alt={`Sponsorship - Image ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 672px"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <Card className="shadow-sm border">
             <CardHeader className="pb-4">
               <h2 className="text-xl font-semibold tracking-tight">{headerTitle}</h2>
