@@ -254,6 +254,7 @@ model Donation {
   transactionId String?
   orderNumber   String? // Link to demoOrder for tracking
   giftAid       Boolean   @default(false)
+  giftAidClaimed Boolean  @default(false)
   isAnonymous   Boolean   @default(false)
   billingAddress String? // Billing address for gift aid purposes
   billingCity    String?
@@ -435,6 +436,7 @@ model WaterProjectDonation {
   collectedVia   String? // website | office | events | collections | masjid_collections | fundraising
   transactionId  String?
   giftAid        Boolean   @default(false)
+  giftAidClaimed Boolean   @default(false)
   isAnonymous   Boolean   @default(false)
   billingAddress String? // Billing address for gift aid purposes
   billingCity    String?
@@ -514,6 +516,7 @@ model SponsorshipDonation {
   collectedVia     String?
   transactionId    String?
   giftAid          Boolean   @default(false)
+  giftAidClaimed   Boolean   @default(false)
   billingAddress   String?
   billingCity      String?
   billingPostcode  String?

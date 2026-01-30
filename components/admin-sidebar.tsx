@@ -127,6 +127,11 @@ const otherNavItems = [
     icon: IconUsers,
   },
   {
+    title: "Gift Aid",
+    url: "/admin/giftaid",
+    icon: IconUsers,
+  },
+  {
     title: "Masjids",
     url: "/admin/masjids",
     icon: IconBuilding,
