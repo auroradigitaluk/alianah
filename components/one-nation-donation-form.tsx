@@ -564,9 +564,7 @@ export function OneNationDonationForm({
                     <SelectValue placeholder="Choose a project to support" />
                   </SelectTrigger>
                   <SelectContent>
-                    {[...appeals]
-                      .sort((a, b) => a.title.localeCompare(b.title))
-                      .map((appeal) => (
+                    {appeals.map((appeal) => (
                       <SelectItem key={appeal.id} value={appeal.id}>
                         {appeal.title}
                       </SelectItem>

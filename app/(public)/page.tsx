@@ -27,7 +27,7 @@ async function getActiveAppeals() {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     })
   } catch (error) {
     console.error("Error fetching appeals:", error)
@@ -40,7 +40,7 @@ async function getOrCreateDefaultAppeal() {
     // Get any appeal (active or not) for the donation form fallback
     let appeal = await prisma.appeal.findFirst({
       where: { archivedAt: null },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     })
 
     // If no appeals exist, create a default "General Donation" appeal

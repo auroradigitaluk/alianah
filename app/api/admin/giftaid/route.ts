@@ -40,6 +40,7 @@ const buildRows = (rows: Array<{
   amountPence: number
   createdAt: Date
   giftAidClaimed: boolean
+  giftAidClaimedAt: Date | null
   billingAddress: string | null
   billingPostcode: string | null
   donor: {
@@ -61,6 +62,7 @@ const buildRows = (rows: Array<{
     email: row.donor.email || null,
     phone: row.donor.phone || null,
     giftAidClaimed: row.giftAidClaimed,
+    giftAidClaimedAt: row.giftAidClaimedAt ? row.giftAidClaimedAt.toISOString() : null,
     houseNumber: row.billingAddress || row.donor.address || null,
     postcode: row.billingPostcode || row.donor.postcode || null,
     aggregated: null,
@@ -89,6 +91,7 @@ export async function GET(request: NextRequest) {
             amountPence: true,
             createdAt: true,
             giftAidClaimed: true,
+            giftAidClaimedAt: true,
             billingAddress: true,
             billingPostcode: true,
             donor: {
@@ -113,6 +116,7 @@ export async function GET(request: NextRequest) {
             amountPence: true,
             createdAt: true,
             giftAidClaimed: true,
+            giftAidClaimedAt: true,
             billingAddress: true,
             billingPostcode: true,
             donor: {
@@ -137,6 +141,7 @@ export async function GET(request: NextRequest) {
             amountPence: true,
             createdAt: true,
             giftAidClaimed: true,
+            giftAidClaimedAt: true,
             billingAddress: true,
             billingPostcode: true,
             donor: {
@@ -161,6 +166,7 @@ export async function GET(request: NextRequest) {
             amountPence: true,
             createdAt: true,
             giftAidClaimed: true,
+            giftAidClaimedAt: true,
             billingAddress: true,
             billingPostcode: true,
             donor: {
@@ -185,6 +191,7 @@ export async function GET(request: NextRequest) {
             amountPence: true,
             createdAt: true,
             giftAidClaimed: true,
+            giftAidClaimedAt: true,
             billingAddress: true,
             billingPostcode: true,
             donor: {
@@ -209,6 +216,7 @@ export async function GET(request: NextRequest) {
             amountPence: true,
             createdAt: true,
             giftAidClaimed: true,
+            giftAidClaimedAt: true,
             billingAddress: true,
             billingPostcode: true,
             donor: {
@@ -309,19 +317,20 @@ export async function POST(request: NextRequest) {
     const end = parseDate(body.end)
     const range = start && end ? { start, end } : defaultDateRange()
     const dateFilter = { gte: range.start, lte: range.end }
+    const claimedAt = new Date()
 
     const [donations, waterDonations, sponsorshipDonations] = await Promise.all([
       prisma.donation.updateMany({
-        where: { createdAt: dateFilter, status: "COMPLETED", giftAid: true },
-        data: { giftAidClaimed: true },
+        where: { createdAt: dateFilter, status: "COMPLETED", giftAid: true, giftAidClaimed: false },
+        data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
       }),
       prisma.waterProjectDonation.updateMany({
-        where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true },
-        data: { giftAidClaimed: true },
+        where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true, giftAidClaimed: false },
+        data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
       }),
       prisma.sponsorshipDonation.updateMany({
-        where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true },
-        data: { giftAidClaimed: true },
+        where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true, giftAidClaimed: false },
+        data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
       }),
     ])
 

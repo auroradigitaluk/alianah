@@ -49,7 +49,7 @@ export default async function OfflineIncomePage() {
     prisma.appeal.findMany({
       where: { archivedAt: null },
       select: { id: true, title: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     }),
     prisma.waterProject.findMany({
       where: { isActive: true },

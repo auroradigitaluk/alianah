@@ -66,6 +66,7 @@ interface AdminTableProps<T extends { id: string }> {
   onRowClick?: (item: T) => void
   enableDrag?: boolean
   enableSelection?: boolean
+  onReorder?: (nextData: T[]) => void
 }
 
 function DragHandle({ id }: { id: string }) {
@@ -160,6 +161,7 @@ export function AdminTable<T extends { id: string }>({
   onRowClick,
   enableDrag = false,
   enableSelection = false,
+  onReorder,
 }: AdminTableProps<T>) {
   const [mounted, setMounted] = useState(false)
   const [data, setData] = React.useState(() => initialData)
@@ -277,11 +279,11 @@ export function AdminTable<T extends { id: string }>({
     if (!enableDrag) return
     const { active, over } = event
     if (active && over && active.id !== over.id) {
-      setData((data) => {
-        const oldIndex = dataIds.indexOf(active.id)
-        const newIndex = dataIds.indexOf(over.id)
-        return arrayMove(data, oldIndex, newIndex)
-      })
+      const oldIndex = dataIds.indexOf(active.id)
+      const newIndex = dataIds.indexOf(over.id)
+      const next = arrayMove(data, oldIndex, newIndex)
+      setData(next)
+      onReorder?.(next)
     }
   }
 

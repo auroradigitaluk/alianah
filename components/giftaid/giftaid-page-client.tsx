@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils"
 import type { GiftAidScheduleResponse, GiftAidScheduleRow } from "@/lib/giftaid"
 import { DonorDetailsDialog, type DonorDetails } from "@/components/donor-details-dialog"
 import { Loader2 } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 type RangeState = {
   startDate: Date | null
@@ -31,6 +32,19 @@ const formatDonationDate = (isoDate: string) => {
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const year = String(date.getFullYear()).slice(-2)
   return `${day}/${month}/${year}`
+}
+
+const formatClaimedAt = (value?: string | null) => {
+  if (!value) return "Not claimed"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Not claimed"
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
 }
 
 const normalizePostcode = (value: string | null) => (value ? value.toUpperCase().trim() : "")
@@ -62,6 +76,7 @@ const buildDonorSummaries = (rows: GiftAidScheduleRow[], isEligible: boolean) =>
       amountPence: number
       count: number
       claimedCount: number
+      latestClaimedAt: string | null
       eligible: boolean
     }
   >()
@@ -73,6 +88,13 @@ const buildDonorSummaries = (rows: GiftAidScheduleRow[], isEligible: boolean) =>
       current.amountPence += row.amountPence
       current.count += 1
       current.claimedCount += row.giftAidClaimed ? 1 : 0
+      if (row.giftAidClaimedAt) {
+        const currentDate = current.latestClaimedAt ? new Date(current.latestClaimedAt) : null
+        const nextDate = new Date(row.giftAidClaimedAt)
+        if (!currentDate || nextDate > currentDate) {
+          current.latestClaimedAt = row.giftAidClaimedAt
+        }
+      }
     } else {
       map.set(key, {
         donorId: row.donorId,
@@ -82,6 +104,7 @@ const buildDonorSummaries = (rows: GiftAidScheduleRow[], isEligible: boolean) =>
         amountPence: row.amountPence,
         count: 1,
         claimedCount: row.giftAidClaimed ? 1 : 0,
+        latestClaimedAt: row.giftAidClaimedAt ?? null,
         eligible: isEligible,
       })
     }
@@ -357,15 +380,20 @@ export function GiftAidPageClient() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span
-                              className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${
-                                row.claimedCount === row.count
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {row.claimedCount === row.count ? "✓" : "×"}
-                            </span>
+                            {row.claimedCount === row.count ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                    ✓
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>Claimed {formatClaimedAt(row.latestClaimedAt)}</TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                ×
+                              </span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

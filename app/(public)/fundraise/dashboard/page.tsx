@@ -108,9 +108,7 @@ async function getEligibleAppeals() {
         slug: true,
         summary: true,
       },
-      orderBy: {
-        title: "asc",
-      },
+      orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
     })
 
     return appeals

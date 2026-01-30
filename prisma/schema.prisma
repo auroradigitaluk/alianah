@@ -37,6 +37,7 @@ model Appeal {
   framerUrl            String? // URL to Framer page for "Read full appeal details"
   isActive             Boolean  @default(true)
   archivedAt           DateTime?
+  sortOrder            Int      @default(0)
   donationTypesEnabled String   @default("[]") // JSON string
   defaultDonationType  String   @default("GENERAL")
   allowMonthly         Boolean  @default(false)
@@ -65,6 +66,7 @@ model Appeal {
   @@index([slug])
   @@index([isActive])
   @@index([archivedAt])
+  @@index([sortOrder])
   @@map("appeals")
 }
 
@@ -255,6 +257,7 @@ model Donation {
   orderNumber   String? // Link to demoOrder for tracking
   giftAid       Boolean   @default(false)
   giftAidClaimed Boolean  @default(false)
+  giftAidClaimedAt DateTime?
   isAnonymous   Boolean   @default(false)
   billingAddress String? // Billing address for gift aid purposes
   billingCity    String?
@@ -437,6 +440,7 @@ model WaterProjectDonation {
   transactionId  String?
   giftAid        Boolean   @default(false)
   giftAidClaimed Boolean   @default(false)
+  giftAidClaimedAt DateTime?
   isAnonymous   Boolean   @default(false)
   billingAddress String? // Billing address for gift aid purposes
   billingCity    String?
@@ -517,6 +521,7 @@ model SponsorshipDonation {
   transactionId    String?
   giftAid          Boolean   @default(false)
   giftAidClaimed   Boolean   @default(false)
+  giftAidClaimedAt DateTime?
   billingAddress   String?
   billingCity      String?
   billingPostcode  String?

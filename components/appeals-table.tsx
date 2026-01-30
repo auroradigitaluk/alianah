@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
@@ -33,6 +33,7 @@ interface Appeal {
   sectionImpact: string
   framerUrl: string | null
   isActive: boolean
+  sortOrder?: number
   archivedAt?: Date | string | null
   donationTypesEnabled: string
   defaultDonationType: string
@@ -76,12 +77,52 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
   const [selectedAppeal, setSelectedAppeal] = useState<Appeal | null>(null)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [modalDateRange, setModalDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null)
-  const sortedAppeals = useMemo(
-    () =>
-      [...appeals].sort((a, b) =>
-        a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
-      ),
-    [appeals]
+  const [orderedAppeals, setOrderedAppeals] = useState<Appeal[]>([])
+  const [reorderSaving, setReorderSaving] = useState(false)
+
+  const getSortedAppeals = useCallback((items: Appeal[]) => {
+    return [...items].sort((a, b) => {
+      const orderA = a.sortOrder ?? 0
+      const orderB = b.sortOrder ?? 0
+      if (orderA !== orderB) return orderA - orderB
+      return a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+    })
+  }, [])
+
+  useEffect(() => {
+    setOrderedAppeals(getSortedAppeals(appeals))
+  }, [appeals, getSortedAppeals])
+
+  const saveOrder = useCallback(async (next: Appeal[]) => {
+    setReorderSaving(true)
+    try {
+      const res = await fetch("/api/admin/appeals/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: next.map((appeal) => appeal.id) }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || "Failed to update appeal order")
+      }
+    } finally {
+      setReorderSaving(false)
+    }
+  }, [])
+
+  const handleReorder = useCallback(
+    async (next: Appeal[]) => {
+      const updated = next.map((appeal, index) => ({ ...appeal, sortOrder: index }))
+      const previous = orderedAppeals
+      setOrderedAppeals(updated)
+      try {
+        await saveOrder(updated)
+      } catch (error) {
+        console.error("Failed to save order:", error)
+        setOrderedAppeals(previous)
+      }
+    },
+    [orderedAppeals, saveOrder]
   )
 
   // Calculate date range from URL params (same logic as server-side)
@@ -230,8 +271,10 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
   return (
     <>
       <AdminTable
-        data={sortedAppeals}
+        data={orderedAppeals}
         onRowClick={(appeal) => setSelectedAppeal(appeal)}
+        enableDrag={!reorderSaving}
+        onReorder={handleReorder}
         columns={[
         {
           id: "title",

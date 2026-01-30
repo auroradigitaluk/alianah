@@ -51,6 +51,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const data = appealSchema.parse(body)
+    const maxOrder = await prisma.appeal.aggregate({
+      _max: { sortOrder: true },
+    })
+    const nextSortOrder = (maxOrder._max.sortOrder ?? 0) + 1
 
     const appeal = await prisma.appeal.create({
       data: {
@@ -77,6 +81,7 @@ export async function POST(request: NextRequest) {
         oneOffPresetAmountsPence: data.oneOffPresetAmountsPence || "[]",
         monthlyPresetAmountsPence: data.monthlyPresetAmountsPence || "[]",
         yearlyPresetAmountsPence: "[]",
+        sortOrder: nextSortOrder,
       },
     })
 

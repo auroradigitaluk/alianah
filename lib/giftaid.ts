@@ -7,6 +7,7 @@ export type GiftAidScheduleRow = {
   email: string | null
   phone: string | null
   giftAidClaimed: boolean
+  giftAidClaimedAt: string | null
   houseNumber: string | null
   postcode: string | null
   aggregated: string | null

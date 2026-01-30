@@ -125,7 +125,7 @@ async function getAppeals(range: string | null, start: string | null, end: strin
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     })
   } catch {
     return []
