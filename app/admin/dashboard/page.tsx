@@ -1330,13 +1330,13 @@ export default async function AdminDashboardPage({
 
               {/* Second Row: Pie Chart and Top Performing Projects Table Side by Side */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-10">
-                  <div className="md:col-span-4 flex w-full">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
+                  <div className="flex w-full">
                     <div className="w-full">
                       <ChartPieSimple data={paymentMethodData} />
                     </div>
                   </div>
-                  <div className="md:col-span-6 flex w-full">
+                  <div className="flex w-full">
                     <Card className="flex flex-col w-full">
                       <CardHeader>
                         <CardTitle>Top Campaigns & Appeals</CardTitle>
@@ -1513,13 +1513,13 @@ export default async function AdminDashboardPage({
 
               {/* Second Row: Pie Chart and Top Performing Projects Table Side by Side */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-10">
-                  <div className="md:col-span-4 flex w-full">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
+                  <div className="flex w-full">
                     <div className="w-full">
                       <ChartPieSimple data={paymentMethodData} />
                     </div>
                   </div>
-                  <div className="md:col-span-6 flex w-full">
+                  <div className="flex w-full">
                     <Card className="flex flex-col w-full">
                       <CardHeader>
                         <CardTitle>Top Campaigns & Appeals</CardTitle>
