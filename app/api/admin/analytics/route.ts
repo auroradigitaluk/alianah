@@ -64,13 +64,25 @@ export async function GET(request: Request) {
   const deviceMap = new Map<string, number>()
   const osMap = new Map<string, number>()
   const browserMap = new Map<string, number>()
+  const entryPageMap = new Map<string, number>()
+  const exitPageMap = new Map<string, number>()
 
   const seriesMap = new Map<
     string,
     { pageviews: number; sessions: Set<number>; visitors: Set<number> }
   >()
 
-  for (const event of events) {
+  // Per-session: first event, last event, count, duration
+  const sessionData = new Map<
+    number,
+    { first: { path: string; ts: Date }; last: { path: string; ts: Date }; count: number }
+  >()
+
+  const sortedEvents = [...events].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+  )
+
+  for (const event of sortedEvents) {
     if (typeof event.deviceId === "number") visitorsSet.add(event.deviceId)
     if (typeof event.sessionId === "number") sessionsSet.add(event.sessionId)
 
@@ -103,7 +115,60 @@ export async function GET(request: Request) {
     if (typeof event.sessionId === "number") bucket.sessions.add(event.sessionId)
     if (typeof event.deviceId === "number") bucket.visitors.add(event.deviceId)
     seriesMap.set(bucketKey, bucket)
+
+    if (typeof event.sessionId === "number") {
+      const pathKey = event.path || "Unknown"
+      const existing = sessionData.get(event.sessionId)
+      if (!existing) {
+        sessionData.set(event.sessionId, {
+          first: { path: pathKey, ts: event.timestamp },
+          last: { path: pathKey, ts: event.timestamp },
+          count: 1,
+        })
+      } else {
+        existing.last = { path: pathKey, ts: event.timestamp }
+        existing.count += 1
+      }
+    }
   }
+
+  const sessionCount = sessionData.size
+  let bounceCount = 0
+  let totalDurationMs = 0
+  for (const s of sessionData.values()) {
+    if (s.count === 1) bounceCount++
+    totalDurationMs += s.last.ts.getTime() - s.first.ts.getTime()
+    const entryPath = s.first.path
+    const exitPath = s.last.path
+    entryPageMap.set(entryPath, (entryPageMap.get(entryPath) ?? 0) + 1)
+    exitPageMap.set(exitPath, (exitPageMap.get(exitPath) ?? 0) + 1)
+  }
+
+  const bounceRate = sessionCount > 0 ? (bounceCount / sessionCount) * 100 : 0
+  const avgSessionDurationSeconds =
+    sessionCount > 0 ? Math.round(totalDurationMs / 1000 / sessionCount) : 0
+  const avgPagesPerSession =
+    sessionCount > 0 ? events.length / sessionCount : 0
+
+  // Conversion metrics: checkout sessions + completed orders
+  const checkoutSessionIds = new Set<number>()
+  for (const event of events) {
+    const path = event.path || ""
+    if (path === "/checkout" || path.startsWith("/checkout?")) {
+      if (typeof event.sessionId === "number") checkoutSessionIds.add(event.sessionId)
+    }
+  }
+  const checkoutSessions = checkoutSessionIds.size
+
+  const completedOrders = await prisma.demoOrder.count({
+    where: {
+      status: "COMPLETED",
+      createdAt: { gte: from, lte: to },
+    },
+  })
+
+  const conversionRate =
+    checkoutSessions > 0 ? (completedOrders / checkoutSessions) * 100 : 0
 
   const series = Array.from(seriesMap.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -120,10 +185,19 @@ export async function GET(request: Request) {
         pageviews: events.length,
         visitors: visitorsSet.size,
         sessions: sessionsSet.size,
+        bounceRate,
+        avgSessionDurationSeconds,
+        avgPagesPerSession,
+        checkoutSessions,
+        completedOrders,
+        conversionRate,
       },
       series,
       topPages: toSortedBreakdown(pageMap, 10),
       topReferrers: toSortedBreakdown(referrerMap, 10),
+      trafficSources: toSortedBreakdown(referrerMap, 10),
+      entryPages: toSortedBreakdown(entryPageMap, 10),
+      exitPages: toSortedBreakdown(exitPageMap, 10),
       countries: toSortedBreakdown(countryMap, 10),
       devices: toSortedBreakdown(deviceMap, 10),
       os: toSortedBreakdown(osMap, 10),
@@ -134,10 +208,23 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         error: "Analytics data is unavailable. Ensure migrations ran in this environment.",
-        totals: { pageviews: 0, visitors: 0, sessions: 0 },
+        totals: {
+          pageviews: 0,
+          visitors: 0,
+          sessions: 0,
+          bounceRate: 0,
+          avgSessionDurationSeconds: 0,
+          avgPagesPerSession: 0,
+          checkoutSessions: 0,
+          completedOrders: 0,
+          conversionRate: 0,
+        },
         series: [],
         topPages: [],
         topReferrers: [],
+        trafficSources: [],
+        entryPages: [],
+        exitPages: [],
         countries: [],
         devices: [],
         os: [],

@@ -16,6 +16,12 @@ type AnalyticsResponse = {
     pageviews: number
     visitors: number
     sessions: number
+    bounceRate?: number
+    avgSessionDurationSeconds?: number
+    avgPagesPerSession?: number
+    checkoutSessions?: number
+    completedOrders?: number
+    conversionRate?: number
   }
   series: {
     date: string
@@ -25,20 +31,46 @@ type AnalyticsResponse = {
   }[]
   topPages: BreakdownItem[]
   topReferrers: BreakdownItem[]
+  trafficSources?: BreakdownItem[]
+  entryPages?: BreakdownItem[]
+  exitPages?: BreakdownItem[]
   countries: BreakdownItem[]
   devices: BreakdownItem[]
   os: BreakdownItem[]
   browsers: BreakdownItem[]
 }
 
-function SummaryCard({ title, value }: { title: string; value: number }) {
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return "< 1m"
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return s > 0 ? `${m}m ${s}s` : `${m}m`
+}
+
+function SummaryCard({
+  title,
+  value,
+  format = "number",
+}: {
+  title: string
+  value: number
+  format?: "number" | "percent" | "duration" | "decimal"
+}) {
+  const display =
+    format === "percent"
+      ? `${value.toFixed(1)}%`
+      : format === "duration"
+        ? formatDuration(value)
+        : format === "decimal"
+          ? value.toFixed(1)
+          : value.toLocaleString()
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-semibold">{value.toLocaleString()}</div>
+        <div className="text-2xl font-semibold">{display}</div>
       </CardContent>
     </Card>
   )
@@ -76,6 +108,19 @@ export function AnalyticsDashboard() {
   const [data, setData] = React.useState<AnalyticsResponse | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [activeVisitors, setActiveVisitors] = React.useState<number>(0)
+
+  React.useEffect(() => {
+    const fetchRealtime = () => {
+      fetch("/api/admin/analytics/realtime")
+        .then((res) => res.json())
+        .then((p) => setActiveVisitors(p.activeVisitors ?? 0))
+        .catch(() => {})
+    }
+    fetchRealtime()
+    const id = setInterval(fetchRealtime, 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   React.useEffect(() => {
     if (selection.range === "custom" && (!selection.from || !selection.to)) {
@@ -118,7 +163,17 @@ export function AnalyticsDashboard() {
       .finally(() => setLoading(false))
   }, [selection])
 
-  const totals = data?.totals ?? { pageviews: 0, visitors: 0, sessions: 0 }
+  const totals = data?.totals ?? {
+    pageviews: 0,
+    visitors: 0,
+    sessions: 0,
+    bounceRate: 0,
+    avgSessionDurationSeconds: 0,
+    avgPagesPerSession: 0,
+    checkoutSessions: 0,
+    completedOrders: 0,
+    conversionRate: 0,
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -126,7 +181,7 @@ export function AnalyticsDashboard() {
         <div>
           <h2 className="text-base sm:text-lg font-semibold">Analytics</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Traffic overview from Vercel Web Analytics drains.
+            Traffic overview from client-side tracking.
           </p>
         </div>
         <AnalyticsRangeFilter value={selection} onChange={setSelection} />
@@ -138,10 +193,29 @@ export function AnalyticsDashboard() {
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <SummaryCard title="Active now" value={activeVisitors} />
         <SummaryCard title="Pageviews" value={totals.pageviews} />
         <SummaryCard title="Visitors" value={totals.visitors} />
         <SummaryCard title="Sessions" value={totals.sessions} />
+        <SummaryCard title="Bounce rate" value={totals.bounceRate ?? 0} format="percent" />
+        <SummaryCard
+          title="Avg session duration"
+          value={totals.avgSessionDurationSeconds ?? 0}
+          format="duration"
+        />
+        <SummaryCard
+          title="Pages per session"
+          value={totals.avgPagesPerSession ?? 0}
+          format="decimal"
+        />
+        <SummaryCard title="Checkout sessions" value={totals.checkoutSessions ?? 0} />
+        <SummaryCard title="Completed donations" value={totals.completedOrders ?? 0} />
+        <SummaryCard
+          title="Conversion rate"
+          value={totals.conversionRate ?? 0}
+          format="percent"
+        />
       </div>
 
       <AnalyticsLineChart data={data?.series ?? []} />
@@ -154,7 +228,15 @@ export function AnalyticsDashboard() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <BreakdownCard title="Top Pages" items={data?.topPages ?? []} />
-        <BreakdownCard title="Top Referrers" items={data?.topReferrers ?? []} />
+        <BreakdownCard
+          title="Traffic Sources"
+          items={data?.trafficSources ?? data?.topReferrers ?? []}
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <BreakdownCard title="Entry Pages" items={data?.entryPages ?? []} />
+        <BreakdownCard title="Exit Pages" items={data?.exitPages ?? []} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
