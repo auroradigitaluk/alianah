@@ -1,13 +1,11 @@
 "use client"
 
-import { TrendingUp } from "lucide-react"
-import { Pie, PieChart } from "recharts"
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts"
 
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -19,7 +17,7 @@ import {
 } from "@/components/ui/chart"
 import { formatCurrency } from "@/lib/utils"
 
-export const description = "A simple pie chart"
+export const description = "Donations by payment method bar chart"
 
 interface ChartPieSimpleProps {
   data: {
@@ -65,21 +63,17 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function ChartPieSimple({ data }: ChartPieSimpleProps) {
-  // Transform data to match expected format
+  // Transform data for bar chart
   const chartData = data.map((item) => {
     const configKey = item.name.toLowerCase() as keyof typeof chartConfig
     const config = chartConfig[configKey]
-    const color = (config && 'color' in config ? config.color : undefined) || "oklch(0.574 0.259 142.38)"
+    const color = (config && "color" in config ? config.color : undefined) || "oklch(0.574 0.259 142.38)"
     return {
-      paymentMethod: item.name,
+      name: item.label || item.name,
       amount: item.value,
       fill: color,
     }
   })
-
-  const total = data.reduce((sum, item) => sum + item.value, 0)
-  const onlineAmount = data.find((item) => item.name === "online")?.value || 0
-  const onlinePercentage = total > 0 ? ((onlineAmount / total) * 100).toFixed(1) : "0"
 
   return (
     <Card className="flex flex-col h-full w-full overflow-hidden">
@@ -89,31 +83,31 @@ export function ChartPieSimple({ data }: ChartPieSimpleProps) {
       </CardHeader>
       <CardContent className="flex-1 pb-4 pt-0 flex items-center justify-center">
         <ChartContainer
-          id="payment-methods-pie"
+          id="payment-methods-bar"
           config={chartConfig}
-          className="aspect-square w-full max-w-[280px] mx-auto"
+          className="aspect-video w-full min-h-[200px] mx-auto"
         >
-          <PieChart>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 8 }}>
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+            <XAxis type="number" tickFormatter={(v) => formatCurrency(v)} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey="name" width={100} tickLine={false} axisLine={false} />
             <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
                   hideLabel
-                  formatter={(value, name) => {
-                    // name is the paymentMethod value (online, card, cash)
-                    const dataItem = data.find((item) => item.name === name)
-                    const label = dataItem?.label || name || "Unknown"
-                    return (
-                      <span className="font-bold">
-                        {label} {formatCurrency(value as number)}
-                      </span>
-                    )
-                  }}
+                  formatter={(value) => (
+                    <span className="font-bold">{formatCurrency(value as number)}</span>
+                  )}
                 />
               }
             />
-            <Pie data={chartData} dataKey="amount" nameKey="paymentMethod" />
-          </PieChart>
+            <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.fill} />
+              ))}
+            </Bar>
+          </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
