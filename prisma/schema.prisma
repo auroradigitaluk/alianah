@@ -353,6 +353,36 @@ model AnalyticsEvent {
   @@map("analytics_events")
 }
 
+model DocumentFolder {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  parent   DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children DocumentFolder[] @relation("FolderHierarchy")
+  files    DocumentFile[]
+
+  @@index([parentId])
+  @@map("document_folders")
+}
+
+model DocumentFile {
+  id         String   @id @default(cuid())
+  folderId   String?
+  name       String
+  blobUrl    String
+  sizeBytes  Int
+  mimeType   String?
+  createdAt  DateTime @default(now())
+
+  folder DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([folderId])
+  @@map("document_files")
+}
+
 model DemoOrder {
   id             String   @id @default(cuid())
   orderNumber    String   @unique

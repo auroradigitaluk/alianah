@@ -142,6 +142,11 @@ const otherNavItems = [
     icon: IconChartBar,
   },
   {
+    title: "Documents",
+    url: "/admin/documents",
+    icon: IconFolder,
+  },
+  {
     title: "Reports",
     url: "/admin/reports",
     icon: IconChartBar,
