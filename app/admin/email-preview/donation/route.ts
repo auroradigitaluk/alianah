@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { buildDonationConfirmationEmail } from "@/lib/email-templates"
+import { getOrganizationSettings } from "@/lib/settings"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +20,9 @@ export async function GET(req: NextRequest) {
     : undefined
 
   const baseUrl = new URL(req.url).origin
-  const { html } = buildDonationConfirmationEmail({
+  const settings = await getOrganizationSettings()
+  const { html } = buildDonationConfirmationEmail(
+    {
     donorName,
     orderNumber,
     items: [
@@ -33,7 +36,9 @@ export async function GET(req: NextRequest) {
     giftAid,
     ...(manageSubscriptionUrl ? { manageSubscriptionUrl } : {}),
     baseUrl,
-  })
+  },
+    settings
+  )
 
   return new NextResponse(html, {
     headers: {

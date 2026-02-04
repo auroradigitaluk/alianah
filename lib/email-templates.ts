@@ -1,4 +1,10 @@
+import type { OrganizationSettings } from "@/lib/settings"
+
 type EmailDoc = { subject: string; html: string }
+
+const DEFAULT_CHARITY_NAME = "Alianah Humanity Welfare"
+const DEFAULT_SUPPORT_EMAIL = "support@alianah.org"
+const DEFAULT_WEBSITE_URL = "https://www.alianah.org"
 
 // Brand / UI-aligned palette (email-safe)
 const BRAND = {
@@ -15,26 +21,32 @@ const BRAND = {
   infoBorder: "#bfdbfe",
 }
 
-function logoTextHtml() {
-  // Match app sidebar wordmark: `text-base font-semibold`
-  return `<span style="display:block; text-align:center; font-size:16px; font-weight:600; color:${BRAND.text};">Alianah Humanity Welfare</span>`
+function logoTextHtml(settings?: OrganizationSettings | null) {
+  const name = settings?.charityName ?? DEFAULT_CHARITY_NAME
+  return `<span style="display:block; text-align:center; font-size:16px; font-weight:600; color:${BRAND.text};">${escapeHtml(name)}</span>`
 }
 
-function getPublicBaseUrl() {
-  // Prefer runtime origin when available (email preview page), otherwise use configured public URL.
+function getPublicBaseUrl(settings?: OrganizationSettings | null) {
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin
+  }
+  if (settings?.websiteUrl) {
+    try {
+      return new URL(settings.websiteUrl).origin
+    } catch {
+      // fall through
+    }
   }
   return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 }
 
-function logoImageHtml(baseUrl?: string) {
-  // Public asset in /public (space must be URL-encoded).
-  const src = `${baseUrl || getPublicBaseUrl()}/logo%20light.png`
+function logoImageHtml(baseUrl?: string, settings?: OrganizationSettings | null) {
+  const src = `${baseUrl || getPublicBaseUrl(settings)}/logo%20light.png`
+  const alt = settings?.charityName ?? DEFAULT_CHARITY_NAME
   return `
     <img
       src="${src}"
-      alt="Alianah Humanity Welfare"
+      alt="${escapeHtml(alt)}"
       width="80"
       style="display:block; width:80px; max-width:100%; height:auto; margin:0 auto 8px auto;"
     />
@@ -54,23 +66,30 @@ function moneyPence(pence: number) {
   return `£${(pence / 100).toFixed(2)}`
 }
 
-function layout(params: {
-  preheader: string
-  title: string
-  introHtml: string
-  contentHtml: string
-  footerHtml?: string
-}): string {
+function layout(
+  params: {
+    preheader: string
+    title: string
+    introHtml: string
+    contentHtml: string
+    footerHtml?: string
+  },
+  settings?: OrganizationSettings | null
+): string {
   const { preheader, title, introHtml, contentHtml, footerHtml } = params
+  const supportEmail = settings?.supportEmail ?? DEFAULT_SUPPORT_EMAIL
+  const websiteUrl = settings?.websiteUrl ?? DEFAULT_WEBSITE_URL
+  const charityName = settings?.charityName ?? DEFAULT_CHARITY_NAME
+  const displayUrl = websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
+
   const standardFooter = `
-    Need help or want to update your details? Email support@alianah.org.
+    Need help or want to update your details? Email ${escapeHtml(supportEmail)}.
     This mailbox is not monitored. Please use the email above for any questions.
     <div style="margin-top: 8px;">
-      <a href="https://www.alianah.org" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; text-decoration:none;">www.alianah.org</a>
+      <a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; text-decoration:none;">${escapeHtml(displayUrl)}</a>
     </div>
   `
 
-  // Table-based layout for best client compatibility.
   return `
 <!DOCTYPE html>
 <html>
@@ -90,7 +109,7 @@ function layout(params: {
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 640px;">
             <tr>
               <td style="padding: 8px 8px 16px 8px;">
-                ${logoTextHtml()}
+                ${logoTextHtml(settings)}
               </td>
             </tr>
 
@@ -114,7 +133,7 @@ function layout(params: {
                 <div style="color:${BRAND.muted}; font-size: 12px; line-height: 1.6;">
                   ${footerHtml ?? standardFooter}
                   <div style="margin-top: 10px;">
-                    © ${new Date().getFullYear()} Alianah Humanity Welfare
+                    © ${new Date().getFullYear()} ${escapeHtml(charityName)}
                   </div>
                 </div>
               </td>
@@ -164,11 +183,18 @@ export type DonationConfirmationEmailParams = {
   baseUrl?: string
 }
 
-export function buildDonationConfirmationEmail(params: DonationConfirmationEmailParams): EmailDoc {
+export function buildDonationConfirmationEmail(
+  params: DonationConfirmationEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
   const donorName = escapeHtml(params.donorName)
   const orderNumber = escapeHtml(params.orderNumber)
   const preheader = `Your donation has been received. Ref ${params.orderNumber}`
-  const subject = "Donation confirmation - Alianah Humanity Welfare"
+  const charityName = settings?.charityName ?? DEFAULT_CHARITY_NAME
+  const supportEmail = settings?.supportEmail ?? DEFAULT_SUPPORT_EMAIL
+  const websiteUrl = settings?.websiteUrl ?? DEFAULT_WEBSITE_URL
+  const displayUrl = websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
+  const subject = `Donation confirmation - ${charityName}`
 
   const rows = params.items
     .map((i) => {
@@ -236,7 +262,7 @@ export function buildDonationConfirmationEmail(params: DonationConfirmationEmail
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-apple-disable-message-reformatting" />
-    <title>Donate Confirmation - Alianah Humanity Welfare</title>
+    <title>Donate Confirmation - ${escapeHtml(charityName)}</title>
   </head>
   <body style="margin:0; padding:0; background:${BRAND.background}; color:${BRAND.text}; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height:1.5;">
     <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
@@ -249,8 +275,8 @@ export function buildDonationConfirmationEmail(params: DonationConfirmationEmail
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 640px;">
             <tr>
               <td style="padding: 0 8px 12px 8px;">
-                ${logoImageHtml(params.baseUrl)}
-                ${logoTextHtml()}
+                ${logoImageHtml(params.baseUrl, settings)}
+                ${logoTextHtml(settings)}
               </td>
             </tr>
 
@@ -286,13 +312,13 @@ export function buildDonationConfirmationEmail(params: DonationConfirmationEmail
             <tr>
               <td style="padding: 12px 8px 0 8px;">
                 <div style="color:${BRAND.muted}; font-size: 12px; line-height: 1.6;">
-                  Need help or want to update your details? Email support@alianah.org.
+                  Need help or want to update your details? Email ${escapeHtml(supportEmail)}.
                   This mailbox is not monitored. Please use the email above for any questions.
                   <div style="margin-top: 8px;">
-                    <a href="https://www.alianah.org" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; text-decoration:none;">www.alianah.org</a>
+                    <a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; text-decoration:none;">${escapeHtml(displayUrl)}</a>
                   </div>
                   <div style="margin-top: 10px;">
-                    © ${new Date().getFullYear()} Alianah Humanity Welfare
+                    © ${new Date().getFullYear()} ${escapeHtml(charityName)}
                   </div>
                 </div>
               </td>
@@ -342,7 +368,10 @@ export type WaterProjectDonationEmailParams = {
   donationType: string
 }
 
-export function buildWaterProjectDonationEmail(params: WaterProjectDonationEmailParams): EmailDoc {
+export function buildWaterProjectDonationEmail(
+  params: WaterProjectDonationEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
   const projectLabel = PROJECT_TYPE_LABELS[params.projectType] || params.projectType
   const preheader = `Thank you for supporting our ${projectLabel} project.`
   const subject = `Thank you for your ${projectLabel} donation`
@@ -377,13 +406,15 @@ export function buildWaterProjectDonationEmail(params: WaterProjectDonationEmail
 
   return {
     subject,
-    html: layout({
-      preheader,
-      title: "Thank you for your donation",
-      introHtml,
-      contentHtml,
-      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
-    }),
+    html: layout(
+      {
+        preheader,
+        title: "Thank you for your donation",
+        introHtml,
+        contentHtml,
+      },
+      settings
+    ),
   }
 }
 
@@ -396,7 +427,10 @@ export type SponsorshipDonationEmailParams = {
   donationType: string
 }
 
-export function buildSponsorshipDonationEmail(params: SponsorshipDonationEmailParams): EmailDoc {
+export function buildSponsorshipDonationEmail(
+  params: SponsorshipDonationEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
   const projectLabel = SPONSORSHIP_TYPE_LABELS[params.projectType] || params.projectType
   const preheader = `Thank you for your ${projectLabel} sponsorship.`
   const subject = `Thank you for your ${projectLabel} sponsorship`
@@ -431,13 +465,10 @@ export function buildSponsorshipDonationEmail(params: SponsorshipDonationEmailPa
 
   return {
     subject,
-    html: layout({
-      preheader,
-      title: "Thank you for your sponsorship",
-      introHtml,
-      contentHtml,
-      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
-    }),
+    html: layout(
+      { preheader, title: "Thank you for your sponsorship", introHtml, contentHtml },
+      settings
+    ),
   }
 }
 
@@ -448,7 +479,10 @@ export type FundraiserWelcomeEmailParams = {
   fundraiserUrl: string
 }
 
-export function buildFundraiserWelcomeEmail(params: FundraiserWelcomeEmailParams): EmailDoc {
+export function buildFundraiserWelcomeEmail(
+  params: FundraiserWelcomeEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
   const preheader = `Your fundraising page is ready: ${params.fundraiserTitle}`
   const subject = `Your fundraising page is ready: ${params.fundraiserTitle}`
 
@@ -476,13 +510,10 @@ export function buildFundraiserWelcomeEmail(params: FundraiserWelcomeEmailParams
 
   return {
     subject,
-    html: layout({
-      preheader,
-      title: "Your fundraising page is ready",
-      introHtml,
-      contentHtml,
-      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
-    }),
+    html: layout(
+      { preheader, title: "Your fundraising page is ready", introHtml, contentHtml },
+      settings
+    ),
   }
 }
 
@@ -496,7 +527,8 @@ export type FundraiserDonationNotificationEmailParams = {
 }
 
 export function buildFundraiserDonationNotificationEmail(
-  params: FundraiserDonationNotificationEmailParams
+  params: FundraiserDonationNotificationEmailParams,
+  settings?: OrganizationSettings | null
 ): EmailDoc {
   const preheader = `New donation to ${params.fundraiserTitle}`
   const subject = `New donation to ${params.fundraiserTitle}!`
@@ -529,13 +561,10 @@ export function buildFundraiserDonationNotificationEmail(
 
   return {
     subject,
-    html: layout({
-      preheader,
-      title: "New donation received",
-      introHtml,
-      contentHtml,
-      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
-    }),
+    html: layout(
+      { preheader, title: "New donation received", introHtml, contentHtml },
+      settings
+    ),
   }
 }
 
@@ -543,7 +572,10 @@ export type FundraiserOtpEmailParams = {
   code: string
 }
 
-export function buildFundraiserOtpEmail(params: FundraiserOtpEmailParams): EmailDoc {
+export function buildFundraiserOtpEmail(
+  params: FundraiserOtpEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
   const preheader = "Your login code is below (expires soon)."
   const subject = "Your Fundraiser Login Code"
 
@@ -573,13 +605,10 @@ export function buildFundraiserOtpEmail(params: FundraiserOtpEmailParams): Email
 
   return {
     subject,
-    html: layout({
-      preheader,
-      title: "Your login code",
-      introHtml,
-      contentHtml,
-      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
-    }),
+    html: layout(
+      { preheader, title: "Your login code", introHtml, contentHtml },
+      settings
+    ),
   }
 }
 
@@ -591,7 +620,10 @@ export type AbandonedCheckoutEmailParams = {
   resumeUrl: string
 }
 
-export function buildAbandonedCheckoutEmail(params: AbandonedCheckoutEmailParams): EmailDoc {
+export function buildAbandonedCheckoutEmail(
+  params: AbandonedCheckoutEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
   const donorName = escapeHtml(params.donorName)
   const orderNumber = escapeHtml(params.orderNumber)
   const preheader = "You were so close to completing your donation."
@@ -650,13 +682,10 @@ export function buildAbandonedCheckoutEmail(params: AbandonedCheckoutEmailParams
 
   return {
     subject,
-    html: layout({
-      preheader,
-      title: "Complete your donation",
-      introHtml,
-      contentHtml,
-      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
-    }),
+    html: layout(
+      { preheader, title: "Complete your donation", introHtml, contentHtml },
+      settings
+    ),
   }
 }
 
@@ -667,7 +696,10 @@ export type RefundConfirmationEmailParams = {
   donateUrl: string
 }
 
-export function buildRefundConfirmationEmail(params: RefundConfirmationEmailParams): EmailDoc {
+export function buildRefundConfirmationEmail(
+  params: RefundConfirmationEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
   const donorName = escapeHtml(params.donorName)
   const preheader = "Your refund has been processed."
   const subject = "Your refund has been processed"
@@ -696,13 +728,10 @@ export function buildRefundConfirmationEmail(params: RefundConfirmationEmailPara
 
   return {
     subject,
-    html: layout({
-      preheader,
-      title: "Refund processed",
-      introHtml,
-      contentHtml,
-      footerHtml: "Need help or want to update your details? Email support@alianah.org. This mailbox is not monitored. Please use the email above for any questions.<br/><a href=\"https://www.alianah.org\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#009900; text-decoration:none;\">www.alianah.org</a>",
-    }),
+    html: layout(
+      { preheader, title: "Refund processed", introHtml, contentHtml },
+      settings
+    ),
   }
 }
 

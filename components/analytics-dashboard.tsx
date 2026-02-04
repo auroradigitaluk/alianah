@@ -1,8 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { AnalyticsLineChart } from "@/components/analytics-line-chart"
 import { AnalyticsRangeFilter, type AnalyticsIntervalValue, type AnalyticsRangeSelection, type AnalyticsRangeValue } from "@/components/analytics-range-filter"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { resolveDateRange } from "@/lib/analytics"
 
@@ -76,7 +78,14 @@ function SummaryCard({
   )
 }
 
+const ITEMS_PER_PAGE = 5
+
 function BreakdownCard({ title, items }: { title: string; items: BreakdownItem[] }) {
+  const [page, setPage] = React.useState(0)
+  const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1
+  const visibleItems = items.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE)
+  const hasPagination = items.length > ITEMS_PER_PAGE
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -87,12 +96,37 @@ function BreakdownCard({ title, items }: { title: string; items: BreakdownItem[]
           <p className="text-sm text-muted-foreground">No data yet.</p>
         ) : (
           <div className="space-y-2">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <div key={item.label} className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate">{item.label}</span>
                 <span className="font-medium tabular-nums">{item.value.toLocaleString()}</span>
               </div>
             ))}
+            {hasPagination && (
+              <div className="mt-2 flex items-center justify-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <span className="min-w-[4rem] text-center text-xs text-muted-foreground">
+                  {page + 1} / {totalPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

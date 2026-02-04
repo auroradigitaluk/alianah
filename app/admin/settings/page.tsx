@@ -1,4 +1,5 @@
 import { AdminHeader } from "@/components/admin-header"
+import { SettingsPageClient } from "@/components/settings/settings-page-client"
 
 export default async function SettingsPage() {
   return (
@@ -11,11 +12,11 @@ export default async function SettingsPage() {
               <div className="flex flex-col gap-4 sm:gap-6">
                 <div>
                   <h2 className="text-base sm:text-lg font-semibold">Settings</h2>
-                  <p className="text-xs sm:text-sm text-muted-foreground">System configuration</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    System configuration
+                  </p>
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Settings coming soon</p>
-                </div>
+                <SettingsPageClient />
               </div>
             </div>
           </div>

@@ -239,7 +239,7 @@ export function DocumentsPageClient() {
             New Folder
           </Button>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
@@ -315,7 +315,7 @@ export function DocumentsPageClient() {
                   New Folder
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                 >

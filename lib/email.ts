@@ -9,6 +9,7 @@ import {
   buildSponsorshipDonationEmail,
   buildWaterProjectDonationEmail,
 } from "@/lib/email-templates"
+import { getOrganizationSettings } from "@/lib/settings"
 
 // Lazy initialization to avoid errors during build when API key is not available
 let resend: Resend | null = null
@@ -104,7 +105,8 @@ export async function sendDonationConfirmationEmail(params: {
   }
 
   const { donorEmail } = params
-  const { subject, html } = buildDonationConfirmationEmail(params)
+  const settings = await getOrganizationSettings()
+  const { subject, html } = buildDonationConfirmationEmail(params, settings)
 
   try {
     await getResend().emails.send({
@@ -133,7 +135,8 @@ export async function sendAbandonedCheckoutEmail(params: {
   }
 
   const { donorEmail } = params
-  const { subject, html } = buildAbandonedCheckoutEmail(params)
+  const settings = await getOrganizationSettings()
+  const { subject, html } = buildAbandonedCheckoutEmail(params, settings)
 
   try {
     await getResend().emails.send({
@@ -161,7 +164,8 @@ export async function sendRefundConfirmationEmail(params: {
   }
 
   const { donorEmail } = params
-  const { subject, html } = buildRefundConfirmationEmail(params)
+  const settings = await getOrganizationSettings()
+  const { subject, html } = buildRefundConfirmationEmail(params, settings)
 
   try {
     await getResend().emails.send({
@@ -185,14 +189,18 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
   const { donorEmail, donorName, projectType, location, country, amount, donationType } = params
 
   try {
-    const { subject, html } = buildWaterProjectDonationEmail({
-      donorName,
-      projectType,
-      location,
-      country,
-      amount,
-      donationType,
-    })
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildWaterProjectDonationEmail(
+      {
+        donorName,
+        projectType,
+        location,
+        country,
+        amount,
+        donationType,
+      },
+      settings
+    )
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: donorEmail,
@@ -284,14 +292,18 @@ export async function sendSponsorshipDonationEmail(params: {
   const { donorEmail, donorName, projectType, location, country, amount, donationType } = params
 
   try {
-    const { subject, html } = buildSponsorshipDonationEmail({
-      donorName,
-      projectType,
-      location,
-      country,
-      amount,
-      donationType,
-    })
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildSponsorshipDonationEmail(
+      {
+        donorName,
+        projectType,
+        location,
+        country,
+        amount,
+        donationType,
+      },
+      settings
+    )
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: donorEmail,
@@ -384,12 +396,16 @@ export async function sendFundraiserWelcomeEmail(params: FundraiserWelcomeEmailP
   const { fundraiserEmail, fundraiserName, fundraiserTitle, appealTitle, fundraiserUrl } = params
 
   try {
-    const { subject, html } = buildFundraiserWelcomeEmail({
-      fundraiserName,
-      fundraiserTitle,
-      appealTitle,
-      fundraiserUrl,
-    })
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildFundraiserWelcomeEmail(
+      {
+        fundraiserName,
+        fundraiserTitle,
+        appealTitle,
+        fundraiserUrl,
+      },
+      settings
+    )
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: fundraiserEmail,
@@ -411,14 +427,18 @@ export async function sendFundraiserDonationNotification(params: FundraiserDonat
   const { fundraiserEmail, fundraiserName, fundraiserTitle, donorName, amount, donationType, fundraiserUrl } = params
 
   try {
-    const { subject, html } = buildFundraiserDonationNotificationEmail({
-      fundraiserName,
-      fundraiserTitle,
-      donorName,
-      amount,
-      donationType,
-      fundraiserUrl,
-    })
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildFundraiserDonationNotificationEmail(
+      {
+        fundraiserName,
+        fundraiserTitle,
+        donorName,
+        amount,
+        donationType,
+        fundraiserUrl,
+      },
+      settings
+    )
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: fundraiserEmail,
@@ -440,7 +460,8 @@ export async function sendFundraiserOTPEmail(params: FundraiserOTPEmailParams) {
   const { email, code } = params
 
   try {
-    const { subject, html } = buildFundraiserOtpEmail({ code })
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildFundraiserOtpEmail({ code }, settings)
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: email,

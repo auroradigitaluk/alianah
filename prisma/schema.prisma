@@ -23,6 +23,17 @@ model AdminUser {
   @@map("admin_users")
 }
 
+model Settings {
+  id            String   @id
+  charityName   String   @default("Alianah Humanity Welfare")
+  supportEmail  String   @default("support@alianah.org")
+  websiteUrl    String   @default("https://www.alianah.org")
+  charityNumber String?
+  updatedAt     DateTime @updatedAt
+
+  @@map("settings")
+}
+
 model Appeal {
   id                   String   @id @default(cuid())
   title                String
