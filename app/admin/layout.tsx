@@ -10,7 +10,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 
-const AUTH_PATHS = ["/admin/login", "/admin/login/otp", "/admin/login/set-password"]
+const AUTH_PATHS = ["/login", "/login/otp", "/login/set-password"]
 
 export default function AdminLayout({
   children,

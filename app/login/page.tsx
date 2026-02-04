@@ -45,7 +45,7 @@ export default function AdminLoginPage() {
 
       if (data.requiresTwoFactor) {
         router.push(
-          `/admin/login/otp?email=${encodeURIComponent(data.email)}&redirect=${encodeURIComponent(redirectTo)}`
+          `/login/otp?email=${encodeURIComponent(data.email)}&redirect=${encodeURIComponent(redirectTo)}`
         )
         return
       }
@@ -84,7 +84,7 @@ export default function AdminLoginPage() {
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs space-y-6">
             <div>
-              <h1 className="text-2xl font-semibold">Sign in</h1>
+              <h1 className="text-2xl font-semibold">Assalamu Alaikum</h1>
               <p className="text-muted-foreground text-sm">
                 Enter your credentials to access the admin panel
               </p>

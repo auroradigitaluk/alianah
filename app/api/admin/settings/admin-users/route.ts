@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     })
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const setPasswordUrl = `${baseUrl}/admin/login/set-password?token=${inviteToken}`
+    const setPasswordUrl = `${baseUrl}/login/set-password?token=${inviteToken}`
 
     try {
       await sendAdminInviteEmail({

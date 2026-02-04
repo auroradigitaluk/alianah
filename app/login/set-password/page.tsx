@@ -97,7 +97,7 @@ export default function SetPasswordPage() {
           This link may have expired or is invalid. Please ask an admin to send you a new invite.
         </p>
         <Button asChild>
-          <Link href="/admin/login">Back to sign in</Link>
+          <Link href="/login">Back to sign in</Link>
         </Button>
       </div>
     )

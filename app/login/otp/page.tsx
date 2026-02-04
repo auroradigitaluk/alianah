@@ -53,7 +53,7 @@ export default function AdminOtpPage() {
         <div className="text-center">
           <p className="text-muted-foreground">Invalid session. Please sign in again.</p>
           <Button asChild className="mt-4">
-            <Link href="/admin/login">Sign in</Link>
+            <Link href="/login">Sign in</Link>
           </Button>
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function AdminOtpPage() {
                   className="flex-1"
                   asChild
                 >
-                  <Link href="/admin/login">Back</Link>
+                  <Link href="/login">Back</Link>
                 </Button>
                 <Button
                   type="submit"

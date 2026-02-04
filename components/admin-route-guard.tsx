@@ -13,7 +13,7 @@ export function AdminRouteGuard({ children }: { children: React.ReactNode }) {
       .then(async (res) => {
         if (res.status === 401) {
           await fetch("/api/admin/auth/logout", { method: "POST" })
-          window.location.href = `/admin/login?redirect=${encodeURIComponent(pathname || "/admin/dashboard")}`
+          window.location.href = `/login?redirect=${encodeURIComponent(pathname || "/admin/dashboard")}`
           return null
         }
         return res.ok ? res.json() : null
