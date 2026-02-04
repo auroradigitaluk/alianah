@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
+import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import type { ReportsResponse, ReportRow } from "@/lib/reports"
 
 const querySchema = z.object({
@@ -39,6 +40,8 @@ const mergeRows = (rows: ReportRow[]) => {
 }
 
 export async function GET(request: NextRequest) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const query = querySchema.parse(Object.fromEntries(request.nextUrl.searchParams.entries()))
     const start = parseDate(query.start)

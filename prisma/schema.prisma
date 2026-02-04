@@ -12,14 +12,25 @@ datasource db {
 }
 
 model AdminUser {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  role      String   @default("VIEWER") // ADMIN | MANAGER | VIEWER
-  createdAt DateTime @default(now())
+  id               String    @id @default(cuid())
+  email            String    @unique
+  role             String    @default("VIEWER") // ADMIN | STAFF | VIEWER
+  passwordHash     String?
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean   @default(false)
+  inviteToken      String?
+  inviteExpiresAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  auditLogs AuditLog[]
+  auditLogs           AuditLog[]
+  offlineIncome       OfflineIncome[]
+  collections         Collection[]
+  waterProjectDons    WaterProjectDonation[] @relation("AddedByWater")
+  sponsorshipDons     SponsorshipDonation[]  @relation("AddedBySponsorship")
 
   @@index([email])
+  @@index([inviteToken])
   @@map("admin_users")
 }
 
@@ -159,20 +170,23 @@ model FundraiserOTP {
 }
 
 model OfflineIncome {
-  id           String   @id @default(cuid())
-  appealId     String?
-  amountPence  Int
-  donationType String // GENERAL | SADAQAH | ZAKAT | LILLAH
-  source       String // CASH | BANK_TRANSFER (payment method for offline income)
-  collectedVia String? // website | office | events | collections | masjid_collections | fundraising
-  receivedAt   DateTime
-  notes        String?
-  createdAt    DateTime @default(now())
+  id                  String    @id @default(cuid())
+  appealId            String?
+  amountPence         Int
+  donationType        String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  source              String // CASH | BANK_TRANSFER (payment method for offline income)
+  collectedVia        String? // website | office | events | collections | masjid_collections | fundraising
+  receivedAt          DateTime
+  notes               String?
+  addedByAdminUserId  String?
+  createdAt           DateTime  @default(now())
 
-  appeal Appeal? @relation(fields: [appealId], references: [id], onDelete: SetNull)
+  appeal    Appeal?    @relation(fields: [appealId], references: [id], onDelete: SetNull)
+  addedBy   AdminUser? @relation(fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
 
   @@index([appealId])
   @@index([receivedAt])
+  @@index([addedByAdminUserId])
   @@map("offline_income")
 }
 
@@ -210,22 +224,25 @@ model Masjid {
 }
 
 model Collection {
-  id           String   @id @default(cuid())
-  masjidId     String?
-  appealId     String?
-  amountPence  Int
-  donationType String // GENERAL | SADAQAH | ZAKAT | LILLAH
-  type         String // JUMMAH | RAMADAN | EID | SPECIAL | OTHER
-  collectedAt  DateTime
-  notes        String?
-  createdAt    DateTime @default(now())
+  id                  String    @id @default(cuid())
+  masjidId            String?
+  appealId            String?
+  amountPence         Int
+  donationType        String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  type                String // JUMMAH | RAMADAN | EID | SPECIAL | OTHER
+  collectedAt         DateTime
+  notes               String?
+  addedByAdminUserId  String?
+  createdAt           DateTime  @default(now())
 
-  masjid Masjid? @relation(fields: [masjidId], references: [id], onDelete: SetNull)
-  appeal Appeal? @relation(fields: [appealId], references: [id], onDelete: SetNull)
+  masjid   Masjid?    @relation(fields: [masjidId], references: [id], onDelete: SetNull)
+  appeal   Appeal?    @relation(fields: [appealId], references: [id], onDelete: SetNull)
+  addedBy  AdminUser? @relation(fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
 
   @@index([masjidId])
   @@index([appealId])
   @@index([collectedAt])
+  @@index([addedByAdminUserId])
   @@map("collections")
 }
 
@@ -497,36 +514,38 @@ model WaterProject {
 }
 
 model WaterProjectDonation {
-  id             String    @id @default(cuid())
-  waterProjectId String
-  countryId      String    // Country chosen for this donation
-  donorId        String
-  fundraiserId   String?
-  amountPence    Int
-  donationType   String // GENERAL | SADAQAH | ZAKAT | LILLAH
-  paymentMethod  String // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
-  collectedVia   String? // website | office | events | collections | masjid_collections | fundraising
-  transactionId  String?
-  giftAid        Boolean   @default(false)
-  giftAidClaimed Boolean   @default(false)
-  giftAidClaimedAt DateTime?
-  isAnonymous   Boolean   @default(false)
-  billingAddress String? // Billing address for gift aid purposes
-  billingCity    String?
-  billingPostcode String?
-  billingCountry String?
-  emailSent      Boolean   @default(false)
-  reportSent     Boolean   @default(false)
-  notes          String?   // Internal notes/updates for this donation
-  status         String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (individual donation status)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  completedAt    DateTime?
+  id                  String    @id @default(cuid())
+  waterProjectId      String
+  countryId           String    // Country chosen for this donation
+  donorId             String
+  fundraiserId        String?
+  amountPence          Int
+  donationType        String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  paymentMethod       String // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
+  collectedVia        String? // website | office | events | collections | masjid_collections | fundraising
+  transactionId       String?
+  giftAid             Boolean   @default(false)
+  giftAidClaimed      Boolean   @default(false)
+  giftAidClaimedAt    DateTime?
+  isAnonymous         Boolean   @default(false)
+  billingAddress      String? // Billing address for gift aid purposes
+  billingCity         String?
+  billingPostcode     String?
+  billingCountry      String?
+  emailSent           Boolean   @default(false)
+  reportSent          Boolean   @default(false)
+  notes               String?   // Internal notes/updates for this donation
+  status              String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (individual donation status)
+  addedByAdminUserId  String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  completedAt         DateTime?
 
   waterProject WaterProject        @relation(fields: [waterProjectId], references: [id], onDelete: Cascade)
   country      WaterProjectCountry @relation(fields: [countryId], references: [id], onDelete: Cascade)
   donor        Donor               @relation(fields: [donorId], references: [id], onDelete: Cascade)
   fundraiser   Fundraiser?         @relation(fields: [fundraiserId], references: [id], onDelete: SetNull)
+  addedBy      AdminUser?          @relation("AddedByWater", fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
 
   @@index([waterProjectId])
   @@index([countryId])
@@ -534,6 +553,7 @@ model WaterProjectDonation {
   @@index([fundraiserId])
   @@index([status])
   @@index([createdAt])
+  @@index([addedByAdminUserId])
   @@map("water_project_donations")
 }
 
@@ -579,38 +599,41 @@ model SponsorshipProject {
 }
 
 model SponsorshipDonation {
-  id               String    @id @default(cuid())
+  id                  String    @id @default(cuid())
   sponsorshipProjectId String
-  countryId        String
-  donorId          String
-  amountPence      Int
-  donationType     String    // GENERAL | SADAQAH | ZAKAT | LILLAH
-  paymentMethod    String    // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
-  collectedVia     String?
-  transactionId    String?
-  giftAid          Boolean   @default(false)
-  giftAidClaimed   Boolean   @default(false)
-  giftAidClaimedAt DateTime?
-  billingAddress   String?
-  billingCity      String?
-  billingPostcode  String?
-  billingCountry   String?
-  emailSent        Boolean   @default(false)
-  reportSent       Boolean   @default(false)
-  notes            String?
-  status           String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  completedAt      DateTime?
+  countryId           String
+  donorId             String
+  amountPence         Int
+  donationType        String    // GENERAL | SADAQAH | ZAKAT | LILLAH
+  paymentMethod       String    // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
+  collectedVia        String?
+  transactionId       String?
+  giftAid             Boolean   @default(false)
+  giftAidClaimed      Boolean   @default(false)
+  giftAidClaimedAt    DateTime?
+  billingAddress      String?
+  billingCity         String?
+  billingPostcode     String?
+  billingCountry      String?
+  emailSent           Boolean   @default(false)
+  reportSent          Boolean   @default(false)
+  notes               String?
+  status              String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE
+  addedByAdminUserId  String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  completedAt         DateTime?
 
   sponsorshipProject SponsorshipProject        @relation(fields: [sponsorshipProjectId], references: [id], onDelete: Cascade)
   country            SponsorshipProjectCountry @relation(fields: [countryId], references: [id], onDelete: Cascade)
   donor              Donor                     @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  addedBy            AdminUser?                @relation("AddedBySponsorship", fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
 
   @@index([sponsorshipProjectId])
   @@index([countryId])
   @@index([donorId])
   @@index([status])
   @@index([createdAt])
+  @@index([addedByAdminUserId])
   @@map("sponsorship_donations")
 }

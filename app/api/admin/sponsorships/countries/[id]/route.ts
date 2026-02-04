@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const countrySchema = z.object({
@@ -15,6 +16,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const { id } = await params
     const body = await request.json()
@@ -39,6 +42,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const { id } = await params
     await prisma.sponsorshipProjectCountry.delete({

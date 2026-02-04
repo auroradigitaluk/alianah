@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 export async function GET() {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   try {
     const stripeKey = process.env.STRIPE_SECRET_KEY
     const stripeMode = stripeKey?.startsWith("sk_live_")

@@ -1,18 +1,24 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import { AdminSidebar } from "@/components/admin-sidebar"
+import { AdminRouteGuard } from "@/components/admin-route-guard"
 import { InitialLoader } from "@/components/initial-loader"
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
 
+const AUTH_PATHS = ["/admin/login", "/admin/login/otp", "/admin/login/set-password"]
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+  const isAuthPage = AUTH_PATHS.some((p) => pathname === p || pathname?.startsWith(p + "/"))
   const [showInitialLoader, setShowInitialLoader] = React.useState(true)
 
   React.useEffect(() => {
@@ -37,6 +43,10 @@ export default function AdminLayout({
     return () => window.removeEventListener("load", markDone)
   }, [])
 
+  if (isAuthPage) {
+    return <>{children}</>
+  }
+
   return (
     <SidebarProvider
       style={
@@ -48,7 +58,7 @@ export default function AdminLayout({
     >
       <AdminSidebar variant="inset" />
       <SidebarInset>
-        {children}
+        <AdminRouteGuard>{children}</AdminRouteGuard>
       </SidebarInset>
       {showInitialLoader && (
         <div className="fixed inset-0 z-50">

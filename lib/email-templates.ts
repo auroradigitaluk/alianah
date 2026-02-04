@@ -735,3 +735,50 @@ export function buildRefundConfirmationEmail(
   }
 }
 
+export type AdminInviteEmailParams = {
+  email: string
+  setPasswordUrl: string
+}
+
+export function buildAdminInviteEmail(
+  params: AdminInviteEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
+  const email = escapeHtml(params.email)
+  const preheader = "You've been invited to the admin panel. Set your password to get started."
+  const subject = "Set your admin password"
+  const charityName = settings?.charityName ?? DEFAULT_CHARITY_NAME
+
+  const introHtml = `
+    <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
+      You've been invited to access the ${escapeHtml(charityName)} admin panel.
+      <br /><br />
+      Click the button below to set your password and sign in. This link expires in 7 days.
+    </div>
+  `
+
+  const contentHtml = `
+    ${card({
+      title: "Set your password",
+      bodyHtml: `
+        <div style="color:${BRAND.muted}; font-size: 14px; margin-bottom: 12px;">
+          Account: <strong style="color:${BRAND.text};">${email}</strong>
+        </div>
+      `,
+    })}
+    <div style="height: 14px;"></div>
+    ${button({ href: params.setPasswordUrl, label: "Set password" })}
+    <div style="margin-top: 16px; color:${BRAND.muted}; font-size: 12px;">
+      If you didn't expect this invite, you can safely ignore this email.
+    </div>
+  `
+
+  return {
+    subject,
+    html: layout(
+      { preheader, title: "Set your admin password", introHtml, contentHtml },
+      settings
+    ),
+  }
+}
+

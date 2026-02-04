@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const updateDonationSchema = z.object({
@@ -11,6 +12,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const { id } = await params
     const body = await request.json()
@@ -40,6 +43,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const { id } = await params
 

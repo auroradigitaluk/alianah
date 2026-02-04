@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -28,6 +29,8 @@ function isRefunded(paymentIntent: Stripe.PaymentIntent) {
 }
 
 export async function GET(request: NextRequest) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   const { searchParams } = new URL(request.url)
   const limit = Math.min(Number(searchParams.get("limit") || 50), 200)
 

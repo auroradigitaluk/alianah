@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 import { sendWaterProjectDonationEmail } from "@/lib/email"
 
@@ -27,6 +28,8 @@ const waterProjectSchema = z
   })
 
 export async function POST(request: NextRequest) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const body = await request.json()
     const data = waterProjectSchema.parse(body)
@@ -66,6 +69,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const { searchParams } = new URL(request.url)
     const projectType = searchParams.get("projectType")

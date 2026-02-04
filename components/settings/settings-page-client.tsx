@@ -28,6 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { SecurityTab } from "@/components/settings/security-tab"
 import { toast } from "sonner"
 
 type OrganizationSettings = {
@@ -138,7 +139,7 @@ export function SettingsPageClient() {
       setNewAdminRole("VIEWER")
       setAddAdminOpen(false)
       fetchAdminUsers()
-      toast.success("Admin user added")
+      toast.success("Invite sent to " + newAdminEmail.trim())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add admin user")
     } finally {
@@ -181,6 +182,7 @@ export function SettingsPageClient() {
       <TabsList className="w-fit">
         <TabsTrigger value="organization">Organization</TabsTrigger>
         <TabsTrigger value="admin-users">Admin Users</TabsTrigger>
+        <TabsTrigger value="security">Security</TabsTrigger>
       </TabsList>
       <TabsContent value="organization" className="mt-0">
         <Card>
@@ -295,7 +297,7 @@ export function SettingsPageClient() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ADMIN">Admin</SelectItem>
-                        <SelectItem value="MANAGER">Manager</SelectItem>
+                        <SelectItem value="STAFF">Staff</SelectItem>
                         <SelectItem value="VIEWER">Viewer</SelectItem>
                       </SelectContent>
                     </Select>
@@ -349,7 +351,7 @@ export function SettingsPageClient() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="ADMIN">Admin</SelectItem>
-                          <SelectItem value="MANAGER">Manager</SelectItem>
+                          <SelectItem value="STAFF">Staff</SelectItem>
                           <SelectItem value="VIEWER">Viewer</SelectItem>
                         </SelectContent>
                       </Select>
@@ -371,6 +373,9 @@ export function SettingsPageClient() {
           )}
         </CardContent>
       </Card>
+      </TabsContent>
+      <TabsContent value="security" className="mt-0">
+        <SecurityTab />
       </TabsContent>
     </Tabs>
   )

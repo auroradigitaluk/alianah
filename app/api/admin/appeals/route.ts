@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const parseJsonArrayLength = (value: string | undefined): number => {
@@ -48,6 +49,8 @@ const appealSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  if (err) return err
   try {
     const body = await request.json()
     const data = appealSchema.parse(body)

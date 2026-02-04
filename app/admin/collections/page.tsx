@@ -5,8 +5,9 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { CollectionsTable } from "@/components/collections-table"
 import { ExportCsvButton } from "@/components/export-csv-button"
+import { getAdminUser } from "@/lib/admin-auth"
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 async function getCollections() {
@@ -24,7 +25,11 @@ async function getCollections() {
 }
 
 export default async function CollectionsPage() {
-  const collections = await getCollections()
+  const [collections, user] = await Promise.all([
+    getCollections(),
+    getAdminUser(),
+  ])
+  const canCreate = user && user.role !== "VIEWER"
 
   return (
     <>
@@ -33,12 +38,14 @@ export default async function CollectionsPage() {
         actions={
           <div className="flex items-center gap-2">
             <ExportCsvButton variant="collections" data={collections} />
-            <Button asChild>
-              <Link href="/admin/collections/new">
-                <Plus className="mr-2 h-4 w-4" />
-                New Collection
-              </Link>
-            </Button>
+            {canCreate && (
+              <Button asChild>
+                <Link href="/admin/collections/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Collection
+                </Link>
+              </Button>
+            )}
           </div>
         }
       />

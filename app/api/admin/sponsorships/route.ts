@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const sponsorshipProjectSchema = z.object({
@@ -12,6 +13,8 @@ const sponsorshipProjectSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const body = await request.json()
     const data = sponsorshipProjectSchema.parse(body)
@@ -46,6 +49,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const { searchParams } = new URL(request.url)
     const projectType = searchParams.get("projectType")

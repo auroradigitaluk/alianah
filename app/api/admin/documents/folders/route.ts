@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const createFolderSchema = z.object({
@@ -8,6 +9,8 @@ const createFolderSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   try {
     let body: unknown
     try {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const reorderSchema = z.object({
@@ -7,6 +8,8 @@ const reorderSchema = z.object({
 })
 
 export async function PATCH(request: NextRequest) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  if (err) return err
   try {
     const body = reorderSchema.parse(await request.json())
     const updates = body.orderedIds.map((id, index) =>

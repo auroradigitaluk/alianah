@@ -8,6 +8,7 @@ import {
   buildFundraiserWelcomeEmail,
   buildSponsorshipDonationEmail,
   buildWaterProjectDonationEmail,
+  buildAdminInviteEmail,
 } from "@/lib/email-templates"
 import { getOrganizationSettings } from "@/lib/settings"
 
@@ -470,6 +471,32 @@ export async function sendFundraiserOTPEmail(params: FundraiserOTPEmailParams) {
     })
   } catch (error) {
     console.error("Error sending OTP email:", error)
+    throw error
+  }
+}
+
+export async function sendAdminInviteEmail(params: {
+  email: string
+  setPasswordUrl: string
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { email, setPasswordUrl } = params
+
+  try {
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildAdminInviteEmail({ email, setPasswordUrl }, settings)
+    await getResend().emails.send({
+      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      to: email,
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error("Error sending admin invite email:", error)
     throw error
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import type { Prisma } from "@prisma/client"
 import { z } from "zod"
 
@@ -52,6 +53,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  if (err) return err
   try {
     const { id } = await params
     const body = await request.json()
@@ -136,6 +139,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  if (err) return err
   try {
     const { id } = await params
 

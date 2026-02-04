@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 export async function GET() {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   try {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const statusOptions = ["ACTIVE", "INACTIVE", "PROSPECT", "ON_HOLD"] as const
@@ -43,6 +44,8 @@ const parseDate = (value?: string | null): Date | null => {
 }
 
 export async function POST(request: NextRequest) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  if (err) return err
   try {
     const body = await request.json()
     const data = masjidSchema.parse(body)

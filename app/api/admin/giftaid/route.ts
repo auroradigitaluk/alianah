@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
+import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import type { GiftAidScheduleResponse, GiftAidScheduleRow } from "@/lib/giftaid"
 
 const querySchema = z.object({
@@ -73,6 +74,8 @@ const buildRows = (rows: Array<{
 }
 
 export async function GET(request: NextRequest) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const query = querySchema.parse(Object.fromEntries(request.nextUrl.searchParams.entries()))
     const start = parseDate(query.start)
@@ -311,6 +314,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const body = claimSchema.parse(await request.json())
     const start = parseDate(body.start)

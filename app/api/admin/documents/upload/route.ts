@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { put } from "@vercel/blob"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB - consistent with app defaults
 
@@ -25,6 +26,8 @@ function sanitizeFilename(name: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File

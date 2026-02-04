@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { formatBucketLabel, getBucketKey, resolveDateRange, type AnalyticsInterval, type AnalyticsRange } from "@/lib/analytics"
 
 type BreakdownItem = { label: string; value: number }
@@ -21,6 +22,8 @@ function parseReferrer(referrer?: string | null) {
 }
 
 export async function GET(request: Request) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   try {
     const { searchParams } = new URL(request.url)
     const rangeParam = searchParams.get("range") as AnalyticsRange | null

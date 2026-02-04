@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 import { sendSponsorshipCompletionEmail } from "@/lib/email"
 
@@ -15,6 +16,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const { id } = await params
     const body = await request.json()

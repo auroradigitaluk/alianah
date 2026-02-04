@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 const isDonationCompleted = (status?: string | null) =>
   !status || status === "COMPLETED" || status === "COMPLETE"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   try {
     const resolvedParams = await params
     const pathId = request.nextUrl.pathname.split("/").filter(Boolean).pop()

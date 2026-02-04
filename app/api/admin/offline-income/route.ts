@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRole } from "@/lib/admin-auth"
 
 const baseSchema = z.object({
   type: z.enum(["appeal", "water", "sponsorship"]),
@@ -47,6 +48,12 @@ const sponsorshipSchema = baseSchema.extend({
 })
 
 export async function POST(request: NextRequest) {
+  let adminUser: { id: string }
+  try {
+    adminUser = await requireAdminRole(["ADMIN", "STAFF"])
+  } catch {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
   try {
     const body = await request.json()
     const makeFallbackEmail = () =>
@@ -64,6 +71,7 @@ export async function POST(request: NextRequest) {
           collectedVia: data.collectedVia || "office",
           receivedAt,
           notes: data.notes || null,
+          addedByAdminUserId: adminUser.id,
         },
       })
 
@@ -123,6 +131,7 @@ export async function POST(request: NextRequest) {
           notes: ["Yearly sponsorship", data.notes ? `Notes: ${data.notes}` : null]
             .filter(Boolean)
             .join(" | ") || null,
+          addedByAdminUserId: adminUser.id,
         },
       })
 
@@ -188,6 +197,7 @@ export async function POST(request: NextRequest) {
         ]
           .filter(Boolean)
           .join(" | ") || null,
+        addedByAdminUserId: adminUser.id,
       },
     })
 

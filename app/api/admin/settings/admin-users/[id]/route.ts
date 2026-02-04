@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   try {
     const { id } = await params
     const body = await request.json()
     const { role } = body
 
-    const validRoles = ["ADMIN", "MANAGER", "VIEWER"]
+    const validRoles = ["ADMIN", "STAFF", "VIEWER"]
     if (!role || !validRoles.includes(role)) {
       return NextResponse.json(
         { error: "Invalid role" },
@@ -37,6 +40,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
   try {
     const { id } = await params
 

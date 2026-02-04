@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
+import { requireAdminAuthSafe } from "@/lib/admin-auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -93,6 +94,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
   try {
     const { id } = await params
 
