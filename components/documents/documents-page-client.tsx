@@ -614,19 +614,13 @@ export function DocumentsPageClient() {
                   </Button>
                   <Button
                     variant="destructive"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(
-                          `/api/admin/documents/${previewFile.id}`,
-                          { method: "DELETE" }
-                        )
-                        if (!res.ok) throw new Error("Failed to delete")
-                        toast.success("Deleted")
-                        setPreviewFile(null)
-                        fetchDocuments()
-                      } catch {
-                        toast.error("Failed to delete")
-                      }
+                    onClick={() => {
+                      setDeleteConfirm({
+                        id: previewFile.id,
+                        name: previewFile.name,
+                        type: "file",
+                      })
+                      setPreviewFile(null)
                     }}
                   >
                     <IconTrash className="size-4" />

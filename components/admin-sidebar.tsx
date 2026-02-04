@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import {
-  IconChartBar,
   IconDashboard,
   IconFileText,
   IconFolder,
@@ -15,11 +14,13 @@ import {
   IconUsers,
   IconDroplet,
   IconUsersGroup,
+  IconReceipt,
+  IconReport,
+  IconPresentationAnalytics,
 } from "@tabler/icons-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -36,19 +37,6 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react"
-
-const mainNavItems = [
-  {
-    title: "Dashboard",
-    url: "/admin/dashboard",
-    icon: IconDashboard,
-  },
-  {
-    title: "Appeals",
-    url: "/admin/appeals",
-    icon: IconHeart,
-  },
-]
 
 const waterForLifeItems = [
   {
@@ -92,77 +80,6 @@ const sponsorshipItems = [
   },
 ]
 
-const incomeNavItems = [
-  {
-    title: "Donations",
-    url: "/admin/donations",
-    icon: IconMoneybag,
-  },
-  {
-    title: "Recurring",
-    url: "/admin/recurring",
-    icon: IconRepeat,
-  },
-  {
-    title: "Offline Income",
-    url: "/admin/offline-income",
-    icon: IconFileText,
-  },
-  {
-    title: "Collections",
-    url: "/admin/collections",
-    icon: IconBuilding,
-  },
-  {
-    title: "Fundraisers",
-    url: "/admin/fundraisers",
-    icon: IconUsers,
-  },
-]
-
-const otherNavItems = [
-  {
-    title: "Donors",
-    url: "/admin/donors",
-    icon: IconUsers,
-  },
-  {
-    title: "Gift Aid",
-    url: "/admin/giftaid",
-    icon: IconUsers,
-  },
-  {
-    title: "Masjids",
-    url: "/admin/masjids",
-    icon: IconBuilding,
-  },
-  {
-    title: "Analytics",
-    url: "/admin/analytics",
-    icon: IconChartBar,
-  },
-  {
-    title: "Documents",
-    url: "/admin/documents",
-    icon: IconFolder,
-  },
-  {
-    title: "Reports",
-    url: "/admin/reports",
-    icon: IconChartBar,
-  },
-  {
-    title: "Audit Log",
-    url: "/admin/audit",
-    icon: IconHistory,
-  },
-  {
-    title: "Settings",
-    url: "/admin/settings",
-    icon: IconSettings,
-  },
-]
-
 const user = {
   name: "Admin",
   email: "admin@example.com",
@@ -201,20 +118,30 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={pathname === item.url || pathname?.startsWith(item.url + "/")}
-                  >
-                    <Link href={item.url}>
-                      {item.icon && <item.icon />}
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Dashboard"
+                  isActive={pathname === "/admin/dashboard" || pathname?.startsWith("/admin/dashboard/")}
+                >
+                  <Link href="/admin/dashboard">
+                    <IconDashboard />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Appeals"
+                  isActive={pathname === "/admin/appeals" || pathname?.startsWith("/admin/appeals/")}
+                >
+                  <Link href="/admin/appeals">
+                    <IconHeart />
+                    <span>Appeals</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Water for Life"
@@ -280,43 +207,194 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {incomeNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={pathname === item.url || pathname?.startsWith(item.url + "/")}
-                  >
-                    <Link href={item.url}>
-                      {item.icon && <item.icon />}
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Donations"
+                  isActive={pathname === "/admin/donations" || pathname?.startsWith("/admin/donations/")}
+                >
+                  <Link href="/admin/donations">
+                    <IconMoneybag />
+                    <span>Donations</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Recurring"
+                  isActive={pathname === "/admin/recurring" || pathname?.startsWith("/admin/recurring/")}
+                >
+                  <Link href="/admin/recurring">
+                    <IconRepeat />
+                    <span>Recurring</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Offline Income"
+                  isActive={pathname === "/admin/offline-income" || pathname?.startsWith("/admin/offline-income/")}
+                >
+                  <Link href="/admin/offline-income">
+                    <IconFileText />
+                    <span>Offline Income</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Collections"
+                  isActive={pathname === "/admin/collections" || pathname?.startsWith("/admin/collections/")}
+                >
+                  <Link href="/admin/collections">
+                    <IconBuilding />
+                    <span>Collections</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Fundraisers"
+                  isActive={pathname === "/admin/fundraisers" || pathname?.startsWith("/admin/fundraisers/")}
+                >
+                  <Link href="/admin/fundraisers">
+                    <IconUsers />
+                    <span>Fundraisers</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Gift Aid"
+                  isActive={pathname === "/admin/giftaid" || pathname?.startsWith("/admin/giftaid/")}
+                >
+                  <Link href="/admin/giftaid">
+                    <IconReceipt />
+                    <span>Gift Aid</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {otherNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={pathname === item.url || pathname?.startsWith(item.url + "/")}
-                  >
-                    <Link href={item.url}>
-                      {item.icon && <item.icon />}
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Donors"
+                  isActive={pathname === "/admin/donors" || pathname?.startsWith("/admin/donors/")}
+                >
+                  <Link href="/admin/donors">
+                    <IconUsers />
+                    <span>Donors</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Masjids"
+                  isActive={pathname === "/admin/masjids" || pathname?.startsWith("/admin/masjids/")}
+                >
+                  <Link href="/admin/masjids">
+                    <IconBuilding />
+                    <span>Masjids</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Documents"
+                  isActive={pathname === "/admin/documents" || pathname?.startsWith("/admin/documents/")}
+                >
+                  <Link href="/admin/documents">
+                    <IconFolder />
+                    <span>Documents</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Reports"
+                  isActive={pathname === "/admin/reports" || pathname?.startsWith("/admin/reports/")}
+                >
+                  <Link href="/admin/reports">
+                    <IconReport />
+                    <span>Reports</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Audit Log"
+                  isActive={pathname === "/admin/audit" || pathname?.startsWith("/admin/audit/")}
+                >
+                  <Link href="/admin/audit">
+                    <IconHistory />
+                    <span>Audit Log</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Analytics"
+                  isActive={pathname === "/admin/analytics" || pathname?.startsWith("/admin/analytics/")}
+                >
+                  <Link href="/admin/analytics">
+                    <IconPresentationAnalytics />
+                    <span>Analytics</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Settings"
+                  isActive={pathname === "/admin/settings" || pathname?.startsWith("/admin/settings/")}
+                >
+                  <Link href="/admin/settings">
+                    <IconSettings />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
