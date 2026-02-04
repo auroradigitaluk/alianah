@@ -21,38 +21,39 @@ function parseReferrer(referrer?: string | null) {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const rangeParam = searchParams.get("range") as AnalyticsRange | null
-  const intervalParam = (searchParams.get("interval") as AnalyticsInterval | null) ?? "day"
-  const fromParam = searchParams.get("from")
-  const toParam = searchParams.get("to")
+  try {
+    const { searchParams } = new URL(request.url)
+    const rangeParam = searchParams.get("range") as AnalyticsRange | null
+    const intervalParam = (searchParams.get("interval") as AnalyticsInterval | null) ?? "day"
+    const fromParam = searchParams.get("from")
+    const toParam = searchParams.get("to")
 
-  const { from, to } = resolveDateRange({
-    range: rangeParam ?? undefined,
-    from: fromParam,
-    to: toParam,
-  })
+    const { from, to } = resolveDateRange({
+      range: rangeParam ?? undefined,
+      from: fromParam,
+      to: toParam,
+    })
 
-  const events = await prisma.analyticsEvent.findMany({
-    where: {
-      eventType: "pageview",
-      timestamp: {
-        gte: from,
-        lte: to,
+    const events = await prisma.analyticsEvent.findMany({
+      where: {
+        eventType: "pageview",
+        timestamp: {
+          gte: from,
+          lte: to,
+        },
       },
-    },
-    select: {
-      timestamp: true,
-      path: true,
-      referrer: true,
-      country: true,
-      deviceType: true,
-      osName: true,
-      clientName: true,
-      sessionId: true,
-      deviceId: true,
-    },
-  })
+      select: {
+        timestamp: true,
+        path: true,
+        referrer: true,
+        country: true,
+        deviceType: true,
+        osName: true,
+        clientName: true,
+        sessionId: true,
+        deviceId: true,
+      },
+    })
 
   const visitorsSet = new Set<number>()
   const sessionsSet = new Set<number>()
@@ -113,19 +114,36 @@ export async function GET(request: Request) {
       sessions: bucket.sessions.size,
     }))
 
-  return NextResponse.json({
-    range: { from: from.toISOString(), to: to.toISOString(), interval: intervalParam },
-    totals: {
-      pageviews: events.length,
-      visitors: visitorsSet.size,
-      sessions: sessionsSet.size,
-    },
-    series,
-    topPages: toSortedBreakdown(pageMap, 10),
-    topReferrers: toSortedBreakdown(referrerMap, 10),
-    countries: toSortedBreakdown(countryMap, 10),
-    devices: toSortedBreakdown(deviceMap, 10),
-    os: toSortedBreakdown(osMap, 10),
-    browsers: toSortedBreakdown(browserMap, 10),
-  })
+    return NextResponse.json({
+      range: { from: from.toISOString(), to: to.toISOString(), interval: intervalParam },
+      totals: {
+        pageviews: events.length,
+        visitors: visitorsSet.size,
+        sessions: sessionsSet.size,
+      },
+      series,
+      topPages: toSortedBreakdown(pageMap, 10),
+      topReferrers: toSortedBreakdown(referrerMap, 10),
+      countries: toSortedBreakdown(countryMap, 10),
+      devices: toSortedBreakdown(deviceMap, 10),
+      os: toSortedBreakdown(osMap, 10),
+      browsers: toSortedBreakdown(browserMap, 10),
+    })
+  } catch (error) {
+    console.error("Analytics query failed:", error)
+    return NextResponse.json(
+      {
+        error: "Analytics data is unavailable. Ensure migrations ran in this environment.",
+        totals: { pageviews: 0, visitors: 0, sessions: 0 },
+        series: [],
+        topPages: [],
+        topReferrers: [],
+        countries: [],
+        devices: [],
+        os: [],
+        browsers: [],
+      },
+      { status: 200 }
+    )
+  }
 }

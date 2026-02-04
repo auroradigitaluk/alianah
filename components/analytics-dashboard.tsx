@@ -104,6 +104,11 @@ export function AnalyticsDashboard() {
         return res.json()
       })
       .then((payload) => {
+        if (payload?.error) {
+          setError(payload.error as string)
+          setData(null)
+          return
+        }
         setData(payload)
       })
       .catch((err) => {
