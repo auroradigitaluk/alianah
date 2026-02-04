@@ -24,6 +24,9 @@ function getDateRange(range: string | null, start?: string | null, end?: string 
   }
 
   switch (range) {
+    case "all_time":
+    case null:
+      return { startDate: new Date(0), endDate: new Date() , isAllTime: true }
     case "this_week": {
       const dayOfWeek = now.getDay()
       const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) // Adjust to Monday
@@ -71,26 +74,27 @@ function getDateRange(range: string | null, start?: string | null, end?: string 
       endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999)
       break
     default:
-      // Default to this month
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      startDate.setHours(0, 0, 0, 0)
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      // Default to all time
+      return { startDate: new Date(0), endDate: new Date(), isAllTime: true }
   }
 
-  return { startDate, endDate }
+  return { startDate, endDate, isAllTime: false }
 }
 
 async function getAppeals(range: string | null, start: string | null, end: string | null) {
   try {
-    const { startDate, endDate } = getDateRange(range, start, end)
-    
+    const { startDate, endDate, isAllTime } = getDateRange(range, start, end)
+    const where = isAllTime
+      ? {}
+      : {
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        }
+
     return await prisma.appeal.findMany({
-      where: {
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
+      where,
       include: {
         donations: {
           select: {

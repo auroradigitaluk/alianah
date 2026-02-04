@@ -250,3 +250,31 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+model AnalyticsEvent {
+  id                String   @id @default(cuid())
+  eventType         String
+  timestamp         DateTime
+  projectId         String?
+  sessionId         Int?
+  deviceId          Int?
+  path              String?
+  referrer          String?
+  country           String?
+  region            String?
+  city              String?
+  deviceType        String?
+  osName            String?
+  clientName        String?
+  vercelEnvironment String?
+  createdAt         DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([eventType])
+  @@index([projectId])
+  @@index([path])
+  @@index([referrer])
+  @@index([country])
+  @@index([deviceType])
+  @@map("analytics_events")
+}

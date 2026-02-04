@@ -41,16 +41,6 @@ async function getAppeal(slug: string) {
       return null
     }
     
-    if (!appeal.isActive) {
-      console.log(`Appeal is inactive: ${slug}`)
-      return null
-    }
-
-    if (appeal.archivedAt) {
-      console.log(`Appeal is archived: ${slug}`)
-      return null
-    }
-    
     return appeal
   } catch (error) {
     console.error("Error fetching appeal:", error)

@@ -141,6 +141,11 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
     }
 
     switch (range) {
+      case "all_time":
+      case null:
+        startDate = new Date(0)
+        endDate = new Date()
+        break
       case "this_week": {
         const dayOfWeek = now.getDay()
         const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
@@ -188,10 +193,9 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
         endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999)
         break
       default:
-        // Default to this month
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-        startDate.setHours(0, 0, 0, 0)
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        // Default to all time
+        startDate = new Date(0)
+        endDate = new Date()
     }
 
     return { startDate, endDate }
@@ -199,11 +203,7 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
 
   // Get current date range - use modal state if available, otherwise default to this month
   const effectiveDateRange = modalDateRange || (() => {
-    const now = new Date()
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-    startDate.setHours(0, 0, 0, 0)
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-    return { startDate, endDate }
+    return { startDate: new Date(0), endDate: new Date() }
   })()
   
   const { startDate, endDate } = effectiveDateRange

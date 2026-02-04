@@ -137,6 +137,11 @@ const otherNavItems = [
     icon: IconBuilding,
   },
   {
+    title: "Analytics",
+    url: "/admin/analytics",
+    icon: IconChartBar,
+  },
+  {
     title: "Reports",
     url: "/admin/reports",
     icon: IconChartBar,

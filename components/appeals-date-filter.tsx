@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const dateRangeOptions = [
+  { value: "all_time", label: "All time" },
   { value: "this_week", label: "This week" },
   { value: "last_week", label: "Last week" },
   { value: "this_month", label: "This month" },
@@ -43,6 +44,10 @@ function calculateDateRange(range: string, start?: string | null, end?: string |
   }
 
   switch (range) {
+    case "all_time":
+      startDate = new Date(0)
+      endDate = new Date()
+      break
     case "this_week": {
       const dayOfWeek = now.getDay()
       const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
@@ -90,10 +95,9 @@ function calculateDateRange(range: string, start?: string | null, end?: string |
       endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999)
       break
     default:
-      // Default to this month
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      startDate.setHours(0, 0, 0, 0)
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      // Default to all time
+      startDate = new Date(0)
+      endDate = new Date()
   }
 
   return { startDate, endDate }
@@ -106,7 +110,7 @@ interface AppealsDateFilterProps {
 export function AppealsDateFilter({ onDateRangeChange }: AppealsDateFilterProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [currentRange, setCurrentRange] = React.useState("this_month")
+  const [currentRange, setCurrentRange] = React.useState("all_time")
   const [dateRange, setDateRange] = React.useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
@@ -115,7 +119,7 @@ export function AppealsDateFilter({ onDateRangeChange }: AppealsDateFilterProps 
 
   // Avoid hydration mismatch by only reading searchParams after mount
   React.useEffect(() => {
-    const range = searchParams.get("range") || "this_month"
+    const range = searchParams.get("range") || "all_time"
     setCurrentRange(range)
     
     // Parse custom dates from URL if present
@@ -150,6 +154,10 @@ export function AppealsDateFilter({ onDateRangeChange }: AppealsDateFilterProps 
       if (value === "custom") {
         setIsCustomOpen(true)
         // Will be handled by applyCustomRange
+      } else if (value === "all_time") {
+        const { startDate, endDate } = calculateDateRange(value)
+        onDateRangeChange({ startDate, endDate })
+        setDateRange({ from: undefined, to: undefined })
       } else {
         const { startDate, endDate } = calculateDateRange(value)
         onDateRangeChange({ startDate, endDate })
@@ -159,7 +167,7 @@ export function AppealsDateFilter({ onDateRangeChange }: AppealsDateFilterProps 
       // Page mode - update URL
       const params = new URLSearchParams(searchParams.toString())
       
-      if (value === "this_month") {
+      if (value === "all_time") {
         // Default value, remove from URL
         params.delete("range")
         params.delete("start")
@@ -204,12 +212,9 @@ export function AppealsDateFilter({ onDateRangeChange }: AppealsDateFilterProps 
     setDateRange({ from: undefined, to: undefined })
     if (onDateRangeChange) {
       // Modal mode - reset to default
-      const now = new Date()
-      const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      startDate.setHours(0, 0, 0, 0)
-      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      const { startDate, endDate } = calculateDateRange("all_time")
       onDateRangeChange({ startDate, endDate })
-      setCurrentRange("this_month")
+      setCurrentRange("all_time")
       setIsCustomOpen(false)
     } else {
       // Page mode - update URL
@@ -217,7 +222,7 @@ export function AppealsDateFilter({ onDateRangeChange }: AppealsDateFilterProps 
       params.delete("range")
       params.delete("start")
       params.delete("end")
-      setCurrentRange("this_month")
+      setCurrentRange("all_time")
       router.push(`?${params.toString()}`, { scroll: false })
       setIsCustomOpen(false)
     }
