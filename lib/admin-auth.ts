@@ -154,11 +154,20 @@ export async function setAdminSession(email: string): Promise<void> {
   })
 }
 
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  path: "/",
+}
+
 export async function clearAdminSession(): Promise<void> {
   const cookieStore = await cookies()
-  cookieStore.delete(SESSION_COOKIE)
-  cookieStore.delete("admin_session")
-  cookieStore.delete("__Host-admin_session")
+  const expireOpts = { ...COOKIE_OPTS, maxAge: 0 }
+  // Use set with maxAge: 0 instead of delete - more reliable for __Host- cookies in production
+  cookieStore.set(SESSION_COOKIE, "", expireOpts)
+  cookieStore.set("admin_session", "", expireOpts)
+  cookieStore.set("__Host-admin_session", "", expireOpts)
 }
 
 export { canAccessRoute } from "./admin-routes"

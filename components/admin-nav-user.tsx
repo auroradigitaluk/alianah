@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useId, useState } from "react"
-import { useRouter } from "next/navigation"
 import { IconDotsVertical, IconLogout } from "@tabler/icons-react"
 import {
   Avatar,
@@ -23,7 +22,6 @@ import {
 } from "@/components/ui/sidebar"
 
 export function AdminNavUser() {
-  const router = useRouter()
   const { isMobile } = useSidebar()
   const [open, setOpen] = useState(false)
   const triggerId = useId()
@@ -44,9 +42,9 @@ export function AdminNavUser() {
 
   const handleLogout = async () => {
     setOpen(false)
-    await fetch("/api/admin/auth/logout", { method: "POST" })
-    router.push("/login")
-    router.refresh()
+    await fetch("/api/admin/auth/logout", { method: "POST", credentials: "include" })
+    // Full page navigation ensures browser processes Set-Cookie and clears cached auth state
+    window.location.href = "/login"
   }
 
   if (!mounted || !user) {
