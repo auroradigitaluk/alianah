@@ -10,7 +10,7 @@ async function getAuditLogs() {
     return await prisma.auditLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 100,
-      include: { adminUser: { select: { email: true } } },
+      include: { adminUser: { select: { email: true, firstName: true, lastName: true } } },
     })
   } catch {
     return []

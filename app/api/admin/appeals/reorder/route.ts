@@ -8,7 +8,7 @@ const reorderSchema = z.object({
 })
 
 export async function PATCH(request: NextRequest) {
-  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     const body = reorderSchema.parse(await request.json())

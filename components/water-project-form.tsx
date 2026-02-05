@@ -349,6 +349,7 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
                 <div className="flex-1 grid grid-cols-2 gap-2">
                   <Input
                     placeholder="Country name"
+                    transform="titleCase"
                     value={row.name}
                     onChange={(e) => updateCountryRow(row.id, "name", e.target.value)}
                   />
@@ -441,6 +442,7 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
               <div className="flex gap-2">
                 <Input
                   placeholder="Enter country name"
+                  transform="titleCase"
                   value={newCountryName}
                   onChange={(e) => setNewCountryName(e.target.value)}
                 />
@@ -540,6 +542,7 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
+          transform="titleCase"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Additional details about this project"
@@ -639,6 +642,7 @@ export function WaterProjectForm({ project, countries }: WaterProjectFormProps) 
                 <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
                 <Textarea
                   id="fundraisingDefaultMessage"
+                  transform="titleCase"
                   value={fundraisingDefaultMessage}
                   onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
                   placeholder="Enter the default message shown on the fundraiser page."

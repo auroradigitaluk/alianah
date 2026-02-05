@@ -29,6 +29,8 @@ export function canAccessRoute(role: string, pathname: string): boolean {
   }
 
   const staffHidden = [
+    "/admin/appeals",
+    "/admin/documents",
     "/admin/donations",
     "/admin/recurring",
     "/admin/analytics",
@@ -36,6 +38,12 @@ export function canAccessRoute(role: string, pathname: string): boolean {
     "/admin/settings",
   ]
   if (role === "STAFF" && staffHidden.some((p) => path === p || path.startsWith(p + "/"))) {
+    return false
+  }
+
+  // Staff cannot access "Manage Projects" pages (exact paths only - they can still access pumps, wells, orphans, etc.)
+  const staffManageProjectsBlocked = ["/admin/water-projects", "/admin/sponsorships"]
+  if (role === "STAFF" && staffManageProjectsBlocked.some((p) => path === p)) {
     return false
   }
 

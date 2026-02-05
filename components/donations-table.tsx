@@ -311,6 +311,7 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
             <Label htmlFor="donations-name">Donor name</Label>
             <Input
               id="donations-name"
+              transform="titleCase"
               placeholder="Search donor"
               value={nameQuery}
               onChange={(event) => setNameQuery(event.target.value)}
@@ -329,6 +330,7 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
             <Label htmlFor="donations-appeal">Appeal</Label>
             <Input
               id="donations-appeal"
+              transform="titleCase"
               placeholder="Search appeal"
               value={appealQuery}
               onChange={(event) => setAppealQuery(event.target.value)}
@@ -803,6 +805,7 @@ export function DonationsTable({ donations }: { donations: Donation[] }) {
               <Label htmlFor="refundReason">Reason</Label>
               <Input
                 id="refundReason"
+                transform="titleCase"
                 value={refundReason}
                 onChange={(e) => setRefundReason(e.target.value)}
                 placeholder="Reason for refund"

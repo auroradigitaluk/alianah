@@ -494,6 +494,7 @@ export function DocumentsPageClient() {
               <Label htmlFor="folder-name">Folder name</Label>
               <Input
                 id="folder-name"
+                transform="titleCase"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="e.g. Charity Commission"
@@ -521,6 +522,7 @@ export function DocumentsPageClient() {
               <Label htmlFor="rename-value">Name</Label>
               <Input
                 id="rename-value"
+                transform="titleCase"
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 placeholder={renameTarget?.name}

@@ -5,6 +5,30 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Capitalize first letter of each word as user types (after space or at start) */
+export function toTitleCaseLive(input: string): string {
+  return input.replace(/(^|\s+)([A-Za-z])/g, (_m, sep, letter) => `${sep}${letter.toUpperCase()}`)
+}
+
+/** Uppercase entire string (for postcodes) */
+export function toUpperCaseLive(input: string): string {
+  return input.toUpperCase()
+}
+
+/** UK postcode validation */
+export function isValidUkPostcode(postcode: string): boolean {
+  const uk = /^([A-Z]{1,2}\d[A-Z\d]?)\s?(\d[A-Z]{2})$/i
+  return uk.test(postcode.trim())
+}
+
+/** Postcode validation - UK or international */
+export function isValidPostcode(input: string, country: string): boolean {
+  const value = input.trim()
+  if (!value) return false
+  if (country === "GB" || country === "UK") return isValidUkPostcode(value)
+  return /^[A-Za-z0-9][A-Za-z0-9\s-]{1,9}$/.test(value)
+}
+
 export function formatCurrency(amountPence: number): string {
   const amount = amountPence / 100
   return `£${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -47,6 +71,14 @@ export function formatDonorName(
   }
   parts.push(donor.firstName, donor.lastName)
   return parts.join(" ")
+}
+
+export function formatAdminUserName(
+  addedBy?: { firstName?: string | null; lastName?: string | null; email?: string } | null
+): string {
+  if (!addedBy) return ""
+  const name = [addedBy.firstName, addedBy.lastName].filter(Boolean).join(" ").trim()
+  return name || "—"
 }
 
 // Payment method constants and utilities

@@ -25,6 +25,8 @@ export function TopCampaignsTable({ campaigns }: { campaigns: TopCampaign[] }) {
         return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
       case "Water Project":
         return "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
+      case "Sponsorship Project":
+        return "bg-amber-500/10 text-amber-700 dark:text-amber-400"
       case "Product":
         return "bg-purple-500/10 text-purple-700 dark:text-purple-400"
       default:

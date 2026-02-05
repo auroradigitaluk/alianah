@@ -33,13 +33,9 @@ const chartConfig = {
   visitors: {
     label: "Donations",
   },
-  desktop: {
-    label: "Website - Stripe",
+  total: {
+    label: "Donations",
     color: "var(--primary)",
-  },
-  mobile: {
-    label: "Offline",
-    color: "oklch(0.82 0.259 142.38)",
   },
 } satisfies ChartConfig
 
@@ -54,7 +50,13 @@ interface ChartAreaInteractiveProps {
 export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
   const [timeRange, setTimeRange] = React.useState("90d")
 
-  const filteredData = data.filter((item) => {
+  // Combine desktop (online) + mobile (offline) into single total, remove Website-Stripe as separate series
+  const chartData = data.map((item) => ({
+    ...item,
+    total: item.desktop + item.mobile,
+  }))
+
+  const filteredData = chartData.filter((item) => {
     const date = new Date(item.date)
     const now = new Date()
     let daysToSubtract = 90
@@ -105,27 +107,15 @@ export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
         >
           <AreaChart data={filteredData}>
             <defs>
-              <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
-                  stopColor="var(--color-desktop)"
+                  stopColor="var(--color-total)"
                   stopOpacity={0.8}
                 />
                 <stop
                   offset="95%"
-                  stopColor="var(--color-desktop)"
-                  stopOpacity={0.1}
-                />
-              </linearGradient>
-              <linearGradient id="fillMobile" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="5%"
-                  stopColor="var(--color-mobile)"
-                  stopOpacity={0.8}
-                />
-                <stop
-                  offset="95%"
-                  stopColor="var(--color-mobile)"
+                  stopColor="var(--color-total)"
                   stopOpacity={0.1}
                 />
               </linearGradient>
@@ -161,17 +151,10 @@ export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
               }
             />
             <Area
-              dataKey="desktop"
+              dataKey="total"
               type="natural"
-              fill="url(#fillDesktop)"
-              stroke="var(--color-desktop)"
-              stackId="a"
-            />
-            <Area
-              dataKey="mobile"
-              type="natural"
-              fill="url(#fillMobile)"
-              stroke="var(--color-mobile)"
+              fill="url(#fillTotal)"
+              stroke="var(--color-total)"
               stackId="a"
             />
             <ChartLegend content={<ChartLegendContent />} />

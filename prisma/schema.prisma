@@ -14,6 +14,8 @@ datasource db {
 model AdminUser {
   id               String    @id @default(cuid())
   email            String    @unique
+  firstName        String?
+  lastName         String?
   role             String    @default("VIEWER") // ADMIN | STAFF | VIEWER
   passwordHash     String?
   twoFactorSecret  String?
@@ -172,6 +174,7 @@ model FundraiserOTP {
 model OfflineIncome {
   id                  String    @id @default(cuid())
   appealId            String?
+  donorId             String?
   amountPence         Int
   donationType        String // GENERAL | SADAQAH | ZAKAT | LILLAH
   source              String // CASH | BANK_TRANSFER (payment method for offline income)
@@ -179,14 +182,24 @@ model OfflineIncome {
   receivedAt          DateTime
   notes               String?
   addedByAdminUserId  String?
+  giftAid             Boolean   @default(false)
+  giftAidClaimed      Boolean   @default(false)
+  giftAidClaimedAt    DateTime?
+  billingAddress      String?
+  billingCity         String?
+  billingPostcode     String?
+  billingCountry      String?
   createdAt           DateTime  @default(now())
 
   appeal    Appeal?    @relation(fields: [appealId], references: [id], onDelete: SetNull)
+  donor     Donor?     @relation(fields: [donorId], references: [id], onDelete: SetNull)
   addedBy   AdminUser? @relation(fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
 
   @@index([appealId])
   @@index([receivedAt])
   @@index([addedByAdminUserId])
+  @@index([donorId])
+  @@index([giftAid])
   @@map("offline_income")
 }
 
@@ -264,6 +277,7 @@ model Donor {
   recurringDonations       RecurringDonation[]
   waterProjectDonations    WaterProjectDonation[]
   sponsorshipDonations     SponsorshipDonation[]
+  offlineIncome            OfflineIncome[]
 
   @@index([email])
   @@map("donors")

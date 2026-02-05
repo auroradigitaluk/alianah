@@ -90,6 +90,7 @@ export function WaterProjectCountryForm({ country }: WaterProjectCountryFormProp
         <Label htmlFor="country">Country *</Label>
         <Input
           id="country"
+          transform="titleCase"
           value={countryName}
           onChange={(e) => setCountryName(e.target.value)}
           placeholder="e.g., Pakistan, Bangladesh"

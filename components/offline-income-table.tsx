@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -25,7 +27,22 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Wallet, Target, Calendar, FileText, StickyNote } from "lucide-react"
+import { Wallet, Target, Calendar, FileText, StickyNote, User, Pencil, Trash2 } from "lucide-react"
+import { toast } from "sonner"
+
+const DONATION_TYPES = [
+  { value: "GENERAL", label: "General" },
+  { value: "SADAQAH", label: "Sadaqah" },
+  { value: "ZAKAT", label: "Zakat" },
+  { value: "LILLAH", label: "Lillah" },
+]
+
+const PAYMENT_SOURCES = [
+  { value: "CASH", label: "Cash" },
+  { value: "CARD_SUMUP", label: "Card (SumUp)" },
+  { value: "BANK_TRANSFER", label: "Bank transfer" },
+  { value: "OFFICE_BUCKETS", label: "Office buckets" },
+]
 
 interface OfflineIncome {
   id: string
@@ -34,11 +51,31 @@ interface OfflineIncome {
   source: string
   receivedAt: Date
   appeal?: { title: string } | null
+  appealId?: string | null
   notes?: string | null
+  addedByName?: string | null
+  itemType?: "appeal" | "water" | "sponsorship"
 }
 
-export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
+type AppealOption = { id: string; title: string }
+
+export function OfflineIncomeTable({
+  income,
+  showLoggedBy = true,
+  canEdit = false,
+  appeals = [],
+}: {
+  income: OfflineIncome[]
+  showLoggedBy?: boolean
+  canEdit?: boolean
+  appeals?: AppealOption[]
+}) {
+  const router = useRouter()
   const [selectedIncome, setSelectedIncome] = useState<OfflineIncome | null>(null)
+  const [editingIncome, setEditingIncome] = useState<OfflineIncome | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<OfflineIncome | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [appealQuery, setAppealQuery] = useState("")
   const [sourceFilter, setSourceFilter] = useState("all")
   const [fromDate, setFromDate] = useState("")
@@ -78,6 +115,70 @@ export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
     setToDate("")
   }
 
+  const getItemType = (item: OfflineIncome): "appeal" | "water" | "sponsorship" => {
+    if (item.itemType) return item.itemType
+    if (item.id.startsWith("water-")) return "water"
+    if (item.id.startsWith("sponsorship-")) return "sponsorship"
+    return "appeal"
+  }
+
+  const handleSaveEdit = async (data: {
+    amountPence: number
+    appealId?: string | null
+    donationType: string
+    source: string
+    receivedAt: string
+    notes: string | null
+  }) => {
+    if (!editingIncome) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/admin/offline-income/${editingIncome.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amountPence: data.amountPence,
+          ...(getItemType(editingIncome) === "appeal" && { appealId: data.appealId || null }),
+          donationType: data.donationType,
+          source: data.source,
+          receivedAt: data.receivedAt,
+          notes: data.notes || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update")
+      }
+      toast.success("Updated")
+      setEditingIncome(null)
+      setSelectedIncome(null)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/offline-income/${deleteConfirm.id}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) throw new Error("Failed to delete")
+      toast.success("Deleted")
+      setDeleteConfirm(null)
+      setSelectedIncome(null)
+      router.refresh()
+    } catch {
+      toast.error("Failed to delete")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <>
       <div className="mb-4 rounded-lg border bg-card p-4">
@@ -86,6 +187,7 @@ export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
             <Label htmlFor="offline-appeal">Appeal</Label>
             <Input
               id="offline-appeal"
+              transform="titleCase"
               placeholder="Search appeal"
               value={appealQuery}
               onChange={(event) => setAppealQuery(event.target.value)}
@@ -192,6 +294,19 @@ export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
             </div>
           ),
         },
+        ...(showLoggedBy
+          ? [
+              {
+                id: "loggedBy" as const,
+                header: "Logged by",
+                cell: (item: OfflineIncome) => (
+                  <div className="text-sm text-muted-foreground">
+                    {item.addedByName || "—"}
+                  </div>
+                ),
+              },
+            ]
+          : []),
       ]}
       enableSelection={false}
       />
@@ -201,12 +316,37 @@ export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
       >
         <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-2xl font-bold">
-              Offline Income Details
-            </DialogTitle>
-            <DialogDescription>
-              {selectedIncome && `${formatCurrency(selectedIncome.amountPence)} from ${formatEnum(selectedIncome.source)}`}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle className="text-2xl font-bold">
+                  Offline Income Details
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedIncome && `${formatCurrency(selectedIncome.amountPence)} from ${formatEnum(selectedIncome.source)}`}
+                </DialogDescription>
+              </div>
+              {canEdit && (
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingIncome(selectedIncome)}
+                  >
+                    <Pencil className="mr-1 h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeleteConfirm(selectedIncome)}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" />
+                    Delete
+                  </Button>
+                </div>
+              )}
+            </div>
           </DialogHeader>
 
           {selectedIncome && (
@@ -304,7 +444,7 @@ export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
                         </div>
                         
                         <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
                             <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
                             </div>
@@ -315,6 +455,19 @@ export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
                               <p className="text-base text-foreground">{formatDateTime(selectedIncome.receivedAt)}</p>
                             </div>
                           </div>
+                          {showLoggedBy && selectedIncome.addedByName && (
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Logged by
+                              </p>
+                              <p className="text-base text-foreground">{selectedIncome.addedByName}</p>
+                            </div>
+                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -342,6 +495,197 @@ export function OfflineIncomeTable({ income }: { income: OfflineIncome[] }) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editingIncome} onOpenChange={(open) => !open && setEditingIncome(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit offline income</DialogTitle>
+            <DialogDescription>
+              Update the details below. Changes will be saved immediately.
+            </DialogDescription>
+          </DialogHeader>
+          {editingIncome && (
+            <OfflineIncomeEditForm
+              item={editingIncome}
+              appeals={appeals}
+              onSave={handleSaveEdit}
+              onCancel={() => setEditingIncome(null)}
+              saving={saving}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete offline income?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove this entry. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
+  )
+}
+
+function OfflineIncomeEditForm({
+  item,
+  appeals,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  item: OfflineIncome
+  appeals: AppealOption[]
+  onSave: (data: {
+    amountPence: number
+    appealId?: string | null
+    donationType: string
+    source: string
+    receivedAt: string
+    notes: string | null
+  }) => void
+  onCancel: () => void
+  saving: boolean
+}) {
+  const [amountPence, setAmountPence] = useState(String((item.amountPence / 100).toFixed(2)))
+  const isAppealType = item.itemType === "appeal" || (!item.itemType && !item.id.startsWith("water-") && !item.id.startsWith("sponsorship-"))
+  const [appealId, setAppealId] = useState(item.appealId ?? "")
+  const [donationType, setDonationType] = useState(item.donationType)
+  const [source, setSource] = useState(item.source)
+  const [receivedAt, setReceivedAt] = useState(() => {
+    const d = new Date(item.receivedAt)
+    return d.toISOString().slice(0, 16)
+  })
+  const [notes, setNotes] = useState(item.notes ?? "")
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const amount = Math.round(parseFloat(amountPence) * 100)
+    if (isNaN(amount) || amount <= 0) {
+      return
+    }
+    onSave({
+      amountPence: amount,
+      ...(isAppealType && { appealId: appealId || null }),
+      donationType,
+      source,
+      receivedAt: new Date(receivedAt).toISOString(),
+      notes: notes.trim() || null,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="edit-amount">Amount (£)</Label>
+        <Input
+          id="edit-amount"
+          type="number"
+          step="0.01"
+          min="0"
+          value={amountPence}
+          onChange={(e) => setAmountPence(e.target.value)}
+          required
+        />
+      </div>
+      {isAppealType && (
+        <div className="space-y-2">
+          <Label htmlFor="edit-appeal">Appeal</Label>
+          <Select value={appealId} onValueChange={setAppealId}>
+            <SelectTrigger id="edit-appeal">
+              <SelectValue placeholder="Select appeal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">None</SelectItem>
+              {appeals.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      <div className="space-y-2">
+        <Label htmlFor="edit-type">Donation type</Label>
+        <Select value={donationType} onValueChange={setDonationType}>
+          <SelectTrigger id="edit-type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DONATION_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-source">Source</Label>
+        <Select value={source} onValueChange={setSource}>
+          <SelectTrigger id="edit-source">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAYMENT_SOURCES.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-date">Date</Label>
+        <Input
+          id="edit-date"
+          type="datetime-local"
+          value={receivedAt}
+          onChange={(e) => setReceivedAt(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-notes">Notes</Label>
+        <Textarea
+          id="edit-notes"
+          transform="titleCase"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          className="resize-none"
+        />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </form>
   )
 }

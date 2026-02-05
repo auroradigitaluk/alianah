@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -77,12 +77,21 @@ function getOrderNumberFromNotes(notes: string | null): string | null {
 
 export function WaterProjectDonationsTable({ 
   donations, 
-  projectType 
+  projectType,
+  initialOpenId,
 }: { 
   donations: WaterProjectDonation[]
   projectType: string
+  initialOpenId?: string | null
 }) {
   const [selectedDonation, setSelectedDonation] = useState<WaterProjectDonation | null>(null)
+
+  useEffect(() => {
+    if (initialOpenId && donations.length > 0) {
+      const found = donations.find((d) => d.id === initialOpenId)
+      if (found) setSelectedDonation(found)
+    }
+  }, [initialOpenId, donations])
   const [editingNotes, setEditingNotes] = useState(false)
   const [notes, setNotes] = useState("")
   const [savingNotes, setSavingNotes] = useState(false)
@@ -457,6 +466,7 @@ Thank you for your generous support in making this project possible.`
         <div className="flex flex-col sm:flex-row gap-2 flex-1">
           <Input
             type="text"
+            transform="titleCase"
             placeholder="Search by donor name, email, or country..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -749,6 +759,7 @@ Thank you for your generous support in making this project possible.`
                     </div>
                   )}
                   <Textarea
+                    transform="titleCase"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Add a new note..."
@@ -903,6 +914,7 @@ Thank you for your generous support in making this project possible.`
                       </div>
                     )}
                     <Textarea
+                      transform="titleCase"
                       value={completionReport}
                       onChange={(e) => setCompletionReport(e.target.value)}
                       placeholder="Text version of report (for email preview)..."

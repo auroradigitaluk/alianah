@@ -66,7 +66,7 @@ export default function EmailPreviewPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="donorName">Donor name</Label>
-              <Input id="donorName" value={donorName} onChange={(e) => setDonorName(e.target.value)} />
+              <Input id="donorName" transform="titleCase" value={donorName} onChange={(e) => setDonorName(e.target.value)} />
             </div>
 
             <div className="space-y-2">
@@ -82,7 +82,7 @@ export default function EmailPreviewPage() {
 
             <div className="space-y-2">
               <Label htmlFor="itemTitle">Item title</Label>
-              <Input id="itemTitle" value={itemTitle} onChange={(e) => setItemTitle(e.target.value)} />
+              <Input id="itemTitle" transform="titleCase" value={itemTitle} onChange={(e) => setItemTitle(e.target.value)} />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">

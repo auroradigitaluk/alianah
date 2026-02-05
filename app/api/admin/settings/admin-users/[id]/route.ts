@@ -11,19 +11,29 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await request.json()
-    const { role } = body
+    const { role, firstName, lastName } = body
 
-    const validRoles = ["ADMIN", "STAFF", "VIEWER"]
-    if (!role || !validRoles.includes(role)) {
-      return NextResponse.json(
-        { error: "Invalid role" },
-        { status: 400 }
-      )
+    const data: { role?: string; firstName?: string | null; lastName?: string | null } = {}
+    if (role !== undefined) {
+      const validRoles = ["ADMIN", "STAFF", "VIEWER"]
+      if (!validRoles.includes(role)) {
+        return NextResponse.json(
+          { error: "Invalid role" },
+          { status: 400 }
+        )
+      }
+      data.role = role
+    }
+    if (firstName !== undefined) data.firstName = firstName === "" ? null : String(firstName)
+    if (lastName !== undefined) data.lastName = lastName === "" ? null : String(lastName)
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
     const user = await prisma.adminUser.update({
       where: { id },
-      data: { role },
+      data,
     })
 
     return NextResponse.json(user)

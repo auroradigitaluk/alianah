@@ -255,6 +255,7 @@ export function FundraiserForm({
             <Label htmlFor="fundraiserName">Your Name *</Label>
             <Input
               id="fundraiserName"
+              transform="titleCase"
               placeholder="Your display name"
               {...register("fundraiserName")}
             />
@@ -280,6 +281,7 @@ export function FundraiserForm({
             <Label htmlFor="message">Why are you fundraising? (Optional)</Label>
             <Textarea
               id="message"
+              transform="titleCase"
               placeholder={getDefaultMessage()}
               rows={4}
               {...register("message")}

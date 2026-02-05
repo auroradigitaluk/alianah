@@ -1048,6 +1048,7 @@ export function ExportCsvButton({
                         <Label htmlFor={`filter-${filter.id}`}>{filter.label}</Label>
                         <Input
                           id={`filter-${filter.id}`}
+                          transform="titleCase"
                           placeholder={filter.placeholder}
                           value={textSelectValues[filter.id] || ""}
                           onChange={(event) =>

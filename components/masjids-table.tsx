@@ -86,6 +86,7 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
             <Label htmlFor="masjids-name">Masjid name</Label>
             <Input
               id="masjids-name"
+              transform="titleCase"
               placeholder="Search masjid"
               value={nameQuery}
               onChange={(event) => setNameQuery(event.target.value)}
@@ -95,6 +96,7 @@ export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
             <Label htmlFor="masjids-city">City</Label>
             <Input
               id="masjids-city"
+              transform="titleCase"
               placeholder="Filter by city"
               value={cityQuery}
               onChange={(event) => setCityQuery(event.target.value)}

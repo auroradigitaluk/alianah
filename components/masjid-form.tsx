@@ -59,19 +59,14 @@ const formatDateInput = (value?: string | Date | null) => {
   return date.toISOString().slice(0, 10)
 }
 
-const capitalizeFirst = (value: string) => {
-  if (!value) return value
-  return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
 const isValidEmail = (value: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 
 const isValidPhone = (value: string) =>
   /^[+()0-9\s-]{7,}$/.test(value.trim())
 
-const isValidPostcode = (value: string) =>
-  /^[A-Za-z0-9\s-]{3,10}$/.test(value.trim())
+const isValidMasjidPostcode = (value: string) =>
+  value.trim() === "" || /^[A-Za-z0-9\s-]{3,10}$/.test(value.trim())
 
 export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }: MasjidFormProps) {
   const router = useRouter()
@@ -115,7 +110,7 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
     if (emailAlt && !isValidEmail(emailAlt)) nextErrors.emailAlt = "Enter a valid email address"
     if (phone && !isValidPhone(phone)) nextErrors.phone = "Enter a valid phone number"
     if (phoneAlt && !isValidPhone(phoneAlt)) nextErrors.phoneAlt = "Enter a valid phone number"
-    if (postcode && !isValidPostcode(postcode)) nextErrors.postcode = "Enter a valid postcode"
+    if (postcode && !isValidMasjidPostcode(postcode)) nextErrors.postcode = "Enter a valid postcode"
 
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
@@ -189,9 +184,10 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="name">Masjid Name *</Label>
             <Input
               id="name"
+              transform="titleCase"
               value={name}
               onChange={(e) => {
-                setName(capitalizeFirst(e.target.value))
+                setName(e.target.value)
                 setErrors((prev) => ({ ...prev, name: "" }))
               }}
               placeholder="Masjid name"
@@ -218,9 +214,10 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="address">Address *</Label>
             <Input
               id="address"
+              transform="titleCase"
               value={address}
               onChange={(e) => {
-                setAddress(capitalizeFirst(e.target.value))
+                setAddress(e.target.value)
                 setErrors((prev) => ({ ...prev, address: "" }))
               }}
               placeholder="Street address"
@@ -232,9 +229,10 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="city">City *</Label>
             <Input
               id="city"
+              transform="titleCase"
               value={city}
               onChange={(e) => {
-                setCity(capitalizeFirst(e.target.value))
+                setCity(e.target.value)
                 setErrors((prev) => ({ ...prev, city: "" }))
               }}
               placeholder="City"
@@ -246,9 +244,10 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="postcode">Postcode</Label>
             <Input
               id="postcode"
+              transform="uppercase"
               value={postcode}
               onChange={(e) => {
-                setPostcode(capitalizeFirst(e.target.value))
+                setPostcode(e.target.value)
                 setErrors((prev) => ({ ...prev, postcode: "" }))
               }}
               placeholder="Postcode"
@@ -259,8 +258,9 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="country">Country</Label>
             <Input
               id="country"
+              transform="titleCase"
               value={country}
-              onChange={(e) => setCountry(capitalizeFirst(e.target.value))}
+              onChange={(e) => setCountry(e.target.value)}
               placeholder="Country"
             />
           </div>
@@ -268,8 +268,9 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="region">Region</Label>
             <Input
               id="region"
+              transform="titleCase"
               value={region}
-              onChange={(e) => setRegion(capitalizeFirst(e.target.value))}
+              onChange={(e) => setRegion(e.target.value)}
               placeholder="Region / Area"
             />
           </div>
@@ -294,8 +295,9 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="contactName">Contact Name</Label>
             <Input
               id="contactName"
+              transform="titleCase"
               value={contactName}
-              onChange={(e) => setContactName(capitalizeFirst(e.target.value))}
+              onChange={(e) => setContactName(e.target.value)}
               placeholder="Primary contact name"
             />
           </div>
@@ -303,8 +305,9 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="contactRole">Contact Role</Label>
             <Input
               id="contactRole"
+              transform="titleCase"
               value={contactRole}
-              onChange={(e) => setContactRole(capitalizeFirst(e.target.value))}
+              onChange={(e) => setContactRole(e.target.value)}
               placeholder="Imam, Trustee, Secretary"
             />
           </div>
@@ -365,8 +368,9 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="secondaryContactName">Contact Name</Label>
             <Input
               id="secondaryContactName"
+              transform="titleCase"
               value={secondaryContactName}
-              onChange={(e) => setSecondaryContactName(capitalizeFirst(e.target.value))}
+              onChange={(e) => setSecondaryContactName(e.target.value)}
               placeholder="Secondary contact name"
             />
           </div>
@@ -374,8 +378,9 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="secondaryContactRole">Contact Role</Label>
             <Input
               id="secondaryContactRole"
+              transform="titleCase"
               value={secondaryContactRole}
-              onChange={(e) => setSecondaryContactRole(capitalizeFirst(e.target.value))}
+              onChange={(e) => setSecondaryContactRole(e.target.value)}
               placeholder="Treasurer, Volunteer"
             />
           </div>
@@ -436,8 +441,9 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             <Label htmlFor="notes">Notes</Label>
             <Textarea
               id="notes"
+              transform="titleCase"
               value={notes}
-              onChange={(e) => setNotes(capitalizeFirst(e.target.value))}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Any relationship notes or details"
               rows={4}
             />

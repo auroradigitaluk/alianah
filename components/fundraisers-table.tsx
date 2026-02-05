@@ -302,6 +302,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
             <Label htmlFor="fundraisers-appeal">Campaign</Label>
             <Input
               id="fundraisers-appeal"
+              transform="titleCase"
               placeholder="Search campaign"
               value={appealQuery}
               onChange={(event) => setAppealQuery(event.target.value)}
@@ -311,6 +312,7 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
             <Label htmlFor="fundraisers-name">Fundraiser or title</Label>
             <Input
               id="fundraisers-name"
+              transform="titleCase"
               placeholder="Search fundraiser"
               value={fundraiserQuery}
               onChange={(event) => setFundraiserQuery(event.target.value)}

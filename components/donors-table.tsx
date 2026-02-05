@@ -50,6 +50,7 @@ export function DonorsTable({ donors }: { donors: DonorDetails[] }) {
             <Label htmlFor="donors-query">Donor name or email</Label>
             <Input
               id="donors-query"
+              transform="titleCase"
               placeholder="Search donor"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -59,6 +60,7 @@ export function DonorsTable({ donors }: { donors: DonorDetails[] }) {
             <Label htmlFor="donors-city">City</Label>
             <Input
               id="donors-city"
+              transform="titleCase"
               placeholder="Filter by city"
               value={cityQuery}
               onChange={(event) => setCityQuery(event.target.value)}
@@ -68,6 +70,7 @@ export function DonorsTable({ donors }: { donors: DonorDetails[] }) {
             <Label htmlFor="donors-country">Country</Label>
             <Input
               id="donors-country"
+              transform="titleCase"
               placeholder="Filter by country"
               value={countryQuery}
               onChange={(event) => setCountryQuery(event.target.value)}
@@ -94,39 +97,15 @@ export function DonorsTable({ donors }: { donors: DonorDetails[] }) {
           ),
         },
         {
-          id: "email",
-          header: "Email",
+          id: "donationCount",
+          header: "Number of Donations",
           cell: (donor) => (
-            <div className="text-sm">{donor.email}</div>
+            <div className="text-sm">{donor.donationCount}</div>
           ),
-        },
-        {
-          id: "phone",
-          header: "Phone",
-          cell: (donor) => (
-            <div className="text-sm">{donor.phone || "-"}</div>
-          ),
-        },
-        {
-          id: "address",
-          header: "Address",
-          cell: (donor) => {
-            const addressParts = [
-              donor.address,
-              donor.city,
-              donor.postcode,
-              donor.country,
-            ].filter(Boolean)
-            return (
-              <div className="text-sm">
-                {addressParts.length > 0 ? addressParts.join(", ") : "-"}
-              </div>
-            )
-          },
         },
         {
           id: "amount",
-          header: "Amount Donated So Far",
+          header: "Amount Donated",
           cell: (donor) => (
             <div className="font-medium">
               {formatCurrency(donor.totalAmountDonated)}

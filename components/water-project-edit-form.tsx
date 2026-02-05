@@ -452,6 +452,7 @@ Thank you for your support in making this project possible.`
             <div className="flex gap-2">
               <Input
                 placeholder="Enter country name"
+                transform="titleCase"
                 value={newCountryName}
                 onChange={(e) => setNewCountryName(e.target.value)}
               />
@@ -508,6 +509,7 @@ Thank you for your support in making this project possible.`
                         <>
                           <td className="p-3">
                             <Input
+                              transform="titleCase"
                               value={editCountryName}
                               onChange={(e) => setEditCountryName(e.target.value)}
                               className="h-8"
@@ -592,6 +594,7 @@ Thank you for your support in making this project possible.`
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
+          transform="titleCase"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Additional details about this project"
@@ -724,6 +727,7 @@ Thank you for your support in making this project possible.`
             </div>
             <Textarea
               id="completionReport"
+              transform="titleCase"
               value={completionReport}
               onChange={(e) => setCompletionReport(e.target.value)}
               placeholder="Completion report will be sent to donors..."
@@ -756,6 +760,7 @@ Thank you for your support in making this project possible.`
                 <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
                 <Textarea
                   id="fundraisingDefaultMessage"
+                  transform="titleCase"
                   value={fundraisingDefaultMessage}
                   onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
                   placeholder="Enter the default message shown on the fundraiser page."

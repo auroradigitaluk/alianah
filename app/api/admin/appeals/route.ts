@@ -49,7 +49,7 @@ const appealSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     const body = await request.json()

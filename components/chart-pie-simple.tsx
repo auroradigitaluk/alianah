@@ -47,6 +47,10 @@ const chartConfig = {
     label: "Collections (Masjid)",
     color: "oklch(0.8 0.259 142.38)",
   },
+  water_sponsor: {
+    label: "Water & Sponsor",
+    color: "oklch(0.65 0.2 200)",
+  },
   // Legacy support
   online: {
     label: "Website - Stripe",

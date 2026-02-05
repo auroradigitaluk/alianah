@@ -16,6 +16,20 @@ const appealSchema = baseSchema.extend({
   type: z.literal("appeal"),
   appealId: z.string().min(1),
   amountPence: z.number().int().positive(),
+  giftAid: z.boolean().optional().default(false),
+  donor: z
+    .object({
+      title: z.string().nullable().optional(),
+      firstName: z.string().min(1).optional(),
+      lastName: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      postcode: z.string().optional(),
+      country: z.string().optional(),
+    })
+    .optional(),
 })
 
 const waterSchema = baseSchema.extend({
@@ -61,10 +75,60 @@ export async function POST(request: NextRequest) {
     if (body?.type === "appeal") {
       const data = appealSchema.parse(body)
       const receivedAt = new Date(data.receivedAt)
+      const giftAid = !!data.giftAid
+      const donorInput = data.donor
+
+      let donorId: string | null = null
+      let billingAddress: string | null = null
+      let billingCity: string | null = null
+      let billingPostcode: string | null = null
+      let billingCountry: string | null = null
+
+      if (giftAid && donorInput) {
+        const email = donorInput.email?.trim()
+        const firstName = donorInput.firstName?.trim() || "Anonymous"
+        const lastName = donorInput.lastName?.trim() || "Donor"
+        if (!email) {
+          return NextResponse.json(
+            { error: "Email is required for Gift Aid" },
+            { status: 400 }
+          )
+        }
+        const donor = await prisma.donor.upsert({
+          where: { email: email.toLowerCase() },
+          update: {
+            title: donorInput.title || null,
+            firstName,
+            lastName,
+            phone: donorInput.phone?.trim() || null,
+            address: donorInput.address?.trim() || null,
+            city: donorInput.city?.trim() || null,
+            postcode: donorInput.postcode?.trim() || null,
+            country: donorInput.country?.trim() || null,
+          },
+          create: {
+            email: email.toLowerCase(),
+            title: donorInput.title || null,
+            firstName,
+            lastName,
+            phone: donorInput.phone?.trim() || null,
+            address: donorInput.address?.trim() || null,
+            city: donorInput.city?.trim() || null,
+            postcode: donorInput.postcode?.trim() || null,
+            country: donorInput.country?.trim() || null,
+          },
+        })
+        donorId = donor.id
+        billingAddress = donorInput.address?.trim() || donor.address || null
+        billingCity = donorInput.city?.trim() || donor.city || null
+        billingPostcode = donorInput.postcode?.trim() || donor.postcode || null
+        billingCountry = donorInput.country?.trim() || donor.country || null
+      }
 
       const income = await prisma.offlineIncome.create({
         data: {
           appealId: data.appealId,
+          donorId,
           amountPence: data.amountPence,
           donationType: data.donationType,
           source: data.source,
@@ -72,6 +136,11 @@ export async function POST(request: NextRequest) {
           receivedAt,
           notes: data.notes || null,
           addedByAdminUserId: adminUser.id,
+          giftAid,
+          billingAddress,
+          billingCity,
+          billingPostcode,
+          billingCountry,
         },
       })
 
@@ -211,7 +280,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, donationId: donation.id })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 })
+      const first = error.issues[0]
+      const msg = first ? `${first.path.join(".")}: ${first.message}` : "Invalid request"
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
     console.error("Offline income error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

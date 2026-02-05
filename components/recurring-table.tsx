@@ -110,6 +110,7 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
             <Label htmlFor="recurring-appeal">Appeal</Label>
             <Input
               id="recurring-appeal"
+              transform="titleCase"
               placeholder="Search appeal"
               value={appealQuery}
               onChange={(event) => setAppealQuery(event.target.value)}

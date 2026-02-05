@@ -372,7 +372,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
         <TabsContent value="details" className="mt-4 space-y-6">
           <div className="space-y-2">
         <Label htmlFor="title">Title</Label>
-        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <Input id="title" transform="titleCase" value={title} onChange={(e) => setTitle(e.target.value)} required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="slug">Slug</Label>
@@ -382,6 +382,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
         <Label htmlFor="summary">Summary</Label>
         <Textarea
           id="summary"
+          transform="titleCase"
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           required
@@ -443,6 +444,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
               <Label htmlFor="monthlyPresets">Monthly Preset Amounts (£)</Label>
               <Textarea
                 id="monthlyPresets"
+                transform="titleCase"
                 placeholder={"One per line, e.g.\n20 - can provide water for a family\n50 - can provide a family food for a week"}
                 value={monthlyPresets}
                 onChange={(e) => setMonthlyPresets(e.target.value)}
@@ -458,6 +460,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
         <Label htmlFor="oneOffPresets">One-off Preset Amounts (£)</Label>
         <Textarea
           id="oneOffPresets"
+          transform="titleCase"
           placeholder={"One per line, e.g.\n20 - can provide water for a family\n50 - can provide a family food for a week"}
           value={oneOffPresets}
           onChange={(e) => setOneOffPresets(e.target.value)}
@@ -541,6 +544,7 @@ export function AppealForm({ appeal }: AppealFormProps) {
                 <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
                 <Textarea
                   id="fundraisingDefaultMessage"
+                  transform="titleCase"
                   value={fundraisingDefaultMessage}
                   onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
                   placeholder="Enter the default message shown on the fundraiser page."

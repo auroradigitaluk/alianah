@@ -873,6 +873,7 @@ export function OneNationDonationForm({
                 </Label>
                 <Input
                   id="plaque-name-input"
+                  transform="titleCase"
                   type="text"
                   placeholder="Enter name to appear on plaque"
                   value={plaqueName}

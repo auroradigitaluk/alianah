@@ -41,8 +41,52 @@ type OrganizationSettings = {
 type AdminUser = {
   id: string
   email: string
+  firstName: string | null
+  lastName: string | null
   role: string
   createdAt: string
+}
+
+function AdminUserNameInputs({
+  user,
+  onSave,
+}: {
+  user: AdminUser
+  onSave: (firstName: string, lastName: string) => void
+}) {
+  const [first, setFirst] = React.useState(user.firstName ?? "")
+  const [last, setLast] = React.useState(user.lastName ?? "")
+  React.useEffect(() => {
+    setFirst(user.firstName ?? "")
+    setLast(user.lastName ?? "")
+  }, [user.id, user.firstName, user.lastName])
+  const handleBlur = () => {
+    const f = first.trim()
+    const l = last.trim()
+    if (f !== (user.firstName ?? "") || l !== (user.lastName ?? "")) {
+      onSave(f || "", l || "")
+    }
+  }
+  return (
+    <div className="flex gap-2">
+      <Input
+        transform="titleCase"
+        placeholder="First name"
+        className="h-8 w-24"
+        value={first}
+        onChange={(e) => setFirst(e.target.value)}
+        onBlur={handleBlur}
+      />
+      <Input
+        transform="titleCase"
+        placeholder="Last name"
+        className="h-8 w-24"
+        value={last}
+        onChange={(e) => setLast(e.target.value)}
+        onBlur={handleBlur}
+      />
+    </div>
+  )
 }
 
 export function SettingsPageClient() {
@@ -147,18 +191,21 @@ export function SettingsPageClient() {
     }
   }
 
-  const handleUpdateRole = async (id: string, role: string) => {
+  const handleUpdateUser = async (
+    id: string,
+    updates: { role?: string; firstName?: string; lastName?: string }
+  ) => {
     try {
       const res = await fetch(`/api/admin/settings/admin-users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify(updates),
       })
       if (!res.ok) throw new Error("Failed to update")
       fetchAdminUsers()
-      toast.success("Role updated")
+      toast.success("Updated")
     } catch {
-      toast.error("Failed to update role")
+      toast.error("Failed to update")
     }
   }
 
@@ -201,6 +248,7 @@ export function SettingsPageClient() {
                 <Label htmlFor="charityName">Charity name</Label>
                 <Input
                   id="charityName"
+                  transform="titleCase"
                   value={orgForm.charityName}
                   onChange={(e) =>
                     setOrgForm((p) => ({ ...p, charityName: e.target.value }))
@@ -330,6 +378,7 @@ export function SettingsPageClient() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
@@ -338,12 +387,23 @@ export function SettingsPageClient() {
               <TableBody>
                 {adminUsers.map((user) => (
                   <TableRow key={user.id}>
+                    <TableCell>
+                      <AdminUserNameInputs
+                        user={user}
+                        onSave={(firstName, lastName) =>
+                          handleUpdateUser(user.id, {
+                            firstName: firstName || "",
+                            lastName: lastName || "",
+                          })
+                        }
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>
                       <Select
                         value={user.role}
                         onValueChange={(role) =>
-                          handleUpdateRole(user.id, role)
+                          handleUpdateUser(user.id, { role })
                         }
                       >
                         <SelectTrigger size="sm" className="w-[120px]">

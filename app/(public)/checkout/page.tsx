@@ -941,11 +941,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                     <Label htmlFor="firstName">First name *</Label>
                     <Input
                       id="firstName"
+                      transform="titleCase"
                       value={formData.firstName}
                       onChange={(e) => {
-                        const next = toTitleCaseLive(e.target.value)
-                        setFormData({ ...formData, firstName: next })
-                        clearFieldErrorIfValid("firstName", isValidName(next))
+                        setFormData({ ...formData, firstName: e.target.value })
+                        clearFieldErrorIfValid("firstName", isValidName(e.target.value))
                       }}
                       required
                       autoComplete="given-name"
@@ -958,11 +958,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                     <Label htmlFor="lastName">Last name *</Label>
                     <Input
                       id="lastName"
+                      transform="titleCase"
                       value={formData.lastName}
                       onChange={(e) => {
-                        const next = toTitleCaseLive(e.target.value)
-                        setFormData({ ...formData, lastName: next })
-                        clearFieldErrorIfValid("lastName", isValidName(next))
+                        setFormData({ ...formData, lastName: e.target.value })
+                        clearFieldErrorIfValid("lastName", isValidName(e.target.value))
                       }}
                       required
                       autoComplete="family-name"
@@ -1103,11 +1103,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                   <Label htmlFor="address">Address *</Label>
                   <Input
                     id="address"
+                    transform="titleCase"
                     value={formData.address}
                     onChange={(e) => {
-                      const next = toTitleCaseLive(e.target.value)
-                      setFormData({ ...formData, address: next })
-                      clearFieldErrorIfValid("address", next.trim().length > 0)
+                      setFormData({ ...formData, address: e.target.value })
+                      clearFieldErrorIfValid("address", e.target.value.trim().length > 0)
                     }}
                     onBlur={() =>
                       setFormData((prev) => ({ ...prev, address: toTitleCase(prev.address) }))
@@ -1124,11 +1124,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                     <Label htmlFor="city">City *</Label>
                     <Input
                       id="city"
+                      transform="titleCase"
                       value={formData.city}
                       onChange={(e) => {
-                        const next = toTitleCaseLive(e.target.value)
-                        setFormData({ ...formData, city: next })
-                        clearFieldErrorIfValid("city", next.trim().length > 0 && isValidCity(next))
+                        setFormData({ ...formData, city: e.target.value })
+                        clearFieldErrorIfValid("city", e.target.value.trim().length > 0 && isValidCity(e.target.value))
                       }}
                       onBlur={() =>
                         setFormData((prev) => {
@@ -1149,6 +1149,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                     <Label htmlFor="postcode">Postcode *</Label>
                     <Input
                       id="postcode"
+                      transform="uppercase"
                       value={formData.postcode}
                       onChange={(e) => {
                         const next = normalizeUkPostcode(e.target.value)
@@ -1187,6 +1188,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-2">
                       <Input
+                        transform="titleCase"
                         value={countryQuery}
                         onChange={(e) => setCountryQuery(e.target.value)}
                         placeholder="Search country..."

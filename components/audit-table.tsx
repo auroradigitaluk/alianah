@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, User, Calendar, Hash } from "lucide-react"
-import { formatDateTime } from "@/lib/utils"
+import { formatDateTime, formatAdminUserName } from "@/lib/utils"
 
 interface AuditLog {
   id: string
@@ -23,7 +23,7 @@ interface AuditLog {
   entityType: string
   entityId?: string | null
   createdAt: Date
-  adminUser: { email: string }
+  adminUser: { email: string; firstName?: string | null; lastName?: string | null }
 }
 
 export function AuditTable({ logs }: { logs: AuditLog[] }) {
@@ -63,7 +63,7 @@ export function AuditTable({ logs }: { logs: AuditLog[] }) {
           id: "user",
           header: "User",
           cell: (log) => (
-            <div className="text-sm">{log.adminUser.email}</div>
+            <div className="text-sm">{formatAdminUserName(log.adminUser) || log.adminUser.email}</div>
           ),
         },
         {
@@ -196,7 +196,7 @@ export function AuditTable({ logs }: { logs: AuditLog[] }) {
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                                 User
                               </p>
-                              <p className="text-base text-foreground break-all">{selectedLog.adminUser.email}</p>
+                              <p className="text-base text-foreground">{formatAdminUserName(selectedLog.adminUser) || selectedLog.adminUser.email}</p>
                             </div>
                           </div>
                           

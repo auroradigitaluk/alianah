@@ -73,6 +73,46 @@ const buildRows = (rows: Array<{
   }))
 }
 
+const buildOfflineIncomeRows = (rows: Array<{
+  id: string
+  donorId: string | null
+  amountPence: number
+  receivedAt: Date
+  giftAidClaimed: boolean
+  giftAidClaimedAt: Date | null
+  billingAddress: string | null
+  billingPostcode: string | null
+  donor: {
+    title: string | null
+    firstName: string
+    lastName: string
+    address: string | null
+    postcode: string | null
+    email: string | null
+    phone: string | null
+  } | null
+}>) => {
+  return rows
+    .filter((row) => row.donorId && row.donor)
+    .map<GiftAidScheduleRow>((row) => ({
+      id: row.id,
+      donorId: row.donorId!,
+      title: row.donor!.title || null,
+      firstName: row.donor!.firstName || null,
+      lastName: row.donor!.lastName || null,
+      email: row.donor!.email || null,
+      phone: row.donor!.phone || null,
+      giftAidClaimed: row.giftAidClaimed,
+      giftAidClaimedAt: row.giftAidClaimedAt ? row.giftAidClaimedAt.toISOString() : null,
+      houseNumber: row.billingAddress || row.donor!.address || null,
+      postcode: row.billingPostcode || row.donor!.postcode || null,
+      aggregated: null,
+      sponsored: null,
+      donationDate: row.receivedAt.toISOString(),
+      amountPence: row.amountPence,
+    }))
+}
+
 export async function GET(request: NextRequest) {
   const [, err] = await requireAdminAuthSafe()
   if (err) return err
@@ -83,8 +123,18 @@ export async function GET(request: NextRequest) {
     const range = start && end ? { start, end } : defaultDateRange()
     const dateFilter = { gte: range.start, lte: range.end }
 
-    const [eligibleDonations, eligibleWater, eligibleSponsorship, nonDonations, nonWater, nonSponsorship] =
-      await Promise.all([
+    const dateFilterReceivedAt = { receivedAt: { gte: range.start, lte: range.end } }
+
+    const [
+      eligibleDonations,
+      eligibleWater,
+      eligibleSponsorship,
+      eligibleOfflineIncome,
+      nonDonations,
+      nonWater,
+      nonSponsorship,
+      nonOfflineIncome,
+    ] = await Promise.all([
         prisma.donation.findMany({
           where: { createdAt: dateFilter, status: "COMPLETED", giftAid: true },
           orderBy: { createdAt: "asc" },
@@ -143,6 +193,31 @@ export async function GET(request: NextRequest) {
             donorId: true,
             amountPence: true,
             createdAt: true,
+            giftAidClaimed: true,
+            giftAidClaimedAt: true,
+            billingAddress: true,
+            billingPostcode: true,
+            donor: {
+              select: {
+                title: true,
+                firstName: true,
+                lastName: true,
+                address: true,
+                postcode: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        }),
+        prisma.offlineIncome.findMany({
+          where: { ...dateFilterReceivedAt, giftAid: true },
+          orderBy: { receivedAt: "asc" },
+          select: {
+            id: true,
+            donorId: true,
+            amountPence: true,
+            receivedAt: true,
             giftAidClaimed: true,
             giftAidClaimedAt: true,
             billingAddress: true,
@@ -235,18 +310,50 @@ export async function GET(request: NextRequest) {
             },
           },
         }),
+        prisma.offlineIncome.findMany({
+          where: { ...dateFilterReceivedAt, giftAid: false },
+          orderBy: { receivedAt: "asc" },
+          select: {
+            id: true,
+            donorId: true,
+            amountPence: true,
+            receivedAt: true,
+            giftAidClaimed: true,
+            giftAidClaimedAt: true,
+            billingAddress: true,
+            billingPostcode: true,
+            donor: {
+              select: {
+                title: true,
+                firstName: true,
+                lastName: true,
+                address: true,
+                postcode: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        }),
       ])
 
-    const eligibleRows = buildRows([
-      ...eligibleDonations,
-      ...eligibleWater,
-      ...eligibleSponsorship,
-    ])
-    const ineligibleRows = buildRows([
-      ...nonDonations,
-      ...nonWater,
-      ...nonSponsorship,
-    ])
+    const eligibleRows = [
+      ...buildRows([
+        ...eligibleDonations,
+        ...eligibleWater,
+        ...eligibleSponsorship,
+      ]),
+      ...buildOfflineIncomeRows(eligibleOfflineIncome),
+    ].sort((a, b) => new Date(a.donationDate).getTime() - new Date(b.donationDate).getTime())
+
+    const ineligibleRows = [
+      ...buildRows([
+        ...nonDonations,
+        ...nonWater,
+        ...nonSponsorship,
+      ]),
+      ...buildOfflineIncomeRows(nonOfflineIncome),
+    ].sort((a, b) => new Date(a.donationDate).getTime() - new Date(b.donationDate).getTime())
 
     const response: GiftAidScheduleResponse = {
       range: { start: range.start.toISOString(), end: range.end.toISOString() },
@@ -324,7 +431,9 @@ export async function POST(request: NextRequest) {
     const dateFilter = { gte: range.start, lte: range.end }
     const claimedAt = new Date()
 
-    const [donations, waterDonations, sponsorshipDonations] = await Promise.all([
+    const dateFilterReceivedAt = { receivedAt: { gte: range.start, lte: range.end } }
+
+    const [donations, waterDonations, sponsorshipDonations, offlineIncome] = await Promise.all([
       prisma.donation.updateMany({
         where: { createdAt: dateFilter, status: "COMPLETED", giftAid: true, giftAidClaimed: false },
         data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
@@ -337,10 +446,14 @@ export async function POST(request: NextRequest) {
         where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true, giftAidClaimed: false },
         data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
       }),
+      prisma.offlineIncome.updateMany({
+        where: { ...dateFilterReceivedAt, giftAid: true, giftAidClaimed: false },
+        data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
+      }),
     ])
 
     return NextResponse.json({
-      updated: donations.count + waterDonations.count + sponsorshipDonations.count,
+      updated: donations.count + waterDonations.count + sponsorshipDonations.count + offlineIncome.count,
     })
   } catch (error) {
     console.error("Gift Aid claim error:", error)

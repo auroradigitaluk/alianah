@@ -114,6 +114,25 @@ export type OperationsReport = {
   failed: ReportRow[]
 }
 
+export type StaffReportRow = {
+  staffId: string
+  label: string
+  offlineIncomePence: number
+  offlineIncomeCount: number
+  collectionsPence: number
+  collectionsCount: number
+  waterDonationsPence: number
+  waterDonationsCount: number
+  sponsorshipDonationsPence: number
+  sponsorshipDonationsCount: number
+  totalPence: number
+  totalCount: number
+}
+
+export type StaffReport = {
+  byStaff: StaffReportRow[]
+}
+
 export type ReportsResponse = {
   range: ReportDateRange
   financial: FinancialReport
@@ -125,4 +144,5 @@ export type ReportsResponse = {
   recurring: RecurringReport
   appeals: AppealsReport
   operations: OperationsReport
+  staff: StaffReport
 }

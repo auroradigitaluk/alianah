@@ -6,8 +6,10 @@ import { z } from "zod"
 const createSchema = z.object({
   masjidId: z.string().nullable(),
   appealId: z.string().nullable(),
-  amountPence: z.number().int().positive(),
-  donationType: z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"]),
+  sadaqahPence: z.number().int().min(0).default(0),
+  zakatPence: z.number().int().min(0).default(0),
+  lillahPence: z.number().int().min(0).default(0),
+  cardPence: z.number().int().min(0).default(0),
   type: z.enum(["JUMMAH", "RAMADAN", "EID", "SPECIAL", "OTHER"]),
   collectedAt: z.string(),
   notes: z.string().nullable().optional(),
@@ -26,20 +28,34 @@ export async function POST(request: NextRequest) {
     const data = createSchema.parse(body)
     const collectedAt = new Date(data.collectedAt)
 
-    const collection = await prisma.collection.create({
-      data: {
-        masjidId: data.masjidId || null,
-        appealId: data.appealId || null,
-        amountPence: data.amountPence,
-        donationType: data.donationType,
-        type: data.type,
-        collectedAt,
-        notes: data.notes || null,
-        addedByAdminUserId: adminUser.id,
-      },
-    })
+    const entries: Array<{ amountPence: number; donationType: string }> = []
+    if (data.sadaqahPence > 0) entries.push({ amountPence: data.sadaqahPence, donationType: "SADAQAH" })
+    if (data.zakatPence > 0) entries.push({ amountPence: data.zakatPence, donationType: "ZAKAT" })
+    if (data.lillahPence > 0) entries.push({ amountPence: data.lillahPence, donationType: "LILLAH" })
+    if (data.cardPence > 0) entries.push({ amountPence: data.cardPence, donationType: "GENERAL" })
 
-    return NextResponse.json(collection)
+    if (entries.length === 0) {
+      return NextResponse.json({ error: "Enter at least one amount" }, { status: 400 })
+    }
+
+    const base = {
+      masjidId: data.masjidId || null,
+      appealId: data.appealId || null,
+      type: data.type,
+      collectedAt,
+      notes: data.notes || null,
+      addedByAdminUserId: adminUser.id,
+    }
+
+    const collections = await prisma.$transaction(
+      entries.map((e) =>
+        prisma.collection.create({
+          data: { ...base, amountPence: e.amountPence, donationType: e.donationType },
+        })
+      )
+    )
+
+    return NextResponse.json({ success: true, collections, count: collections.length })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 })

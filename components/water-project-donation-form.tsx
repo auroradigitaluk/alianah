@@ -188,6 +188,7 @@ export function WaterProjectDonationForm({
           <Label htmlFor="plaque-name">Name on Plaque</Label>
           <Input
             id="plaque-name"
+            transform="titleCase"
             value={plaqueName}
             onChange={(event) => setPlaqueName(event.target.value)}
             placeholder="Enter name to appear on plaque"

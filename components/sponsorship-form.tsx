@@ -268,6 +268,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
                 <div className="flex-1 grid grid-cols-3 gap-2">
                   <Input
                     placeholder="Country name"
+                    transform="titleCase"
                     value={row.name}
                     onChange={(e) => updateCountryRow(row.id, "name", e.target.value)}
                   />
@@ -374,6 +375,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
               <div className="flex gap-2">
                 <Input
                   placeholder="Enter country name"
+                  transform="titleCase"
                   value={newCountryName}
                   onChange={(e) => setNewCountryName(e.target.value)}
                 />
@@ -503,6 +505,7 @@ export function SponsorshipForm({ project, countries }: SponsorshipFormProps) {
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
+          transform="titleCase"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Additional details about this project"

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
+import { formatAdminUserName } from "@/lib/utils"
 import type { ReportsResponse, ReportRow } from "@/lib/reports"
 
 const querySchema = z.object({
   start: z.string().optional(),
   end: z.string().optional(),
+  staff: z.string().optional(),
 })
 
 const parseDate = (value?: string) => {
@@ -48,6 +50,7 @@ export async function GET(request: NextRequest) {
     const end = parseDate(query.end)
     const range = start && end ? { start, end } : defaultDateRange()
     const dateFilter = { gte: range.start, lte: range.end }
+    const staffFilter = query.staff ? { addedByAdminUserId: query.staff } : undefined
 
     const [
       donationType,
@@ -133,67 +136,67 @@ export async function GET(request: NextRequest) {
       }),
       prisma.waterProjectDonation.groupBy({
         by: ["donationType"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.waterProjectDonation.groupBy({
         by: ["paymentMethod"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.waterProjectDonation.groupBy({
         by: ["status"],
-        where: { createdAt: dateFilter },
+        where: { createdAt: dateFilter, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.waterProjectDonation.groupBy({
         by: ["fundraiserId"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.waterProjectDonation.groupBy({
         by: ["collectedVia"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.waterProjectDonation.groupBy({
         by: ["donationType"],
-        where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true },
+        where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.sponsorshipDonation.groupBy({
         by: ["donationType"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.sponsorshipDonation.groupBy({
         by: ["paymentMethod"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.sponsorshipDonation.groupBy({
         by: ["status"],
-        where: { createdAt: dateFilter },
+        where: { createdAt: dateFilter, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.sponsorshipDonation.groupBy({
         by: ["collectedVia"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.sponsorshipDonation.groupBy({
         by: ["donationType"],
-        where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true },
+        where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
@@ -219,18 +222,18 @@ export async function GET(request: NextRequest) {
         select: { nextPaymentDate: true, amountPence: true },
       }),
       prisma.offlineIncome.aggregate({
-        where: { receivedAt: dateFilter },
+        where: { receivedAt: dateFilter, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.offlineIncome.groupBy({
         by: ["appealId"],
-        where: { receivedAt: dateFilter },
+        where: { receivedAt: dateFilter, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.collection.findMany({
-        where: { collectedAt: dateFilter },
+        where: { collectedAt: dateFilter, ...(staffFilter || {}) },
         select: {
           amountPence: true,
           type: true,
@@ -240,7 +243,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.collection.groupBy({
         by: ["appealId"],
-        where: { collectedAt: dateFilter },
+        where: { collectedAt: dateFilter, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
@@ -260,7 +263,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.waterProjectDonation.findMany({
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         select: {
           donorId: true,
           amountPence: true,
@@ -269,7 +272,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.sponsorshipDonation.findMany({
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         select: {
           donorId: true,
           amountPence: true,
@@ -279,31 +282,31 @@ export async function GET(request: NextRequest) {
       }),
       prisma.waterProjectDonation.groupBy({
         by: ["waterProjectId"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.sponsorshipDonation.groupBy({
         by: ["sponsorshipProjectId"],
-        where: { createdAt: dateFilter, status: "COMPLETE" },
+        where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.waterProjectDonation.count({
-        where: { createdAt: dateFilter, reportSent: true },
+        where: { createdAt: dateFilter, reportSent: true, ...(staffFilter || {}) },
       }),
       prisma.sponsorshipDonation.count({
-        where: { createdAt: dateFilter, reportSent: true },
+        where: { createdAt: dateFilter, reportSent: true, ...(staffFilter || {}) },
       }),
       prisma.waterProjectDonation.groupBy({
         by: ["status"],
-        where: { createdAt: dateFilter },
+        where: { createdAt: dateFilter, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
       prisma.sponsorshipDonation.groupBy({
         by: ["status"],
-        where: { createdAt: dateFilter },
+        where: { createdAt: dateFilter, ...(staffFilter || {}) },
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
@@ -326,7 +329,17 @@ export async function GET(request: NextRequest) {
     const waterProjectIds = waterProjectTotals.map((row) => row.waterProjectId) as string[]
     const sponsorshipProjectIds = sponsorshipProjectTotals.map((row) => row.sponsorshipProjectId) as string[]
 
-    const [appeals, fundraiserLookup, waterProjects, sponsorshipProjects] = await Promise.all([
+    const [
+      appeals,
+      fundraiserLookup,
+      waterProjects,
+      sponsorshipProjects,
+      offlineByStaff,
+      collectionsByStaff,
+      waterByStaff,
+      sponsorshipByStaff,
+      staffUsers,
+    ] = await Promise.all([
         prisma.appeal.findMany({
           where: { id: { in: appealIds } },
           select: { id: true, title: true },
@@ -342,6 +355,34 @@ export async function GET(request: NextRequest) {
         prisma.sponsorshipProject.findMany({
           where: { id: { in: sponsorshipProjectIds } },
           select: { id: true, projectType: true },
+        }),
+        prisma.offlineIncome.groupBy({
+          by: ["addedByAdminUserId"],
+          where: { receivedAt: dateFilter },
+          _sum: { amountPence: true },
+          _count: { _all: true },
+        }),
+        prisma.collection.groupBy({
+          by: ["addedByAdminUserId"],
+          where: { collectedAt: dateFilter },
+          _sum: { amountPence: true },
+          _count: { _all: true },
+        }),
+        prisma.waterProjectDonation.groupBy({
+          by: ["addedByAdminUserId"],
+          where: { createdAt: dateFilter, status: "COMPLETE" },
+          _sum: { amountPence: true },
+          _count: { _all: true },
+        }),
+        prisma.sponsorshipDonation.groupBy({
+          by: ["addedByAdminUserId"],
+          where: { createdAt: dateFilter, status: "COMPLETE" },
+          _sum: { amountPence: true },
+          _count: { _all: true },
+        }),
+        prisma.adminUser.findMany({
+          where: { role: { in: ["ADMIN", "STAFF"] } },
+          select: { id: true, email: true, firstName: true, lastName: true },
         }),
       ])
 
@@ -619,6 +660,79 @@ export async function GET(request: NextRequest) {
       ...statusToRows(sponsorshipStatusRows, "FAILED"),
     ])
 
+    const staffMap = new Map(
+      staffUsers.map((u) => [u.id, formatAdminUserName(u) || u.email])
+    )
+    const byStaffMap = new Map<
+      string,
+      {
+        offlineIncomePence: number
+        offlineIncomeCount: number
+        collectionsPence: number
+        collectionsCount: number
+        waterDonationsPence: number
+        waterDonationsCount: number
+        sponsorshipDonationsPence: number
+        sponsorshipDonationsCount: number
+      }
+    >()
+    const addStaffRow = (
+      rows: Array<{ addedByAdminUserId: string | null; _sum: { amountPence: number | null }; _count: { _all: number } }>,
+      key: "offlineIncome" | "collections" | "water" | "sponsorship"
+    ) => {
+      rows.forEach((row) => {
+        const id = row.addedByAdminUserId || "unassigned"
+        const entry = byStaffMap.get(id) || {
+          offlineIncomePence: 0,
+          offlineIncomeCount: 0,
+          collectionsPence: 0,
+          collectionsCount: 0,
+          waterDonationsPence: 0,
+          waterDonationsCount: 0,
+          sponsorshipDonationsPence: 0,
+          sponsorshipDonationsCount: 0,
+        }
+        const pence = row._sum.amountPence || 0
+        const count = row._count._all
+        if (key === "offlineIncome") {
+          entry.offlineIncomePence += pence
+          entry.offlineIncomeCount += count
+        } else if (key === "collections") {
+          entry.collectionsPence += pence
+          entry.collectionsCount += count
+        } else if (key === "water") {
+          entry.waterDonationsPence += pence
+          entry.waterDonationsCount += count
+        } else {
+          entry.sponsorshipDonationsPence += pence
+          entry.sponsorshipDonationsCount += count
+        }
+        byStaffMap.set(id, entry)
+      })
+    }
+    addStaffRow(offlineByStaff, "offlineIncome")
+    addStaffRow(collectionsByStaff, "collections")
+    addStaffRow(waterByStaff, "water")
+    addStaffRow(sponsorshipByStaff, "sponsorship")
+    const byStaffRows = Array.from(byStaffMap.entries())
+      .filter(([id]) => id !== "unassigned")
+      .map(([staffId, entry]) => ({
+        staffId,
+        label: staffMap.get(staffId) || "Unknown",
+        ...entry,
+        totalPence:
+          entry.offlineIncomePence +
+          entry.collectionsPence +
+          entry.waterDonationsPence +
+          entry.sponsorshipDonationsPence,
+        totalCount:
+          entry.offlineIncomeCount +
+          entry.collectionsCount +
+          entry.waterDonationsCount +
+          entry.sponsorshipDonationsCount,
+      }))
+      .sort((a, b) => b.totalPence - a.totalPence)
+
     const byGeo = (
       rows: Array<{ amountPence: number; donor?: { city: string | null; country: string | null } }>
     ) => {
@@ -810,6 +924,9 @@ export async function GET(request: NextRequest) {
       operations: {
         refunds: refundRows,
         failed: failedRows,
+      },
+      staff: {
+        byStaff: byStaffRows,
       },
     }
 

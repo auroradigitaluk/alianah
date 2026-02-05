@@ -39,45 +39,18 @@ import {
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react"
 
 const waterForLifeItems = [
-  {
-    title: "Water Pumps",
-    url: "/admin/water-projects/pumps",
-  },
-  {
-    title: "Water Wells",
-    url: "/admin/water-projects/wells",
-  },
-  {
-    title: "Water Tanks",
-    url: "/admin/water-projects/tanks",
-  },
-  {
-    title: "Wudhu Areas",
-    url: "/admin/water-projects/wudhu",
-  },
-  {
-    title: "Manage Projects",
-    url: "/admin/water-projects",
-  },
+  { title: "Water Pumps", url: "/admin/water-projects/pumps", hideForStaff: false },
+  { title: "Water Wells", url: "/admin/water-projects/wells", hideForStaff: false },
+  { title: "Water Tanks", url: "/admin/water-projects/tanks", hideForStaff: false },
+  { title: "Wudhu Areas", url: "/admin/water-projects/wudhu", hideForStaff: false },
+  { title: "Manage Projects", url: "/admin/water-projects", hideForStaff: true },
 ]
 
 const sponsorshipItems = [
-  {
-    title: "Orphans",
-    url: "/admin/sponsorships/orphans",
-  },
-  {
-    title: "Hifz",
-    url: "/admin/sponsorships/hifz",
-  },
-  {
-    title: "Families",
-    url: "/admin/sponsorships/families",
-  },
-  {
-    title: "Manage Projects",
-    url: "/admin/sponsorships",
-  },
+  { title: "Orphans", url: "/admin/sponsorships/orphans", hideForStaff: false },
+  { title: "Hifz", url: "/admin/sponsorships/hifz", hideForStaff: false },
+  { title: "Families", url: "/admin/sponsorships/families", hideForStaff: false },
+  { title: "Manage Projects", url: "/admin/sponsorships", hideForStaff: true },
 ]
 
 function useAdminRole() {
@@ -104,12 +77,14 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const isWaterProjectActive = pathname?.startsWith("/admin/water-projects")
   const isSponsorshipActive = pathname?.startsWith("/admin/sponsorships")
 
+  const showAppeals = role !== "STAFF"
   const showDonations = role !== "STAFF"
   const showRecurring = role !== "STAFF"
   const showGiftAid = role !== "STAFF"
   const showDonors = role === "ADMIN"
   const showMasjids = role !== "VIEWER"
-  const showDocuments = role !== "VIEWER"
+  const showDocuments = role === "ADMIN"
+  const showStaff = role === "ADMIN"
   const showReports = role !== "STAFF"
   const showAudit = role === "ADMIN"
   const showAnalytics = role === "ADMIN"
@@ -147,6 +122,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {showAppeals && (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
@@ -159,6 +135,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Water for Life"
@@ -175,18 +152,20 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                 </SidebarMenuButton>
                 {waterMenuOpen && (
                   <SidebarMenuSub>
-                    {waterForLifeItems.map((item) => (
-                      <SidebarMenuSubItem key={item.title}>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={pathname === item.url}
-                        >
-                          <Link href={item.url}>
-                            <span>{item.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
+                    {waterForLifeItems
+                      .filter((item) => role !== "STAFF" || !item.hideForStaff)
+                      .map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={pathname === item.url}
+                          >
+                            <Link href={item.url}>
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
@@ -206,18 +185,20 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                 </SidebarMenuButton>
                 {sponsorshipMenuOpen && (
                   <SidebarMenuSub>
-                    {sponsorshipItems.map((item) => (
-                      <SidebarMenuSubItem key={item.title}>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={pathname === item.url}
-                        >
-                          <Link href={item.url}>
-                            <span>{item.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
+                    {sponsorshipItems
+                      .filter((item) => role !== "STAFF" || !item.hideForStaff)
+                      .map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={pathname === item.url}
+                          >
+                            <Link href={item.url}>
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
@@ -351,6 +332,20 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     <Link href="/admin/documents">
                       <IconFolder />
                       <span>Documents</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {showStaff && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Staff"
+                    isActive={pathname === "/admin/staff" || pathname?.startsWith("/admin/staff/")}
+                  >
+                    <Link href="/admin/staff">
+                      <IconUsers />
+                      <span>Staff</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

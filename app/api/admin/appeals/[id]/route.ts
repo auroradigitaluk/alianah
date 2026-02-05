@@ -53,7 +53,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     const { id } = await params
@@ -139,7 +139,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     const { id } = await params

@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -22,10 +24,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Building2, Wallet, Calendar, Target, FileText, StickyNote } from "lucide-react"
+import { Building2, Wallet, Calendar, Target, FileText, StickyNote, User, Pencil, Trash2, ChevronDown } from "lucide-react"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+
+const DONATION_TYPES = [
+  { value: "GENERAL", label: "General" },
+  { value: "SADAQAH", label: "Sadaqah" },
+  { value: "ZAKAT", label: "Zakat" },
+  { value: "LILLAH", label: "Lillah" },
+]
+
+const COLLECTION_TYPES = [
+  { value: "JUMMAH", label: "Jummah" },
+  { value: "RAMADAN", label: "Ramadan" },
+  { value: "EID", label: "Eid" },
+  { value: "SPECIAL", label: "Special" },
+  { value: "OTHER", label: "Other" },
+]
+
+const COLLECTION_TYPE_STYLES: Record<string, string> = {
+  JUMMAH: "bg-primary text-primary-foreground border-primary",
+  RAMADAN: "bg-blue-500 text-white border-blue-500",
+  EID: "bg-orange-500 text-white border-orange-500",
+  SPECIAL: "bg-orange-500 text-white border-orange-500",
+  OTHER: "bg-pink-500 text-white border-pink-500",
+}
 
 interface Collection {
   id: string
@@ -33,13 +61,36 @@ interface Collection {
   donationType: string
   type: string
   collectedAt: Date
+  masjidId?: string | null
+  appealId?: string | null
   masjid?: { name: string } | null
   appeal?: { title: string } | null
   notes?: string | null
+  addedByName?: string | null
 }
 
-export function CollectionsTable({ collections }: { collections: Collection[] }) {
+type MasjidOption = { id: string; name: string }
+type AppealOption = { id: string; title: string }
+
+export function CollectionsTable({
+  collections,
+  showLoggedBy = true,
+  canEdit = false,
+  masjids = [],
+  appeals = [],
+}: {
+  collections: Collection[]
+  showLoggedBy?: boolean
+  canEdit?: boolean
+  masjids?: MasjidOption[]
+  appeals?: AppealOption[]
+}) {
+  const router = useRouter()
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null)
+  const [editingCollection, setEditingCollection] = useState<Collection | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<Collection | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [appealQuery, setAppealQuery] = useState("")
   const [masjidQuery, setMasjidQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
@@ -86,6 +137,65 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
     setToDate("")
   }
 
+  const handleSaveEdit = async (data: {
+    masjidId: string | null
+    appealId: string | null
+    amountPence: number
+    donationType: string
+    type: string
+    collectedAt: string
+    notes: string | null
+  }) => {
+    if (!editingCollection) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/admin/collections/${editingCollection.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          masjidId: data.masjidId || null,
+          appealId: data.appealId || null,
+          amountPence: data.amountPence,
+          donationType: data.donationType,
+          type: data.type,
+          collectedAt: data.collectedAt,
+          notes: data.notes || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update")
+      }
+      toast.success("Updated")
+      setEditingCollection(null)
+      setSelectedCollection(null)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/collections/${deleteConfirm.id}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) throw new Error("Failed to delete")
+      toast.success("Deleted")
+      setDeleteConfirm(null)
+      setSelectedCollection(null)
+      router.refresh()
+    } catch {
+      toast.error("Failed to delete")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <>
       <div className="mb-4 rounded-lg border bg-card p-4">
@@ -94,6 +204,7 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
             <Label htmlFor="collections-masjid">Masjid</Label>
             <Input
               id="collections-masjid"
+              transform="titleCase"
               placeholder="Search masjid"
               value={masjidQuery}
               onChange={(event) => setMasjidQuery(event.target.value)}
@@ -103,6 +214,7 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
             <Label htmlFor="collections-appeal">Appeal</Label>
             <Input
               id="collections-appeal"
+              transform="titleCase"
               placeholder="Search appeal"
               value={appealQuery}
               onChange={(event) => setAppealQuery(event.target.value)}
@@ -175,7 +287,10 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
           id: "type",
           header: "Type",
           cell: (item) => (
-            <Badge variant="outline" className="text-muted-foreground px-1.5">
+            <Badge
+              variant="outline"
+              className={`px-1.5 ${COLLECTION_TYPE_STYLES[item.type] || ""}`}
+            >
               <IconCalendarEvent className="mr-1 size-3" />
               {formatEnum(item.type)}
             </Badge>
@@ -199,6 +314,19 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
             </div>
           ),
         },
+        ...(showLoggedBy
+          ? [
+              {
+                id: "loggedBy" as const,
+                header: "Logged by",
+                cell: (item: Collection) => (
+                  <div className="text-sm text-muted-foreground">
+                    {item.addedByName || "—"}
+                  </div>
+                ),
+              },
+            ]
+          : []),
       ]}
       />
       <Dialog
@@ -207,12 +335,37 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
       >
         <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-2xl font-bold">
-              Collection Details
-            </DialogTitle>
-            <DialogDescription>
-              {selectedCollection && `${formatCurrency(selectedCollection.amountPence)} collected from ${selectedCollection.masjid?.name || "No masjid"}`}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle className="text-2xl font-bold">
+                  Collection Details
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedCollection && `${formatCurrency(selectedCollection.amountPence)} collected from ${selectedCollection.masjid?.name || "No masjid"}`}
+                </DialogDescription>
+              </div>
+              {canEdit && (
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingCollection(selectedCollection)}
+                  >
+                    <Pencil className="mr-1 h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeleteConfirm(selectedCollection)}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" />
+                    Delete
+                  </Button>
+                </div>
+              )}
+            </div>
           </DialogHeader>
 
           {selectedCollection && (
@@ -249,7 +402,10 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                          <Badge variant="outline" className="text-muted-foreground px-1.5">
+                          <Badge
+                            variant="outline"
+                            className={`px-1.5 ${COLLECTION_TYPE_STYLES[selectedCollection.type] || ""}`}
+                          >
                             <IconCalendarEvent className="mr-1 size-3" />
                             {formatEnum(selectedCollection.type)}
                           </Badge>
@@ -308,7 +464,7 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
                             </div>
                           </div>
                           
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
                             <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
                             </div>
@@ -319,6 +475,19 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
                               <p className="text-base text-foreground">{formatDateTime(selectedCollection.collectedAt)}</p>
                             </div>
                           </div>
+                          {showLoggedBy && selectedCollection.addedByName && (
+                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                Logged by
+                              </p>
+                              <p className="text-base text-foreground">{selectedCollection.addedByName}</p>
+                            </div>
+                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -346,6 +515,278 @@ export function CollectionsTable({ collections }: { collections: Collection[] })
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editingCollection} onOpenChange={(open) => !open && setEditingCollection(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit collection</DialogTitle>
+            <DialogDescription>
+              Update the details below. Changes will be saved immediately.
+            </DialogDescription>
+          </DialogHeader>
+          {editingCollection && (
+            <CollectionEditForm
+              collection={editingCollection}
+              masjids={masjids}
+              appeals={appeals}
+              onSave={handleSaveEdit}
+              onCancel={() => setEditingCollection(null)}
+              saving={saving}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete collection?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove this collection entry. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
+  )
+}
+
+function CollectionEditForm({
+  collection,
+  masjids,
+  appeals,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  collection: Collection
+  masjids: MasjidOption[]
+  appeals: AppealOption[]
+  onSave: (data: {
+    masjidId: string | null
+    appealId: string | null
+    amountPence: number
+    donationType: string
+    type: string
+    collectedAt: string
+    notes: string | null
+  }) => void
+  onCancel: () => void
+  saving: boolean
+}) {
+  const [masjidId, setMasjidId] = useState(collection.masjidId ?? "__none__")
+  const [masjidQuery, setMasjidQuery] = useState("")
+  const [masjidOpen, setMasjidOpen] = useState(false)
+  const [appealId, setAppealId] = useState(collection.appealId ?? "__none__")
+  const [amountPence, setAmountPence] = useState(String((collection.amountPence / 100).toFixed(2)))
+  const [donationType, setDonationType] = useState(collection.donationType)
+  const [type, setType] = useState(collection.type)
+  const [collectedAt, setCollectedAt] = useState(() => {
+    const d = new Date(collection.collectedAt)
+    return d.toISOString().slice(0, 16)
+  })
+  const [notes, setNotes] = useState(collection.notes ?? "")
+
+  const selectedMasjid = masjidId && masjidId !== "__none__"
+    ? masjids.find((m) => m.id === masjidId)
+    : null
+  const filteredMasjids = useMemo(() => {
+    const q = masjidQuery.trim().toLowerCase()
+    if (!q) return masjids
+    return masjids.filter((m) => m.name.toLowerCase().includes(q))
+  }, [masjids, masjidQuery])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const amount = Math.round(parseFloat(amountPence) * 100)
+    if (isNaN(amount) || amount <= 0) return
+    onSave({
+      masjidId: masjidId && masjidId !== "__none__" ? masjidId : null,
+      appealId: appealId && appealId !== "__none__" ? appealId : null,
+      amountPence: amount,
+      donationType,
+      type,
+      collectedAt: new Date(collectedAt).toISOString(),
+      notes: notes.trim() || null,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="edit-masjid">Masjid</Label>
+        <Popover open={masjidOpen} onOpenChange={setMasjidOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={masjidOpen}
+              className={cn(
+                "w-full justify-between font-normal",
+                !selectedMasjid && "text-muted-foreground"
+              )}
+            >
+              {selectedMasjid ? selectedMasjid.name : "Select masjid"}
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+            <div className="p-2 border-b">
+              <Input
+                placeholder="Search masjid..."
+                transform="titleCase"
+                value={masjidQuery}
+                onChange={(e) => setMasjidQuery(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="h-9"
+              />
+            </div>
+            <div className="max-h-[200px] overflow-y-auto p-1">
+              <button
+                type="button"
+                className={cn(
+                  "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-accent",
+                  masjidId === "__none__" && "bg-accent"
+                )}
+                onClick={() => {
+                  setMasjidId("__none__")
+                  setMasjidOpen(false)
+                  setMasjidQuery("")
+                }}
+              >
+                None
+              </button>
+              {filteredMasjids.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={cn(
+                    "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-accent",
+                    masjidId === m.id && "bg-accent"
+                  )}
+                  onClick={() => {
+                    setMasjidId(m.id)
+                    setMasjidOpen(false)
+                    setMasjidQuery("")
+                  }}
+                >
+                  {m.name}
+                </button>
+              ))}
+              {filteredMasjids.length === 0 && masjidQuery && (
+                <p className="px-2 py-4 text-sm text-muted-foreground text-center">
+                  No masjid found
+                </p>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-appeal">Appeal</Label>
+        <Select value={appealId} onValueChange={setAppealId}>
+          <SelectTrigger id="edit-appeal">
+            <SelectValue placeholder="Select appeal" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">None</SelectItem>
+            {appeals.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-amount">Amount (£)</Label>
+        <Input
+          id="edit-amount"
+          type="number"
+          step="0.01"
+          min="0"
+          value={amountPence}
+          onChange={(e) => setAmountPence(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-donation-type">Donation type</Label>
+        <Select value={donationType} onValueChange={setDonationType}>
+          <SelectTrigger id="edit-donation-type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DONATION_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-type">Collection type</Label>
+        <Select value={type} onValueChange={setType}>
+          <SelectTrigger id="edit-type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COLLECTION_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-date">Date collected</Label>
+        <Input
+          id="edit-date"
+          type="datetime-local"
+          value={collectedAt}
+          onChange={(e) => setCollectedAt(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-notes">Notes</Label>
+        <Textarea
+          id="edit-notes"
+          transform="titleCase"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          className="resize-none"
+        />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </form>
   )
 }

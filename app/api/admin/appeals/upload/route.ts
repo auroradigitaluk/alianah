@@ -3,7 +3,7 @@ import { put } from "@vercel/blob"
 import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 export async function POST(request: NextRequest) {
-  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     const formData = await request.formData()

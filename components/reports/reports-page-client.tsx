@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
@@ -9,6 +10,7 @@ import type { ReportsResponse, ReportRow } from "@/lib/reports"
 import { ReportExportButton } from "@/components/reports/report-export-button"
 import { ReportTable } from "@/components/reports/report-table"
 import { ReportsDateFilter } from "@/components/reports/reports-date-filter"
+import { StaffFilterSelect } from "@/components/staff-filter-select"
 
 type RangeState = {
   startDate: Date | null
@@ -32,6 +34,9 @@ export function ReportsPageClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const searchParams = useSearchParams()
+  const staffParam = searchParams.get("staff")
+
   const fetchReports = useCallback(async (nextRange: RangeState) => {
     setLoading(true)
     setError(null)
@@ -41,6 +46,7 @@ export function ReportsPageClient() {
         params.set("start", nextRange.startDate.toISOString())
         params.set("end", nextRange.endDate.toISOString())
       }
+      if (staffParam) params.set("staff", staffParam)
       const response = await fetch(`/api/admin/reports?${params.toString()}`)
       if (!response.ok) {
         throw new Error("Failed to load reports")
@@ -52,11 +58,11 @@ export function ReportsPageClient() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [staffParam])
 
   useEffect(() => {
     fetchReports(range)
-  }, [fetchReports, range])
+  }, [fetchReports, range, staffParam])
 
   const handleRangeChange = useCallback((nextRange: RangeState) => {
     setRange(nextRange)
@@ -89,6 +95,7 @@ export function ReportsPageClient() {
   const appealsReportRows = useMemo(() => (data ? data.appeals.byAppeal : []), [data])
   const refundRows = useMemo(() => (data ? data.operations.refunds : []), [data])
   const failedRows = useMemo(() => (data ? data.operations.failed : []), [data])
+  const byStaffRows = useMemo(() => (data ? data.staff.byStaff : []), [data])
 
   return (
     <div className="space-y-6">
@@ -99,7 +106,10 @@ export function ReportsPageClient() {
             Comprehensive reporting across all charity activity.
           </p>
         </div>
-        <ReportsDateFilter onRangeChange={handleRangeChange} />
+        <div className="flex flex-wrap items-center gap-4">
+          <StaffFilterSelect paramName="staff" label="Filter by staff" />
+          <ReportsDateFilter onRangeChange={handleRangeChange} />
+        </div>
       </div>
 
       {loading ? (
@@ -123,6 +133,7 @@ export function ReportsPageClient() {
               <TabsTrigger value="recurring">Recurring</TabsTrigger>
               <TabsTrigger value="appeals">Appeals</TabsTrigger>
               <TabsTrigger value="operations">Operations</TabsTrigger>
+              <TabsTrigger value="staff">Staff</TabsTrigger>
             </TabsList>
 
             <TabsContent value="financial" className="space-y-4 mt-4">
@@ -1153,6 +1164,72 @@ export function ReportsPageClient() {
                   />
                 </TabsContent>
               </Tabs>
+            </TabsContent>
+
+            <TabsContent value="staff" className="space-y-4 mt-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Staff Performance
+                </h3>
+                <ReportExportButton
+                  filename="staff-report.csv"
+                  columns={[
+                    { key: "label", label: "Staff", getValue: (row) => row.label },
+                    { key: "offlineIncomePence", label: "Offline income", getValue: (row) => formatAmount(row.offlineIncomePence) },
+                    { key: "offlineIncomeCount", label: "Offline count", getValue: (row) => row.offlineIncomeCount },
+                    { key: "collectionsPence", label: "Collections", getValue: (row) => formatAmount(row.collectionsPence) },
+                    { key: "collectionsCount", label: "Collections count", getValue: (row) => row.collectionsCount },
+                    { key: "waterDonationsPence", label: "Water donations", getValue: (row) => formatAmount(row.waterDonationsPence) },
+                    { key: "waterDonationsCount", label: "Water count", getValue: (row) => row.waterDonationsCount },
+                    { key: "sponsorshipDonationsPence", label: "Sponsorship", getValue: (row) => formatAmount(row.sponsorshipDonationsPence) },
+                    { key: "sponsorshipDonationsCount", label: "Sponsorship count", getValue: (row) => row.sponsorshipDonationsCount },
+                    { key: "totalPence", label: "Total", getValue: (row) => formatAmount(row.totalPence) },
+                    { key: "totalCount", label: "Total count", getValue: (row) => row.totalCount },
+                  ]}
+                  data={byStaffRows}
+                />
+              </div>
+              <ReportTable
+                columns={[
+                  { key: "label", header: "Staff" },
+                  {
+                    key: "offlineIncomePence",
+                    header: "Offline income",
+                    align: "right",
+                    render: (row) => formatAmount(row.offlineIncomePence),
+                  },
+                  { key: "offlineIncomeCount", header: "Offline #", align: "right", render: (row) => row.offlineIncomeCount },
+                  {
+                    key: "collectionsPence",
+                    header: "Collections",
+                    align: "right",
+                    render: (row) => formatAmount(row.collectionsPence),
+                  },
+                  { key: "collectionsCount", header: "Coll. #", align: "right", render: (row) => row.collectionsCount },
+                  {
+                    key: "waterDonationsPence",
+                    header: "Water",
+                    align: "right",
+                    render: (row) => formatAmount(row.waterDonationsPence),
+                  },
+                  { key: "waterDonationsCount", header: "Water #", align: "right", render: (row) => row.waterDonationsCount },
+                  {
+                    key: "sponsorshipDonationsPence",
+                    header: "Sponsorship",
+                    align: "right",
+                    render: (row) => formatAmount(row.sponsorshipDonationsPence),
+                  },
+                  { key: "sponsorshipDonationsCount", header: "Spons. #", align: "right", render: (row) => row.sponsorshipDonationsCount },
+                  {
+                    key: "totalPence",
+                    header: "Total",
+                    align: "right",
+                    render: (row) => formatAmount(row.totalPence),
+                  },
+                  { key: "totalCount", header: "Total #", align: "right", render: (row) => row.totalCount },
+                ]}
+                data={byStaffRows.map((row) => ({ id: row.staffId, ...row }))}
+              />
             </TabsContent>
           </Tabs>
         </div>

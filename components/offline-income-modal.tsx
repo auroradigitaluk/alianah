@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { Plus } from "lucide-react"
+import { Plus, Gift } from "lucide-react"
+import { CHECKOUT_COUNTRIES } from "@/lib/countries"
+import { isValidPostcode } from "@/lib/utils"
 
 type AppealOption = { id: string; title: string }
 type WaterProjectOption = { id: string; projectType: string; location: string | null }
@@ -91,6 +93,13 @@ export function OfflineIncomeModal({
   const [firstName, setFirstName] = React.useState("")
   const [lastName, setLastName] = React.useState("")
   const [email, setEmail] = React.useState("")
+  const [giftAidExpanded, setGiftAidExpanded] = React.useState(false)
+  const [giftaidTitle, setGiftaidTitle] = React.useState("")
+  const [giftaidPhone, setGiftaidPhone] = React.useState("")
+  const [giftaidAddress, setGiftaidAddress] = React.useState("")
+  const [giftaidCity, setGiftaidCity] = React.useState("")
+  const [giftaidPostcode, setGiftaidPostcode] = React.useState("")
+  const [giftaidCountry, setGiftaidCountry] = React.useState("GB")
 
   const selectedWaterProject = waterProjects.find((p) => p.projectType === projectType) || null
   const filteredCountries = waterProjectCountries
@@ -107,6 +116,13 @@ export function OfflineIncomeModal({
   const selectedSponsorshipCountry =
     filteredSponsorshipCountries.find((c) => c.id === sponsorshipCountryId) || null
 
+  const countryOptions = React.useMemo(() => {
+    const display = new Intl.DisplayNames(["en"], { type: "region" })
+    return CHECKOUT_COUNTRIES
+      .map((code) => ({ code, label: display.of(code) || code }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [])
+
   React.useEffect(() => {
     if (!open) return
     if (entryType === "appeal") {
@@ -119,12 +135,20 @@ export function OfflineIncomeModal({
       setLastName("")
       setEmail("")
       setAmount("")
+      setGiftAidExpanded(false)
+      setGiftaidTitle("")
+      setGiftaidPhone("")
+      setGiftaidAddress("")
+      setGiftaidCity("")
+      setGiftaidPostcode("")
+      setGiftaidCountry("GB")
     }
     if (entryType === "water") {
       setAppealId("")
       setSponsorshipType("")
       setSponsorshipCountryId("")
       setAmount("")
+      setGiftAidExpanded(false)
     }
     if (entryType === "sponsorship") {
       setAppealId("")
@@ -132,6 +156,7 @@ export function OfflineIncomeModal({
       setCountryId("")
       setPlaqueName("")
       setAmount("")
+      setGiftAidExpanded(false)
     }
   }, [entryType, open])
 
@@ -163,6 +188,13 @@ export function OfflineIncomeModal({
     setFirstName("")
     setLastName("")
     setEmail("")
+    setGiftAidExpanded(false)
+    setGiftaidTitle("")
+    setGiftaidPhone("")
+    setGiftaidAddress("")
+    setGiftaidCity("")
+    setGiftaidPostcode("")
+    setGiftaidCountry("GB")
     const today = new Date()
     setReceivedAt(today.toISOString().slice(0, 10))
   }
@@ -176,6 +208,14 @@ export function OfflineIncomeModal({
       const numericAmount = Number(amount)
       if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
         toast.error("Enter a valid amount")
+        return
+      }
+      if (giftAidExpanded && !email.trim()) {
+        toast.error("Email is required for Gift Aid")
+        return
+      }
+      if (giftAidExpanded && giftaidPostcode.trim() && !isValidPostcode(giftaidPostcode, giftaidCountry)) {
+        toast.error("Enter a valid postcode")
         return
       }
     }
@@ -220,6 +260,22 @@ export function OfflineIncomeModal({
               collectedVia: "office",
               receivedAt,
               notes: notes || null,
+              giftAid: giftAidExpanded,
+              ...(giftAidExpanded && email.trim()
+                ? {
+                    donor: {
+                      title: giftaidTitle.trim() || undefined,
+                      firstName: firstName.trim() || undefined,
+                      lastName: lastName.trim() || undefined,
+                      email: email.trim(),
+                      phone: giftaidPhone.trim() || undefined,
+                      address: giftaidAddress.trim() || undefined,
+                      city: giftaidCity.trim() || undefined,
+                      postcode: giftaidPostcode.trim() || undefined,
+                      country: giftaidCountry.trim() || undefined,
+                    },
+                  }
+                : {}),
             }
           : entryType === "water"
           ? {
@@ -233,11 +289,15 @@ export function OfflineIncomeModal({
               receivedAt,
               plaqueName: plaqueName || null,
               notes: notes || null,
-              donor: {
-                firstName: firstName.trim(),
-                lastName: lastName.trim(),
-                email: email.trim(),
-              },
+              ...(firstName.trim() || lastName.trim() || email.trim()
+                ? {
+                    donor: {
+                      firstName: firstName.trim() || undefined,
+                      lastName: lastName.trim() || undefined,
+                      email: email.trim() || undefined,
+                    },
+                  }
+                : {}),
             }
           : {
               type: "sponsorship",
@@ -249,11 +309,15 @@ export function OfflineIncomeModal({
               collectedVia: "office",
               receivedAt,
               notes: notes || null,
-              donor: {
-                firstName: firstName.trim(),
-                lastName: lastName.trim(),
-                email: email.trim(),
-              },
+              ...(firstName.trim() || lastName.trim() || email.trim()
+                ? {
+                    donor: {
+                      firstName: firstName.trim() || undefined,
+                      lastName: lastName.trim() || undefined,
+                      email: email.trim() || undefined,
+                    },
+                  }
+                : {}),
             }
 
       const response = await fetch("/api/admin/offline-income", {
@@ -263,8 +327,13 @@ export function OfflineIncomeModal({
       })
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.error || "Failed to save entry")
+        const data = await response.json().catch(() => ({}))
+        const errMsg = typeof data?.error === "string"
+          ? data.error
+          : Array.isArray(data?.error)
+            ? data.error[0]?.message || "Invalid request"
+            : "Failed to save entry"
+        throw new Error(errMsg)
       }
 
       toast.success("Entry saved")
@@ -362,6 +431,134 @@ export function OfflineIncomeModal({
                     />
                   </div>
                 </div>
+
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    variant={giftAidExpanded ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setGiftAidExpanded((v) => !v)}
+                    className="gap-2"
+                  >
+                    <Gift className="h-4 w-4" />
+                    {giftAidExpanded ? "Gift Aid (details added)" : "Add Gift Aid"}
+                  </Button>
+                  {giftAidExpanded && (
+                    <div className="rounded-lg border p-4 space-y-4 bg-muted/30">
+                      <p className="text-sm text-muted-foreground">
+                        Donor details required for Gift Aid (UK taxpayer). Email is required.
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="giftaid-title">Title</Label>
+                          <Select value={giftaidTitle || "none"} onValueChange={(v) => setGiftaidTitle(v === "none" ? "" : v)}>
+                            <SelectTrigger id="giftaid-title">
+                              <SelectValue placeholder="Title" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">—</SelectItem>
+                              <SelectItem value="Mr">Mr</SelectItem>
+                              <SelectItem value="Mrs">Mrs</SelectItem>
+                              <SelectItem value="Ms">Ms</SelectItem>
+                              <SelectItem value="Miss">Miss</SelectItem>
+                              <SelectItem value="Dr">Dr</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="giftaid-first">First Name *</Label>
+                          <Input
+                            id="giftaid-first"
+                            transform="titleCase"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            placeholder="First name"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="giftaid-last">Last Name *</Label>
+                          <Input
+                            id="giftaid-last"
+                            transform="titleCase"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            placeholder="Last name"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="giftaid-email">Email *</Label>
+                          <Input
+                            id="giftaid-email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="email@example.com"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="giftaid-phone">Phone</Label>
+                          <Input
+                            id="giftaid-phone"
+                            value={giftaidPhone}
+                            onChange={(e) => setGiftaidPhone(e.target.value)}
+                            placeholder="Phone number"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="giftaid-country">Country</Label>
+                          <Select value={giftaidCountry} onValueChange={setGiftaidCountry}>
+                            <SelectTrigger id="giftaid-country">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {countryOptions.map(({ code, label }) => (
+                                <SelectItem key={code} value={code}>
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="giftaid-address">Address</Label>
+                          <Input
+                            id="giftaid-address"
+                            transform="titleCase"
+                            value={giftaidAddress}
+                            onChange={(e) => setGiftaidAddress(e.target.value)}
+                            placeholder="Street address"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="giftaid-city">City</Label>
+                            <Input
+                              id="giftaid-city"
+                              transform="titleCase"
+                              value={giftaidCity}
+                              onChange={(e) => setGiftaidCity(e.target.value)}
+                              placeholder="City"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="giftaid-postcode">Postcode</Label>
+                            <Input
+                              id="giftaid-postcode"
+                              transform="uppercase"
+                              value={giftaidPostcode}
+                              onChange={(e) => setGiftaidPostcode(e.target.value)}
+                              placeholder="Postcode"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -414,6 +611,7 @@ export function OfflineIncomeModal({
                     <Label htmlFor="donor-first">First Name (optional)</Label>
                     <Input
                       id="donor-first"
+                      transform="titleCase"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                     />
@@ -422,6 +620,7 @@ export function OfflineIncomeModal({
                     <Label htmlFor="donor-last">Last Name (optional)</Label>
                     <Input
                       id="donor-last"
+                      transform="titleCase"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                     />
@@ -442,6 +641,7 @@ export function OfflineIncomeModal({
                     <Label htmlFor="plaqueName">Plaque Name (optional)</Label>
                     <Input
                       id="plaqueName"
+                      transform="titleCase"
                       value={plaqueName}
                       onChange={(e) => setPlaqueName(e.target.value)}
                       placeholder="Name for plaque"
@@ -517,6 +717,7 @@ export function OfflineIncomeModal({
                     <Label htmlFor="sponsor-first">First Name (optional)</Label>
                     <Input
                       id="sponsor-first"
+                      transform="titleCase"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                     />
@@ -525,6 +726,7 @@ export function OfflineIncomeModal({
                     <Label htmlFor="sponsor-last">Last Name (optional)</Label>
                     <Input
                       id="sponsor-last"
+                      transform="titleCase"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                     />
@@ -595,6 +797,7 @@ export function OfflineIncomeModal({
               <Label htmlFor="notes">Notes (optional)</Label>
               <Textarea
                 id="notes"
+                transform="titleCase"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
