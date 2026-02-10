@@ -30,10 +30,47 @@ model AdminUser {
   collections         Collection[]
   waterProjectDons    WaterProjectDonation[] @relation("AddedByWater")
   sponsorshipDons     SponsorshipDonation[]  @relation("AddedBySponsorship")
+  tasksAssigned       Task[]                 @relation("TaskAssignee")
+  tasksCreated        Task[]                 @relation("TaskCreator")
+  pageVisits          AdminPageVisit[]
 
   @@index([email])
   @@index([inviteToken])
   @@map("admin_users")
+}
+
+model AdminPageVisit {
+  id            String   @id @default(cuid())
+  adminUserId   String
+  pageKey       String   // e.g. "donations", "tasks", "my-tasks"
+  lastVisitedAt DateTime @updatedAt
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@unique([adminUserId, pageKey])
+  @@index([adminUserId])
+  @@map("admin_page_visits")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      String     @default("TODO") // TODO | IN_PROGRESS | DONE
+  dueDate     DateTime?
+  staffNote   String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  assigneeId  String
+  createdById String?
+
+  assignee   AdminUser  @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  createdBy AdminUser? @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([assigneeId])
+  @@index([createdById])
+  @@index([status])
+  @@map("tasks")
 }
 
 model Settings {

@@ -103,6 +103,11 @@ export function Sidecart() {
                   Proceed to Checkout
                 </Link>
               </Button>
+              <Button asChild variant="outline" className="w-full" size="lg">
+                <Link href="/#top" onClick={() => setOpen(false)}>
+                  Donate More
+                </Link>
+              </Button>
             </div>
           </>
         )}

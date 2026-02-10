@@ -17,6 +17,7 @@ import {
   IconReceipt,
   IconReport,
   IconPresentationAnalytics,
+  IconListCheck,
 } from "@tabler/icons-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -37,6 +38,77 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react"
+import { cn } from "@/lib/utils"
+
+type NotificationCounts = {
+  donations: number
+  recurring: number
+  "offline-income": number
+  collections: number
+  tasks: number
+}
+
+function pathnameToPageKey(pathname: string | null): keyof NotificationCounts | null {
+  if (!pathname) return null
+  if (pathname === "/admin/tasks" || pathname.startsWith("/admin/tasks/")) return "tasks"
+  if (pathname === "/admin/donations" || pathname.startsWith("/admin/donations/")) return "donations"
+  if (pathname === "/admin/recurring" || pathname.startsWith("/admin/recurring/")) return "recurring"
+  if (pathname === "/admin/offline-income" || pathname.startsWith("/admin/offline-income/")) return "offline-income"
+  if (pathname === "/admin/collections" || pathname.startsWith("/admin/collections/")) return "collections"
+  return null
+}
+
+function useNotificationCounts(pathname: string | null) {
+  const [counts, setCounts] = React.useState<NotificationCounts>({
+    donations: 0,
+    recurring: 0,
+    "offline-income": 0,
+    collections: 0,
+    tasks: 0,
+  })
+
+  const refetch = React.useCallback(() => {
+    fetch("/api/admin/notifications")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setCounts(data))
+      .catch(() => {})
+  }, [])
+
+  React.useEffect(() => {
+    refetch()
+  }, [refetch])
+
+  React.useEffect(() => {
+    const pageKey = pathnameToPageKey(pathname)
+    if (!pageKey) return
+    fetch("/api/admin/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page: pageKey }),
+    })
+      .then((res) => {
+        if (res.ok) setCounts((c) => ({ ...c, [pageKey]: 0 }))
+      })
+      .catch(() => {})
+  }, [pathname])
+
+  return { counts, refetch }
+}
+
+function NotificationBadge({ count, className }: { count: number; className?: string }) {
+  if (count <= 0) return null
+  const display = count > 99 ? "99+" : String(count)
+  return (
+    <span
+      className={cn(
+        "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-medium text-primary-foreground",
+        className
+      )}
+    >
+      {display}
+    </span>
+  )
+}
 
 const waterForLifeItems = [
   { title: "Water Pumps", url: "/admin/water-projects/pumps", hideForStaff: false },
@@ -67,6 +139,7 @@ function useAdminRole() {
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const role = useAdminRole()
+  const { counts } = useNotificationCounts(pathname)
   const [waterMenuOpen, setWaterMenuOpen] = React.useState(
     pathname?.startsWith("/admin/water-projects") || false
   )
@@ -85,6 +158,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const showMasjids = role !== "VIEWER"
   const showDocuments = role === "ADMIN"
   const showStaff = role === "ADMIN"
+  const showTasks = role === "ADMIN" || role === "STAFF"
   const showReports = role !== "STAFF"
   const showAudit = role === "ADMIN"
   const showAnalytics = role === "ADMIN"
@@ -216,9 +290,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     tooltip="Donations"
                     isActive={pathname === "/admin/donations" || pathname?.startsWith("/admin/donations/")}
                   >
-                    <Link href="/admin/donations">
+                    <Link href="/admin/donations" className="flex w-full items-center gap-2">
                       <IconMoneybag />
                       <span>Donations</span>
+                      <NotificationBadge count={counts.donations} />
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -230,9 +305,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     tooltip="Recurring"
                     isActive={pathname === "/admin/recurring" || pathname?.startsWith("/admin/recurring/")}
                   >
-                    <Link href="/admin/recurring">
+                    <Link href="/admin/recurring" className="flex w-full items-center gap-2">
                       <IconRepeat />
                       <span>Recurring</span>
+                      <NotificationBadge count={counts.recurring} />
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -243,9 +319,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   tooltip="Offline Income"
                   isActive={pathname === "/admin/offline-income" || pathname?.startsWith("/admin/offline-income/")}
                 >
-                  <Link href="/admin/offline-income">
+                  <Link href="/admin/offline-income" className="flex w-full items-center gap-2">
                     <IconFileText />
                     <span>Offline Income</span>
+                    <NotificationBadge count={counts["offline-income"]} />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -255,9 +332,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   tooltip="Collections"
                   isActive={pathname === "/admin/collections" || pathname?.startsWith("/admin/collections/")}
                 >
-                  <Link href="/admin/collections">
+                  <Link href="/admin/collections" className="flex w-full items-center gap-2">
                     <IconBuilding />
                     <span>Collections</span>
+                    <NotificationBadge count={counts.collections} />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -322,16 +400,17 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {showDocuments && (
+              {showTasks && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    tooltip="Documents"
-                    isActive={pathname === "/admin/documents" || pathname?.startsWith("/admin/documents/")}
+                    tooltip="Tasks"
+                    isActive={pathname === "/admin/tasks" || pathname?.startsWith("/admin/tasks/")}
                   >
-                    <Link href="/admin/documents">
-                      <IconFolder />
-                      <span>Documents</span>
+                    <Link href="/admin/tasks" className="flex w-full items-center gap-2">
+                      <IconListCheck />
+                      <span>Tasks</span>
+                      <NotificationBadge count={counts.tasks} />
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -346,6 +425,20 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     <Link href="/admin/staff">
                       <IconUsers />
                       <span>Staff</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {showDocuments && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Documents"
+                    isActive={pathname === "/admin/documents" || pathname?.startsWith("/admin/documents/")}
+                  >
+                    <Link href="/admin/documents">
+                      <IconFolder />
+                      <span>Documents</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

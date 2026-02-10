@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { IconArrowLeft } from "@tabler/icons-react"
 import { ShoppingCart, LogIn } from "lucide-react"
@@ -36,8 +37,22 @@ export function PublicHeader() {
             <IconArrowLeft className="h-4 w-4" />
             Back
           </Button>
-        <div className="ml-4 text-sm text-muted-foreground">
-          Alianah Humanity Welfare
+        <div className="ml-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <Image
+            src="/logo light.png"
+            alt="Alianah"
+            width={24}
+            height={24}
+            className="h-5 w-5 object-contain dark:hidden"
+          />
+          <Image
+            src="/logo dark.png"
+            alt="Alianah"
+            width={24}
+            height={24}
+            className="hidden h-5 w-5 object-contain dark:block"
+          />
+          <span className="text-foreground">Alianah Humanity Welfare</span>
         </div>
       </div>
       <div className="flex items-center gap-2">

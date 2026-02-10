@@ -142,7 +142,17 @@ async function getSponsorshipProjectCountriesForForm() {
   }
 }
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ zakatPence?: string }>
+}) {
+  const params = await searchParams
+  const initialZakatPence =
+    params.zakatPence != null
+      ? Math.round(Number(params.zakatPence)) || undefined
+      : undefined
+
   const [
     appeals,
     fallbackAppeal,
@@ -228,6 +238,7 @@ export default async function HomePage() {
             waterProjectCountries={waterProjectCountries}
             sponsorshipProjects={sponsorshipProjectsForForm}
             sponsorshipProjectCountries={sponsorshipProjectCountries}
+            initialZakatPence={initialZakatPence}
           />
         ) : (
           <div className="mb-4 sm:mb-6 text-center p-6 border rounded-lg bg-muted/50">

@@ -92,6 +92,12 @@ interface OneNationDonationFormProps {
   waterProjectCountries?: WaterProjectCountry[]
   sponsorshipProjects?: SponsorshipProject[]
   sponsorshipProjectCountries?: SponsorshipProjectCountry[]
+  /** Pre-fill for Zakat calculator: amount in pence, sets intention to ZAKAT and custom amount */
+  initialZakatPence?: number
+  /** When true, hide Appeals/Water/Sponsors toggle and show appeal form only (e.g. Zakat page) */
+  hideDonationTypeToggle?: boolean
+  /** When set (e.g. from Zakat calculator), force one-off, lock amount to this value (pence), non-editable */
+  zakatFixedAmountPence?: number
 }
 
 
@@ -103,6 +109,9 @@ export function OneNationDonationForm({
   waterProjectCountries = [],
   sponsorshipProjects = [],
   sponsorshipProjectCountries = [],
+  initialZakatPence,
+  hideDonationTypeToggle = false,
+  zakatFixedAmountPence,
 }: OneNationDonationFormProps) {
   const { addItem } = useSidecart()
 
@@ -118,6 +127,33 @@ export function OneNationDonationForm({
   const [customAmount, setCustomAmount] = React.useState<string>("")
   const [selectedProduct, setSelectedProduct] = React.useState<string>("")
   const [plaqueName, setPlaqueName] = React.useState<string>("")
+
+  // Pre-fill from Zakat calculator link (?zakatPence=...); only on mount when value is present
+  const hasAppliedInitialZakat = React.useRef(false)
+  React.useEffect(() => {
+    if (hasAppliedInitialZakat.current || initialZakatPence == null || initialZakatPence <= 0) return
+    hasAppliedInitialZakat.current = true
+    setDonationType("appeal")
+    setFrequency("ONE_OFF")
+    setSelectedIntention("ZAKAT")
+    setCustomAmount((initialZakatPence / 100).toFixed(2))
+    if (appeals.length > 0) setSelectedAppeal(appeals[0].id)
+  }, [initialZakatPence, appeals])
+
+  // When only one donation type (e.g. Zakat-only form), set it and keep in sync
+  React.useEffect(() => {
+    if (donationTypesEnabled.length === 1 && isDonationType(donationTypesEnabled[0])) {
+      setSelectedIntention(donationTypesEnabled[0])
+    }
+  }, [donationTypesEnabled])
+
+  // Zakat fixed amount: force one-off and lock amount
+  React.useEffect(() => {
+    if (zakatFixedAmountPence != null && zakatFixedAmountPence > 0) {
+      setFrequency("ONE_OFF")
+      setCustomAmount((zakatFixedAmountPence / 100).toFixed(2))
+    }
+  }, [zakatFixedAmountPence])
 
   // Get selected appeal or water project data
   const appealData = appeals.find((a) => a.id === selectedAppeal)
@@ -353,7 +389,9 @@ export function OneNationDonationForm({
       }
     } else {
       // Direct donation to appeal
-      if (customAmount) {
+      if (zakatFixedAmountPence != null && zakatFixedAmountPence > 0) {
+        amountPence = zakatFixedAmountPence
+      } else if (customAmount) {
         const amount = parseFloat(customAmount)
         if (isNaN(amount) || amount <= 0) {
           alert("Please enter a valid amount")
@@ -447,6 +485,7 @@ export function OneNationDonationForm({
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Donation Type Toggle (Appeal vs Water Project) */}
+          {!hideDonationTypeToggle && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">Donation Type</Label>
             <div className="flex gap-2">
@@ -509,9 +548,10 @@ export function OneNationDonationForm({
               </Button>
             </div>
           </div>
+          )}
 
-          {/* Frequency Toggle (only for appeals, not water projects) */}
-          {donationType === "appeal" && (
+          {/* Frequency Toggle (only for appeals; hidden when Zakat fixed amount) */}
+          {donationType === "appeal" && zakatFixedAmountPence == null && (
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">Donation Frequency</Label>
               <div className="flex gap-2">
@@ -733,8 +773,8 @@ export function OneNationDonationForm({
               </div>
             )}
 
-            {/* Product Selection (if appeal selected and products available) */}
-            {donationType === "appeal" && selectedAppeal && availableProducts.length > 0 && (
+            {/* Product Selection (if appeal selected and products available); hidden when Zakat fixed amount */}
+            {donationType === "appeal" && selectedAppeal && availableProducts.length > 0 && zakatFixedAmountPence == null && (
               <div className="space-y-2">
                 <Label htmlFor="product-select" className="text-sm font-medium text-foreground">
                   Select Product <span className="text-muted-foreground font-normal">(Optional)</span>
@@ -785,8 +825,8 @@ export function OneNationDonationForm({
               </div>
             )}
 
-            {/* Appeal Preset Amounts (direct donation) */}
-            {donationType === "appeal" && selectedAppeal && (!selectedProduct || productAllowsCustom) && appealPresets.length > 0 && (
+            {/* Appeal Preset Amounts (direct donation); hidden when Zakat fixed amount */}
+            {donationType === "appeal" && selectedAppeal && (!selectedProduct || productAllowsCustom) && appealPresets.length > 0 && zakatFixedAmountPence == null && (
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">
                   Suggested Amounts
@@ -824,43 +864,51 @@ export function OneNationDonationForm({
               </div>
             )}
 
-            {/* Amount Input (if product allows custom or no product selected, or water project) */}
+            {/* Amount: fixed (Zakat) or editable */}
             {(donationType === "appeal" && (!selectedProduct || productAllowsCustom)) && (
               <div className="space-y-2">
                 <Label htmlFor="amount-input" className="text-sm font-medium text-foreground">
                   Amount
                 </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium pointer-events-none">
-                    £
-                  </span>
-                  <Input
-                    id="amount-input"
-                    type="number"
-                    placeholder={
-                      donationType === "appeal" && appealPresets.length > 0
-                        ? (appealPresets[0].amountPence / 100).toFixed(2)
-                        : frequency === "MONTHLY" && monthlyPresetAmount
-                        ? monthlyPresetAmount.toString()
-                        : "Enter amount"
-                    }
-                    value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
-                    min="1"
-                    step="0.01"
-                    className="h-11 pl-7"
-                    disabled={!!(donationType === "appeal" && selectedProduct && !productAllowsCustom)}
-                  />
-                </div>
-                {donationType === "appeal" && frequency === "MONTHLY" && monthlyPresetAmount && !selectedProduct && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Suggested monthly amount: £{monthlyPresetAmount.toFixed(2)}
-                  </p>
-                )}
-                {donationType === "appeal" && selectedProduct && !productAllowsCustom && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    This product has fixed amounts only. Please select from the options above.
-                  </p>
+                {zakatFixedAmountPence != null && zakatFixedAmountPence > 0 ? (
+                  <div className="flex h-11 items-center rounded-md border border-input bg-muted/50 px-3 text-base font-medium">
+                    £{(zakatFixedAmountPence / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium pointer-events-none">
+                        £
+                      </span>
+                      <Input
+                        id="amount-input"
+                        type="number"
+                        placeholder={
+                          donationType === "appeal" && appealPresets.length > 0
+                            ? (appealPresets[0].amountPence / 100).toFixed(2)
+                            : frequency === "MONTHLY" && monthlyPresetAmount
+                            ? monthlyPresetAmount.toString()
+                            : "Enter amount"
+                        }
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        min="1"
+                        step="0.01"
+                        className="h-11 pl-7"
+                        disabled={!!(donationType === "appeal" && selectedProduct && !productAllowsCustom)}
+                      />
+                    </div>
+                    {donationType === "appeal" && frequency === "MONTHLY" && monthlyPresetAmount && !selectedProduct && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Suggested monthly amount: £{monthlyPresetAmount.toFixed(2)}
+                      </p>
+                    )}
+                    {donationType === "appeal" && selectedProduct && !productAllowsCustom && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This product has fixed amounts only. Please select from the options above.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -886,7 +934,8 @@ export function OneNationDonationForm({
               </div>
             )}
 
-            {/* Intention (Donation Type) */}
+            {/* Intention (Donation Type) - hide when only one type (e.g. Zakat-only) */}
+            {donationTypesEnabled.length > 1 && (
             <div className="space-y-2">
               <Label htmlFor="intention-select" className="text-sm font-medium text-foreground">
                 Donation Type
@@ -909,6 +958,7 @@ export function OneNationDonationForm({
                 </SelectContent>
               </Select>
             </div>
+            )}
 
             {/* Add to Donation Bag Button */}
             <Button
