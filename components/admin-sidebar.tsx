@@ -101,7 +101,7 @@ function NotificationBadge({ count, className }: { count: number; className?: st
   return (
     <span
       className={cn(
-        "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-medium text-primary-foreground",
+        "ml-auto flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent px-1.5 text-xs font-semibold tabular-nums text-sidebar-accent-foreground shadow-sm ring-2 ring-sidebar",
         className
       )}
     >
