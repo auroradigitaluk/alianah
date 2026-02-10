@@ -23,29 +23,27 @@ export async function GET(req: NextRequest) {
   const settings = await getOrganizationSettings()
   const { html } = buildDonationConfirmationEmail(
     {
-    donorName,
-    orderNumber,
-    items: [
-      {
-        title: itemTitle,
-        amountPence: Number.isFinite(amountPence) ? amountPence : 2500,
-        ...(frequency ? { frequency } : {}),
-      },
-    ],
-    totalPence: Number.isFinite(amountPence) ? amountPence : 2500,
-    giftAid,
-    ...(manageSubscriptionUrl ? { manageSubscriptionUrl } : {}),
-    baseUrl,
-  },
+      donorName,
+      orderNumber,
+      items: [
+        {
+          title: itemTitle,
+          amountPence: Number.isFinite(amountPence) ? amountPence : 2500,
+          ...(frequency ? { frequency } : {}),
+        },
+      ],
+      totalPence: Number.isFinite(amountPence) ? amountPence : 2500,
+      giftAid,
+      ...(manageSubscriptionUrl ? { manageSubscriptionUrl } : {}),
+      baseUrl,
+    },
     settings
   )
 
   return new NextResponse(html, {
     headers: {
       "content-type": "text/html; charset=utf-8",
-      // Email previews shouldn't be cached.
       "cache-control": "no-store",
     },
   })
 }
-

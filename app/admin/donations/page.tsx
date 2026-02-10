@@ -1,9 +1,9 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
-import { DonationsTable } from "@/components/donations-table"
+import { DonationsPageContent } from "@/components/donations-page-content"
 import { ExportCsvButton } from "@/components/export-csv-button"
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 async function getDonations() {
@@ -22,8 +22,27 @@ async function getDonations() {
   }
 }
 
+async function getAbandonedCheckouts() {
+  try {
+    return await prisma.donation.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        donor: { select: { title: true, firstName: true, lastName: true, email: true } },
+        appeal: { select: { title: true } },
+        product: { select: { name: true } },
+      },
+    })
+  } catch (error) {
+    return []
+  }
+}
+
 export default async function DonationsPage() {
-  const donations = await getDonations()
+  const [donations, abandonedDonations] = await Promise.all([
+    getDonations(),
+    getAbandonedCheckouts(),
+  ])
 
   return (
     <>
@@ -38,10 +57,15 @@ export default async function DonationsPage() {
               <div className="flex flex-col gap-4 sm:gap-4 sm:gap-6">
                 <div>
                   <h2 className="text-base sm:text-base sm:text-lg font-semibold">Donations</h2>
-                  <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">Online donations</p>
+                  <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">
+                    Online donations. Use the &quot;Abandoned checkouts&quot; tab to view incomplete sessions.
+                  </p>
                 </div>
                 <div>
-                  <DonationsTable donations={donations} />
+                  <DonationsPageContent
+                    donations={donations}
+                    abandonedDonations={abandonedDonations}
+                  />
                 </div>
               </div>
             </div>

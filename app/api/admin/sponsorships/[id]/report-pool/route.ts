@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 
 const MAX_FILES_PER_UPLOAD = 50
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB per file
+const VALID_PROJECT_ID = /^[a-zA-Z0-9_-]+$/
 
 export async function GET(
   _request: NextRequest,
@@ -13,6 +15,9 @@ export async function GET(
   if (err) return err
   try {
     const { id: projectId } = await params
+    if (!projectId || !VALID_PROJECT_ID.test(projectId)) {
+      return NextResponse.json({ error: "Invalid project" }, { status: 400 })
+    }
     const poolAvailableWhere = {
       sponsorshipProjectId: projectId,
       assignedDonationId: null,
@@ -37,6 +42,9 @@ export async function POST(
   if (err) return err
   try {
     const { id: projectId } = await params
+    if (!projectId || !VALID_PROJECT_ID.test(projectId)) {
+      return NextResponse.json({ error: "Invalid project" }, { status: 400 })
+    }
     const project = await prisma.sponsorshipProject.findUnique({
       where: { id: projectId },
     })
@@ -55,6 +63,14 @@ export async function POST(
         { error: `Maximum ${MAX_FILES_PER_UPLOAD} files per upload` },
         { status: 400 }
       )
+    }
+    for (const file of files) {
+      if (file instanceof File && file.size > MAX_FILE_SIZE_BYTES) {
+        return NextResponse.json(
+          { error: `File "${file.name}" exceeds 10MB limit` },
+          { status: 400 }
+        )
+      }
     }
 
     const created: { id: string; pdfUrl: string }[] = []
