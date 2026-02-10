@@ -26,7 +26,8 @@ async function getDonations(staffId: string | null) {
     })
 
     const donations = project?.donations || []
-    return donations.map((d) => ({
+    const projectId = project?.id ?? null
+    return { projectId, donations: donations.map((d) => ({
       id: d.id,
       amountPence: d.amountPence,
       donationType: d.donationType,
@@ -44,10 +45,10 @@ async function getDonations(staffId: string | null) {
       completedAt: d.completedAt?.toISOString() ?? null,
       donor: d.donor,
       country: d.country,
-    }))
+    })) }
   } catch (error) {
     console.error("Error fetching Hifz donations:", error)
-    return []
+    return { projectId: null, donations: [] }
   }
 }
 
@@ -70,7 +71,7 @@ export default async function HifzDonationsPage({
       })
     : []
 
-  const donations = await getDonations(staffId)
+  const { projectId, donations } = await getDonations(staffId)
 
   return (
     <>
@@ -92,10 +93,13 @@ export default async function HifzDonationsPage({
                   )}
                 </div>
                 <div>
-                  {donations.length === 0 ? (
-                    <p className="text-xs sm:text-sm text-muted-foreground">No donations yet</p>
+                  {projectId ? (
+                    <SponsorshipDonationsTable donations={donations} projectType="HIFZ" projectId={projectId} initialOpenId={initialOpenId} />
                   ) : (
-                    <SponsorshipDonationsTable donations={donations} projectType="HIFZ" initialOpenId={initialOpenId} />
+                    <p className="text-xs sm:text-sm text-muted-foreground">No project found</p>
+                  )}
+                  {donations.length === 0 && projectId && (
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-2">No donations yet</p>
                   )}
                 </div>
               </div>

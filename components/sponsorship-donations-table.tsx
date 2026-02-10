@@ -77,13 +77,18 @@ function getOrderNumberFromNotes(notes: string | null): string | null {
 export function SponsorshipDonationsTable({ 
   donations, 
   projectType,
+  projectId,
   initialOpenId,
 }: { 
   donations: SponsorshipDonation[]
   projectType: string
+  projectId: string
   initialOpenId?: string | null
 }) {
   const [selectedDonation, setSelectedDonation] = useState<SponsorshipDonation | null>(null)
+  const [poolTotal, setPoolTotal] = useState(0)
+  const [poolAvailable, setPoolAvailable] = useState(0)
+  const [uploadingPool, setUploadingPool] = useState(false)
 
   useEffect(() => {
     if (initialOpenId && donations.length > 0) {
@@ -91,6 +96,19 @@ export function SponsorshipDonationsTable({
       if (found) setSelectedDonation(found)
     }
   }, [initialOpenId, donations])
+
+  useEffect(() => {
+    if (!projectId) return
+    fetch(`/api/admin/sponsorships/${projectId}/report-pool`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          setPoolTotal(data.total ?? 0)
+          setPoolAvailable(data.available ?? 0)
+        }
+      })
+      .catch(() => {})
+  }, [projectId])
   const [editingNotes, setEditingNotes] = useState(false)
   const [notes, setNotes] = useState("")
   const [savingNotes, setSavingNotes] = useState(false)
@@ -334,6 +352,65 @@ Thank you for your generous support in making this project possible.`
 
   const handleCancelReview = () => {
     setReviewingReport(false)
+  }
+
+  const handleUploadPoolFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !projectId) return
+    if (files.length > 50) {
+      toast.error("Maximum 50 files per upload")
+      e.target.value = ""
+      return
+    }
+    setUploadingPool(true)
+    try {
+      const formData = new FormData()
+      Array.from(files).forEach((file) => formData.append("file", file))
+      const res = await fetch(`/api/admin/sponsorships/${projectId}/report-pool`, {
+        method: "POST",
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to upload")
+      }
+      const data = await res.json()
+      setPoolTotal(data.total ?? poolTotal + data.uploaded)
+      setPoolAvailable(data.available ?? poolAvailable + data.uploaded)
+      toast.success(`${data.uploaded} report(s) added to pool. ${data.available} available.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload reports")
+    } finally {
+      setUploadingPool(false)
+      e.target.value = ""
+    }
+  }
+
+  const handleMarkCompleteWithPool = async () => {
+    if (!selectedDonation) return
+    setSendingReport(true)
+    try {
+      const res = await fetch(`/api/admin/sponsorships/donations/${selectedDonation.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "COMPLETE",
+          usePoolReport: true,
+          googleDriveLink: googleDriveLink || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to complete")
+      }
+      toast.success("Donation marked complete and report sent to donor")
+      setSelectedDonation(null)
+      window.location.reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to complete donation")
+    } finally {
+      setSendingReport(false)
+    }
   }
 
   const handleExportDonations = () => {
@@ -603,6 +680,7 @@ Thank you for your generous support in making this project possible.`
                 <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="report-pool">Completion report pool</TabsTrigger>
                   </TabsList>
                 </div>
 
@@ -797,349 +875,143 @@ Thank you for your generous support in making this project possible.`
                 </div>
               )}
             </div>
+                  </TabsContent>
 
-            {/* Completion Management */}
-            {selectedDonation.status !== "COMPLETE" && (
-              <div className="space-y-3 border-t pt-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion Management</h3>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label>Completion Images (Required: 4 images)</Label>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => handleUploadImages(e.target.files)}
-                        disabled={uploadingImages}
-                        className="hidden"
-                        id="completion-images-input"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => document.getElementById('completion-images-input')?.click()}
-                        disabled={uploadingImages}
-                      >
-                        {uploadingImages ? "Uploading..." : "Choose Files"}
-                      </Button>
-                      {uploadingImages && <div className="text-sm text-muted-foreground">Uploading...</div>}
-                    </div>
-                    {completionImages.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-4 gap-2 mt-2">
-                          {completionImages.map((url, idx) => (
-                            <div key={idx} className="relative">
-                              <img
-                                src={url}
-                                alt={`Completion ${idx + 1}`}
-                                className="w-full h-24 object-cover rounded border"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="absolute top-1 right-1 h-6 w-6 bg-destructive/80 hover:bg-destructive text-white"
-                                onClick={() => setCompletionImages(completionImages.filter((_, i) => i !== idx))}
-                              >
-                                <IconX className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                        <p className={`text-xs ${completionImages.length === 4 ? 'text-primary' : 'text-orange-600'}`}>
-                          {completionImages.length} of 4 images uploaded
-                        </p>
+                  <TabsContent value="report-pool" className="space-y-6 mt-0">
+                    {/* Report pool – upload your own PDFs (up to 50 at a time) */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion report pool</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Upload your own report PDFs. When you mark a donation as complete, one report from the pool is automatically sent to the donor.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          multiple
+                          onChange={handleUploadPoolFiles}
+                          disabled={uploadingPool}
+                          className="hidden"
+                          id="report-pool-input"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => document.getElementById("report-pool-input")?.click()}
+                          disabled={uploadingPool}
+                        >
+                          {uploadingPool ? "Uploading..." : "Upload PDFs (up to 50)"}
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          {poolTotal} in pool, {poolAvailable} available
+                        </span>
                       </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Google Drive Link (Optional)</Label>
-                    <Input
-                      type="url"
-                      placeholder="https://drive.google.com/..."
-                      value={googleDriveLink}
-                      onChange={(e) => setGoogleDriveLink(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Add a Google Drive link for the donor to view all project content and additional photos
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>Completion Report (PDF)</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleGenerateReport}
-                        disabled={generatingReport || completionImages.length !== 4}
-                      >
-                        <IconFileText className="h-4 w-4 mr-1" />
-                        {generatingReport ? "Generating..." : "Generate PDF Report"}
-                      </Button>
-                    </div>
-                    {completionReportPDF && (
-                      <div className="p-3 bg-muted rounded-lg border">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium">PDF Report Generated</p>
-                            <p className="text-xs text-muted-foreground">Click to preview or download</p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(completionReportPDF, "_blank")}
-                            >
-                              <IconEye className="h-4 w-4 mr-1" />
-                              Preview
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const link = document.createElement("a")
-                                link.href = completionReportPDF
-                                link.download = `completion-report-${selectedDonation?.id}.pdf`
-                                link.click()
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <Textarea
-                      transform="titleCase"
-                      value={completionReport}
-                      onChange={(e) => setCompletionReport(e.target.value)}
-                      placeholder="Text version of report (for email preview)..."
-                      rows={4}
-                      className="text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      The PDF report will be automatically generated with Alianah branding. The text above is for email preview.
-                    </p>
-                  </div>
-
-                  {completionImages.length === 4 && completionReportPDF && (
-                    <Button
-                      type="button"
-                      onClick={handleReviewReport}
-                      className="w-full"
-                    >
-                      <IconEye className="h-4 w-4 mr-2" />
-                      Review & Send Report
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Report Review Modal */}
-            {reviewingReport && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="bg-background border rounded-lg shadow-lg max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                  <div className="p-6 space-y-6">
-                    <div className="flex items-center justify-between border-b pb-4">
-                      <h3 className="text-lg font-semibold">Review Completion Report</h3>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleCancelReview}
-                        disabled={sendingReport}
-                      >
-                        <IconX className="h-4 w-4" />
-                      </Button>
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">Completion Images ({completionImages.length}/4)</Label>
-                        <div className="grid grid-cols-4 gap-2">
-                          {completionImages.map((url, idx) => (
-                            <img
-                              key={idx}
-                              src={url}
-                              alt={`Completion ${idx + 1}`}
-                              className="w-full h-32 object-cover rounded border"
+                    {/* Completion – mark complete and send report from pool */}
+                    {selectedDonation.status !== "COMPLETE" && (
+                      <div className="space-y-3 border-t pt-4">
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion</h3>
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <Label>Google Drive Link (Optional)</Label>
+                            <Input
+                              type="url"
+                              placeholder="https://drive.google.com/..."
+                              value={googleDriveLink}
+                              onChange={(e) => setGoogleDriveLink(e.target.value)}
                             />
-                          ))}
-                        </div>
-                      </div>
-                      {googleDriveLink && (
-                        <div>
-                          <Label className="text-sm font-medium mb-2 block">Google Drive Link</Label>
-                          <div className="p-3 bg-muted rounded-lg border">
-                            <a
-                              href={googleDriveLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline break-all"
-                            >
-                              {googleDriveLink}
-                            </a>
+                            <p className="text-xs text-muted-foreground">
+                              Add a Google Drive link for the donor to view all project content and additional photos
+                            </p>
                           </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">PDF Report</Label>
-                        <div className="p-4 bg-muted rounded-lg border space-y-2">
-                          {completionReportPDF ? (
-                            <>
-                              <div className="flex gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => window.open(completionReportPDF, "_blank")}
-                                >
-                                  <IconEye className="h-4 w-4 mr-1" />
-                                  Preview PDF
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const link = document.createElement("a")
-                                    link.href = completionReportPDF
-                                    link.download = `completion-report-${selectedDonation.id}.pdf`
-                                    link.click()
-                                  }}
-                                >
-                                  <IconFileText className="h-4 w-4 mr-1" />
-                                  Download PDF
-                                </Button>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                This custom PDF report with Alianah branding will be sent to the donor.
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">PDF report not generated</p>
+                          <Button
+                            type="button"
+                            onClick={handleMarkCompleteWithPool}
+                            disabled={sendingReport || poolAvailable === 0}
+                            className="w-full"
+                          >
+                            {sendingReport ? (
+                              "Sending..."
+                            ) : (
+                              <>
+                                <IconSend className="h-4 w-4 mr-2" />
+                                Mark complete & send report to donor
+                              </>
+                            )}
+                          </Button>
+                          {poolAvailable === 0 && (
+                            <p className="text-xs text-amber-600">Upload report PDFs to the pool above first.</p>
                           )}
                         </div>
                       </div>
-
-                      <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                        <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                          <strong>Note:</strong> This report will be sent to {formatDonorName(selectedDonation.donor)} ({selectedDonation.donor.email}) once you approve.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 pt-4 border-t">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleCancelReview}
-                        disabled={sendingReport}
-                        className="flex-1"
-                      >
-                        <IconX className="h-4 w-4 mr-2" />
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={handleApproveAndSend}
-                        disabled={sendingReport}
-                        className="flex-1"
-                      >
-                        {sendingReport ? (
-                          <>
-                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            Sending...
-                          </>
-                        ) : (
-                          <>
-                            <IconSend className="h-4 w-4 mr-2" />
-                            Approve & Send to Donor
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Completion Status */}
-            {selectedDonation.status === "COMPLETE" && (
-              <div className="space-y-3 border-t pt-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion Status</h3>
-                <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-primary/10 text-primary dark:text-primary">
-                      <IconCheck className="h-3 w-3 mr-1" />
-                      Completed
-                    </Badge>
-                    {selectedDonation.reportSent && (
-                      <Badge variant="outline">
-                        <IconMail className="h-3 w-3 mr-1" />
-                        Report Sent
-                      </Badge>
                     )}
-                  </div>
-                  {selectedDonation.completedAt && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Completion Date</p>
-                      <p className="text-sm font-medium mt-1">
-                        {new Date(selectedDonation.completedAt).toLocaleDateString('en-GB')}
-                      </p>
-                    </div>
-                  )}
-                  {selectedDonation.reportSent && (
-                    <div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            // Generate PDF on demand for download
-                            const pdfUrl = await generateCompletionReportPDF({
-                              projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
-                              country: selectedDonation.country.country,
-                              donorName: formatDonorName(selectedDonation.donor),
-                              amount: selectedDonation.amountPence,
-                              completionDate: selectedDonation.completedAt 
-                                ? new Date(selectedDonation.completedAt).toLocaleDateString('en-GB')
-                                : new Date().toLocaleDateString('en-GB'),
-                              googleDriveLink: undefined,
-                              images: [], // Images not available for completed donations
-                              reportKind: "Sponsorship",
-                            })
-                            
-                            // Download the PDF
-                            const link = document.createElement("a")
-                            link.href = pdfUrl
-                            const safeFileName = formatDonorName(selectedDonation.donor).replace(/[^a-z0-9]/gi, '-').toLowerCase()
-                            link.download = `completion-report-${selectedDonation.id}-${safeFileName}.pdf`
-                            link.click()
-                            
-                            // Clean up blob URL after download
-                            setTimeout(() => URL.revokeObjectURL(pdfUrl), 100)
-                          } catch (error) {
-                            toast.error("Failed to generate PDF report")
-                            console.error("Error generating PDF:", error)
-                          }
-                        }}
-                      >
-                        <IconFileText className="h-4 w-4 mr-1" />
-                        Download Report PDF
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+
+                    {/* Completion Status */}
+                    {selectedDonation.status === "COMPLETE" && (
+                      <div className="space-y-3 border-t pt-4">
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion Status</h3>
+                        <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-primary/10 text-primary dark:text-primary">
+                              <IconCheck className="h-3 w-3 mr-1" />
+                              Completed
+                            </Badge>
+                            {selectedDonation.reportSent && (
+                              <Badge variant="outline">
+                                <IconMail className="h-3 w-3 mr-1" />
+                                Report Sent
+                              </Badge>
+                            )}
+                          </div>
+                          {selectedDonation.completedAt && (
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Completion Date</p>
+                              <p className="text-sm font-medium mt-1">
+                                {new Date(selectedDonation.completedAt).toLocaleDateString('en-GB')}
+                              </p>
+                            </div>
+                          )}
+                          {selectedDonation.reportSent && (
+                            <div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const pdfUrl = await generateCompletionReportPDF({
+                                      projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
+                                      country: selectedDonation.country.country,
+                                      donorName: formatDonorName(selectedDonation.donor),
+                                      amount: selectedDonation.amountPence,
+                                      completionDate: selectedDonation.completedAt 
+                                        ? new Date(selectedDonation.completedAt).toLocaleDateString('en-GB')
+                                        : new Date().toLocaleDateString('en-GB'),
+                                      googleDriveLink: undefined,
+                                      images: [],
+                                      reportKind: "Sponsorship",
+                                    })
+                                    const link = document.createElement("a")
+                                    link.href = pdfUrl
+                                    const safeFileName = formatDonorName(selectedDonation.donor).replace(/[^a-z0-9]/gi, '-').toLowerCase()
+                                    link.download = `completion-report-${selectedDonation.id}-${safeFileName}.pdf`
+                                    link.click()
+                                    setTimeout(() => URL.revokeObjectURL(pdfUrl), 100)
+                                  } catch (error) {
+                                    toast.error("Failed to generate PDF report")
+                                    console.error("Error generating PDF:", error)
+                                  }
+                                }}
+                              >
+                                <IconFileText className="h-4 w-4 mr-1" />
+                                Download Report PDF
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </TabsContent>
                 </div>
               </Tabs>

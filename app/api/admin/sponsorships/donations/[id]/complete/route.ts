@@ -4,7 +4,13 @@ import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 import { sendSponsorshipCompletionEmail } from "@/lib/email"
 
-const completeDonationSchema = z.object({
+const completeWithPoolSchema = z.object({
+  status: z.literal("COMPLETE"),
+  usePoolReport: z.literal(true),
+  googleDriveLink: z.string().url().optional().nullable(),
+})
+
+const completeWithGeneratedSchema = z.object({
   status: z.literal("COMPLETE"),
   completionImages: z.array(z.string()).length(4, "Exactly 4 images are required"),
   completionReport: z.string().optional(),
@@ -21,7 +27,6 @@ export async function POST(
   try {
     const { id } = await params
     const body = await request.json()
-    const data = completeDonationSchema.parse(body)
 
     const donation = await prisma.sponsorshipDonation.findUnique({
       where: { id },
@@ -49,6 +54,48 @@ export async function POST(
       },
     })
 
+    if (body.usePoolReport === true) {
+      const data = completeWithPoolSchema.parse(body)
+      const poolEntry = await prisma.sponsorshipReportPool.findFirst({
+        where: {
+          sponsorshipProjectId: donation.sponsorshipProjectId,
+          assignedDonationId: null,
+          assignedRecurringRef: null,
+        },
+        orderBy: { createdAt: "asc" },
+      })
+      if (!poolEntry) {
+        return NextResponse.json(
+          { error: "No report available in pool. Upload report PDFs to the project first." },
+          { status: 400 }
+        )
+      }
+      await prisma.sponsorshipReportPool.update({
+        where: { id: poolEntry.id },
+        data: { assignedDonationId: id },
+      })
+      try {
+        await sendSponsorshipCompletionEmail({
+          donorEmail: donation.donor.email,
+          donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
+          projectType: donation.sponsorshipProject.projectType,
+          country: donation.country.country,
+          images: [],
+          report: "",
+          completionReportPDF: poolEntry.pdfUrl,
+          googleDriveLink: data.googleDriveLink || undefined,
+        })
+        await prisma.sponsorshipDonation.update({
+          where: { id },
+          data: { reportSent: true },
+        })
+      } catch (emailError) {
+        console.error("Error sending sponsorship completion email:", emailError)
+      }
+      return NextResponse.json(updatedDonation)
+    }
+
+    const data = completeWithGeneratedSchema.parse(body)
     try {
       await sendSponsorshipCompletionEmail({
         donorEmail: donation.donor.email,
@@ -60,7 +107,6 @@ export async function POST(
         completionReportPDF: data.completionReportPDF || undefined,
         googleDriveLink: data.googleDriveLink || undefined,
       })
-
       await prisma.sponsorshipDonation.update({
         where: { id },
         data: { reportSent: true },

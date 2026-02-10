@@ -895,6 +895,45 @@ export default async function AdminDashboardPage({
       }).catch(() => []),
     ])
 
+    // Sponsorship report pools with fewer than 10 available reports (for admin notification)
+    let lowReportPools: { projectType: string; available: number }[] = []
+    if (!isStaff) {
+      try {
+        const [totalByProject, availableByProject] = await Promise.all([
+          prisma.sponsorshipReportPool.groupBy({
+            by: ["sponsorshipProjectId"],
+            _count: { id: true },
+          }),
+          prisma.sponsorshipReportPool.groupBy({
+            by: ["sponsorshipProjectId"],
+            _count: { id: true },
+            where: { assignedDonationId: null, assignedRecurringRef: null },
+          }),
+        ])
+        const availableMap = new Map(availableByProject.map((a) => [a.sponsorshipProjectId, a._count.id]))
+        const lowProjectIds = totalByProject
+          .filter((t) => (availableMap.get(t.sponsorshipProjectId) ?? 0) < 10)
+          .map((t) => t.sponsorshipProjectId)
+        if (lowProjectIds.length > 0) {
+          const projects = await prisma.sponsorshipProject.findMany({
+            where: { id: { in: lowProjectIds } },
+            select: { id: true, projectType: true },
+          })
+          const projectTypeLabels: Record<string, string> = {
+            ORPHANS: "Orphans",
+            HIFZ: "Hifz",
+            FAMILIES: "Families",
+          }
+          lowReportPools = projects.map((p) => ({
+            projectType: projectTypeLabels[p.projectType] || p.projectType,
+            available: availableMap.get(p.id) ?? 0,
+          }))
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     const allCampaigns: Array<{ id: string; name: string; amountPence: number; type: string }> = []
 
     // Add Appeals (admin only)
@@ -1289,6 +1328,21 @@ export default async function AdminDashboardPage({
         <AdminHeader title="Dashboard" dateFilter={<DashboardDateFilter />} />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
+            {lowReportPools.length > 0 && (
+              <div className="mx-2 mt-2 sm:mx-4 lg:mx-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+                <p className="font-medium">
+                  Low report pool: fewer than 10 reports available for{" "}
+                  {lowReportPools.map((p) => `${p.projectType} (${p.available} left)`).join(", ")}.
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Upload more PDFs in{" "}
+                  <a href="/admin/sponsorships" className="text-primary hover:underline font-medium">
+                    Sponsorships
+                  </a>{" "}
+                  → open a project → Reports tab.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
               {/* Top Row: 4 Metric Cards in 2x2 Grid */}
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">

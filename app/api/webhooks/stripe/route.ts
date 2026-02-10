@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import Stripe from "stripe"
 import { finalizeOrderByOrderNumber } from "@/lib/payment-finalize"
+import { sendSponsorshipCompletionEmail } from "@/lib/email"
 
 // Lazy initialization to avoid errors during build when API key is not available
 let stripe: Stripe | null = null
@@ -190,6 +191,58 @@ export async function POST(request: NextRequest) {
                 description: `Donation ${orderNumber}`,
                 metadata: { orderNumber },
               })
+            }
+
+            // Auto-send one report from pool only on first payment (when they start sponsoring), not on renewals
+            const billingReason = (invoice as { billing_reason?: string }).billing_reason
+            if (orderNumber && billingReason === "subscription_create") {
+              const periodEnd = (subscription as unknown as { current_period_end?: number | null }).current_period_end
+              const recurringRef = periodEnd ? `sub:${subscriptionId}:${periodEnd}` : `sub:${subscriptionId}:${invoice.id}`
+              const order = await prisma.demoOrder.findUnique({
+                where: { orderNumber },
+                include: { items: true },
+              })
+              if (order?.items?.length) {
+                const sponsorshipItems = order.items.filter(
+                  (item) =>
+                    item.sponsorshipProjectId &&
+                    (item.frequency === "MONTHLY" || item.frequency === "YEARLY")
+                )
+                const projectIds = [...new Set(sponsorshipItems.map((i) => i.sponsorshipProjectId!).filter(Boolean))]
+                const donorName = `${order.donorFirstName} ${order.donorLastName}`.trim() || "Donor"
+                const country = order.donorCountry || "UK"
+                for (const projectId of projectIds) {
+                  const poolEntry = await prisma.sponsorshipReportPool.findFirst({
+                    where: {
+                      sponsorshipProjectId: projectId,
+                      assignedDonationId: null,
+                      assignedRecurringRef: null,
+                    },
+                    orderBy: { createdAt: "asc" },
+                    include: { sponsorshipProject: true },
+                  })
+                  if (poolEntry) {
+                    await prisma.sponsorshipReportPool.update({
+                      where: { id: poolEntry.id },
+                      data: { assignedRecurringRef: recurringRef },
+                    })
+                    try {
+                      await sendSponsorshipCompletionEmail({
+                        donorEmail: order.donorEmail,
+                        donorName,
+                        projectType: poolEntry.sponsorshipProject.projectType,
+                        location: poolEntry.sponsorshipProject.location,
+                        country,
+                        images: [],
+                        report: "",
+                        completionReportPDF: poolEntry.pdfUrl,
+                      })
+                    } catch (emailErr) {
+                      console.error("Error sending sponsorship report email:", emailErr)
+                    }
+                  }
+                }
+              }
             }
           } catch (err) {
             console.error("Error handling invoice.payment_succeeded:", err)
