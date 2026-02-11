@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { useSidecart } from "@/components/sidecart-provider"
+import { DonationExpressCheckout, type DonationExpressItem } from "@/components/donation-express-checkout"
 import { cn } from "@/lib/utils"
 import {
   WaterPumpIcon,
@@ -127,6 +128,7 @@ export function OneNationDonationForm({
   const [customAmount, setCustomAmount] = React.useState<string>("")
   const [selectedProduct, setSelectedProduct] = React.useState<string>("")
   const [plaqueName, setPlaqueName] = React.useState<string>("")
+  const [walletAvailable, setWalletAvailable] = React.useState(false)
 
   // Pre-fill from Zakat calculator link (?zakatPence=...); only on mount when value is present
   const hasAppliedInitialZakat = React.useRef(false)
@@ -296,6 +298,121 @@ export function OneNationDonationForm({
   
   // Check if water project requires plaque name
   const requiresPlaqueName = !!waterProjectData?.plaqueAvailable
+
+  // One-off express checkout (Apple Pay): same validation as Add to Bag, one-off only
+  const expressCheckout = React.useMemo((): { item: DonationExpressItem; amountPence: number } | null => {
+    if (!selectedIntention) return null
+    if (donationType === "water") {
+      if (!selectedWaterProject || !selectedWaterCountry || !selectedWaterCountryData) return null
+      if (requiresPlaqueName && !plaqueName.trim()) return null
+      const projectTypeLabels: Record<string, string> = {
+        WATER_PUMP: "Water Pump",
+        WATER_WELL: "Water Well",
+        WATER_TANK: "Water Tank",
+        WUDHU_AREA: "Wudhu Area",
+      }
+      const title = waterProjectData?.location || projectTypeLabels[waterProjectData?.projectType || ""] || "Water Project"
+      return {
+        item: {
+          appealTitle: title,
+          frequency: "ONE_OFF",
+          donationType: selectedIntention,
+          amountPence: selectedWaterCountryData.pricePence,
+          waterProjectId: waterProjectData?.id || "",
+          waterProjectCountryId: selectedWaterCountry,
+          ...(requiresPlaqueName && plaqueName.trim() ? { plaqueName: plaqueName.trim() } : {}),
+        },
+        amountPence: selectedWaterCountryData.pricePence,
+      }
+    }
+    if (donationType === "sponsorship") {
+      if (sponsorshipFrequency !== "YEARLY") return null // express only for one-off (yearly)
+      if (!selectedSponsorshipType || !selectedSponsorshipCountry || !selectedSponsorshipCountryData) return null
+      const yearlyPence = selectedSponsorshipCountryData.yearlyPricePence
+      if (!yearlyPence) return null
+      const labels: Record<string, string> = { ORPHANS: "Orphans", HIFZ: "Hifz", FAMILIES: "Families" }
+      if (!sponsorshipProjectData?.id) return null
+      return {
+        item: {
+          appealTitle: `Sponsorship - ${labels[sponsorshipProjectData.projectType] || sponsorshipProjectData.projectType}`,
+          frequency: "ONE_OFF",
+          donationType: selectedIntention,
+          amountPence: yearlyPence,
+          sponsorshipProjectId: sponsorshipProjectData.id,
+          sponsorshipCountryId: selectedSponsorshipCountry,
+          sponsorshipProjectType: sponsorshipProjectData.projectType,
+          productName: `${selectedSponsorshipCountryData?.country ?? ""} (Yearly)`,
+        },
+        amountPence: yearlyPence,
+      }
+    }
+    // appeal
+    if (frequency !== "ONE_OFF") return null
+    if (!selectedAppeal || !appealData) return null
+    let amountPence = 0
+    let productId: string | undefined
+    let productName: string | undefined
+    if (selectedProduct && selectedProductData) {
+      productId = selectedProductData.productId
+      productName = selectedProductData.product.name
+      if (selectedProductData.product.fixedAmountPence) {
+        amountPence = selectedProductData.product.fixedAmountPence
+      } else if (productPresetAmounts.length > 0 && !productAllowsCustom) {
+        if (monthlyPresetAmount) amountPence = Math.round(monthlyPresetAmount * 100)
+        else return null
+      } else if (customAmount) {
+        const amount = parseFloat(customAmount)
+        if (isNaN(amount) || amount <= 0) return null
+        amountPence = Math.round(amount * 100)
+      } else return null
+    } else {
+      if (zakatFixedAmountPence != null && zakatFixedAmountPence > 0) {
+        amountPence = zakatFixedAmountPence
+      } else if (customAmount) {
+        const amount = parseFloat(customAmount)
+        if (isNaN(amount) || amount <= 0) return null
+        amountPence = Math.round(amount * 100)
+      } else return null
+    }
+    if (amountPence <= 0) return null
+    return {
+      item: {
+        appealId: selectedAppeal,
+        appealTitle: appealData.title,
+        productId,
+        productName,
+        frequency: "ONE_OFF",
+        donationType: selectedIntention,
+        amountPence,
+      },
+      amountPence,
+    }
+  }, [
+    donationType,
+    frequency,
+    selectedAppeal,
+    appealData,
+    selectedIntention,
+    selectedWaterProject,
+    selectedWaterCountry,
+    selectedWaterCountryData,
+    waterProjectData,
+    requiresPlaqueName,
+    plaqueName,
+    sponsorshipFrequency,
+    selectedSponsorshipType,
+    selectedSponsorshipCountry,
+    selectedSponsorshipCountryData,
+    sponsorshipProjectData,
+    selectedProduct,
+    selectedProductData,
+    productPresetAmounts,
+    productAllowsCustom,
+    monthlyPresetAmount,
+    customAmount,
+    appealPresets.length,
+    zakatFixedAmountPence,
+  ])
 
   const handleAddToBag = () => {
     if (donationType === "appeal" && !selectedAppeal) {
@@ -958,6 +1075,20 @@ export function OneNationDonationForm({
                 </SelectContent>
               </Select>
             </div>
+            )}
+
+            {/* Apple Pay / Google Pay for one-off (no cart, no duplicate orders) */}
+            {expressCheckout && (
+              <div className="space-y-2 mt-6">
+                {walletAvailable && (
+                  <p className="text-sm text-muted-foreground">Or pay with</p>
+                )}
+                <DonationExpressCheckout
+                  item={expressCheckout.item}
+                  amountPence={expressCheckout.amountPence}
+                  onWalletAvailable={setWalletAvailable}
+                />
+              </div>
             )}
 
             {/* Add to Donation Bag Button */}

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useSidecart } from "@/components/sidecart-provider"
+import { DonationExpressCheckout, type DonationExpressItem } from "@/components/donation-express-checkout"
 import { formatCurrency, formatEnum } from "@/lib/utils"
 
 type DonationType = "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
@@ -84,6 +85,7 @@ export function DonationForm({
     initialPreset || null
   )
   const [isAnonymous, setIsAnonymous] = React.useState(false)
+  const [walletAvailable, setWalletAvailable] = React.useState(false)
 
   // Set initial values from URL params on mount
   React.useEffect(() => {
@@ -228,6 +230,26 @@ export function DonationForm({
   const canUseCustom = selectedProductData?.allowCustom ?? false
 
   const showAppealPresets = !selectedProduct && appealPresets.length > 0
+
+  // One-off amount for express checkout (Apple Pay / Google Pay)
+  const expressAmountPence =
+    frequency === "ONE_OFF"
+      ? presetAmount ?? (customAmount ? Math.round(parseFloat(customAmount) * 100) : 0)
+      : 0
+  const hasValidExpressAmount = expressAmountPence > 0
+  const expressItem: DonationExpressItem | null =
+    frequency === "ONE_OFF" && hasValidExpressAmount && donationType
+      ? {
+          appealId: appeal.id,
+          appealTitle: appeal.title,
+          ...(fundraiserId ? { fundraiserId, isAnonymous } : {}),
+          productId: selectedProductData?.productId,
+          productName: selectedProductData?.product?.name,
+          frequency: "ONE_OFF",
+          donationType,
+          amountPence: expressAmountPence,
+        }
+      : null
 
   const formFields = (
     <>
@@ -400,6 +422,20 @@ export function DonationForm({
           <Label htmlFor="donate-anonymous" className="font-normal cursor-pointer">
             Donate anonymously
           </Label>
+        </div>
+      )}
+
+      {/* Apple Pay / Google Pay for one-off (no cart, no duplicate orders) */}
+      {expressItem && hasValidExpressAmount && (
+        <div className="space-y-2">
+          {walletAvailable && (
+            <p className="text-sm text-muted-foreground">Or pay with</p>
+          )}
+          <DonationExpressCheckout
+            item={expressItem}
+            amountPence={expressAmountPence}
+            onWalletAvailable={setWalletAvailable}
+          />
         </div>
       )}
 
