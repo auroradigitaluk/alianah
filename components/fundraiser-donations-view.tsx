@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
-import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod } from "@/lib/utils"
+import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod, displayDonorEmail } from "@/lib/utils"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -159,7 +159,7 @@ export function FundraiserDonationsView({
                           {donation.isAnonymous ? "Anonymous" : formatDonorName(donation.donor)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {donation.isAnonymous ? "Anonymous" : donation.donor.email}
+                          {donation.isAnonymous ? "Anonymous" : displayDonorEmail(donation.donor.email)}
                         </p>
                       </div>
                     </div>

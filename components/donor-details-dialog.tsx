@@ -13,7 +13,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatCurrency, formatDate, formatDonorName, formatEnum, formatPaymentMethod } from "@/lib/utils"
+import { formatCurrency, formatDate, formatDonorName, formatEnum, formatPaymentMethod, displayDonorEmail } from "@/lib/utils"
 import { Gift, Mail, MapPin, Phone, User, Wallet } from "lucide-react"
 
 export interface DonorDonation {
@@ -164,7 +164,7 @@ export function DonorDetailsDialog({ donor, open, onOpenChange }: Props) {
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                               Email
                             </p>
-                            <p className="text-base text-foreground break-all">{donor.email}</p>
+                            <p className="text-base text-foreground break-all">{displayDonorEmail(donor.email)}</p>
                           </div>
                         </div>
 

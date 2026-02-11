@@ -5,7 +5,7 @@ import { AdminTable, StatusBadge } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { IconPlayerPause, IconX, IconLoader } from "@tabler/icons-react"
-import { formatCurrency, formatEnum, formatDate, formatDonorName } from "@/lib/utils"
+import { formatCurrency, formatEnum, formatDate, formatDonorName, displayDonorEmail } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -375,7 +375,7 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                                 Email
                               </p>
-                              <p className="text-base text-foreground break-all">{selectedRecurring.donor.email}</p>
+                              <p className="text-base text-foreground break-all">{displayDonorEmail(selectedRecurring.donor.email)}</p>
                             </div>
                           </div>
                         </div>

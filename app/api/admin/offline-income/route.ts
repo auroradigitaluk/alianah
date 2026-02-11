@@ -43,6 +43,7 @@ const waterSchema = baseSchema.extend({
       firstName: z.string().min(1).optional(),
       lastName: z.string().min(1).optional(),
       email: z.string().email().optional(),
+      phone: z.string().optional(),
     })
     .optional(),
 })
@@ -57,6 +58,7 @@ const sponsorshipSchema = baseSchema.extend({
       firstName: z.string().min(1).optional(),
       lastName: z.string().min(1).optional(),
       email: z.string().email().optional(),
+      phone: z.string().optional(),
     })
     .optional(),
 })
@@ -170,16 +172,19 @@ export async function POST(request: NextRequest) {
       const donorEmail = donorInput?.email?.trim() || makeFallbackEmail()
       const donorFirst = donorInput?.firstName?.trim() || "Anonymous"
       const donorLast = donorInput?.lastName?.trim() || "Donor"
+      const donorPhone = donorInput?.phone?.trim() || null
       const donor = await prisma.donor.upsert({
         where: { email: donorEmail },
         update: {
           firstName: donorFirst,
           lastName: donorLast,
+          phone: donorPhone,
         },
         create: {
           firstName: donorFirst,
           lastName: donorLast,
           email: donorEmail,
+          phone: donorPhone,
         },
       })
 
@@ -233,16 +238,19 @@ export async function POST(request: NextRequest) {
       const donorEmail = donorInput?.email?.trim() || makeFallbackEmail()
       const donorFirst = donorInput?.firstName?.trim() || "Anonymous"
       const donorLast = donorInput?.lastName?.trim() || "Donor"
+      const donorPhone = donorInput?.phone?.trim() || null
       const donor = await prisma.donor.upsert({
         where: { email: donorEmail },
         update: {
           firstName: donorFirst,
           lastName: donorLast,
+          phone: donorPhone,
         },
         create: {
           firstName: donorFirst,
           lastName: donorLast,
           email: donorEmail,
+          phone: donorPhone,
         },
       })
 

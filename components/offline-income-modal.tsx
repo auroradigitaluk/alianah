@@ -93,6 +93,7 @@ export function OfflineIncomeModal({
   const [firstName, setFirstName] = React.useState("")
   const [lastName, setLastName] = React.useState("")
   const [email, setEmail] = React.useState("")
+  const [phone, setPhone] = React.useState("")
   const [giftAidExpanded, setGiftAidExpanded] = React.useState(false)
   const [giftaidTitle, setGiftaidTitle] = React.useState("")
   const [giftaidPhone, setGiftaidPhone] = React.useState("")
@@ -134,6 +135,7 @@ export function OfflineIncomeModal({
       setFirstName("")
       setLastName("")
       setEmail("")
+      setPhone("")
       setAmount("")
       setGiftAidExpanded(false)
       setGiftaidTitle("")
@@ -188,6 +190,7 @@ export function OfflineIncomeModal({
     setFirstName("")
     setLastName("")
     setEmail("")
+    setPhone("")
     setGiftAidExpanded(false)
     setGiftaidTitle("")
     setGiftaidPhone("")
@@ -289,12 +292,13 @@ export function OfflineIncomeModal({
               receivedAt,
               plaqueName: plaqueName || null,
               notes: notes || null,
-              ...(firstName.trim() || lastName.trim() || email.trim()
+              ...(firstName.trim() || lastName.trim() || email.trim() || phone.trim()
                 ? {
                     donor: {
                       firstName: firstName.trim() || undefined,
                       lastName: lastName.trim() || undefined,
                       email: email.trim() || undefined,
+                      phone: phone.trim() || undefined,
                     },
                   }
                 : {}),
@@ -309,12 +313,13 @@ export function OfflineIncomeModal({
               collectedVia: "office",
               receivedAt,
               notes: notes || null,
-              ...(firstName.trim() || lastName.trim() || email.trim()
+              ...(firstName.trim() || lastName.trim() || email.trim() || phone.trim()
                 ? {
                     donor: {
                       firstName: firstName.trim() || undefined,
                       lastName: lastName.trim() || undefined,
                       email: email.trim() || undefined,
+                      phone: phone.trim() || undefined,
                     },
                   }
                 : {}),
@@ -606,7 +611,7 @@ export function OfflineIncomeModal({
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="space-y-2">
                     <Label htmlFor="donor-first">First Name (optional)</Label>
                     <Input
@@ -632,6 +637,15 @@ export function OfflineIncomeModal({
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="donor-phone">Phone (optional)</Label>
+                    <Input
+                      id="donor-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                     />
                   </div>
                 </div>
@@ -712,7 +726,7 @@ export function OfflineIncomeModal({
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="space-y-2">
                     <Label htmlFor="sponsor-first">First Name (optional)</Label>
                     <Input
@@ -738,6 +752,15 @@ export function OfflineIncomeModal({
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sponsor-phone">Phone (optional)</Label>
+                    <Input
+                      id="sponsor-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                     />
                   </div>
                 </div>

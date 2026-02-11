@@ -19,7 +19,7 @@ import { toast } from "sonner"
 import { IconPencil, IconUpload, IconFileText, IconMail, IconCheck, IconEye, IconX, IconSend, IconDownload } from "@tabler/icons-react"
 import { ExternalLink } from "lucide-react"
 import { generateCompletionReportPDF } from "@/lib/pdf-generator"
-import { formatDonorName, formatPaymentMethod } from "@/lib/utils"
+import { formatDonorName, formatPaymentMethod, displayDonorEmail } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 
 interface SponsorshipDonation {
@@ -430,7 +430,7 @@ Thank you for your generous support in making this project possible.`
       const rows = donations.map(d => [
         d.donor.firstName,
         d.donor.lastName,
-        d.donor.email,
+        displayDonorEmail(d.donor.email),
         d.country.country,
         `£${(d.amountPence / 100).toFixed(2)}`,
         d.status || "No Status",
@@ -698,7 +698,7 @@ Thank you for your generous support in making this project possible.`
                 <div className="space-y-1 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Email:</span>
-                    <span>{selectedDonation.donor.email}</span>
+                    <span>{displayDonorEmail(selectedDonation.donor.email)}</span>
                   </div>
                   {selectedDonation.donor.phone && (
                     <div className="flex items-center gap-2">

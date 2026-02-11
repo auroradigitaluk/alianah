@@ -15,6 +15,20 @@ export function toUpperCaseLive(input: string): string {
   return input.toUpperCase()
 }
 
+/** Placeholder email used when no donor email is provided (e.g. offline donations). */
+const OFFLINE_PLACEHOLDER_EMAIL_REGEX = /^offline-.+@alianahapp\.local$/
+
+/** Returns true if the email is the system placeholder for "no email provided". */
+export function isPlaceholderDonorEmail(email: string | null | undefined): boolean {
+  return Boolean(email && OFFLINE_PLACEHOLDER_EMAIL_REGEX.test(email))
+}
+
+/** Display string for donor email; shows "—" when email is the offline placeholder. */
+export function displayDonorEmail(email: string | null | undefined): string {
+  if (!email) return "—"
+  return isPlaceholderDonorEmail(email) ? "—" : email
+}
+
 /** Base URL for public fundraiser/donation links (e.g. give.alianah.org). No trailing slash. */
 export function getFundraiserBaseUrl(): string {
   const raw =

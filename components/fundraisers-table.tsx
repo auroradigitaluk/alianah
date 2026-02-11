@@ -34,7 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod } from "@/lib/utils"
+import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod, displayDonorEmail } from "@/lib/utils"
 import { ExternalLink, Eye, EyeOff, Trash2, Calendar, Target, TrendingUp, Users, Gift, Mail, User, Hash, MessageSquare, Megaphone, FileText, Download, Pencil } from "lucide-react"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
 
@@ -366,7 +366,7 @@ export function FundraisersTable({
       return [
         donation.donor.firstName,
         donation.donor.lastName,
-        donation.donor.email,
+        displayDonorEmail(donation.donor.email),
         amount,
         status,
         date,
@@ -859,7 +859,7 @@ export function FundraisersTable({
                                       {formatDonorName(donation.donor)}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
-                                      {donation.donor.email}
+                                      {displayDonorEmail(donation.donor.email)}
                                     </div>
                                   </div>
                                 </TableCell>

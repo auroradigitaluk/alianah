@@ -18,6 +18,7 @@ import {
   formatDateTime,
   formatDonorName,
   formatPaymentMethod,
+  displayDonorEmail,
 } from "@/lib/utils"
 import {
   Dialog,
@@ -604,7 +605,7 @@ export function DonationsTable({
                         </div>
                         <div className="rounded-lg border border-border/60 px-4">
                           <InfoRow label="Name" value={formatDonorName(donation.donor)} />
-                          <InfoRow label="Email" value={donation.donor.email} />
+                          <InfoRow label="Email" value={displayDonorEmail(donation.donor.email)} />
                           <InfoRow label="Phone" value={donation.donor.phone || "-"} />
                           <InfoRow
                             label="Address"
