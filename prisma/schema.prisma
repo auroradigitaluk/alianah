@@ -28,6 +28,7 @@ model AdminUser {
   auditLogs           AuditLog[]
   offlineIncome       OfflineIncome[]
   collections         Collection[]
+  masjidsAdded        Masjid[]               @relation("AddedByMasjid")
   waterProjectDons    WaterProjectDonation[] @relation("AddedByWater")
   sponsorshipDons     SponsorshipDonation[]  @relation("AddedBySponsorship")
   tasksAssigned       Task[]                 @relation("TaskAssignee")
@@ -262,14 +263,17 @@ model Masjid {
   lastContactedAt        DateTime?
   nextFollowUpAt         DateTime?
   notes                  String?
+  addedByAdminUserId     String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @default(now()) @updatedAt
 
+  addedBy     AdminUser?   @relation("AddedByMasjid", fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
   collections Collection[]
 
   @@index([city])
   @@index([status])
   @@index([nextFollowUpAt])
+  @@index([addedByAdminUserId])
   @@map("masjids")
 }
 

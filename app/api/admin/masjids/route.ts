@@ -11,14 +11,14 @@ const masjidSchema = z.object({
   status: z.enum(statusOptions).default("ACTIVE"),
   city: z.string().min(1),
   address: z.string().min(1),
-  postcode: z.string().optional().nullable(),
-  country: z.string().optional().nullable(),
+  postcode: z.string().min(1, "Postcode is required"),
+  country: z.string().min(1, "Country is required"),
   region: z.string().optional().nullable(),
-  contactName: z.string().optional().nullable(),
-  contactRole: z.string().optional().nullable(),
+  contactName: z.string().min(1, "Contact name is required"),
+  contactRole: z.string().min(1, "Contact role is required"),
   secondaryContactName: z.string().optional().nullable(),
   secondaryContactRole: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
+  phone: z.string().min(1, "Phone is required"),
   phoneAlt: z.string().optional().nullable(),
   email: z.union([z.string().email(), z.literal(""), z.null()]).optional(),
   emailAlt: z.union([z.string().email(), z.literal(""), z.null()]).optional(),
@@ -44,7 +44,7 @@ const parseDate = (value?: string | null): Date | null => {
 }
 
 export async function POST(request: NextRequest) {
-  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  const [user, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
   if (err) return err
   try {
     const body = await request.json()
@@ -56,14 +56,14 @@ export async function POST(request: NextRequest) {
         status: data.status,
         city: data.city.trim(),
         address: data.address.trim(),
-        postcode: normalizeString(data.postcode),
-        country: normalizeString(data.country),
+        postcode: data.postcode.trim(),
+        country: data.country.trim(),
         region: normalizeString(data.region),
-        contactName: normalizeString(data.contactName),
-        contactRole: normalizeString(data.contactRole),
+        contactName: data.contactName.trim(),
+        contactRole: data.contactRole.trim(),
         secondaryContactName: normalizeString(data.secondaryContactName),
         secondaryContactRole: normalizeString(data.secondaryContactRole),
-        phone: normalizeString(data.phone),
+        phone: data.phone.trim(),
         phoneAlt: normalizeString(data.phoneAlt),
         email: normalizeString(data.email),
         emailAlt: normalizeString(data.emailAlt),
@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         lastContactedAt: parseDate(data.lastContactedAt),
         nextFollowUpAt: parseDate(data.nextFollowUpAt),
         notes: normalizeString(data.notes),
+        addedByAdminUserId: user.id,
       },
     })
 

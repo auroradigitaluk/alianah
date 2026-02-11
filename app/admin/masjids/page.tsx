@@ -3,22 +3,39 @@ import { prisma } from "@/lib/prisma"
 import { MasjidsTable } from "@/components/masjids-table"
 import { ExportCsvButton } from "@/components/export-csv-button"
 import { MasjidCreateButton } from "@/components/masjid-create-button"
+import { formatAdminUserName } from "@/lib/utils"
+import { getAdminUser } from "@/lib/admin-auth"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-async function getMasjids() {
+async function getMasjids(filterByAddedByUserId: string | null) {
   try {
     const masjids = await prisma.masjid.findMany({
+      where: filterByAddedByUserId
+        ? { addedByAdminUserId: filterByAddedByUserId }
+        : undefined,
       orderBy: { name: "asc" },
       include: {
         collections: {
-          select: {
-            amountPence: true,
+          orderBy: { collectedAt: "desc" },
+          include: {
+            appeal: { select: { title: true } },
+            addedBy: { select: { firstName: true, lastName: true, email: true } },
           },
         },
       },
     })
+
+    const addedByUserIds = [...new Set(masjids.map((m) => m.addedByAdminUserId).filter(Boolean))] as string[]
+    const addedByUsers =
+      addedByUserIds.length > 0
+        ? await prisma.adminUser.findMany({
+            where: { id: { in: addedByUserIds } },
+            select: { id: true, firstName: true, lastName: true, email: true },
+          })
+        : []
+    const addedByNameMap = new Map(addedByUsers.map((u) => [u.id, formatAdminUserName(u)]))
 
     return masjids.map((masjid) => {
       const collectionCount = masjid.collections.length
@@ -26,6 +43,19 @@ async function getMasjids() {
         (sum, c) => sum + c.amountPence,
         0
       )
+      const collections = masjid.collections.map((c) => ({
+        id: c.id,
+        amountPence: c.amountPence,
+        donationType: c.donationType,
+        type: c.type,
+        collectedAt: c.collectedAt.toISOString(),
+        masjidId: c.masjidId,
+        appealId: c.appealId,
+        masjid: { name: masjid.name },
+        appeal: c.appeal ? { title: c.appeal.title } : null,
+        notes: c.notes,
+        addedByName: formatAdminUserName(c.addedBy),
+      }))
 
       return {
         id: masjid.id,
@@ -51,11 +81,14 @@ async function getMasjids() {
         notes: masjid.notes,
         createdAt: masjid.createdAt.toISOString(),
         updatedAt: masjid.updatedAt.toISOString(),
+        addedByName: masjid.addedByAdminUserId ? addedByNameMap.get(masjid.addedByAdminUserId) ?? null : null,
         collectionCount,
         totalAmountRaised,
+        collections,
       }
     })
   } catch (error) {
+    console.error("getMasjids error:", error)
     return []
   }
 }
@@ -65,8 +98,11 @@ export default async function MasjidsPage({
 }: {
   searchParams: Promise<{ open?: string }>
 }) {
+  const user = await getAdminUser()
+  // Staff see only masjids they added; admins see all masjids regardless of who added them
+  const filterByAddedBy = user?.role === "STAFF" ? user.id : null
   const params = await searchParams
-  const masjids = await getMasjids()
+  const masjids = await getMasjids(filterByAddedBy)
 
   return (
     <>

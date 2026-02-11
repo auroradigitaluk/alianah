@@ -105,12 +105,17 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
     if (!name.trim()) nextErrors.name = "Masjid name is required"
     if (!address.trim()) nextErrors.address = "Address is required"
     if (!city.trim()) nextErrors.city = "City is required"
+    if (!postcode.trim()) nextErrors.postcode = "Postcode is required"
+    else if (!isValidMasjidPostcode(postcode)) nextErrors.postcode = "Enter a valid postcode"
+    if (!country.trim()) nextErrors.country = "Country is required"
+    if (!contactName.trim()) nextErrors.contactName = "Contact name is required"
+    if (!contactRole.trim()) nextErrors.contactRole = "Contact role is required"
+    if (!phone.trim()) nextErrors.phone = "Phone is required"
+    else if (!isValidPhone(phone)) nextErrors.phone = "Enter a valid phone number"
 
     if (email && !isValidEmail(email)) nextErrors.email = "Enter a valid email address"
     if (emailAlt && !isValidEmail(emailAlt)) nextErrors.emailAlt = "Enter a valid email address"
-    if (phone && !isValidPhone(phone)) nextErrors.phone = "Enter a valid phone number"
     if (phoneAlt && !isValidPhone(phoneAlt)) nextErrors.phoneAlt = "Enter a valid phone number"
-    if (postcode && !isValidMasjidPostcode(postcode)) nextErrors.postcode = "Enter a valid postcode"
 
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
@@ -241,11 +246,12 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             {errors.city ? <p className="text-xs text-destructive">{errors.city}</p> : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="postcode">Postcode</Label>
+            <Label htmlFor="postcode">Postcode *</Label>
             <Input
               id="postcode"
               transform="uppercase"
               value={postcode}
+              required
               onChange={(e) => {
                 setPostcode(e.target.value)
                 setErrors((prev) => ({ ...prev, postcode: "" }))
@@ -255,14 +261,19 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
             {errors.postcode ? <p className="text-xs text-destructive">{errors.postcode}</p> : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="country">Country</Label>
+            <Label htmlFor="country">Country *</Label>
             <Input
               id="country"
               transform="titleCase"
               value={country}
-              onChange={(e) => setCountry(e.target.value)}
+              required
+              onChange={(e) => {
+                setCountry(e.target.value)
+                setErrors((prev) => ({ ...prev, country: "" }))
+              }}
               placeholder="Country"
             />
+            {errors.country ? <p className="text-xs text-destructive">{errors.country}</p> : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="region">Region</Label>
@@ -292,30 +303,41 @@ export function MasjidForm({ masjid, onSuccess, redirectTo = "/admin/masjids" }:
         </h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="contactName">Contact Name</Label>
+            <Label htmlFor="contactName">Contact Name *</Label>
             <Input
               id="contactName"
               transform="titleCase"
               value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
+              required
+              onChange={(e) => {
+                setContactName(e.target.value)
+                setErrors((prev) => ({ ...prev, contactName: "" }))
+              }}
               placeholder="Primary contact name"
             />
+            {errors.contactName ? <p className="text-xs text-destructive">{errors.contactName}</p> : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="contactRole">Contact Role</Label>
+            <Label htmlFor="contactRole">Contact Role *</Label>
             <Input
               id="contactRole"
               transform="titleCase"
               value={contactRole}
-              onChange={(e) => setContactRole(e.target.value)}
+              required
+              onChange={(e) => {
+                setContactRole(e.target.value)
+                setErrors((prev) => ({ ...prev, contactRole: "" }))
+              }}
               placeholder="Imam, Trustee, Secretary"
             />
+            {errors.contactRole ? <p className="text-xs text-destructive">{errors.contactRole}</p> : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
+            <Label htmlFor="phone">Phone *</Label>
             <Input
               id="phone"
               value={phone}
+              required
               onChange={(e) => {
                 setPhone(e.target.value)
                 setErrors((prev) => ({ ...prev, phone: "" }))

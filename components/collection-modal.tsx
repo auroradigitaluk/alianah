@@ -159,18 +159,20 @@ export function CollectionModal({ masjids, appeals }: Props) {
                 <Label className="text-sm font-medium text-foreground">Masjid</Label>
                 <Popover open={masjidOpen} onOpenChange={setMasjidOpen}>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
+                    <button
+                      type="button"
                       role="combobox"
                       aria-expanded={masjidOpen}
                       className={cn(
-                        "w-full justify-between font-normal",
+                        "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 hover:bg-muted/50 dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:opacity-50",
                         !selectedMasjid && "text-muted-foreground"
                       )}
                     >
-                      {selectedMasjid ? selectedMasjid.name : "Select masjid (optional)"}
-                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
+                      <span className="line-clamp-1 flex items-center gap-2">
+                        {selectedMasjid ? selectedMasjid.name : "Select masjid (optional)"}
+                      </span>
+                      <ChevronDown className="size-4 shrink-0 opacity-50" />
+                    </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                     <div className="p-2 border-b">
@@ -187,8 +189,8 @@ export function CollectionModal({ masjids, appeals }: Props) {
                       <button
                         type="button"
                         className={cn(
-                          "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-accent",
-                          masjidId === "__none__" && "bg-accent"
+                          "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-muted/50",
+                          masjidId === "__none__" && "bg-muted"
                         )}
                         onClick={() => {
                           setMasjidId("__none__")
@@ -203,8 +205,8 @@ export function CollectionModal({ masjids, appeals }: Props) {
                           key={m.id}
                           type="button"
                           className={cn(
-                            "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-accent",
-                            masjidId === m.id && "bg-accent"
+                            "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-muted/50",
+                            masjidId === m.id && "bg-muted"
                           )}
                           onClick={() => {
                             setMasjidId(m.id)

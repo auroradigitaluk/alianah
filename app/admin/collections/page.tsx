@@ -34,8 +34,8 @@ export default async function CollectionsPage({
   const user = await getAdminUser()
   const isStaff = user?.role === "STAFF"
   const params = await searchParams
-  const staffParam = params?.staff
-  const staffId = isStaff ? user!.id : staffParam || null
+  // Staff only see collections they've logged; admins can filter by staff via ?staff=
+  const staffId = isStaff ? user!.id : params?.staff || null
 
   const staffUsers = user?.role === "ADMIN"
     ? await prisma.adminUser.findMany({

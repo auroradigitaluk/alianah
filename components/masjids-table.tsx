@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { AdminTable } from "@/components/admin-table"
+import { AdminTable, StatusBadge } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,22 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Building2, User, Phone, Mail, MapPin, Calendar } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { CollectionDetailDialog, type CollectionItem } from "@/components/collection-detail-dialog"
+
+export interface MasjidCollection {
+  id: string
+  amountPence: number
+  donationType: string
+  type: string
+  collectedAt: string
+  masjidId?: string | null
+  appealId?: string | null
+  masjid?: { name: string } | null
+  appeal?: { title: string } | null
+  notes?: string | null
+  addedByName?: string | null
+}
 
 interface Masjid {
   id: string
@@ -44,8 +60,10 @@ interface Masjid {
   notes?: string | null
   createdAt: string
   updatedAt: string
+  addedByName?: string | null
   collectionCount: number
   totalAmountRaised: number
+  collections?: MasjidCollection[]
 }
 
 export function MasjidsTable({
@@ -56,6 +74,8 @@ export function MasjidsTable({
   initialSelectedId?: string | null
 }) {
   const [selectedMasjid, setSelectedMasjid] = useState<Masjid | null>(null)
+  const [selectedCollection, setSelectedCollection] = useState<CollectionItem | null>(null)
+  const [collectionDetailOpen, setCollectionDetailOpen] = useState(false)
   const [nameQuery, setNameQuery] = useState("")
   const [cityQuery, setCityQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -89,6 +109,38 @@ export function MasjidsTable({
     setNameQuery("")
     setCityQuery("")
     setStatusFilter("all")
+  }
+
+  const getMasjidStatusBadge = (status: string) => {
+    if (status === "ACTIVE") {
+      return <StatusBadge isActive />
+    }
+    if (status === "INACTIVE") {
+      return (
+        <Badge variant="outline" className="px-1.5 text-muted-foreground bg-muted">
+          {formatEnum(status)}
+        </Badge>
+      )
+    }
+    if (status === "PROSPECT") {
+      return (
+        <Badge variant="outline" className="px-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30">
+          {formatEnum(status)}
+        </Badge>
+      )
+    }
+    if (status === "ON_HOLD") {
+      return (
+        <Badge variant="outline" className="px-1.5 bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30">
+          {formatEnum(status)}
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="px-1.5 text-muted-foreground bg-muted">
+        {formatEnum(status)}
+      </Badge>
+    )
   }
 
   return (
@@ -151,13 +203,11 @@ export function MasjidsTable({
         {
           id: "status",
           header: "Status",
-          cell: (masjid) => (
-            <Badge variant="outline">{formatEnum(masjid.status)}</Badge>
-          ),
+          cell: (masjid) => getMasjidStatusBadge(masjid.status),
         },
         {
           id: "contactName",
-          header: "Masjid Contact Name",
+          header: "Contact Name",
           cell: (masjid) => (
             <div className="text-sm">{masjid.contactName || "-"}</div>
           ),
@@ -170,28 +220,9 @@ export function MasjidsTable({
           ),
         },
         {
-          id: "email",
-          header: "Email",
-          cell: (masjid) => (
-            <div className="text-sm">{masjid.email || "-"}</div>
-          ),
-        },
-        {
           id: "city",
           header: "City",
           cell: (masjid) => <div className="text-sm">{masjid.city}</div>,
-        },
-        {
-          id: "address",
-          header: "Address",
-          cell: (masjid) => <div className="text-sm">{masjid.address}</div>,
-        },
-        {
-          id: "nextFollowUpAt",
-          header: "Next Follow-up",
-          cell: (masjid) => (
-            <div className="text-sm">{formatDate(masjid.nextFollowUpAt)}</div>
-          ),
         },
         {
           id: "collectionCount",
@@ -202,7 +233,7 @@ export function MasjidsTable({
         },
         {
           id: "totalAmountRaised",
-          header: "Amount Raised at Masjid",
+          header: "Amount Raised",
           cell: (masjid) => (
             <div className="font-medium">{formatCurrency(masjid.totalAmountRaised)}</div>
           ),
@@ -212,7 +243,13 @@ export function MasjidsTable({
       />
       <Dialog
         open={!!selectedMasjid}
-        onOpenChange={(open) => !open && setSelectedMasjid(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedMasjid(null)
+            setSelectedCollection(null)
+            setCollectionDetailOpen(false)
+          }
+        }}
       >
         <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
@@ -230,6 +267,11 @@ export function MasjidsTable({
                 <div className="px-6 pt-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    {selectedMasjid.collections && selectedMasjid.collections.length > 0 && (
+                      <TabsTrigger value="collections">
+                        Collections ({selectedMasjid.collections.length})
+                      </TabsTrigger>
+                    )}
                   </TabsList>
                 </div>
 
@@ -274,6 +316,20 @@ export function MasjidsTable({
                           <Building2 className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Masjid Information</h3>
+                      </div>
+
+                      <div className="flex items-start gap-4 py-3 px-4 rounded-lg bg-muted/30 border border-border/50">
+                        <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                            Added by
+                          </p>
+                          <p className="text-base text-foreground">
+                            {selectedMasjid.addedByName ?? "—"}
+                          </p>
+                        </div>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -363,7 +419,7 @@ export function MasjidsTable({
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                                 Status
                               </p>
-                              <Badge variant="outline">{formatEnum(selectedMasjid.status)}</Badge>
+                              {getMasjidStatusBadge(selectedMasjid.status)}
                             </div>
                           </div>
                           <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
@@ -580,12 +636,57 @@ export function MasjidsTable({
                       </a>
                     </div>
                   </TabsContent>
+
+                  {selectedMasjid.collections && selectedMasjid.collections.length > 0 && (
+                    <TabsContent value="collections" className="mt-0">
+                      <div className="rounded-lg border overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Logged by</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead className="text-right">Amount</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {selectedMasjid.collections.map((collection) => (
+                              <TableRow
+                                key={collection.id}
+                                className="cursor-pointer hover:bg-muted/50"
+                                onClick={() => {
+                                  setSelectedCollection(collection as CollectionItem)
+                                  setCollectionDetailOpen(true)
+                                }}
+                              >
+                                <TableCell className="font-medium">
+                                  {collection.addedByName || "—"}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {formatDate(new Date(collection.collectedAt))}
+                                </TableCell>
+                                <TableCell className="text-right font-semibold">
+                                  {formatCurrency(collection.amountPence)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </TabsContent>
+                  )}
                 </div>
               </Tabs>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <CollectionDetailDialog
+        item={selectedCollection}
+        open={collectionDetailOpen}
+        onOpenChange={setCollectionDetailOpen}
+        showLoggedBy={true}
+      />
     </>
   )
 }

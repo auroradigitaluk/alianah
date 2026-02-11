@@ -518,7 +518,7 @@ export function CollectionsTable({
 
       {/* Edit dialog */}
       <Dialog open={!!editingCollection} onOpenChange={(open) => !open && setEditingCollection(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="p-6 max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit collection</DialogTitle>
             <DialogDescription>
@@ -592,18 +592,25 @@ function CollectionEditForm({
   onCancel: () => void
   saving: boolean
 }) {
+  const toPence = (val: string) => Math.round((parseFloat(val) || 0) * 100)
+  const amountStr = (collection.amountPence / 100).toFixed(2)
   const [masjidId, setMasjidId] = useState(collection.masjidId ?? "__none__")
   const [masjidQuery, setMasjidQuery] = useState("")
   const [masjidOpen, setMasjidOpen] = useState(false)
   const [appealId, setAppealId] = useState(collection.appealId ?? "__none__")
-  const [amountPence, setAmountPence] = useState(String((collection.amountPence / 100).toFixed(2)))
-  const [donationType, setDonationType] = useState(collection.donationType)
+  const [sadaqah, setSadaqah] = useState(collection.donationType === "SADAQAH" ? amountStr : "")
+  const [zakat, setZakat] = useState(collection.donationType === "ZAKAT" ? amountStr : "")
+  const [lillah, setLillah] = useState(collection.donationType === "LILLAH" ? amountStr : "")
+  const [card, setCard] = useState(collection.donationType === "GENERAL" ? amountStr : "")
   const [type, setType] = useState(collection.type)
   const [collectedAt, setCollectedAt] = useState(() => {
     const d = new Date(collection.collectedAt)
     return d.toISOString().slice(0, 16)
   })
   const [notes, setNotes] = useState(collection.notes ?? "")
+
+  const totalPence = toPence(sadaqah) + toPence(zakat) + toPence(lillah) + toPence(card)
+  const totalDisplay = (totalPence / 100).toFixed(2)
 
   const selectedMasjid = masjidId && masjidId !== "__none__"
     ? masjids.find((m) => m.id === masjidId)
@@ -616,12 +623,30 @@ function CollectionEditForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const amount = Math.round(parseFloat(amountPence) * 100)
-    if (isNaN(amount) || amount <= 0) return
+    const s = toPence(sadaqah)
+    const z = toPence(zakat)
+    const l = toPence(lillah)
+    const c = toPence(card)
+    let amountPence = 0
+    let donationType = "GENERAL"
+    if (s > 0) {
+      amountPence = s
+      donationType = "SADAQAH"
+    } else if (z > 0) {
+      amountPence = z
+      donationType = "ZAKAT"
+    } else if (l > 0) {
+      amountPence = l
+      donationType = "LILLAH"
+    } else if (c > 0) {
+      amountPence = c
+      donationType = "GENERAL"
+    }
+    if (amountPence <= 0) return
     onSave({
       masjidId: masjidId && masjidId !== "__none__" ? masjidId : null,
       appealId: appealId && appealId !== "__none__" ? appealId : null,
-      amountPence: amount,
+      amountPence,
       donationType,
       type,
       collectedAt: new Date(collectedAt).toISOString(),
@@ -630,156 +655,201 @@ function CollectionEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="edit-masjid">Masjid</Label>
-        <Popover open={masjidOpen} onOpenChange={setMasjidOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={masjidOpen}
-              className={cn(
-                "w-full justify-between font-normal",
-                !selectedMasjid && "text-muted-foreground"
-              )}
-            >
-              {selectedMasjid ? selectedMasjid.name : "Select masjid"}
-              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-            <div className="p-2 border-b">
-              <Input
-                placeholder="Search masjid..."
-                transform="titleCase"
-                value={masjidQuery}
-                onChange={(e) => setMasjidQuery(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-                className="h-9"
-              />
-            </div>
-            <div className="max-h-[200px] overflow-y-auto p-1">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-masjid" className="text-sm font-medium text-foreground">Masjid</Label>
+          <Popover open={masjidOpen} onOpenChange={setMasjidOpen}>
+            <PopoverTrigger asChild>
               <button
                 type="button"
+                role="combobox"
+                aria-expanded={masjidOpen}
                 className={cn(
-                  "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-accent",
-                  masjidId === "__none__" && "bg-accent"
+                  "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 hover:bg-muted/50 dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:opacity-50",
+                  !selectedMasjid && "text-muted-foreground"
                 )}
-                onClick={() => {
-                  setMasjidId("__none__")
-                  setMasjidOpen(false)
-                  setMasjidQuery("")
-                }}
               >
-                None
+                <span className="line-clamp-1 flex items-center gap-2">
+                  {selectedMasjid ? selectedMasjid.name : "Select masjid (optional)"}
+                </span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" />
               </button>
-              {filteredMasjids.map((m) => (
+            </PopoverTrigger>
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+              <div className="p-2 border-b">
+                <Input
+                  placeholder="Search masjid..."
+                  transform="titleCase"
+                  value={masjidQuery}
+                  onChange={(e) => setMasjidQuery(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className="h-9"
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto p-1">
                 <button
-                  key={m.id}
                   type="button"
                   className={cn(
-                    "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-accent",
-                    masjidId === m.id && "bg-accent"
+                    "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-muted/50",
+                    masjidId === "__none__" && "bg-muted"
                   )}
                   onClick={() => {
-                    setMasjidId(m.id)
+                    setMasjidId("__none__")
                     setMasjidOpen(false)
                     setMasjidQuery("")
                   }}
                 >
-                  {m.name}
+                  None
                 </button>
+                {filteredMasjids.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={cn(
+                      "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-muted/50",
+                      masjidId === m.id && "bg-muted"
+                    )}
+                    onClick={() => {
+                      setMasjidId(m.id)
+                      setMasjidOpen(false)
+                      setMasjidQuery("")
+                    }}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+                {filteredMasjids.length === 0 && masjidQuery && (
+                  <p className="px-2 py-4 text-sm text-muted-foreground text-center">
+                    No masjid found
+                  </p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="edit-appeal" className="text-sm font-medium text-foreground">Appeal</Label>
+          <Select value={appealId} onValueChange={setAppealId}>
+            <SelectTrigger id="edit-appeal" className="w-full">
+              <SelectValue placeholder="Select appeal (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">None</SelectItem>
+              {appeals.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.title}
+                </SelectItem>
               ))}
-              {filteredMasjids.length === 0 && masjidQuery && (
-                <p className="px-2 py-4 text-sm text-muted-foreground text-center">
-                  No masjid found
-                </p>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-foreground">Collection Type</Label>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {COLLECTION_TYPES.map((t) => (
+            <Button
+              key={t.value}
+              type="button"
+              variant={type === t.value ? "default" : "outline"}
+              onClick={() => setType(t.value)}
+              className="h-11"
+            >
+              {t.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-foreground">Amounts (GBP)</Label>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-sadaqah" className="text-muted-foreground font-normal">Sadaqah</Label>
+            <Input
+              id="edit-sadaqah"
+              type="number"
+              step="0.01"
+              min="0"
+              value={sadaqah}
+              onChange={(e) => setSadaqah(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-zakat" className="text-muted-foreground font-normal">Zakat</Label>
+            <Input
+              id="edit-zakat"
+              type="number"
+              step="0.01"
+              min="0"
+              value={zakat}
+              onChange={(e) => setZakat(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-lillah" className="text-muted-foreground font-normal">Lillah</Label>
+            <Input
+              id="edit-lillah"
+              type="number"
+              step="0.01"
+              min="0"
+              value={lillah}
+              onChange={(e) => setLillah(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-card" className="text-muted-foreground font-normal">Card</Label>
+            <Input
+              id="edit-card"
+              type="number"
+              step="0.01"
+              min="0"
+              value={card}
+              onChange={(e) => setCard(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-muted-foreground font-normal">Total</Label>
+            <Input
+              value={`£${totalDisplay}`}
+              readOnly
+              className="bg-muted font-semibold"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-date" className="text-sm font-medium text-foreground">Collected at</Label>
+          <Input
+            id="edit-date"
+            type="datetime-local"
+            value={collectedAt}
+            onChange={(e) => setCollectedAt(e.target.value)}
+            required
+          />
+        </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="edit-appeal">Appeal</Label>
-        <Select value={appealId} onValueChange={setAppealId}>
-          <SelectTrigger id="edit-appeal">
-            <SelectValue placeholder="Select appeal" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">None</SelectItem>
-            {appeals.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-amount">Amount (£)</Label>
-        <Input
-          id="edit-amount"
-          type="number"
-          step="0.01"
-          min="0"
-          value={amountPence}
-          onChange={(e) => setAmountPence(e.target.value)}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-donation-type">Donation type</Label>
-        <Select value={donationType} onValueChange={setDonationType}>
-          <SelectTrigger id="edit-donation-type">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DONATION_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-type">Collection type</Label>
-        <Select value={type} onValueChange={setType}>
-          <SelectTrigger id="edit-type">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {COLLECTION_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-date">Date collected</Label>
-        <Input
-          id="edit-date"
-          type="datetime-local"
-          value={collectedAt}
-          onChange={(e) => setCollectedAt(e.target.value)}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-notes">Notes</Label>
+        <Label htmlFor="edit-notes" className="text-sm font-medium text-foreground">Notes (optional)</Label>
         <Textarea
           id="edit-notes"
           transform="titleCase"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
+          placeholder="Optional notes"
           rows={3}
           className="resize-none"
         />
       </div>
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
