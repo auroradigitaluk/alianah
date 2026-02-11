@@ -38,7 +38,12 @@ async function getAbandonedCheckouts() {
   }
 }
 
-export default async function DonationsPage() {
+export default async function DonationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ open?: string }>
+}) {
+  const params = await searchParams
   const [donations, abandonedDonations] = await Promise.all([
     getDonations(),
     getAbandonedCheckouts(),
@@ -65,6 +70,7 @@ export default async function DonationsPage() {
                   <DonationsPageContent
                     donations={donations}
                     abandonedDonations={abandonedDonations}
+                    openId={params?.open ?? undefined}
                   />
                 </div>
               </div>

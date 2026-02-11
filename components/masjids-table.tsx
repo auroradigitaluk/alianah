@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,11 +48,24 @@ interface Masjid {
   totalAmountRaised: number
 }
 
-export function MasjidsTable({ masjids }: { masjids: Masjid[] }) {
+export function MasjidsTable({
+  masjids,
+  initialSelectedId,
+}: {
+  masjids: Masjid[]
+  initialSelectedId?: string | null
+}) {
   const [selectedMasjid, setSelectedMasjid] = useState<Masjid | null>(null)
   const [nameQuery, setNameQuery] = useState("")
   const [cityQuery, setCityQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      const masjid = masjids.find((m) => m.id === initialSelectedId) ?? null
+      setSelectedMasjid(masjid)
+    }
+  }, [initialSelectedId, masjids])
 
   const filteredMasjids = useMemo(() => {
     const normalizedName = nameQuery.trim().toLowerCase()

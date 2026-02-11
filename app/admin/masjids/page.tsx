@@ -60,7 +60,12 @@ async function getMasjids() {
   }
 }
 
-export default async function MasjidsPage() {
+export default async function MasjidsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ open?: string }>
+}) {
+  const params = await searchParams
   const masjids = await getMasjids()
 
   return (
@@ -84,7 +89,7 @@ export default async function MasjidsPage() {
                   <p className="text-xs sm:text-sm text-muted-foreground">Masjid contact directory</p>
                 </div>
                 <div>
-                  <MasjidsTable masjids={masjids} />
+                  <MasjidsTable masjids={masjids} initialSelectedId={params?.open ?? undefined} />
                 </div>
               </div>
             </div>

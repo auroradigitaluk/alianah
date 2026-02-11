@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { AdminTable } from "@/components/admin-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,9 +8,22 @@ import { Label } from "@/components/ui/label"
 import { formatCurrency, formatDonorName } from "@/lib/utils"
 import { DonorDetailsDialog, type DonorDetails } from "@/components/donor-details-dialog"
 
-export function DonorsTable({ donors }: { donors: DonorDetails[] }) {
+export function DonorsTable({
+  donors,
+  initialSelectedId,
+}: {
+  donors: DonorDetails[]
+  initialSelectedId?: string | null
+}) {
   const [selectedDonor, setSelectedDonor] = useState<DonorDetails | null>(null)
   const [query, setQuery] = useState("")
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      const donor = donors.find((d) => d.id === initialSelectedId) ?? null
+      setSelectedDonor(donor)
+    }
+  }, [initialSelectedId, donors])
   const [cityQuery, setCityQuery] = useState("")
   const [countryQuery, setCountryQuery] = useState("")
 

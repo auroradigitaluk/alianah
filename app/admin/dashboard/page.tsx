@@ -1659,21 +1659,6 @@ export default async function AdminDashboardPage({
                 </div>
               </div>
 
-              {/* Third Row: Donations Over Time Chart */}
-              <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground px-1">{periodLabel}</p>
-                  {lineChartData.length > 0 ? (
-                    <ChartAreaInteractive data={lineChartData} />
-                  ) : (
-                    <Card>
-                      <CardContent className="py-8">
-                        <p className="text-sm text-muted-foreground text-center">No donation data for this period</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -1837,7 +1822,6 @@ export default async function AdminDashboardPage({
                 </div>
               </div>
 
-              {/* Third Row: Donations Over Time Chart */}
             </div>
           </div>
         </div>

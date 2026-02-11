@@ -153,9 +153,22 @@ function InfoRow(props: { label: string; value?: string | null; mono?: boolean }
   )
 }
 
-export function DonationsTable({ donations }: { donations: Donation[] }) {
+export function DonationsTable({
+  donations,
+  initialSelectedId,
+}: {
+  donations: Donation[]
+  initialSelectedId?: string | null
+}) {
   const [selectedDonation, setSelectedDonation] = useState<Donation | null>(null)
   const [details, setDetails] = useState<DonationDetailsResponse | null>(null)
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      const donation = donations.find((d) => d.id === initialSelectedId) ?? null
+      setSelectedDonation(donation)
+    }
+  }, [initialSelectedId, donations])
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [detailsError, setDetailsError] = useState<string | null>(null)
   const [refundLoading, setRefundLoading] = useState(false)

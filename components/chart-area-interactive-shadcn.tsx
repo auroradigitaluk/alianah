@@ -45,9 +45,15 @@ interface ChartAreaInteractiveProps {
     desktop: number
     mobile: number
   }[]
+  title?: string
+  description?: string
 }
 
-export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
+export function ChartAreaInteractive({
+  data,
+  title = "Donations Over Time",
+  description = "Showing total donations for the last 3 months",
+}: ChartAreaInteractiveProps) {
   const [timeRange, setTimeRange] = React.useState("90d")
 
   // Combine desktop (online) + mobile (offline) into single total, remove Website-Stripe as separate series
@@ -74,10 +80,8 @@ export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
     <Card className="pt-0">
       <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
         <div className="grid flex-1 gap-1">
-          <CardTitle>Donations Over Time</CardTitle>
-          <CardDescription>
-            Showing total donations for the last 3 months
-          </CardDescription>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </div>
         <Select value={timeRange} onValueChange={setTimeRange}>
           <SelectTrigger

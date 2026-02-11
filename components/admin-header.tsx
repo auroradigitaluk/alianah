@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { AdminGlobalSearch } from "@/components/admin-global-search"
 
 interface AdminHeaderProps {
   title: string
@@ -44,13 +45,18 @@ export function AdminHeader({ title, actions, monthFilter, dateFilter }: AdminHe
               />
             </>
           )}
-          <ThemeToggle />
+          {actions}
           {isDemo && (
             <Badge variant="destructive" className="font-semibold">
               TEST MODE
             </Badge>
           )}
-          {actions}
+          <Separator
+            orientation="vertical"
+            className="mx-1 sm:mx-2 data-[orientation=vertical]:h-4 hidden sm:block"
+          />
+          <AdminGlobalSearch />
+          <ThemeToggle />
         </div>
       </div>
     </header>

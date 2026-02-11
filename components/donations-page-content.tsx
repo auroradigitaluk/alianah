@@ -39,9 +39,11 @@ export type DonationRow = {
 export function DonationsPageContent({
   donations,
   abandonedDonations,
+  openId,
 }: {
   donations: DonationRow[]
   abandonedDonations: DonationRow[]
+  openId?: string | null
 }) {
   return (
     <Tabs defaultValue="donations" className="w-full">
@@ -54,10 +56,10 @@ export function DonationsPageContent({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="donations" className="mt-0">
-        <DonationsTable donations={donations} />
+        <DonationsTable donations={donations} initialSelectedId={openId} />
       </TabsContent>
       <TabsContent value="abandoned" className="mt-0">
-        <DonationsTable donations={abandonedDonations} />
+        <DonationsTable donations={abandonedDonations} initialSelectedId={openId} />
       </TabsContent>
     </Tabs>
   )

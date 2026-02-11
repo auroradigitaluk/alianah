@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -34,7 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod } from "@/lib/utils"
-import { ExternalLink, Eye, EyeOff, Calendar, Target, TrendingUp, Users, Gift, Mail, User, Hash, MessageSquare, Megaphone, FileText, Download } from "lucide-react"
+import { ExternalLink, Eye, EyeOff, Calendar, Target, TrendingUp, Users, Gift, Mail, User, Hash, MessageSquare, Megaphone, FileText, Download, Pencil } from "lucide-react"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
 
 interface Fundraiser {
@@ -109,7 +110,17 @@ interface Donation {
   } | null
 }
 
-export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] }) {
+interface FundraisersTableProps {
+  fundraisers: Fundraiser[]
+  initialSelectedId?: string | null
+  onSelectionClear?: () => void
+}
+
+export function FundraisersTable({
+  fundraisers,
+  initialSelectedId = null,
+  onSelectionClear,
+}: FundraisersTableProps) {
   const router = useRouter()
   const [selectedFundraiser, setSelectedFundraiser] = useState<Fundraiser | null>(null)
   const [fundraiserDetails, setFundraiserDetails] = useState<FundraiserDetails | null>(null)
@@ -118,6 +129,19 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
   const [appealQuery, setAppealQuery] = useState("")
   const [fundraiserQuery, setFundraiserQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [isEditingDetails, setIsEditingDetails] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editEmail, setEditEmail] = useState("")
+  const [editMessage, setEditMessage] = useState("")
+  const [savingDetails, setSavingDetails] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      const match = fundraisers.find((f) => f.id === initialSelectedId) ?? null
+      setSelectedFundraiser(match)
+    }
+  }, [initialSelectedId, fundraisers])
 
   const filteredFundraisers = useMemo(() => {
     const normalizedAppeal = appealQuery.trim().toLowerCase()
@@ -173,6 +197,55 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
   const handleViewPage = (fundraiser: Fundraiser, e: React.MouseEvent) => {
     e.stopPropagation()
     window.open(`/fundraise/${fundraiser.slug}`, "_blank")
+  }
+
+  const startEditingDetails = () => {
+    if (fundraiserDetails) {
+      setEditName(fundraiserDetails.fundraiserName)
+      setEditEmail(fundraiserDetails.email)
+      setEditMessage(fundraiserDetails.message ?? "")
+      setEditError(null)
+      setIsEditingDetails(true)
+    }
+  }
+
+  const cancelEditingDetails = () => {
+    setIsEditingDetails(false)
+    setEditError(null)
+  }
+
+  const saveDetails = async () => {
+    if (!selectedFundraiser || !fundraiserDetails) return
+    const name = editName.trim()
+    const email = editEmail.trim()
+    if (!name || !email) {
+      setEditError("Name and email are required.")
+      return
+    }
+    setSavingDetails(true)
+    setEditError(null)
+    try {
+      const response = await fetch(`/api/admin/fundraisers/${selectedFundraiser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fundraiserName: name,
+          email,
+          message: editMessage.trim() || null,
+        }),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error ?? "Failed to update")
+      }
+      setIsEditingDetails(false)
+      await fetchFundraiserDetails()
+      router.refresh()
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to save")
+    } finally {
+      setSavingDetails(false)
+    }
   }
 
   useEffect(() => {
@@ -411,7 +484,13 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
 
       <Dialog
         open={!!selectedFundraiser}
-        onOpenChange={(open) => !open && setSelectedFundraiser(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedFundraiser(null)
+            setIsEditingDetails(false)
+            onSelectionClear?.()
+          }
+        }}
       >
         <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
@@ -494,94 +573,150 @@ export function FundraisersTable({ fundraisers }: { fundraisers: Fundraiser[] })
 
                     {/* Fundraiser Information */}
                     <div className="space-y-6">
-                      <div className="flex items-center gap-3 pb-2">
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <User className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex items-center justify-between gap-3 pb-2">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-muted/50">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Fundraiser Information</h3>
                         </div>
-                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Fundraiser Information</h3>
+                        {!isEditingDetails && (
+                          <Button variant="outline" size="sm" onClick={startEditingDetails}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit name, email or summary
+                          </Button>
+                        )}
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <User className="h-4 w-4 text-muted-foreground" />
+
+                      {isEditingDetails ? (
+                        <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+                          {editError && (
+                            <p className="text-sm text-destructive">{editError}</p>
+                          )}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-fundraiser-name">Fundraiser name</Label>
+                              <Input
+                                id="edit-fundraiser-name"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                placeholder="Display name"
+                              />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Fundraiser Name
-                              </p>
-                              <p className="text-base font-semibold text-foreground">{fundraiserDetails.fundraiserName}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Mail className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Email
-                              </p>
-                              <p className="text-base text-foreground break-all">{fundraiserDetails.email}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Hash className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Slug
-                              </p>
-                              <p className="text-base font-mono text-sm text-foreground break-all">{fundraiserDetails.slug}</p>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-fundraiser-email">Email</Label>
+                              <Input
+                                id="edit-fundraiser-email"
+                                type="email"
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                placeholder="email@example.com"
+                              />
                             </div>
                           </div>
-                        </div>
-                        
-                        <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Target className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Status
-                              </p>
-                              <StatusBadge isActive={fundraiserDetails.isActive} />
-                            </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-fundraiser-message">Summary / message</Label>
+                            <Textarea
+                              id="edit-fundraiser-message"
+                              value={editMessage}
+                              onChange={(e) => setEditMessage(e.target.value)}
+                              placeholder="Optional message shown on the fundraiser page"
+                              rows={4}
+                              className="resize-y"
+                            />
                           </div>
-                          
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Created
-                              </p>
-                              <p className="text-base text-foreground">{formatDate(new Date(fundraiserDetails.createdAt))}</p>
-                            </div>
+                          <div className="flex gap-2">
+                            <Button onClick={saveDetails} disabled={savingDetails}>
+                              {savingDetails ? "Saving…" : "Save changes"}
+                            </Button>
+                            <Button variant="outline" onClick={cancelEditingDetails} disabled={savingDetails}>
+                              Cancel
+                            </Button>
                           </div>
                         </div>
-                        
-                        {fundraiserDetails.message && (
-                          <div className="md:col-span-2 pt-2">
-                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg bg-muted/20 border border-border/50">
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-0">
+                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
                               <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                                <User className="h-4 w-4 text-muted-foreground" />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                  Message
+                                  Fundraiser Name
                                 </p>
-                                <p className="text-base text-foreground leading-relaxed">{fundraiserDetails.message}</p>
+                                <p className="text-base font-semibold text-foreground">{fundraiserDetails.fundraiserName}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                              <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                  Email
+                                </p>
+                                <p className="text-base text-foreground break-all">{fundraiserDetails.email}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                              <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                                <Hash className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                  Slug
+                                </p>
+                                <p className="text-base font-mono text-sm text-foreground break-all">{fundraiserDetails.slug}</p>
                               </div>
                             </div>
                           </div>
-                        )}
-                      </div>
+                          
+                          <div className="space-y-0">
+                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                              <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                                <Target className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                  Status
+                                </p>
+                                <StatusBadge isActive={fundraiserDetails.isActive} />
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
+                              <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                  Created
+                                </p>
+                                <p className="text-base text-foreground">{formatDate(new Date(fundraiserDetails.createdAt))}</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {(fundraiserDetails.message ?? "").trim() ? (
+                            <div className="md:col-span-2 pt-2">
+                              <div className="flex items-start gap-4 py-4 px-4 rounded-lg bg-muted/20 border border-border/50">
+                                <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                    Message
+                                  </p>
+                                  <p className="text-base text-foreground leading-relaxed">{fundraiserDetails.message}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
 
                     <Separator className="my-6" />

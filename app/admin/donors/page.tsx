@@ -299,7 +299,12 @@ async function getDonors() {
   }
 }
 
-export default async function DonorsPage() {
+export default async function DonorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ open?: string }>
+}) {
+  const params = await searchParams
   const donors = await getDonors()
 
   return (
@@ -318,7 +323,7 @@ export default async function DonorsPage() {
                   <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">Donor information</p>
                 </div>
                 <div>
-                  <DonorsTable donors={donors} />
+                  <DonorsTable donors={donors} initialSelectedId={params?.open ?? undefined} />
                 </div>
               </div>
             </div>

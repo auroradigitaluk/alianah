@@ -23,6 +23,7 @@ export function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
+      className="text-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
