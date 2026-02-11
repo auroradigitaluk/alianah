@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { loadStripe } from "@stripe/stripe-js"
 import {
   Sheet,
   SheetContent,
@@ -13,13 +14,26 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { IconX } from "@tabler/icons-react"
 import { useSidecart } from "@/components/sidecart-provider"
+import { SidecartExpressCheckout } from "@/components/sidecart-express-checkout"
 import { formatCurrency, formatEnum } from "@/lib/utils"
+
+const stripePromise =
+  typeof process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY === "string"
+    ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+    : null
 
 export function Sidecart() {
   const { items, removeItem, clearCart, open, setOpen } = useSidecart()
+  const [walletAvailable, setWalletAvailable] = React.useState(false)
 
   const subtotalPence = items.reduce((sum, item) => sum + item.amountPence, 0)
   const totalPence = subtotalPence
+  const allOneOff = items.length > 0 && items.every((item) => item.frequency === "ONE_OFF")
+  const showExpressCheckout = allOneOff && stripePromise
+
+  React.useEffect(() => {
+    if (showExpressCheckout) setWalletAvailable(false)
+  }, [showExpressCheckout])
 
   const frequencyLabels: Record<string, string> = {
     ONE_OFF: "One-off",
@@ -98,6 +112,24 @@ export function Sidecart() {
                 <span>Total</span>
                 <span>{formatCurrency(totalPence)}</span>
               </div>
+              {showExpressCheckout && (
+                <>
+                  <SidecartExpressCheckout
+                    stripePromise={stripePromise}
+                    items={items}
+                    subtotalPence={subtotalPence}
+                    totalPence={totalPence}
+                    onWalletAvailable={setWalletAvailable}
+                  />
+                  {walletAvailable && (
+                    <div className="flex items-center gap-3">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-xs text-muted-foreground">or</span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                  )}
+                </>
+              )}
               <Button asChild className="w-full" size="lg">
                 <Link href="/checkout" onClick={() => setOpen(false)}>
                   Proceed to Checkout
