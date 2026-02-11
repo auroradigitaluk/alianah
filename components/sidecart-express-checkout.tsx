@@ -85,6 +85,21 @@ function ExpressCheckoutInner({
               return
             }
 
+            const bd = ev.paymentMethod.billing_details
+            const fullName = (bd?.name as string | undefined)?.trim()
+            let donorFirstName: string | undefined
+            let donorLastName: string | undefined
+            if (fullName) {
+              const parts = fullName.split(/\s+/)
+              donorFirstName = parts[0] ?? undefined
+              donorLastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined
+            }
+            const addr = bd?.address
+            const donorAddress = (addr?.line1 as string | undefined)?.trim() || undefined
+            const donorCity = (addr?.city as string | undefined)?.trim() || undefined
+            const donorPostcode = (addr?.postal_code as string | undefined)?.trim() || undefined
+            const donorCountry = (addr?.country as string | undefined)?.trim() || undefined
+
             const res = await fetch("/api/checkout/create-express", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -93,6 +108,12 @@ function ExpressCheckoutInner({
                 email,
                 subtotalPence,
                 coverFees: false,
+                ...(donorFirstName && { donorFirstName }),
+                ...(donorLastName && { donorLastName }),
+                ...(donorAddress && { donorAddress }),
+                ...(donorCity && { donorCity }),
+                ...(donorPostcode && { donorPostcode }),
+                ...(donorCountry && { donorCountry }),
               }),
             })
             if (!res.ok) {

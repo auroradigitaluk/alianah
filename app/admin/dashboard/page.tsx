@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { prisma } from "@/lib/prisma"
 import { getAdminUser } from "@/lib/admin-auth"
+import { getDeduplicatedDonationSum, getDeduplicatedDonationCount, sumDonationsDeduplicated, deduplicateDonationsByTransaction } from "@/lib/donation-dedup"
 import { formatCurrency, formatDonorName, PAYMENT_METHODS, formatPaymentMethod } from "@/lib/utils"
 import { Wallet, Globe, Building2, TrendingUp, TrendingDown, Repeat, XCircle } from "lucide-react"
 
@@ -98,7 +99,10 @@ async function getDashboardData() {
           status: "COMPLETED",
         },
         select: {
+          id: true,
           amountPence: true,
+          orderNumber: true,
+          transactionId: true,
           createdAt: true,
         },
       }),
@@ -121,11 +125,7 @@ async function getDashboardData() {
         },
       }),
       prisma.donor.count(),
-      prisma.donation.count({
-        where: {
-          status: "COMPLETED",
-        },
-      }),
+      getDeduplicatedDonationCount({ status: "COMPLETED" }),
       prisma.fundraiser.count({
         where: {
           isActive: true,
@@ -138,6 +138,8 @@ async function getDashboardData() {
       }),
     ])
 
+    const donationsDeduped = deduplicateDonationsByTransaction(donations)
+
     // Get all appeals with their total amounts from donations, offline income, and collections for current month
     const appeals = await prisma.appeal.findMany({
       where: { isActive: true },
@@ -149,7 +151,7 @@ async function getDashboardData() {
               lte: endOfMonth,
             },
           },
-          select: { amountPence: true },
+          select: { id: true, amountPence: true, orderNumber: true, transactionId: true },
         },
         offlineIncome: {
           where: {
@@ -172,9 +174,9 @@ async function getDashboardData() {
       },
     })
 
-    // Calculate total amount for each appeal and extract country from title
+    // Calculate total amount for each appeal and extract country from title (one amount per transaction)
     const campaignsWithAmounts = appeals.map((appeal) => {
-      const donationsTotal = appeal.donations.reduce((sum, d) => sum + d.amountPence, 0)
+      const donationsTotal = sumDonationsDeduplicated(appeal.donations)
       const offlineTotal = appeal.offlineIncome.reduce((sum, d) => sum + d.amountPence, 0)
       const collectionsTotal = appeal.collections.reduce((sum, d) => sum + d.amountPence, 0)
       const totalAmount = donationsTotal + offlineTotal + collectionsTotal
@@ -207,11 +209,9 @@ async function getDashboardData() {
         amountPence: campaign.amountPence,
       }))
 
-    // Group all donations by date
+    // Group all donations by date (one amount per transaction)
     const donationsByDate = new Map<string, number>()
-
-    // Process online donations
-    donations.forEach((donation) => {
+    donationsDeduped.forEach((donation) => {
       const date = new Date(donation.createdAt).toISOString().split("T")[0]
       donationsByDate.set(date, (donationsByDate.get(date) || 0) + donation.amountPence)
     })
@@ -247,7 +247,7 @@ async function getDashboardData() {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
       
-      const monthDonations = donations
+      const monthDonations = donationsDeduped
         .filter((d) => {
           const date = new Date(d.createdAt)
           return date >= monthDate && date <= monthEnd
@@ -284,8 +284,8 @@ async function getDashboardData() {
       date.setDate(date.getDate() - i)
       const dayOfWeek = days[date.getDay()]
       
-      // Count new donors for this day (simplified - using donations as proxy)
-      const dayDonations = donations.filter((d) => {
+      // Count new donors for this day (simplified - using donations as proxy, one per transaction)
+      const dayDonations = donationsDeduped.filter((d) => {
         const dDate = new Date(d.createdAt)
         return dDate.toDateString() === date.toDateString()
       }).length
@@ -296,8 +296,8 @@ async function getDashboardData() {
       })
     }
 
-    // Generate income distribution data (using actual data from donations)
-    const totalOnline = donations.reduce((sum, d) => sum + d.amountPence, 0) / 100
+    // Generate income distribution data (using actual data from donations, one per transaction)
+    const totalOnline = donationsDeduped.reduce((sum, d) => sum + d.amountPence, 0) / 100
     const totalOfflineAmount = offlineIncome.reduce((sum, d) => sum + d.amountPence, 0) / 100
     const totalCollectionsAmount = collectionsData.reduce((sum, d) => sum + d.amountPence, 0) / 100
     
@@ -398,17 +398,11 @@ export default async function AdminDashboardPage({
       // Current period: Total Online = WEBSITE_STRIPE + CARD_SUMUP donations (skip for staff - they don't log these)
       isStaff
         ? Promise.resolve({ _sum: { amountPence: 0 } })
-        : prisma.donation.aggregate({
-            where: {
-              status: "COMPLETED",
-              paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, PAYMENT_METHODS.CARD_SUMUP, "STRIPE", "CARD"] },
-              createdAt: {
-                gte: startDate,
-                lte: endDate,
-              },
-            },
-            _sum: { amountPence: true },
-          }).catch(() => ({ _sum: { amountPence: 0 } })),
+        : getDeduplicatedDonationSum({
+            status: "COMPLETED",
+            paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, PAYMENT_METHODS.CARD_SUMUP, "STRIPE", "CARD"] },
+            createdAt: { gte: startDate, lte: endDate },
+          }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
       // Current period: Total Offline = Offline income (filtered by staff if STAFF)
       prisma.offlineIncome.aggregate({
         where: {
@@ -457,17 +451,11 @@ export default async function AdminDashboardPage({
       // Previous period: Total Online (skip for staff)
       isStaff
         ? Promise.resolve({ _sum: { amountPence: 0 } })
-        : prisma.donation.aggregate({
-            where: {
-              status: "COMPLETED",
-              paymentMethod: { in: ["STRIPE", "CARD"] },
-              createdAt: {
-                gte: comparisonStartDate,
-                lte: comparisonEndDate,
-              },
-            },
-            _sum: { amountPence: true },
-          }).catch(() => ({ _sum: { amountPence: 0 } })),
+        : getDeduplicatedDonationSum({
+            status: "COMPLETED",
+            paymentMethod: { in: ["STRIPE", "CARD"] },
+            createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+          }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
       // Previous period: Total Offline
       prisma.offlineIncome.aggregate({
         where: {
@@ -562,46 +550,28 @@ export default async function AdminDashboardPage({
       // Online = WEBSITE_STRIPE donations (skip for staff)
       isStaff
         ? Promise.resolve({ _sum: { amountPence: 0 } })
-        : prisma.donation.aggregate({
-            where: {
-              status: "COMPLETED",
-              paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE"] },
-              createdAt: {
-                gte: startDate,
-                lte: endDate,
-              },
-            },
-            _sum: { amountPence: true },
-          }).catch(() => ({ _sum: { amountPence: 0 } })),
+        : getDeduplicatedDonationSum({
+            status: "COMPLETED",
+            paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE"] },
+            createdAt: { gte: startDate, lte: endDate },
+          }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
       // Card = CARD_SUMUP donations (skip for staff)
       isStaff
         ? Promise.resolve({ _sum: { amountPence: 0 } })
-        : prisma.donation.aggregate({
-            where: {
-              status: "COMPLETED",
-              paymentMethod: { in: [PAYMENT_METHODS.CARD_SUMUP, "CARD"] },
-              createdAt: {
-                gte: startDate,
-                lte: endDate,
-              },
-            },
-            _sum: { amountPence: true },
-          }).catch(() => ({ _sum: { amountPence: 0 } })),
+        : getDeduplicatedDonationSum({
+            status: "COMPLETED",
+            paymentMethod: { in: [PAYMENT_METHODS.CARD_SUMUP, "CARD"] },
+            createdAt: { gte: startDate, lte: endDate },
+          }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
       // Cash = CASH from offline income and donations (for staff: only their offline)
       Promise.all([
         isStaff
           ? Promise.resolve({ _sum: { amountPence: 0 } })
-          : prisma.donation.aggregate({
-              where: {
-                status: "COMPLETED",
-                paymentMethod: PAYMENT_METHODS.CASH,
-                createdAt: {
-                  gte: startDate,
-                  lte: endDate,
-                },
-              },
-              _sum: { amountPence: true },
-            }).catch(() => ({ _sum: { amountPence: 0 } })),
+          : getDeduplicatedDonationSum({
+              status: "COMPLETED",
+              paymentMethod: PAYMENT_METHODS.CASH,
+              createdAt: { gte: startDate, lte: endDate },
+            }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
         prisma.offlineIncome.aggregate({
           where: {
             ...staffFilter,
@@ -747,10 +717,20 @@ export default async function AdminDashboardPage({
     // Cash = CASH from donations and offline income
 
 
-    // Get donations by day for area chart - split by online vs offline
-    // Calculate number of days in range
+    // Get donations by day for area chart - split by online vs offline (one amount per transaction)
     const daysInRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
     const maxDays = Math.min(daysInRange, 90) // Limit to 90 days for performance
+    const chartDonationsDeduped = isStaff
+      ? []
+      : deduplicateDonationsByTransaction(
+          await prisma.donation.findMany({
+            where: {
+              status: "COMPLETED",
+              createdAt: { gte: startDate, lte: endDate },
+            },
+            select: { id: true, amountPence: true, orderNumber: true, transactionId: true, createdAt: true, paymentMethod: true },
+          }).catch(() => [])
+        )
     const lineChartData = []
     for (let day = maxDays - 1; day >= 0; day--) {
       const date = new Date(startDate)
@@ -763,29 +743,18 @@ export default async function AdminDashboardPage({
       // Skip if outside the selected range
       if (dayStart < startDate || dayEnd > endDate) continue
 
+      const stripeSum = isStaff ? 0 : chartDonationsDeduped.filter((d) => {
+        const t = new Date(d.createdAt).getTime()
+        return t >= dayStart.getTime() && t <= dayEnd.getTime() && [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE"].includes(d.paymentMethod)
+      }).reduce((s, d) => s + d.amountPence, 0)
+      const cardSum = isStaff ? 0 : chartDonationsDeduped.filter((d) => {
+        const t = new Date(d.createdAt).getTime()
+        return t >= dayStart.getTime() && t <= dayEnd.getTime() && [PAYMENT_METHODS.CARD_SUMUP, "CARD"].includes(d.paymentMethod)
+      }).reduce((s, d) => s + d.amountPence, 0)
+
       const [stripeDonations, cardDonations, offlineDonations, dayCollections, dayWater, daySponsor] = await Promise.all([
-        // Online donations (WEBSITE_STRIPE) - skip for staff
-        isStaff
-          ? Promise.resolve({ _sum: { amountPence: 0 } })
-          : prisma.donation.aggregate({
-              where: {
-                status: "COMPLETED",
-                paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE"] },
-                createdAt: { gte: dayStart, lte: dayEnd },
-              },
-              _sum: { amountPence: true },
-            }).catch(() => ({ _sum: { amountPence: 0 } })),
-        // Card donations - skip for staff
-        isStaff
-          ? Promise.resolve({ _sum: { amountPence: 0 } })
-          : prisma.donation.aggregate({
-              where: {
-                status: "COMPLETED",
-                paymentMethod: { in: [PAYMENT_METHODS.CARD_SUMUP, "CARD"] },
-                createdAt: { gte: dayStart, lte: dayEnd },
-              },
-              _sum: { amountPence: true },
-            }).catch(() => ({ _sum: { amountPence: 0 } })),
+        Promise.resolve({ _sum: { amountPence: stripeSum } }),
+        Promise.resolve({ _sum: { amountPence: cardSum } }),
         // Offline income (filtered by staff)
         prisma.offlineIncome.aggregate({
           where: {
@@ -859,7 +828,7 @@ export default async function AdminDashboardPage({
                   status: "COMPLETED",
                   createdAt: { gte: startDate, lte: endDate },
                 },
-                select: { amountPence: true },
+                select: { id: true, amountPence: true, orderNumber: true, transactionId: true },
               },
               offlineIncome: {
                 where: {
@@ -936,9 +905,9 @@ export default async function AdminDashboardPage({
 
     const allCampaigns: Array<{ id: string; name: string; amountPence: number; type: string }> = []
 
-    // Add Appeals (admin only)
+    // Add Appeals (admin only) — one amount per transaction
     appeals.forEach((appeal) => {
-      const donationsTotal = appeal.donations.reduce((sum, d) => sum + d.amountPence, 0)
+      const donationsTotal = sumDonationsDeduplicated(appeal.donations)
       const offlineTotal = appeal.offlineIncome.reduce((sum, d) => sum + d.amountPence, 0)
       const collectionsTotal = appeal.collections.reduce((sum, d) => sum + d.amountPence, 0)
       const totalAmount = donationsTotal + offlineTotal + collectionsTotal
@@ -994,9 +963,9 @@ export default async function AdminDashboardPage({
       .sort((a, b) => b.amountPence - a.amountPence)
       .slice(0, 10)
 
-    // Get latest donations
-    const latestDonations = await prisma.donation.findMany({
-      take: 5,
+    // Get latest donations (one row per transaction)
+    const latestDonationsRaw = await prisma.donation.findMany({
+      take: 15,
       orderBy: { createdAt: "desc" },
       where: {
         status: "COMPLETED",
@@ -1020,6 +989,7 @@ export default async function AdminDashboardPage({
         },
       },
     }).catch(() => [])
+    const latestDonations = deduplicateDonationsByTransaction(latestDonationsRaw).slice(0, 5)
 
     // Get recurring donations summary
     const [activeRecurring, cancelledRecurringThisPeriod, recurringMonthlyTotal] = await Promise.all([
@@ -1102,7 +1072,10 @@ export default async function AdminDashboardPage({
             },
           },
           select: {
+            id: true,
             amountPence: true,
+            orderNumber: true,
+            transactionId: true,
           },
         },
         waterProjectDonations: {
@@ -1125,9 +1098,9 @@ export default async function AdminDashboardPage({
 
     const fundraisersWithTotals = topFundraisers
       .map((fundraiser) => {
-        const totalRaised = fundraiser.donations
-          .concat(fundraiser.waterProjectDonations)
-          .reduce((sum, d) => sum + d.amountPence, 0)
+        const totalRaised =
+          sumDonationsDeduplicated(fundraiser.donations) +
+          fundraiser.waterProjectDonations.reduce((sum, d) => sum + d.amountPence, 0)
         const appealTitle = fundraiser.appeal?.title
           ? fundraiser.appeal.title
           : fundraiser.waterProject?.projectType === "WATER_PUMP"
@@ -1152,11 +1125,11 @@ export default async function AdminDashboardPage({
     // Get recent activity (filtered by staff if STAFF)
     const recentActivity: Array<{ type: string; message: string; timestamp: Date }> = []
 
-    // Get recent online donations (admin only)
-    const recentDonations = isStaff
+    // Get recent online donations (admin only) — one row per transaction
+    const recentDonationsRaw = isStaff
       ? []
       : await prisma.donation.findMany({
-          take: 20,
+          take: 40,
           orderBy: { createdAt: "desc" },
           where: {
             status: "COMPLETED",
@@ -1167,6 +1140,7 @@ export default async function AdminDashboardPage({
             appeal: { select: { title: true } },
           },
         }).catch(() => [])
+    const recentDonations = deduplicateDonationsByTransaction(recentDonationsRaw).slice(0, 20)
 
     recentDonations.forEach((donation) => {
       recentActivity.push({

@@ -43,6 +43,12 @@ const expressSchema = z.object({
   email: z.string().email(),
   subtotalPence: z.number().int().nonnegative(),
   coverFees: z.boolean().optional().default(false),
+  donorFirstName: z.string().min(1).optional(),
+  donorLastName: z.string().min(1).optional(),
+  donorAddress: z.string().min(1).optional(),
+  donorCity: z.string().min(1).optional(),
+  donorPostcode: z.string().min(1).optional(),
+  donorCountry: z.string().min(1).optional(),
 })
 
 function isWaterProjectItem(item: z.infer<typeof itemSchema>) {
@@ -132,6 +138,13 @@ export async function POST(request: NextRequest) {
 
     const orderNumber = await generateOrderNumber()
 
+    const firstName = validated.donorFirstName ?? "Express"
+    const lastName = validated.donorLastName ?? "Donor"
+    const donorAddress = validated.donorAddress ?? null
+    const donorCity = validated.donorCity ?? null
+    const donorPostcode = validated.donorPostcode ?? null
+    const donorCountry = validated.donorCountry ?? null
+
     let donor = await prisma.donor.findUnique({
       where: { email: validated.email },
     })
@@ -139,15 +152,26 @@ export async function POST(request: NextRequest) {
     if (!donor) {
       donor = await prisma.donor.create({
         data: {
-          firstName: "Express",
-          lastName: "Donor",
+          firstName,
+          lastName,
           email: validated.email,
+          address: donorAddress,
+          city: donorCity,
+          postcode: donorPostcode,
+          country: donorCountry,
         },
       })
     } else {
       donor = await prisma.donor.update({
         where: { id: donor.id },
-        data: { firstName: "Express", lastName: "Donor" },
+        data: {
+          firstName,
+          lastName,
+          address: donorAddress ?? undefined,
+          city: donorCity ?? undefined,
+          postcode: donorPostcode ?? undefined,
+          country: donorCountry ?? undefined,
+        },
       })
     }
 
@@ -162,14 +186,14 @@ export async function POST(request: NextRequest) {
         giftAid: false,
         marketingEmail: false,
         marketingSMS: false,
-        donorFirstName: "Express",
-        donorLastName: "Donor",
+        donorFirstName: firstName,
+        donorLastName: lastName,
         donorEmail: validated.email,
         donorPhone: null,
-        donorAddress: null,
-        donorCity: null,
-        donorPostcode: null,
-        donorCountry: null,
+        donorAddress,
+        donorCity,
+        donorPostcode,
+        donorCountry,
         items: {
           create: validated.items.map((item) => ({
             appealId: item.appealId || null,

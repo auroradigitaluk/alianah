@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { deduplicateDonationsByTransaction } from "@/lib/donation-dedup"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 
 export const dynamic = 'force-dynamic'
@@ -88,7 +89,8 @@ export async function GET(
               ? "Wudhu Areas"
               : "Water Project"
 
-    const normalizedDonations = donations.map((donation) => ({
+    const donationsDeduped = deduplicateDonationsByTransaction(donations)
+    const normalizedDonations = donationsDeduped.map((donation) => ({
       id: donation.id,
       amountPence: donation.amountPence,
       donationType: donation.donationType,

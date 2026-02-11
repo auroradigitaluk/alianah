@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
+import { getDeduplicatedDonationGroupBy, deduplicateDonationsByTransaction } from "@/lib/donation-dedup"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { formatAdminUserName } from "@/lib/utils"
 import type { ReportsResponse, ReportRow } from "@/lib/reports"
@@ -92,48 +93,13 @@ export async function GET(request: NextRequest) {
       sponsorshipStatusRows,
       fundraisers,
     ] = await Promise.all([
-      prisma.donation.groupBy({
-        by: ["donationType"],
-        where: { createdAt: dateFilter, status: "COMPLETED" },
-        _sum: { amountPence: true },
-        _count: { _all: true },
-      }),
-      prisma.donation.groupBy({
-        by: ["paymentMethod"],
-        where: { createdAt: dateFilter, status: "COMPLETED" },
-        _sum: { amountPence: true },
-        _count: { _all: true },
-      }),
-      prisma.donation.groupBy({
-        by: ["status"],
-        where: { createdAt: dateFilter },
-        _sum: { amountPence: true },
-        _count: { _all: true },
-      }),
-      prisma.donation.groupBy({
-        by: ["appealId"],
-        where: { createdAt: dateFilter, status: "COMPLETED" },
-        _sum: { amountPence: true },
-        _count: { _all: true },
-      }),
-      prisma.donation.groupBy({
-        by: ["fundraiserId"],
-        where: { createdAt: dateFilter, status: "COMPLETED" },
-        _sum: { amountPence: true },
-        _count: { _all: true },
-      }),
-      prisma.donation.groupBy({
-        by: ["collectedVia"],
-        where: { createdAt: dateFilter, status: "COMPLETED" },
-        _sum: { amountPence: true },
-        _count: { _all: true },
-      }),
-      prisma.donation.groupBy({
-        by: ["donationType"],
-        where: { createdAt: dateFilter, status: "COMPLETED", giftAid: true },
-        _sum: { amountPence: true },
-        _count: { _all: true },
-      }),
+      getDeduplicatedDonationGroupBy({ createdAt: dateFilter, status: "COMPLETED" }, "donationType"),
+      getDeduplicatedDonationGroupBy({ createdAt: dateFilter, status: "COMPLETED" }, "paymentMethod"),
+      getDeduplicatedDonationGroupBy({ createdAt: dateFilter }, "status"),
+      getDeduplicatedDonationGroupBy({ createdAt: dateFilter, status: "COMPLETED" }, "appealId"),
+      getDeduplicatedDonationGroupBy({ createdAt: dateFilter, status: "COMPLETED" }, "fundraiserId"),
+      getDeduplicatedDonationGroupBy({ createdAt: dateFilter, status: "COMPLETED" }, "collectedVia"),
+      getDeduplicatedDonationGroupBy({ createdAt: dateFilter, status: "COMPLETED", giftAid: true }, "donationType"),
       prisma.waterProjectDonation.groupBy({
         by: ["donationType"],
         where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
@@ -256,8 +222,11 @@ export async function GET(request: NextRequest) {
       prisma.donation.findMany({
         where: { createdAt: dateFilter, status: "COMPLETED" },
         select: {
+          id: true,
           donorId: true,
           amountPence: true,
+          orderNumber: true,
+          transactionId: true,
           giftAid: true,
           donor: { select: { city: true, country: true } },
         },
@@ -320,6 +289,8 @@ export async function GET(request: NextRequest) {
         },
       }),
     ])
+
+    const donorTotalsDeduped = deduplicateDonationsByTransaction(donorTotals)
 
     const appealIds = donationByAppeal.map((row) => row.appealId).filter(Boolean) as string[]
     const fundraiserIds = [
@@ -401,7 +372,7 @@ export async function GET(request: NextRequest) {
 
     const donationRows = mergeRows([
       ...donationType.map((row) => ({
-        label: row.donationType,
+        label: row.donationType ?? "Unknown",
         amountPence: row._sum.amountPence || 0,
         count: row._count._all,
       })),
@@ -419,7 +390,7 @@ export async function GET(request: NextRequest) {
 
     const paymentRows = mergeRows([
       ...donationPayment.map((row) => ({
-        label: row.paymentMethod,
+        label: row.paymentMethod ?? "Unknown",
         amountPence: row._sum.amountPence || 0,
         count: row._count._all,
       })),
@@ -473,7 +444,7 @@ export async function GET(request: NextRequest) {
 
     const giftAidRows = mergeRows([
       ...donationGiftAid.map((row) => ({
-        label: row.donationType,
+        label: row.donationType ?? "Unknown",
         amountPence: row._sum.amountPence || 0,
         count: row._count._all,
       })),
@@ -496,12 +467,14 @@ export async function GET(request: NextRequest) {
     }))
 
     const fundraiserTotalsById = new Map<string, { label: string; amountPence: number; count: number }>()
-    const addFundraiserTotals = (rows: typeof donationByFundraiser) => {
+    const addFundraiserTotals = (
+      rows: Array<{ fundraiserId?: string | null; _sum: { amountPence?: number | null }; _count: { _all: number } }>
+    ) => {
       rows.forEach((row) => {
         const id = row.fundraiserId || "unassigned"
         const label = row.fundraiserId ? fundraiserMap.get(row.fundraiserId) || "Unknown fundraiser" : "Unassigned"
         const existing = fundraiserTotalsById.get(id) || { label, amountPence: 0, count: 0 }
-        existing.amountPence += row._sum.amountPence || 0
+        existing.amountPence += row._sum.amountPence ?? 0
         existing.count += row._count._all
         fundraiserTotalsById.set(id, existing)
       })
@@ -527,9 +500,9 @@ export async function GET(request: NextRequest) {
     const totalIncomeCount = sourceRows.reduce((sum, row) => sum + (row.count || 0), 0)
     const giftAidPence = giftAidRows.reduce((sum, row) => sum + (row.amountPence || 0), 0)
 
-    const donationCount = donorTotals.length + waterDonorTotals.length + sponsorshipDonorTotals.length
+    const donationCount = donorTotalsDeduped.length + waterDonorTotals.length + sponsorshipDonorTotals.length
     const giftAidCount =
-      donorTotals.filter((row) => row.giftAid).length +
+      donorTotalsDeduped.filter((row) => row.giftAid).length +
       waterDonorTotals.filter((row) => row.giftAid).length +
       sponsorshipDonorTotals.filter((row) => row.giftAid).length
 
@@ -542,7 +515,7 @@ export async function GET(request: NextRequest) {
         donorAmountMap.set(row.donorId, entry)
       })
     }
-    addToDonorTotals(donorTotals)
+    addToDonorTotals(donorTotalsDeduped)
     addToDonorTotals(waterDonorTotals)
     addToDonorTotals(sponsorshipDonorTotals)
 
@@ -637,14 +610,14 @@ export async function GET(request: NextRequest) {
     )
 
     const statusToRows = (
-      rows: Array<{ status: string | null; _sum: { amountPence: number | null }; _count: { _all: number } }>,
+      rows: Array<{ status?: string | null; _sum: { amountPence?: number | null }; _count: { _all: number } }>,
       target: string
     ) =>
       rows
         .filter((row) => row.status === target)
         .map((row) => ({
           label: target,
-          amountPence: row._sum.amountPence || 0,
+          amountPence: row._sum.amountPence ?? 0,
           count: row._count._all,
         }))
 
@@ -757,7 +730,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const donationGeo = byGeo(donorTotals)
+    const donationGeo = byGeo(donorTotalsDeduped)
     const waterGeo = byGeo(waterDonorTotals)
     const sponsorshipGeo = byGeo(sponsorshipDonorTotals)
 
@@ -798,10 +771,11 @@ export async function GET(request: NextRequest) {
       { appealId: string | null; label: string; donationAmountPence: number; donationCount: number; offlineAmountPence: number; collectionAmountPence: number }
     >()
     donationByAppeal.forEach((row) => {
-      const key = row.appealId || "unassigned"
-      const label = row.appealId ? appealMap.get(row.appealId) || "Unknown appeal" : "Unassigned"
+      const appealId = row.appealId ?? null
+      const key = appealId || "unassigned"
+      const label = appealId ? appealMap.get(appealId) || "Unknown appeal" : "Unassigned"
       appealIncomeMap.set(key, {
-        appealId: row.appealId,
+        appealId,
         label,
         donationAmountPence: row._sum.amountPence || 0,
         donationCount: row._count._all,

@@ -8,7 +8,7 @@ export const revalidate = 0
 
 async function getDonations() {
   try {
-    return await prisma.donation.findMany({
+    const rows = await prisma.donation.findMany({
       where: { status: { not: "PENDING" } },
       orderBy: { createdAt: "desc" },
       include: {
@@ -17,6 +17,24 @@ async function getDonations() {
         product: { select: { name: true } },
       },
     })
+    // Show one row per transaction: deduplicate by (orderNumber, transactionId) so the same payment
+    // doesn't appear twice when both client confirm and webhook ran.
+    const byTx = new Map<string, typeof rows>()
+    for (const row of rows) {
+      const key =
+        row.orderNumber && row.transactionId
+          ? `${row.orderNumber}:${row.transactionId}`
+          : row.id
+      const group = byTx.get(key)
+      if (!group) byTx.set(key, [row])
+      else group.push(row)
+    }
+    const deduped = Array.from(byTx.values()).map((group) => {
+      if (group.length === 1) return group[0]
+      return group[0]
+    })
+    deduped.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))
+    return deduped
   } catch (error) {
     return []
   }

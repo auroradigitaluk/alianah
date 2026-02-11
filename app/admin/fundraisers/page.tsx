@@ -1,5 +1,6 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
+import { getDeduplicatedDonationSum, getDeduplicatedDonationCount, getDeduplicatedDonationGroupBy, sumDonationsDeduplicated } from "@/lib/donation-dedup"
 import {
   FundraisersDashboardClient,
   type FundraisedByCampaignRow,
@@ -31,7 +32,10 @@ async function getFundraisers() {
             status: "COMPLETED",
           },
           select: {
+            id: true,
             amountPence: true,
+            orderNumber: true,
+            transactionId: true,
           },
         },
         waterProjectDonations: {
@@ -48,9 +52,9 @@ async function getFundraisers() {
     })
 
     return fundraisers.map((fundraiser) => {
-      const amountRaised = fundraiser.donations
-        .concat(fundraiser.waterProjectDonations)
-        .reduce((sum, d) => sum + d.amountPence, 0)
+      const amountRaised =
+        sumDonationsDeduplicated(fundraiser.donations) +
+        fundraiser.waterProjectDonations.reduce((sum, d) => sum + d.amountPence, 0)
       const campaignTitle = fundraiser.appeal?.title
         ? fundraiser.appeal.title
         : fundraiser.waterProject?.projectType === "WATER_PUMP"
@@ -84,15 +88,11 @@ async function getFundraisers() {
 
 async function getFundraiserStats() {
   try {
-    const [donationAgg, waterAgg, activeCount, totalCount, donationCountDonation, donationCountWater] =
+    const [donationSum, waterAgg, activeCount, totalCount, donationCountDonation, donationCountWater] =
       await Promise.all([
-        prisma.donation.aggregate({
-          where: {
-            fundraiserId: { not: null },
-            status: "COMPLETED",
-          },
-          _sum: { amountPence: true },
-          _count: { id: true },
+        getDeduplicatedDonationSum({
+          fundraiserId: { not: null },
+          status: "COMPLETED",
         }),
         prisma.waterProjectDonation.aggregate({
           where: {
@@ -104,11 +104,9 @@ async function getFundraiserStats() {
         }),
         prisma.fundraiser.count({ where: { isActive: true } }),
         prisma.fundraiser.count(),
-        prisma.donation.count({
-          where: {
-            fundraiserId: { not: null },
-            status: "COMPLETED",
-          },
+        getDeduplicatedDonationCount({
+          fundraiserId: { not: null },
+          status: "COMPLETED",
         }),
         prisma.waterProjectDonation.count({
           where: {
@@ -119,7 +117,7 @@ async function getFundraiserStats() {
       ])
 
     const totalRaisedPence =
-      (donationAgg._sum.amountPence ?? 0) + (waterAgg._sum.amountPence ?? 0)
+      donationSum + (waterAgg._sum.amountPence ?? 0)
     const donationsThroughFundraisers = donationCountDonation + donationCountWater
 
     return {
@@ -148,15 +146,14 @@ const WATER_PROJECT_TYPE_LABELS: Record<string, string> = {
 async function getFundraisedByCampaign(): Promise<FundraisedByCampaignRow[]> {
   try {
     const [byAppeal, waterDonations] = await Promise.all([
-      prisma.donation.groupBy({
-        by: ["appealId"],
-        where: {
+      getDeduplicatedDonationGroupBy(
+        {
           fundraiserId: { not: null },
           appealId: { not: null },
           status: "COMPLETED",
         },
-        _sum: { amountPence: true },
-      }),
+        "appealId"
+      ),
       prisma.waterProjectDonation.findMany({
         where: {
           fundraiserId: { not: null },

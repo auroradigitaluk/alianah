@@ -470,6 +470,7 @@ model DemoOrder {
   id             String   @id @default(cuid())
   orderNumber    String   @unique
   status         String   @default("PENDING") // PENDING | COMPLETED | FAILED
+  transactionId  String?  // Stripe PaymentIntent/subscription id; set when finalized (prevents duplicate finalization)
   subtotalPence  Int
   feesPence      Int
   totalPence     Int
@@ -492,6 +493,7 @@ model DemoOrder {
 
   @@index([orderNumber])
   @@index([status])
+  @@index([transactionId])
   @@index([createdAt])
   @@map("demo_orders")
 }

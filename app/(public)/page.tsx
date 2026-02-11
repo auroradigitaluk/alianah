@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { sumDonationsDeduplicated } from "@/lib/donation-dedup"
 import { OneNationDonationForm } from "@/components/one-nation-donation-form"
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +13,10 @@ async function getActiveAppeals() {
             status: "COMPLETED",
           },
           select: {
+            id: true,
             amountPence: true,
+            orderNumber: true,
+            transactionId: true,
           },
         },
         offlineIncome: {
@@ -169,9 +173,9 @@ export default async function HomePage({
     getSponsorshipProjectCountriesForForm(),
   ])
 
-  // Calculate totals for each appeal
+  // Calculate totals for each appeal (one amount per transaction)
   const appealsWithTotals = appeals.map((appeal) => {
-    const donationsTotal = appeal.donations.reduce((sum, d) => sum + d.amountPence, 0)
+    const donationsTotal = sumDonationsDeduplicated(appeal.donations)
     const offlineTotal = appeal.offlineIncome.reduce((sum, d) => sum + d.amountPence, 0)
     const collectionsTotal = appeal.collections.reduce((sum, d) => sum + d.amountPence, 0)
     const totalRaised = donationsTotal + offlineTotal + collectionsTotal

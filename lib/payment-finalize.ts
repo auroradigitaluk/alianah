@@ -25,6 +25,16 @@ export async function finalizeOrderByOrderNumber(params: {
 
   if (!order) return
 
+  // Idempotency: only one process may finalize this order for this payment. "Claim" the order by
+  // setting transactionId; if it's already set (by us or another process), skip.
+  if (paymentRef) {
+    const claimed = await prisma.demoOrder.updateMany({
+      where: { orderNumber, transactionId: null },
+      data: { transactionId: paymentRef },
+    })
+    if (claimed.count === 0) return
+  }
+
   const wasAlreadyCompleted = order.status === "COMPLETED"
   const hasRecurringItems = order.items.some(
     (item) => item.frequency === "MONTHLY" || item.frequency === "YEARLY"
