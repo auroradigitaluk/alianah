@@ -144,8 +144,8 @@ export async function POST(request: NextRequest) {
     })
 
     // Send welcome email with fundraising link
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const fundraiserUrl = `${baseUrl}/fundraise/${fundraiser.slug}`
+    const { getFundraiserBaseUrl } = await import("@/lib/utils")
+    const fundraiserUrl = `${getFundraiserBaseUrl()}/fundraise/${fundraiser.slug}`
     
     try {
       await sendFundraiserWelcomeEmail({

@@ -544,7 +544,6 @@ export function AppealForm({ appeal }: AppealFormProps) {
                 <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
                 <Textarea
                   id="fundraisingDefaultMessage"
-                  transform="titleCase"
                   value={fundraisingDefaultMessage}
                   onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
                   placeholder="Enter the default message shown on the fundraiser page."

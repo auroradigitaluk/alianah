@@ -259,3 +259,26 @@ export async function PATCH(
     return NextResponse.json({ error: "Failed to update fundraiser" }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const [, err] = await requireAdminAuthSafe()
+  if (err) return err
+  try {
+    const { id } = await params
+
+    await prisma.fundraiser.delete({
+      where: { id },
+    })
+
+    return new NextResponse(null, { status: 204 })
+  } catch (error) {
+    if ((error as { code?: string })?.code === "P2025") {
+      return NextResponse.json({ error: "Fundraiser not found" }, { status: 404 })
+    }
+    console.error("Error deleting fundraiser:", error)
+    return NextResponse.json({ error: "Failed to delete fundraiser" }, { status: 500 })
+  }
+}

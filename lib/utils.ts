@@ -15,6 +15,15 @@ export function toUpperCaseLive(input: string): string {
   return input.toUpperCase()
 }
 
+/** Base URL for public fundraiser/donation links (e.g. give.alianah.org). No trailing slash. */
+export function getFundraiserBaseUrl(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_FUNDRAISER_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://localhost:3000"
+  return raw.replace(/\/$/, "")
+}
+
 /** UK postcode validation */
 export function isValidUkPostcode(postcode: string): boolean {
   const uk = /^([A-Z]{1,2}\d[A-Z\d]?)\s?(\d[A-Z]{2})$/i

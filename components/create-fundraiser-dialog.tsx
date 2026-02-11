@@ -226,10 +226,14 @@ export function CreateFundraiserDialog({
         return
       }
 
+      const base =
+        process.env.NEXT_PUBLIC_FUNDRAISER_BASE_URL ||
+        (typeof window !== "undefined" ? window.location.origin : "")
+      const baseTrimmed = (base || "").replace(/\/$/, "")
       setSuccess({
         fundraiserUrl:
           data.fundraiserUrl ??
-          `${typeof window !== "undefined" ? window.location.origin : ""}/fundraise/${data.slug}`,
+          (baseTrimmed ? `${baseTrimmed}/fundraise/${data.slug}` : ""),
         email: emailVal,
         emailFailed: Boolean(data.emailError),
       })

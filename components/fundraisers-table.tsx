@@ -35,7 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatCurrency, formatEnum, formatDate, formatDateTime, formatDonorName, formatPaymentMethod } from "@/lib/utils"
-import { ExternalLink, Eye, EyeOff, Calendar, Target, TrendingUp, Users, Gift, Mail, User, Hash, MessageSquare, Megaphone, FileText, Download, Pencil } from "lucide-react"
+import { ExternalLink, Eye, EyeOff, Trash2, Calendar, Target, TrendingUp, Users, Gift, Mail, User, Hash, MessageSquare, Megaphone, FileText, Download, Pencil } from "lucide-react"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
 
 interface Fundraiser {
@@ -135,6 +135,7 @@ export function FundraisersTable({
   const [editMessage, setEditMessage] = useState("")
   const [savingDetails, setSavingDetails] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (initialSelectedId) {
@@ -197,6 +198,39 @@ export function FundraisersTable({
   const handleViewPage = (fundraiser: Fundraiser, e: React.MouseEvent) => {
     e.stopPropagation()
     window.open(`/fundraise/${fundraiser.slug}`, "_blank")
+  }
+
+  const handleDelete = async (fundraiser: Fundraiser, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (
+      !window.confirm(
+        "Remove this fundraiser? The page link will stop working. Donations and donor data will be kept."
+      )
+    ) {
+      return
+    }
+    setDeletingId(fundraiser.id)
+    try {
+      const response = await fetch(`/api/admin/fundraisers/${fundraiser.id}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error ?? "Failed to delete fundraiser")
+      }
+      if (selectedFundraiser?.id === fundraiser.id) {
+        setSelectedFundraiser(null)
+        setFundraiserDetails(null)
+        setIsEditingDetails(false)
+        onSelectionClear?.()
+      }
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+      alert(error instanceof Error ? error.message : "Failed to delete fundraiser")
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const startEditingDetails = () => {
@@ -473,6 +507,16 @@ export function FundraisersTable({
                   ) : (
                     <Eye className="h-4 w-4" />
                   )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => handleDelete(fundraiser, e)}
+                  disabled={deletingId === fundraiser.id}
+                  className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Delete fundraiser (keeps donations)"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             ),

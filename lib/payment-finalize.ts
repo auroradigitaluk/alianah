@@ -452,8 +452,8 @@ export async function finalizeOrderByOrderNumber(params: {
   // Send fundraiser notifications (best-effort)
   for (const donation of fundraiserDonations) {
     if (donation.fundraiserId && donation.fundraiser) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      const fundraiserUrl = `${baseUrl}/fundraise/${donation.fundraiser.slug}`
+      const { getFundraiserBaseUrl } = await import("@/lib/utils")
+      const fundraiserUrl = `${getFundraiserBaseUrl()}/fundraise/${donation.fundraiser.slug}`
       try {
         await sendFundraiserDonationNotification({
           fundraiserEmail: donation.fundraiser.email,
@@ -472,8 +472,8 @@ export async function finalizeOrderByOrderNumber(params: {
 
   for (const donation of createdWaterDonations) {
     if (donation.fundraiserId && donation.fundraiser) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      const fundraiserUrl = `${baseUrl}/fundraise/${donation.fundraiser.slug}`
+      const { getFundraiserBaseUrl } = await import("@/lib/utils")
+      const fundraiserUrl = `${getFundraiserBaseUrl()}/fundraise/${donation.fundraiser.slug}`
       try {
         await sendFundraiserDonationNotification({
           fundraiserEmail: donation.fundraiser.email,

@@ -107,7 +107,7 @@ export function FundraiserDonationCard({
             <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 border w-full justify-center">
               <ShieldCheck className="h-4 w-4 text-primary flex-shrink-0" />
               <div className="text-center min-w-0">
-                <p className="text-xs font-semibold text-foreground">100% donation policy</p>
+                <p className="text-xs font-semibold text-foreground">100% Donation Policy</p>
                 <p className="text-xs text-muted-foreground">Every penny goes to the cause</p>
               </div>
             </div>
