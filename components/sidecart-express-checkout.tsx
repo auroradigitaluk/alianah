@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentRequestButtonElement, useStripe } from "@stripe/react-stripe-js"
 import { useSidecart } from "@/components/sidecart-provider"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 
 type CartItem = {
   id: string
@@ -49,8 +47,6 @@ function ExpressCheckoutInner({
   const [paymentRequest, setPaymentRequest] = React.useState<ReturnType<
     NonNullable<ReturnType<typeof useStripe>>["paymentRequest"]
   > | null>(null)
-  const [walletLabel, setWalletLabel] = React.useState<string | null>(null)
-  const [expressEmail, setExpressEmail] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -73,9 +69,6 @@ function ExpressCheckoutInner({
       if (result) {
         setPaymentRequest(pr)
         onWalletAvailable?.(true)
-        if ((result as { applePay?: boolean }).applePay) setWalletLabel("Apple Pay")
-        else if ((result as { googlePay?: boolean }).googlePay) setWalletLabel("Google Pay")
-        else setWalletLabel("Pay")
 
         pr.on("paymentmethod", async (ev) => {
           try {
@@ -85,12 +78,10 @@ function ExpressCheckoutInner({
             }
             setSubmitting(true)
             setError(null)
-            const email =
-              (ev.paymentMethod.billing_details?.email as string | undefined)?.trim() ||
-              expressEmail.trim()
+            const email = (ev.paymentMethod.billing_details?.email as string | undefined)?.trim()
             if (!email) {
               ev.complete("fail")
-              setError("Email is required for your receipt.")
+              setError("Add an email in your wallet for the receipt.")
               return
             }
 
@@ -170,37 +161,23 @@ function ExpressCheckoutInner({
     return () => {
       cancelled = true
     }
-  }, [stripe, totalPence, items, subtotalPence, expressEmail, clearCart, setOpen, router, onWalletAvailable])
+  }, [stripe, totalPence, items, subtotalPence, clearCart, setOpen, router, onWalletAvailable])
 
   if (!paymentRequest) return null
 
   return (
-    <div className="space-y-3">
-      <Label htmlFor="express-email" className="text-xs text-muted-foreground">
-        Email for receipt (optional if your wallet provides it)
-      </Label>
-      <Input
-        id="express-email"
-        type="email"
-        placeholder="you@example.com"
-        value={expressEmail}
-        onChange={(e) => setExpressEmail(e.target.value)}
-        className="h-9"
-      />
-      <p className="text-sm font-medium">{walletLabel ?? "Apple Pay / Google Pay"}</p>
-      <div className="rounded-md border bg-background px-3 py-3">
-        <PaymentRequestButtonElement
-          options={{
-            paymentRequest,
-            style: {
-              paymentRequestButton: {
-                theme: "dark",
-                height: "44px",
-              },
+    <div className="space-y-2">
+      <PaymentRequestButtonElement
+        options={{
+          paymentRequest,
+          style: {
+            paymentRequestButton: {
+              theme: "dark",
+              height: "44px",
             },
-          }}
-        />
-      </div>
+          },
+        }}
+      />
       {error && <p className="text-sm text-destructive">{error}</p>}
       {submitting && (
         <p className="text-sm text-muted-foreground">Completing payment…</p>
