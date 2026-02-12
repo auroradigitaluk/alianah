@@ -336,7 +336,12 @@ export async function finalizeOrderByOrderNumber(params: {
   // Send donor confirmation email once
   if (!wasAlreadyCompleted && shouldFinalizeOrder) {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      const vercelUrl = process.env.VERCEL_URL
+      const baseUrl = (
+        vercelUrl && !vercelUrl.startsWith("localhost")
+          ? `https://${vercelUrl}`
+          : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      ).replace(/\/$/, "")
       const manageSubscriptionUrl =
         isSubscription && customerEmail
           ? `${baseUrl}/manage-subscription?token=${encodeURIComponent(
@@ -355,6 +360,7 @@ export async function finalizeOrderByOrderNumber(params: {
         })),
         totalPence: order.totalPence,
         giftAid: order.giftAid,
+        baseUrl,
         ...(manageSubscriptionUrl ? { manageSubscriptionUrl } : {}),
       })
     } catch (err) {

@@ -29,15 +29,15 @@ function logoTextHtml(settings?: OrganizationSettings | null) {
 
 function getPublicBaseUrl(settings?: OrganizationSettings | null) {
   if (typeof window !== "undefined" && window.location?.origin) {
-    return window.location.origin
+    return window.location.origin.replace(/\/$/, "")
   }
   // Prefer the app's own host so email images (e.g. logo) load from the same domain (Vercel sets VERCEL_URL)
   const vercelUrl = process.env.VERCEL_URL
   if (vercelUrl && !vercelUrl.startsWith("localhost")) {
-    return `https://${vercelUrl}`
+    return `https://${vercelUrl.replace(/\/$/, "")}`
   }
   if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
   }
   if (settings?.websiteUrl) {
     try {
@@ -50,15 +50,16 @@ function getPublicBaseUrl(settings?: OrganizationSettings | null) {
 }
 
 function logoImageHtml(baseUrl?: string, settings?: OrganizationSettings | null) {
-  const src = `${baseUrl || getPublicBaseUrl(settings)}/logo%20light.png`
+  // Always use absolute URL so logo shows in all email clients (path without space = rewrite in next.config)
+  const base = (baseUrl || getPublicBaseUrl(settings) || "").trim().replace(/\/$/, "")
+  const origin = base.startsWith("http") ? base : getPublicBaseUrl(settings)
+  const lightSrc = `${origin}/logo-light.png`
+  const darkSrc = `${origin}/logo-dark.png`
   const alt = settings?.charityName ?? DEFAULT_CHARITY_NAME
+  const imgStyle = "display:block; width:80px; max-width:100%; height:auto; margin:0 auto 8px auto;"
   return `
-    <img
-      src="${src}"
-      alt="${escapeHtml(alt)}"
-      width="80"
-      style="display:block; width:80px; max-width:100%; height:auto; margin:0 auto 8px auto;"
-    />
+    <img class="logo-light" src="${escapeHtml(lightSrc)}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle}" />
+    <img class="logo-dark" src="${escapeHtml(darkSrc)}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle} display:none;" />
   `
 }
 
@@ -205,7 +206,7 @@ function unifiedLayout(
   const checkmarkBlock =
     showCheckmark
       ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td align="center" style="width:56px; height:56px; border-radius:999px; background:${BRAND.primary}; line-height:1; font-size:0;">
-      <span style="display:inline-block; color:${BRAND.primaryText}; font-size:28px; font-weight:700; line-height:56px; width:56px; text-align:center;">&#10004;</span>
+      <span style="display:inline-block; color:#ffffff; font-size:28px; font-weight:700; line-height:56px; width:56px; text-align:center;">&#10004;</span>
     </td></tr></table>`
       : ""
 
@@ -216,7 +217,14 @@ function unifiedLayout(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light dark" />
     <title>${escapeHtml(title)} - ${escapeHtml(charityName)}</title>
+    <style type="text/css">
+      @media (prefers-color-scheme: dark) {
+        .logo-light { display: none !important; }
+        .logo-dark { display: block !important; }
+      }
+    </style>
   </head>
   <body style="margin:0; padding:0; background:${BRAND.background}; color:${BRAND.text}; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height:1.5;">
     <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">

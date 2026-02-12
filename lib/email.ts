@@ -14,6 +14,26 @@ import {
   escapeHtml,
 } from "@/lib/email-templates"
 import { getOrganizationSettings } from "@/lib/settings"
+import type { OrganizationSettings } from "@/lib/settings"
+
+/** Base URL for email assets (logo, links). Use same logic everywhere so logo always loads. */
+function getEmailBaseUrl(settings: OrganizationSettings | null): string {
+  const vercelUrl = process.env.VERCEL_URL
+  if (vercelUrl && !vercelUrl.startsWith("localhost")) {
+    return `https://${vercelUrl.replace(/\/$/, "")}`
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
+  }
+  if (settings?.websiteUrl) {
+    try {
+      return new URL(settings.websiteUrl).origin
+    } catch {
+      // fall through
+    }
+  }
+  return "https://www.alianah.org"
+}
 
 // Lazy initialization to avoid errors during build when API key is not available
 let resend: Resend | null = null
@@ -102,6 +122,7 @@ export async function sendDonationConfirmationEmail(params: {
   totalPence: number
   giftAid: boolean
   manageSubscriptionUrl?: string
+  baseUrl?: string
 }) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set, skipping email")
@@ -110,7 +131,8 @@ export async function sendDonationConfirmationEmail(params: {
 
   const { donorEmail } = params
   const settings = await getOrganizationSettings()
-  const { subject, html } = buildDonationConfirmationEmail(params, settings)
+  const baseUrl = params.baseUrl ?? getEmailBaseUrl(settings)
+  const { subject, html } = buildDonationConfirmationEmail({ ...params, baseUrl }, settings)
 
   try {
     await getResend().emails.send({
@@ -140,7 +162,7 @@ export async function sendAbandonedCheckoutEmail(params: {
 
   const { donorEmail } = params
   const settings = await getOrganizationSettings()
-  const { subject, html } = buildAbandonedCheckoutEmail(params, settings)
+  const { subject, html } = buildAbandonedCheckoutEmail({ ...params, baseUrl: getEmailBaseUrl(settings) }, settings)
 
   try {
     await getResend().emails.send({
@@ -169,7 +191,7 @@ export async function sendRefundConfirmationEmail(params: {
 
   const { donorEmail } = params
   const settings = await getOrganizationSettings()
-  const { subject, html } = buildRefundConfirmationEmail(params, settings)
+  const { subject, html } = buildRefundConfirmationEmail({ ...params, baseUrl: getEmailBaseUrl(settings) }, settings)
 
   try {
     await getResend().emails.send({
@@ -202,6 +224,7 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
         country,
         amount,
         donationType,
+        baseUrl: getEmailBaseUrl(settings),
       },
       settings
     )
@@ -235,6 +258,7 @@ export async function sendWaterProjectCompletionEmail(params: CompletionEmailPar
         report: params.report,
         completionReportPDF: params.completionReportPDF,
         googleDriveLink: params.googleDriveLink,
+        baseUrl: getEmailBaseUrl(settings),
       },
       settings
     )
@@ -276,6 +300,7 @@ export async function sendSponsorshipDonationEmail(params: {
         country,
         amount,
         donationType,
+        baseUrl: getEmailBaseUrl(settings),
       },
       settings
     )
@@ -319,6 +344,7 @@ export async function sendSponsorshipCompletionEmail(params: {
         report: params.report,
         completionReportPDF: params.completionReportPDF,
         googleDriveLink: params.googleDriveLink,
+        baseUrl: getEmailBaseUrl(settings),
       },
       settings
     )
@@ -350,6 +376,7 @@ export async function sendFundraiserWelcomeEmail(params: FundraiserWelcomeEmailP
         fundraiserTitle,
         appealTitle,
         fundraiserUrl,
+        baseUrl: getEmailBaseUrl(settings),
       },
       settings
     )
@@ -383,6 +410,7 @@ export async function sendFundraiserDonationNotification(params: FundraiserDonat
         amount,
         donationType,
         fundraiserUrl,
+        baseUrl: getEmailBaseUrl(settings),
       },
       settings
     )
@@ -408,7 +436,7 @@ export async function sendFundraiserOTPEmail(params: FundraiserOTPEmailParams) {
 
   try {
     const settings = await getOrganizationSettings()
-    const { subject, html } = buildFundraiserOtpEmail({ code }, settings)
+    const { subject, html } = buildFundraiserOtpEmail({ code, baseUrl: getEmailBaseUrl(settings) }, settings)
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: email,
@@ -434,7 +462,7 @@ export async function sendAdminInviteEmail(params: {
 
   try {
     const settings = await getOrganizationSettings()
-    const { subject, html } = buildAdminInviteEmail({ email, setPasswordUrl }, settings)
+    const { subject, html } = buildAdminInviteEmail({ email, setPasswordUrl, baseUrl: getEmailBaseUrl(settings) }, settings)
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: email,
