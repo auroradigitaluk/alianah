@@ -50,10 +50,10 @@ function getResend(): Resend {
   return resend
 }
 
-/** From address with display name for inbox (e.g. "Alianah <support@alianah.org>"). */
+/** From address with display name for inbox (e.g. "Alianah Humanity Welfare <support@alianah.org>"). */
 function getFromAddress(): string {
   const email = process.env.FROM_EMAIL || "noreply@alianah.org"
-  const name = process.env.FROM_NAME || "Alianah"
+  const name = process.env.FROM_NAME || "Alianah Humanity Welfare"
   return `${name} <${email}>`
 }
 
