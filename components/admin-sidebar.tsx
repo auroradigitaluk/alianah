@@ -159,14 +159,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const showDonors = role === "ADMIN"
   const showMasjids = role !== "VIEWER"
   const showDocuments = role === "ADMIN"
-  const showStaff = role === "ADMIN"
-  const showVolunteers = role === "ADMIN"
-  const showTasks = role === "ADMIN" || role === "STAFF"
-  const showDistributions = role === "ADMIN"
-  const showReports = role !== "STAFF"
-  const showAnalytics = role === "ADMIN"
-  const showSettings = role === "ADMIN"
-
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -434,12 +426,12 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Operations */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Operations</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {showTasks && (
+        {/* Operations - ADMIN only (Tasks, Distributions) */}
+        {role === "ADMIN" && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Operations</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -453,8 +445,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-              {showDistributions && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -467,17 +457,17 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {/* Team */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Team</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {showStaff && (
+        {/* Team - ADMIN only */}
+        {role === "ADMIN" && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Team</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -490,8 +480,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-              {showVolunteers && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -504,17 +492,17 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {/* Content & Insights */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Content & Insights</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {showDocuments && (
+        {/* Content & Insights - ADMIN only */}
+        {role === "ADMIN" && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Content & Insights</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -527,8 +515,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-              {showReports && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -541,8 +527,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-              {showAnalytics && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -555,17 +539,17 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {/* Settings */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Settings</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {showSettings && (
+        {/* Settings - ADMIN only */}
+        {role === "ADMIN" && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Settings</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -578,10 +562,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <AdminNavUser />

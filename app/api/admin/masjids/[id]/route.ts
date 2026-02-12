@@ -47,10 +47,19 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  const [user, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
   if (err) return err
   try {
     const { id } = await params
+    if (user.role === "STAFF") {
+      const existing = await prisma.masjid.findUnique({
+        where: { id },
+        select: { addedByAdminUserId: true },
+      })
+      if (!existing || existing.addedByAdminUserId !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+    }
     const body = await request.json()
     const data = masjidSchema.parse(body)
 
@@ -95,10 +104,19 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const [, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
+  const [user, err] = await requireAdminRoleSafe(["ADMIN", "STAFF"])
   if (err) return err
   try {
     const { id } = await params
+    if (user.role === "STAFF") {
+      const existing = await prisma.masjid.findUnique({
+        where: { id },
+        select: { addedByAdminUserId: true },
+      })
+      if (!existing || existing.addedByAdminUserId !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+    }
 
     await prisma.masjid.delete({
       where: { id },

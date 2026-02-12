@@ -17,14 +17,18 @@ export type SearchResultItem = {
 }
 
 export async function GET(request: NextRequest) {
-  const [, err] = await requireAdminAuthSafe()
+  const [user, err] = await requireAdminAuthSafe()
   if (err) return err
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
   const q = searchParams.get("q")?.trim()
   if (!q || q.length < 2) {
     return NextResponse.json({ results: [] })
   }
+
+  const staffFilter =
+    user.role === "STAFF" ? { addedByAdminUserId: user.id } as const : undefined
 
   try {
     const [
@@ -147,6 +151,7 @@ export async function GET(request: NextRequest) {
       prisma.masjid
         .findMany({
           where: {
+            ...(staffFilter ?? {}),
             OR: [
               { name: contains(q) },
               { city: contains(q) },
@@ -193,7 +198,7 @@ export async function GET(request: NextRequest) {
 
       prisma.collection
         .findMany({
-          where: { notes: contains(q) },
+          where: { ...(staffFilter ?? {}), notes: contains(q) },
           select: {
             id: true,
             amountPence: true,
@@ -220,7 +225,7 @@ export async function GET(request: NextRequest) {
 
       prisma.offlineIncome
         .findMany({
-          where: { notes: contains(q) },
+          where: { ...(staffFilter ?? {}), notes: contains(q) },
           select: { id: true, amountPence: true, notes: true },
           take: LIMIT,
         })
