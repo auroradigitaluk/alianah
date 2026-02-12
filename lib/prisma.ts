@@ -64,8 +64,8 @@ function createPrismaClient() {
 function getPrismaClient(): PrismaClient {
   const cached = globalForPrisma.prisma
   if (process.env.NODE_ENV !== "production" && cached != null) {
-    // Stale client may lack new models (e.g. fundraiserCashDonation)
-    if (!("fundraiserCashDonation" in cached)) {
+    // Stale client may lack new models (e.g. after schema change + prisma generate)
+    if (!("fundraiserCashDonation" in cached) || !("volunteer" in cached)) {
       globalForPrisma.prisma = undefined
     }
   }

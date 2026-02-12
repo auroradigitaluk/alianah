@@ -87,6 +87,29 @@ model Settings {
   @@map("settings")
 }
 
+model Volunteer {
+  id          String    @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  city        String?
+  dateOfBirth DateTime?
+  notes       String?
+  status      String    @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([email])
+  @@index([firstName])
+  @@index([lastName])
+  @@index([city])
+  @@index([phone])
+  @@index([createdAt])
+  @@index([status])
+  @@map("volunteers")
+}
+
 model Appeal {
   id                   String   @id @default(cuid())
   title                String

@@ -12,6 +12,7 @@ import {
   IconRepeat,
   IconSettings,
   IconUsers,
+  IconUserHeart,
   IconDroplet,
   IconUsersGroup,
   IconReceipt,
@@ -158,6 +159,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const showMasjids = role !== "VIEWER"
   const showDocuments = role === "ADMIN"
   const showStaff = role === "ADMIN"
+  const showVolunteers = role === "ADMIN"
   const showTasks = role === "ADMIN" || role === "STAFF"
   const showDistributions = role === "ADMIN"
   const showReports = role !== "STAFF"
@@ -440,6 +442,20 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     <Link href="/admin/staff">
                       <IconUsers />
                       <span>Staff</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {showVolunteers && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Volunteers"
+                    isActive={pathname === "/admin/volunteers" || pathname?.startsWith("/admin/volunteers/")}
+                  >
+                    <Link href="/admin/volunteers">
+                      <IconUserHeart />
+                      <span>Volunteers</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
