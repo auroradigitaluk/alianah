@@ -122,6 +122,7 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
               <Input
                 id="public-cash-name"
                 type="text"
+                transform="titleCase"
                 placeholder="e.g. John"
                 value={donorName}
                 onChange={(e) => setDonorName(e.target.value)}

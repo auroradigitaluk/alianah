@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma"
 import { getAdminUser } from "@/lib/admin-auth"
 import { formatAdminUserName } from "@/lib/utils"
 import { OfflineIncomeTable } from "@/components/offline-income-table"
-import { ExportCsvButton } from "@/components/export-csv-button"
 import { OfflineIncomeModal } from "@/components/offline-income-modal"
 import { StaffFilterSelect } from "@/components/staff-filter-select"
 
@@ -177,7 +176,6 @@ export default async function OfflineIncomePage({
     <>
       <AdminHeader
         title="Offline Income"
-        actions={<ExportCsvButton variant="offlineIncome" data={tableIncome} />}
       />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">

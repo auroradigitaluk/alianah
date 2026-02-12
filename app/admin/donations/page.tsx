@@ -1,7 +1,6 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { DonationsPageContent } from "@/components/donations-page-content"
-import { ExportCsvButton } from "@/components/export-csv-button"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -69,10 +68,7 @@ export default async function DonationsPage({
 
   return (
     <>
-      <AdminHeader
-        title="Donations"
-        actions={<ExportCsvButton variant="donations" data={donations} />}
-      />
+      <AdminHeader title="Donations" />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">

@@ -5,15 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-
-function capitalizeWords(value: string): string {
-  return value
-    .split(/(\s+)/)
-    .map((part) =>
-      /^\s+$/.test(part) ? part : part.charAt(0).toUpperCase() + part.slice(1)
-    )
-    .join("")
-}
+import { isValidEmail, isValidPhone } from "@/lib/utils"
 
 export function VolunteerSignupForm() {
   const [firstName, setFirstName] = React.useState("")
@@ -27,8 +19,16 @@ export function VolunteerSignupForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setStatus("submitting")
     setErrorMessage(null)
+    if (!isValidEmail(email.trim())) {
+      setErrorMessage("Please enter a valid email address")
+      return
+    }
+    if (!isValidPhone(phone.trim())) {
+      setErrorMessage("Please enter a valid phone number")
+      return
+    }
+    setStatus("submitting")
     try {
       const res = await fetch("/api/volunteers", {
         method: "POST",
@@ -90,12 +90,12 @@ export function VolunteerSignupForm() {
               <Input
                 id="vol-firstName"
                 type="text"
+                transform="titleCase"
                 required
                 value={firstName}
-                onChange={(e) => setFirstName(capitalizeWords(e.target.value))}
+                onChange={(e) => setFirstName(e.target.value)}
                 disabled={status === "submitting"}
                 placeholder="e.g. Ahmed"
-                autoCapitalize="words"
               />
             </div>
             <div className="space-y-2">
@@ -103,12 +103,12 @@ export function VolunteerSignupForm() {
               <Input
                 id="vol-lastName"
                 type="text"
+                transform="titleCase"
                 required
                 value={lastName}
-                onChange={(e) => setLastName(capitalizeWords(e.target.value))}
+                onChange={(e) => setLastName(e.target.value)}
                 disabled={status === "submitting"}
                 placeholder="e.g. Khan"
-                autoCapitalize="words"
               />
             </div>
           </div>
@@ -141,12 +141,12 @@ export function VolunteerSignupForm() {
             <Input
               id="vol-city"
               type="text"
+              transform="titleCase"
               required
               value={city}
-              onChange={(e) => setCity(capitalizeWords(e.target.value))}
+              onChange={(e) => setCity(e.target.value)}
               disabled={status === "submitting"}
               placeholder="e.g. London"
-              autoCapitalize="words"
             />
           </div>
           <div className="space-y-2">

@@ -30,7 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatCurrency, formatAdminUserName, cn } from "@/lib/utils"
+import { formatCurrency, formatAdminUserName, formatDate, cn } from "@/lib/utils"
 import { IconLoader2, IconPlus, IconWallet, IconReceipt } from "@tabler/icons-react"
 import { toast } from "sonner"
 
@@ -268,11 +268,7 @@ export function DistributionsPageClient() {
                     {distributions.map((d) => (
                       <TableRow key={d.id}>
                         <TableCell className="whitespace-nowrap text-muted-foreground">
-                          {new Date(d.createdAt).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          {formatDate(d.createdAt)}
                         </TableCell>
                         <TableCell className="font-medium">{d.appealTitle}</TableCell>
                         <TableCell className="text-right font-medium">

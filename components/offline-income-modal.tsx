@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Plus, Gift } from "lucide-react"
 import { CHECKOUT_COUNTRIES } from "@/lib/countries"
-import { isValidPostcode } from "@/lib/utils"
+import { isValidEmail, isValidPhone, isValidPostcode } from "@/lib/utils"
 
 type AppealOption = { id: string; title: string }
 type WaterProjectOption = { id: string; projectType: string; location: string | null }
@@ -221,6 +221,14 @@ export function OfflineIncomeModal({
         toast.error("Enter a valid postcode")
         return
       }
+      if (giftAidExpanded && email.trim() && !isValidEmail(email)) {
+        toast.error("Enter a valid email address")
+        return
+      }
+      if (giftAidExpanded && giftaidPhone.trim() && !isValidPhone(giftaidPhone)) {
+        toast.error("Enter a valid phone number")
+        return
+      }
     }
 
     if (entryType === "water") {
@@ -233,6 +241,14 @@ export function OfflineIncomeModal({
         return
       }
       // Donor details are optional for offline entries
+      if (email.trim() && !isValidEmail(email)) {
+        toast.error("Enter a valid email address")
+        return
+      }
+      if (phone.trim() && !isValidPhone(phone)) {
+        toast.error("Enter a valid phone number")
+        return
+      }
     }
     if (entryType === "sponsorship") {
       if (!sponsorshipType || !selectedSponsorshipProject) {
@@ -247,7 +263,14 @@ export function OfflineIncomeModal({
         toast.error("Yearly price not available for this country")
         return
       }
-      // Donor details are optional for offline entries
+      if (email.trim() && !isValidEmail(email)) {
+        toast.error("Enter a valid email address")
+        return
+      }
+      if (phone.trim() && !isValidPhone(phone)) {
+        toast.error("Enter a valid phone number")
+        return
+      }
     }
 
     setSubmitting(true)

@@ -35,10 +35,12 @@ export function ReportExportButton<T>({
   filename,
   columns,
   data,
+  label = "Export CSV",
 }: {
   filename: string
   columns: ExportColumn<T>[]
   data: T[]
+  label?: string
 }) {
   const handleExport = () => {
     const rows = [
@@ -50,7 +52,7 @@ export function ReportExportButton<T>({
 
   return (
     <Button variant="outline" onClick={handleExport}>
-      Export CSV
+      {label}
     </Button>
   )
 }

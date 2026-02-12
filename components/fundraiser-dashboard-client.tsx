@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatDate } from "@/lib/utils"
 import Link from "next/link"
 import { Plus, ExternalLink } from "lucide-react"
 import { FundraiserLogoutButton } from "@/components/fundraiser-logout-button"
@@ -182,7 +182,7 @@ export function FundraiserDashboardClient({
                     </div>
                     <div className="mt-4 pt-4 border-t">
                       <p className="text-xs text-muted-foreground">
-                        Created {new Date(fundraiser.createdAt).toLocaleDateString()}
+                        Created {formatDate(fundraiser.createdAt)}
                       </p>
                       <p className="text-xs text-primary mt-1 font-medium">
                         Click to view all donations →

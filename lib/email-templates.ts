@@ -1,4 +1,5 @@
 import type { OrganizationSettings } from "@/lib/settings"
+import { formatDate } from "@/lib/utils"
 
 type EmailDoc = { subject: string; html: string }
 
@@ -341,11 +342,7 @@ export function buildDonationConfirmationEmail(
 
   const logoUrl = EMAIL_LOGO_LIGHT_URL
 
-  const receiptDate = new Date().toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
+  const receiptDate = formatDate(new Date())
 
   const summaryRowsHtml = params.items
     .map((i) => {

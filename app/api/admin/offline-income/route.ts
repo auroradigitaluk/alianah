@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRole } from "@/lib/admin-auth"
+import { isValidPhone } from "@/lib/utils"
+
+const donorPhoneRefine = (v: string | undefined) => !v || isValidPhone(v)
 
 const baseSchema = z.object({
   type: z.enum(["appeal", "water", "sponsorship"]),
@@ -23,7 +26,7 @@ const appealSchema = baseSchema.extend({
       firstName: z.string().min(1).optional(),
       lastName: z.string().min(1).optional(),
       email: z.string().email().optional(),
-      phone: z.string().optional(),
+      phone: z.string().optional().refine(donorPhoneRefine, "Invalid phone number"),
       address: z.string().optional(),
       city: z.string().optional(),
       postcode: z.string().optional(),
@@ -43,7 +46,7 @@ const waterSchema = baseSchema.extend({
       firstName: z.string().min(1).optional(),
       lastName: z.string().min(1).optional(),
       email: z.string().email().optional(),
-      phone: z.string().optional(),
+      phone: z.string().optional().refine(donorPhoneRefine, "Invalid phone number"),
     })
     .optional(),
 })
@@ -58,7 +61,7 @@ const sponsorshipSchema = baseSchema.extend({
       firstName: z.string().min(1).optional(),
       lastName: z.string().min(1).optional(),
       email: z.string().email().optional(),
-      phone: z.string().optional(),
+      phone: z.string().optional().refine(donorPhoneRefine, "Invalid phone number"),
     })
     .optional(),
 })

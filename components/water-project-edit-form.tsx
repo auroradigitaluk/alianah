@@ -12,6 +12,7 @@ import { IconX, IconUpload, IconPlus, IconPencil, IconTrash, IconCheck } from "@
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatDate } from "@/lib/utils"
 
 interface WaterProjectCountry {
   id: string
@@ -366,7 +367,7 @@ Status: Complete
 
 This project has been successfully completed. The images below show the completed work.
 
-Completion Date: ${new Date().toLocaleDateString()}
+Completion Date: ${formatDate(new Date())}
 
 Thank you for your support in making this project possible.`
 

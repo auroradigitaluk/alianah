@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma, invalidatePrismaCache } from "@/lib/prisma"
+import { isValidPhone } from "@/lib/utils"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
@@ -8,7 +9,11 @@ const signUpSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
   lastName: z.string().min(1, "Last name is required").max(100),
   email: z.string().email("Valid email is required"),
-  phone: z.string().min(1, "Phone is required").max(50),
+  phone: z
+    .string()
+    .min(1, "Phone is required")
+    .max(50)
+    .refine((v) => isValidPhone(v), "Enter a valid phone number"),
   city: z.string().min(1, "City is required").max(100),
   dateOfBirth: z.string().min(1, "Date of birth is required").max(50), // YYYY-MM-DD from form
 })

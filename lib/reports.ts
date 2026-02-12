@@ -133,6 +133,100 @@ export type StaffReport = {
   byStaff: StaffReportRow[]
 }
 
+/** Full row-level detail for CSV export - all info, no limits (online donations) */
+export type DonationDetailRow = {
+  id: string
+  createdAt: string
+  completedAt: string | null
+  amountPence: number
+  donationType: string
+  paymentMethod: string
+  status: string
+  frequency: string
+  giftAid: boolean
+  giftAidClaimed: boolean
+  giftAidClaimedAt: string | null
+  isAnonymous: boolean
+  orderNumber: string | null
+  transactionId: string | null
+  collectedVia: string | null
+  donorName: string
+  donorEmail: string
+  donorTitle: string | null
+  donorFirstName: string
+  donorLastName: string
+  donorPhone: string | null
+  donorAddress: string | null
+  donorCity: string | null
+  donorPostcode: string | null
+  donorCountry: string | null
+  billingAddress: string | null
+  billingCity: string | null
+  billingPostcode: string | null
+  billingCountry: string | null
+  appealTitle: string | null
+  fundraiserName: string | null
+  productName: string | null
+}
+export type CollectionDetailRow = {
+  id: string
+  collectedAt: string
+  amountPence: number
+  type: string
+  donationType: string
+  sadaqahPence: number
+  zakatPence: number
+  lillahPence: number
+  cardPence: number
+  masjidName: string | null
+  otherLocationName: string | null
+  appealTitle: string | null
+  notes: string | null
+  addedByName: string | null
+}
+export type OfflineIncomeDetailRow = {
+  id: string
+  receivedAt: string
+  amountPence: number
+  donationType: string
+  source: string
+  collectedVia: string | null
+  giftAid: boolean
+  notes: string | null
+  appealTitle: string | null
+  donorName: string | null
+  donorEmail: string | null
+  addedByName: string | null
+}
+export type WaterDonationDetailRow = {
+  id: string
+  createdAt: string
+  amountPence: number
+  donationType: string
+  paymentMethod: string
+  status: string | null
+  giftAid: boolean
+  projectType: string
+  country: string
+  donorName: string
+  donorEmail: string
+  addedByName: string | null
+}
+export type SponsorshipDonationDetailRow = {
+  id: string
+  createdAt: string
+  amountPence: number
+  donationType: string
+  paymentMethod: string
+  status: string | null
+  giftAid: boolean
+  projectType: string
+  country: string
+  donorName: string
+  donorEmail: string
+  addedByName: string | null
+}
+
 export type ReportsResponse = {
   range: ReportDateRange
   financial: FinancialReport
@@ -145,4 +239,10 @@ export type ReportsResponse = {
   appeals: AppealsReport
   operations: OperationsReport
   staff: StaffReport
+  /** Full row-level detail for export - all records in range, no limits */
+  donationsDetail: DonationDetailRow[]
+  collectionsDetail: CollectionDetailRow[]
+  offlineIncomeDetail: OfflineIncomeDetailRow[]
+  waterDonationsDetail: WaterDonationDetailRow[]
+  sponsorshipDonationsDetail: SponsorshipDonationDetailRow[]
 }

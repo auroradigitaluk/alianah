@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
@@ -93,19 +94,22 @@ export function ReportsDateFilter({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select value={currentRange} onValueChange={setCurrentRange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Select date range" />
-        </SelectTrigger>
-        <SelectContent>
-          {dateRangeOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="flex flex-col">
+        <Label className="text-xs text-muted-foreground mb-1.5 block">Date range</Label>
+        <Select value={currentRange} onValueChange={setCurrentRange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select date range" />
+          </SelectTrigger>
+          <SelectContent>
+            {dateRangeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       {currentRange === "custom" && (
         <div className="flex items-center gap-2">
           <Input

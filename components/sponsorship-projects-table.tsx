@@ -18,6 +18,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatDate } from "@/lib/utils"
 
 const PROJECT_TYPE_LABELS: Record<string, string> = {
   ORPHANS: "Orphans",
@@ -359,7 +360,7 @@ export function SponsorshipProjectsTable({ projects }: { projects: SponsorshipPr
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Completed At</p>
-                                <p className="text-base text-foreground">{new Date(selectedProject.completedAt).toLocaleDateString()}</p>
+                                <p className="text-base text-foreground">{formatDate(selectedProject.completedAt)}</p>
                               </div>
                             </div>
                           )}

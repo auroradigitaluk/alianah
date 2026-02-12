@@ -642,6 +642,7 @@ export function FundraisersTable({
                               <Label htmlFor="edit-fundraiser-name">Fundraiser name</Label>
                               <Input
                                 id="edit-fundraiser-name"
+                                transform="titleCase"
                                 value={editName}
                                 onChange={(e) => setEditName(e.target.value)}
                                 placeholder="Display name"

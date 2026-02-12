@@ -1,7 +1,6 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { CollectionsPageClient } from "@/components/collections-page-client"
-import { ExportCsvButton } from "@/components/export-csv-button"
 import { getAdminUser } from "@/lib/admin-auth"
 import { formatAdminUserName } from "@/lib/utils"
 
@@ -62,12 +61,7 @@ export default async function CollectionsPage({
 
   return (
     <>
-      <AdminHeader
-        title="Collections"
-        actions={
-          <ExportCsvButton variant="collections" data={collections} />
-        }
-      />
+      <AdminHeader title="Collections" />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">

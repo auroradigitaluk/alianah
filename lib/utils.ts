@@ -52,6 +52,24 @@ export function isValidPostcode(input: string, country: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9\s-]{1,9}$/.test(value)
 }
 
+/** Email validation (RFC-style; use for forms). Rejects placeholder. */
+export function isValidEmail(email: string | null | undefined): boolean {
+  if (!email || typeof email !== "string") return false
+  const trimmed = email.trim()
+  if (!trimmed) return false
+  if (isPlaceholderDonorEmail(trimmed)) return false
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
+}
+
+/** Phone validation: optional +, digits, spaces, dashes, parentheses; at least 10 digits. */
+export function isValidPhone(phone: string | null | undefined): boolean {
+  if (phone == null || typeof phone !== "string") return false
+  const trimmed = phone.trim()
+  if (!trimmed) return false
+  const digitsOnly = trimmed.replace(/\D/g, "")
+  return digitsOnly.length >= 10 && /^[+]?[\d\s\-()]+$/.test(trimmed)
+}
+
 export function formatCurrency(amountPence: number): string {
   const amount = amountPence / 100
   return `£${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

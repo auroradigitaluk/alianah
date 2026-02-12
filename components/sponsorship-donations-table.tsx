@@ -19,7 +19,7 @@ import { toast } from "sonner"
 import { IconPencil, IconUpload, IconFileText, IconMail, IconCheck, IconEye, IconX, IconSend, IconDownload } from "@tabler/icons-react"
 import { ExternalLink } from "lucide-react"
 import { generateCompletionReportPDF } from "@/lib/pdf-generator"
-import { formatDonorName, formatPaymentMethod, displayDonorEmail } from "@/lib/utils"
+import { formatDate, formatDonorName, formatPaymentMethod, displayDonorEmail } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 
 interface SponsorshipDonation {
@@ -170,8 +170,8 @@ export function SponsorshipDonationsTable({
       const existingNotes = selectedDonation.notes || ""
       const newNote = notes.trim()
       const updatedNotes = existingNotes 
-        ? `${existingNotes}\n\n${new Date().toLocaleDateString('en-GB')} - ${newNote}`
-        : `${new Date().toLocaleDateString('en-GB')} - ${newNote}`
+        ? `${existingNotes}\n\n${formatDate(new Date())} - ${newNote}`
+        : `${formatDate(new Date())} - ${newNote}`
 
       const response = await fetch(`/api/admin/sponsorships/donations/${selectedDonation.id}`, {
         method: "PATCH",
@@ -245,7 +245,7 @@ export function SponsorshipDonationsTable({
         country: selectedDonation.country.country,
         donorName: `${selectedDonation.donor.firstName} ${selectedDonation.donor.lastName}`,
         amount: selectedDonation.amountPence,
-        completionDate: new Date().toLocaleDateString('en-GB'),
+        completionDate: formatDate(new Date()),
         googleDriveLink: googleDriveLink || undefined,
         images: completionImages,
         reportKind: "Sponsorship",
@@ -286,7 +286,7 @@ Status: Complete
 
 This sponsorship has been successfully completed. The images below show the completed work.${driveLinkSection}
 
-Completion Date: ${new Date().toLocaleDateString('en-GB')}
+Completion Date: ${formatDate(new Date())}
 
 Thank you for your generous support in making this project possible.`
 
@@ -435,7 +435,7 @@ Thank you for your generous support in making this project possible.`
         `£${(d.amountPence / 100).toFixed(2)}`,
         d.status || "No Status",
         DONATION_TYPE_LABELS[d.donationType] || d.donationType,
-        new Date(d.createdAt).toLocaleDateString('en-GB'),
+        formatDate(d.createdAt),
         d.giftAid ? "Yes" : "No",
       ])
 
@@ -644,7 +644,7 @@ Thank you for your generous support in making this project possible.`
             header: "Date",
             cell: (donation) => (
               <div className="text-sm">
-                {new Date(donation.createdAt).toLocaleDateString('en-GB')}
+                {formatDate(donation.createdAt)}
               </div>
             ),
           },
@@ -734,7 +734,7 @@ Thank you for your generous support in making this project possible.`
                 </div>
                 <div className="p-4 bg-muted/50 rounded-lg space-y-1">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</p>
-                  <p className="text-base font-medium">{new Date(selectedDonation.createdAt).toLocaleDateString('en-GB')}</p>
+                  <p className="text-base font-medium">{formatDate(selectedDonation.createdAt)}</p>
                 </div>
               </div>
             </div>
@@ -968,7 +968,7 @@ Thank you for your generous support in making this project possible.`
                             <div>
                               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Completion Date</p>
                               <p className="text-sm font-medium mt-1">
-                                {new Date(selectedDonation.completedAt).toLocaleDateString('en-GB')}
+                                {formatDate(selectedDonation.completedAt)}
                               </p>
                             </div>
                           )}
@@ -986,8 +986,8 @@ Thank you for your generous support in making this project possible.`
                                       donorName: formatDonorName(selectedDonation.donor),
                                       amount: selectedDonation.amountPence,
                                       completionDate: selectedDonation.completedAt 
-                                        ? new Date(selectedDonation.completedAt).toLocaleDateString('en-GB')
-                                        : new Date().toLocaleDateString('en-GB'),
+                                        ? formatDate(selectedDonation.completedAt)
+                                        : formatDate(new Date()),
                                       googleDriveLink: undefined,
                                       images: [],
                                       reportKind: "Sponsorship",

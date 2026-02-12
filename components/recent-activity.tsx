@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatDateTime } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, Wallet, Plus, Building2, XCircle, CheckCircle2 } from "lucide-react"
 
@@ -56,13 +57,7 @@ export function RecentActivity({ activities }: RecentActivityProps) {
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
     
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+    return formatDateTime(date)
   }
 
   if (activities.length === 0) {

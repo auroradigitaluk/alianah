@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
+import { isValidEmail, isValidPhone } from "@/lib/utils"
 
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active" },
@@ -58,12 +59,6 @@ const formatDateInput = (value?: string | Date | null) => {
   if (Number.isNaN(date.getTime())) return ""
   return date.toISOString().slice(0, 10)
 }
-
-const isValidEmail = (value: string) =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
-
-const isValidPhone = (value: string) =>
-  /^[+()0-9\s-]{7,}$/.test(value.trim())
 
 const isValidMasjidPostcode = (value: string) =>
   value.trim() === "" || /^[A-Za-z0-9\s-]{3,10}$/.test(value.trim())

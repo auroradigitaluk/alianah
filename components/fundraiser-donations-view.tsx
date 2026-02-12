@@ -239,6 +239,7 @@ export function FundraiserDonationsView({
                     <Label htmlFor="cash-donor">Donor name (optional)</Label>
                     <Input
                       id="cash-donor"
+                      transform="titleCase"
                       placeholder="e.g. Aunt Sarah"
                       value={cashForm.donorName}
                       onChange={(e) => setCashForm((f) => ({ ...f, donorName: e.target.value }))}

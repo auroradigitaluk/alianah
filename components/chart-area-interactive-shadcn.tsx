@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatDate } from "@/lib/utils"
 
 export const description = "An interactive area chart"
 
@@ -131,24 +131,13 @@ export function ChartAreaInteractive({
               axisLine={false}
               tickMargin={8}
               minTickGap={32}
-              tickFormatter={(value) => {
-                const date = new Date(value)
-                return date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
-              }}
+              tickFormatter={(value) => formatDate(value)}
             />
             <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }}
+                  labelFormatter={(value) => formatDate(value)}
                   formatter={(value) => formatCurrency(value as number)}
                   indicator="dot"
                 />

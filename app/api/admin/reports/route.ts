@@ -4,7 +4,15 @@ import { prisma } from "@/lib/prisma"
 import { getDeduplicatedDonationGroupBy, deduplicateDonationsByTransaction } from "@/lib/donation-dedup"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { formatAdminUserName } from "@/lib/utils"
-import type { ReportsResponse, ReportRow } from "@/lib/reports"
+import type {
+  ReportsResponse,
+  ReportRow,
+  DonationDetailRow,
+  CollectionDetailRow,
+  OfflineIncomeDetailRow,
+  WaterDonationDetailRow,
+  SponsorshipDonationDetailRow,
+} from "@/lib/reports"
 
 const querySchema = z.object({
   start: z.string().optional(),
@@ -78,6 +86,7 @@ export async function GET(request: NextRequest) {
       recurringNextPayments,
       offlineIncome,
       offlineIncomeByAppeal,
+      offlineIncomeList,
       collections,
       collectionsByAppeal,
       masjids,
@@ -198,13 +207,22 @@ export async function GET(request: NextRequest) {
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
+      prisma.offlineIncome.findMany({
+        where: { receivedAt: dateFilter, ...(staffFilter || {}) },
+        orderBy: { receivedAt: "desc" },
+        include: {
+          appeal: { select: { title: true } },
+          donor: { select: { firstName: true, lastName: true, email: true } },
+          addedBy: { select: { firstName: true, lastName: true, email: true } },
+        },
+      }),
       prisma.collection.findMany({
         where: { collectedAt: dateFilter, ...(staffFilter || {}) },
-        select: {
-          amountPence: true,
-          type: true,
-          masjidId: true,
-          appealId: true,
+        orderBy: { collectedAt: "desc" },
+        include: {
+          masjid: { select: { name: true } },
+          appeal: { select: { title: true } },
+          addedBy: { select: { firstName: true, lastName: true, email: true } },
         },
       }),
       prisma.collection.groupBy({
@@ -221,32 +239,60 @@ export async function GET(request: NextRequest) {
       }),
       prisma.donation.findMany({
         where: { createdAt: dateFilter, status: "COMPLETED" },
-        select: {
-          id: true,
-          donorId: true,
-          amountPence: true,
-          orderNumber: true,
-          transactionId: true,
-          giftAid: true,
-          donor: { select: { city: true, country: true } },
+        orderBy: { createdAt: "desc" },
+        include: {
+          donor: {
+            select: {
+              title: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              address: true,
+              city: true,
+              postcode: true,
+              country: true,
+            },
+          },
+          appeal: { select: { title: true } },
+          fundraiser: { select: { fundraiserName: true, title: true } },
+          product: { select: { name: true } },
         },
       }),
       prisma.waterProjectDonation.findMany({
         where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
-        select: {
-          donorId: true,
-          amountPence: true,
-          giftAid: true,
-          donor: { select: { city: true, country: true } },
+        orderBy: { createdAt: "desc" },
+        include: {
+          donor: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+              city: true,
+              country: true,
+            },
+          },
+          waterProject: { select: { projectType: true } },
+          country: { select: { country: true } },
+          addedBy: { select: { firstName: true, lastName: true, email: true } },
         },
       }),
       prisma.sponsorshipDonation.findMany({
         where: { createdAt: dateFilter, status: "COMPLETE", ...(staffFilter || {}) },
-        select: {
-          donorId: true,
-          amountPence: true,
-          giftAid: true,
-          donor: { select: { city: true, country: true } },
+        orderBy: { createdAt: "desc" },
+        include: {
+          donor: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+              city: true,
+              country: true,
+            },
+          },
+          sponsorshipProject: { select: { projectType: true } },
+          country: { select: { country: true } },
+          addedBy: { select: { firstName: true, lastName: true, email: true } },
         },
       }),
       prisma.waterProjectDonation.groupBy({
@@ -818,6 +864,116 @@ export async function GET(request: NextRequest) {
       totalPence: row.donationAmountPence + row.offlineAmountPence + row.collectionAmountPence,
     }))
 
+    const donationsDetail: DonationDetailRow[] = donorTotals.map((d) => {
+      const donorName = d.donor
+        ? [d.donor.title, d.donor.firstName, d.donor.lastName].filter(Boolean).join(" ")
+        : "Unknown"
+      return {
+        id: d.id,
+        createdAt: d.createdAt.toISOString(),
+        completedAt: d.completedAt?.toISOString() ?? null,
+        amountPence: d.amountPence,
+        donationType: d.donationType,
+        paymentMethod: d.paymentMethod,
+        status: d.status,
+        frequency: d.frequency,
+        giftAid: d.giftAid,
+        giftAidClaimed: d.giftAidClaimed ?? false,
+        giftAidClaimedAt: d.giftAidClaimedAt?.toISOString() ?? null,
+        isAnonymous: d.isAnonymous ?? false,
+        orderNumber: d.orderNumber ?? null,
+        transactionId: d.transactionId ?? null,
+        collectedVia: d.collectedVia ?? null,
+        donorName,
+        donorEmail: d.donor?.email ?? "",
+        donorTitle: d.donor?.title ?? null,
+        donorFirstName: d.donor?.firstName ?? "",
+        donorLastName: d.donor?.lastName ?? "",
+        donorPhone: d.donor?.phone ?? null,
+        donorAddress: d.donor?.address ?? null,
+        donorCity: d.donor?.city ?? null,
+        donorPostcode: d.donor?.postcode ?? null,
+        donorCountry: d.donor?.country ?? null,
+        billingAddress: d.billingAddress ?? null,
+        billingCity: d.billingCity ?? null,
+        billingPostcode: d.billingPostcode ?? null,
+        billingCountry: d.billingCountry ?? null,
+        appealTitle: d.appeal?.title ?? null,
+        fundraiserName: d.fundraiser ? (d.fundraiser.title || d.fundraiser.fundraiserName) : null,
+        productName: d.product?.name ?? null,
+      }
+    })
+
+    const collectionsDetail: CollectionDetailRow[] = collections.map((c) => ({
+      id: c.id,
+      collectedAt: c.collectedAt.toISOString(),
+      amountPence: c.amountPence,
+      type: c.type,
+      donationType: c.donationType,
+      sadaqahPence: c.sadaqahPence,
+      zakatPence: c.zakatPence,
+      lillahPence: c.lillahPence,
+      cardPence: c.cardPence,
+      masjidName: c.masjid?.name ?? null,
+      otherLocationName: c.otherLocationName ?? null,
+      appealTitle: c.appeal?.title ?? null,
+      notes: c.notes ?? null,
+      addedByName: c.addedBy ? formatAdminUserName(c.addedBy) : null,
+    }))
+
+    const offlineIncomeDetail: OfflineIncomeDetailRow[] = offlineIncomeList.map((o) => ({
+      id: o.id,
+      receivedAt: o.receivedAt.toISOString(),
+      amountPence: o.amountPence,
+      donationType: o.donationType,
+      source: o.source,
+      collectedVia: o.collectedVia ?? null,
+      giftAid: o.giftAid,
+      notes: o.notes ?? null,
+      appealTitle: o.appeal?.title ?? null,
+      donorName: o.donor
+        ? [o.donor.firstName, o.donor.lastName].filter(Boolean).join(" ")
+        : null,
+      donorEmail: o.donor?.email ?? null,
+      addedByName: o.addedBy ? formatAdminUserName(o.addedBy) : null,
+    }))
+
+    const waterDonationsDetail: WaterDonationDetailRow[] = waterDonorTotals.map((w) => ({
+      id: w.id,
+      createdAt: w.createdAt.toISOString(),
+      amountPence: w.amountPence,
+      donationType: w.donationType,
+      paymentMethod: w.paymentMethod,
+      status: w.status,
+      giftAid: w.giftAid,
+      projectType: w.waterProject?.projectType ?? "",
+      country: w.country?.country ?? "",
+      donorName: w.donor
+        ? [w.donor.firstName, w.donor.lastName].filter(Boolean).join(" ")
+        : "Unknown",
+      donorEmail: w.donor?.email ?? "",
+      addedByName: w.addedBy ? formatAdminUserName(w.addedBy) : null,
+    }))
+
+    const sponsorshipDonationsDetail: SponsorshipDonationDetailRow[] = sponsorshipDonorTotals.map(
+      (s) => ({
+        id: s.id,
+        createdAt: s.createdAt.toISOString(),
+        amountPence: s.amountPence,
+        donationType: s.donationType,
+        paymentMethod: s.paymentMethod,
+        status: s.status,
+        giftAid: s.giftAid,
+        projectType: s.sponsorshipProject?.projectType ?? "",
+        country: s.country?.country ?? "",
+        donorName: s.donor
+          ? [s.donor.firstName, s.donor.lastName].filter(Boolean).join(" ")
+          : "Unknown",
+        donorEmail: s.donor?.email ?? "",
+        addedByName: s.addedBy ? formatAdminUserName(s.addedBy) : null,
+      })
+    )
+
     const response: ReportsResponse = {
       range: { start: range.start.toISOString(), end: range.end.toISOString() },
       financial: {
@@ -902,6 +1058,11 @@ export async function GET(request: NextRequest) {
       staff: {
         byStaff: byStaffRows,
       },
+      donationsDetail,
+      collectionsDetail,
+      offlineIncomeDetail,
+      waterDonationsDetail,
+      sponsorshipDonationsDetail,
     }
 
     return NextResponse.json(response)

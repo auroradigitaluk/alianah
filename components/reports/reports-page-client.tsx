@@ -5,8 +5,16 @@ import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
-import { formatCurrency, formatEnum } from "@/lib/utils"
-import type { ReportsResponse, ReportRow } from "@/lib/reports"
+import { formatCurrency, formatDate, formatEnum } from "@/lib/utils"
+import type {
+  ReportsResponse,
+  ReportRow,
+  DonationDetailRow,
+  OfflineIncomeDetailRow,
+  CollectionDetailRow,
+  WaterDonationDetailRow,
+  SponsorshipDonationDetailRow,
+} from "@/lib/reports"
 import { ReportExportButton } from "@/components/reports/report-export-button"
 import { ReportTable } from "@/components/reports/report-table"
 import { ReportsDateFilter } from "@/components/reports/reports-date-filter"
@@ -21,11 +29,13 @@ const defaultRange: RangeState = { startDate: null, endDate: null }
 
 const formatAmount = (value?: number | null) => (value ? formatCurrency(value) : "£0.00")
 
+/** Summary rows for CSV with all info: raw amount (pence) and formatted amount */
 const toCsvRows = (rows: ReportRow[]) =>
   rows.map((row) => ({
     label: row.label,
     count: row.count ?? 0,
-    amountPence: formatAmount(row.amountPence),
+    amountPence: row.amountPence ?? 0,
+    amountFormatted: formatAmount(row.amountPence),
   }))
 
 export function ReportsPageClient() {
@@ -96,6 +106,110 @@ export function ReportsPageClient() {
   const refundRows = useMemo(() => (data ? data.operations.refunds : []), [data])
   const failedRows = useMemo(() => (data ? data.operations.failed : []), [data])
   const byStaffRows = useMemo(() => (data ? data.staff.byStaff : []), [data])
+  const donationsDetail = useMemo(() => data?.donationsDetail ?? [], [data])
+  const collectionsDetail = useMemo(() => data?.collectionsDetail ?? [], [data])
+  const offlineIncomeDetail = useMemo(() => data?.offlineIncomeDetail ?? [], [data])
+  const waterDonationsDetail = useMemo(() => data?.waterDonationsDetail ?? [], [data])
+  const sponsorshipDonationsDetail = useMemo(
+    () => data?.sponsorshipDonationsDetail ?? [],
+    [data]
+  )
+
+  /** Combined view: online, offline, collections, water, sponsorship — one row per donation/income, sorted by date */
+  const allDonationsRows = useMemo(() => {
+    type Row = {
+      label: string
+      source: string
+      date: string
+      amountPence: number
+      donorOrLocation: string
+      paymentMethodOrType: string
+      donationType: string
+      appealTitle: string | null
+      donorEmail?: string
+      notes?: string
+      addedByName?: string
+    }
+    const rows: Row[] = []
+    donationsDetail.forEach((r: DonationDetailRow) => {
+      rows.push({
+        label: `${r.createdAt}-${r.donorName}-${r.amountPence}`,
+        source: "Online",
+        date: r.createdAt,
+        amountPence: r.amountPence,
+        donorOrLocation: r.donorName,
+        paymentMethodOrType: r.paymentMethod,
+        donationType: r.donationType,
+        appealTitle: r.appealTitle,
+        donorEmail: r.donorEmail,
+      })
+    })
+    offlineIncomeDetail.forEach((r: OfflineIncomeDetailRow) => {
+      rows.push({
+        label: `${r.receivedAt}-${r.donorName ?? ""}-${r.amountPence}`,
+        source: "Offline",
+        date: r.receivedAt,
+        amountPence: r.amountPence,
+        donorOrLocation: r.donorName ?? "—",
+        paymentMethodOrType: r.source,
+        donationType: r.donationType,
+        appealTitle: r.appealTitle,
+        notes: r.notes ?? undefined,
+        addedByName: r.addedByName ?? undefined,
+      })
+    })
+    collectionsDetail.forEach((r: CollectionDetailRow) => {
+      const location = r.masjidName ?? r.otherLocationName ?? "—"
+      rows.push({
+        label: `${r.collectedAt}-${location}-${r.amountPence}`,
+        source: "Collection",
+        date: r.collectedAt,
+        amountPence: r.amountPence,
+        donorOrLocation: location,
+        paymentMethodOrType: r.type,
+        donationType: r.donationType,
+        appealTitle: r.appealTitle,
+        notes: r.notes ?? undefined,
+        addedByName: r.addedByName ?? undefined,
+      })
+    })
+    waterDonationsDetail.forEach((r: WaterDonationDetailRow) => {
+      rows.push({
+        label: `${r.createdAt}-${r.donorName}-${r.amountPence}`,
+        source: "Water",
+        date: r.createdAt,
+        amountPence: r.amountPence,
+        donorOrLocation: r.donorName,
+        paymentMethodOrType: r.paymentMethod,
+        donationType: r.donationType,
+        appealTitle: null,
+        donorEmail: r.donorEmail,
+        addedByName: r.addedByName ?? undefined,
+      })
+    })
+    sponsorshipDonationsDetail.forEach((r: SponsorshipDonationDetailRow) => {
+      rows.push({
+        label: `${r.createdAt}-${r.donorName}-${r.amountPence}`,
+        source: "Sponsorship",
+        date: r.createdAt,
+        amountPence: r.amountPence,
+        donorOrLocation: r.donorName,
+        paymentMethodOrType: r.paymentMethod,
+        donationType: r.donationType,
+        appealTitle: null,
+        donorEmail: r.donorEmail,
+        addedByName: r.addedByName ?? undefined,
+      })
+    })
+    rows.sort((a, b) => (b.date < a.date ? -1 : b.date > a.date ? 1 : 0))
+    return rows
+  }, [
+    donationsDetail,
+    offlineIncomeDetail,
+    collectionsDetail,
+    waterDonationsDetail,
+    sponsorshipDonationsDetail,
+  ])
 
   return (
     <div className="space-y-6">
@@ -106,7 +220,7 @@ export function ReportsPageClient() {
             Comprehensive reporting across all charity activity.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-end gap-4">
           <StaffFilterSelect paramName="staff" label="Filter by staff" />
           <ReportsDateFilter onRangeChange={handleRangeChange} />
         </div>
@@ -141,15 +255,98 @@ export function ReportsPageClient() {
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   Financial Summary
                 </h3>
-              <ReportExportButton
-                filename="financial-by-payment-method.csv"
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportExportButton
+                  label="Payment summary"
+                  filename="financial-by-payment-method.csv"
                   columns={[
-                  { key: "label", label: "Payment method", getValue: (row) => row.label },
+                    { key: "label", label: "Payment method", getValue: (row) => row.label },
                     { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                    { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                    { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                    { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                   ]}
-                data={toCsvRows(paymentRows)}
+                  data={toCsvRows(paymentRows)}
                 />
+                <ReportExportButton
+                  label="All donations"
+                  filename="donations-full-detail.csv"
+                  columns={[
+                    { key: "id", label: "ID", getValue: (r) => r.id },
+                    { key: "createdAt", label: "Date", getValue: (r) => r.createdAt },
+                    { key: "completedAt", label: "Completed at", getValue: (r) => r.completedAt ?? "" },
+                    { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
+                    { key: "donationType", label: "Type", getValue: (r) => r.donationType },
+                    { key: "paymentMethod", label: "Payment method", getValue: (r) => r.paymentMethod },
+                    { key: "status", label: "Status", getValue: (r) => r.status },
+                    { key: "frequency", label: "Frequency", getValue: (r) => r.frequency },
+                    { key: "giftAid", label: "Gift Aid", getValue: (r) => (r.giftAid ? "Yes" : "No") },
+                    { key: "giftAidClaimed", label: "Gift Aid claimed", getValue: (r) => (r.giftAidClaimed ? "Yes" : "No") },
+                    { key: "giftAidClaimedAt", label: "Gift Aid claimed at", getValue: (r) => r.giftAidClaimedAt ?? "" },
+                    { key: "isAnonymous", label: "Anonymous", getValue: (r) => (r.isAnonymous ? "Yes" : "No") },
+                    { key: "orderNumber", label: "Order number", getValue: (r) => r.orderNumber ?? "" },
+                    { key: "transactionId", label: "Transaction ID", getValue: (r) => r.transactionId ?? "" },
+                    { key: "collectedVia", label: "Channel", getValue: (r) => r.collectedVia ?? "" },
+                    { key: "donorTitle", label: "Donor title", getValue: (r) => r.donorTitle ?? "" },
+                    { key: "donorFirstName", label: "Donor first name", getValue: (r) => r.donorFirstName },
+                    { key: "donorLastName", label: "Donor last name", getValue: (r) => r.donorLastName },
+                    { key: "donorName", label: "Donor name", getValue: (r) => r.donorName },
+                    { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail },
+                    { key: "donorPhone", label: "Donor phone", getValue: (r) => r.donorPhone ?? "" },
+                    { key: "donorAddress", label: "Donor address", getValue: (r) => r.donorAddress ?? "" },
+                    { key: "donorCity", label: "Donor city", getValue: (r) => r.donorCity ?? "" },
+                    { key: "donorPostcode", label: "Donor postcode", getValue: (r) => r.donorPostcode ?? "" },
+                    { key: "donorCountry", label: "Donor country", getValue: (r) => r.donorCountry ?? "" },
+                    { key: "billingAddress", label: "Billing address", getValue: (r) => r.billingAddress ?? "" },
+                    { key: "billingCity", label: "Billing city", getValue: (r) => r.billingCity ?? "" },
+                    { key: "billingPostcode", label: "Billing postcode", getValue: (r) => r.billingPostcode ?? "" },
+                    { key: "billingCountry", label: "Billing country", getValue: (r) => r.billingCountry ?? "" },
+                    { key: "appealTitle", label: "Appeal", getValue: (r) => r.appealTitle ?? "" },
+                    { key: "fundraiserName", label: "Fundraiser", getValue: (r) => r.fundraiserName ?? "" },
+                    { key: "productName", label: "Product", getValue: (r) => r.productName ?? "" },
+                  ]}
+                  data={donationsDetail}
+                />
+                <ReportExportButton
+                  label="Offline income"
+                  filename="offline-income-full-detail.csv"
+                  columns={[
+                    { key: "id", label: "ID", getValue: (r) => r.id },
+                    { key: "receivedAt", label: "Date", getValue: (r) => r.receivedAt },
+                    { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
+                    { key: "donationType", label: "Type", getValue: (r) => r.donationType },
+                    { key: "source", label: "Source", getValue: (r) => r.source },
+                    { key: "giftAid", label: "Gift Aid", getValue: (r) => (r.giftAid ? "Yes" : "No") },
+                    { key: "appealTitle", label: "Appeal", getValue: (r) => r.appealTitle ?? "" },
+                    { key: "donorName", label: "Donor name", getValue: (r) => r.donorName ?? "" },
+                    { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail ?? "" },
+                    { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
+                    { key: "collectedVia", label: "Channel", getValue: (r) => r.collectedVia ?? "" },
+                    { key: "notes", label: "Notes", getValue: (r) => r.notes ?? "" },
+                  ]}
+                  data={offlineIncomeDetail}
+                />
+                <ReportExportButton
+                  label="Collections"
+                  filename="collections-full-detail.csv"
+                  columns={[
+                    { key: "id", label: "ID", getValue: (r) => r.id },
+                    { key: "collectedAt", label: "Date", getValue: (r) => r.collectedAt },
+                    { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
+                    { key: "type", label: "Type", getValue: (r) => r.type },
+                    { key: "donationType", label: "Donation type", getValue: (r) => r.donationType },
+                    { key: "sadaqahPence", label: "Sadaqah (pence)", getValue: (r) => r.sadaqahPence },
+                    { key: "zakatPence", label: "Zakat (pence)", getValue: (r) => r.zakatPence },
+                    { key: "lillahPence", label: "Lillah (pence)", getValue: (r) => r.lillahPence },
+                    { key: "cardPence", label: "Card (pence)", getValue: (r) => r.cardPence },
+                    { key: "masjidName", label: "Masjid", getValue: (r) => r.masjidName ?? "" },
+                    { key: "otherLocationName", label: "Other location", getValue: (r) => r.otherLocationName ?? "" },
+                    { key: "appealTitle", label: "Appeal", getValue: (r) => r.appealTitle ?? "" },
+                    { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
+                    { key: "notes", label: "Notes", getValue: (r) => r.notes ?? "" },
+                  ]}
+                  data={collectionsDetail}
+                />
+              </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
@@ -206,8 +403,9 @@ export function ReportsPageClient() {
                   Donations Breakdown
                 </h3>
               </div>
-              <Tabs defaultValue="types">
+              <Tabs defaultValue="all">
                 <TabsList className="flex flex-wrap">
+                  <TabsTrigger value="all">All donations</TabsTrigger>
                   <TabsTrigger value="types">Types</TabsTrigger>
                   <TabsTrigger value="payment">Payment</TabsTrigger>
                   <TabsTrigger value="status">Status</TabsTrigger>
@@ -218,6 +416,45 @@ export function ReportsPageClient() {
                   <TabsTrigger value="giftaid">Gift Aid</TabsTrigger>
                 </TabsList>
 
+                <TabsContent value="all" className="space-y-3 mt-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold">All donations</h4>
+                    <ReportExportButton
+                      filename="all-donations.csv"
+                      columns={[
+                        { key: "source", label: "Source", getValue: (r) => r.source },
+                        { key: "date", label: "Date", getValue: (r) => r.date },
+                        { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
+                        { key: "donorOrLocation", label: "Donor / Location", getValue: (r) => r.donorOrLocation },
+                        { key: "paymentMethodOrType", label: "Payment / Type", getValue: (r) => r.paymentMethodOrType },
+                        { key: "donationType", label: "Donation type", getValue: (r) => r.donationType },
+                        { key: "appealTitle", label: "Appeal", getValue: (r) => r.appealTitle ?? "" },
+                        { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail ?? "" },
+                        { key: "notes", label: "Notes", getValue: (r) => r.notes ?? "" },
+                        { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
+                      ]}
+                      data={allDonationsRows}
+                    />
+                  </div>
+                  <ReportTable
+                    columns={[
+                      { key: "date", header: "Date", render: (row) => formatDate(row.date) },
+                      { key: "source", header: "Source", render: (row) => row.source },
+                      {
+                        key: "amountPence",
+                        header: "Amount",
+                        align: "right",
+                        render: (row) => formatAmount(row.amountPence),
+                      },
+                      { key: "donorOrLocation", header: "Donor / Location", render: (row) => row.donorOrLocation },
+                      { key: "paymentMethodOrType", header: "Payment / Type", render: (row) => formatEnum(row.paymentMethodOrType) },
+                      { key: "donationType", header: "Type", render: (row) => formatEnum(row.donationType) },
+                      { key: "appealTitle", header: "Appeal", render: (row) => row.appealTitle ?? "—" },
+                    ]}
+                    data={allDonationsRows}
+                  />
+                </TabsContent>
+
                 <TabsContent value="types" className="space-y-3 mt-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-semibold">By donation type</h4>
@@ -226,7 +463,8 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Donation type", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(donationRows)}
                     />
@@ -254,7 +492,8 @@ export function ReportsPageClient() {
                       columns={[
                         { key: "label", label: "Payment method", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(paymentRows)}
                     />
@@ -283,6 +522,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Status", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(donationStatusRows)}
                     />
@@ -311,6 +551,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Appeal", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(appealRows)}
                     />
@@ -339,6 +580,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Fundraiser", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(fundraiserRows)}
                     />
@@ -367,6 +609,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Channel", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(donationChannelRows)}
                     />
@@ -396,7 +639,8 @@ export function ReportsPageClient() {
                           columns={[
                             { key: "label", label: "Country", getValue: (row) => row.label },
                             { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                           ]}
                           data={toCsvRows(donationCountryRows)}
                         />
@@ -423,7 +667,8 @@ export function ReportsPageClient() {
                           columns={[
                             { key: "label", label: "City", getValue: (row) => row.label },
                             { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                           ]}
                           data={toCsvRows(donationCityRows)}
                         />
@@ -454,6 +699,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Donation type", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(donationGiftAidRows)}
                     />
@@ -560,7 +806,8 @@ export function ReportsPageClient() {
                           columns={[
                             { key: "label", label: "Country", getValue: (row) => row.label },
                             { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                           ]}
                           data={toCsvRows(donorCountryRows)}
                         />
@@ -587,7 +834,8 @@ export function ReportsPageClient() {
                           columns={[
                             { key: "label", label: "City", getValue: (row) => row.label },
                             { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                            { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                           ]}
                           data={toCsvRows(donorCityRows)}
                         />
@@ -659,6 +907,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Type", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(collectionTypeRows)}
                     />
@@ -687,6 +936,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Masjid", getValue: (row) => row.label },
                         { key: "count", label: "Collections", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(masjidRows)}
                     />
@@ -715,6 +965,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Appeal", getValue: (row) => row.label },
                         { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(collectionAppealRows)}
                     />
@@ -779,6 +1030,7 @@ export function ReportsPageClient() {
                         { key: "label", label: "Fundraiser", getValue: (row) => row.label },
                         { key: "count", label: "Donations", getValue: (row) => row.count ?? 0 },
                         { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                       ]}
                       data={toCsvRows(fundraisingRows)}
                     />
@@ -849,15 +1101,57 @@ export function ReportsPageClient() {
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   Project Reports
                 </h3>
-                <ReportExportButton
-                  filename="project-report-summary.csv"
-                  columns={[
-                    { key: "label", label: "Project type", getValue: (row) => row.label },
-                    { key: "count", label: "Donations", getValue: (row) => row.count ?? 0 },
-                    { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                  ]}
-                  data={toCsvRows([...waterProjectRows, ...sponsorshipProjectRows])}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <ReportExportButton
+                    label="Project summary"
+                    filename="project-report-summary.csv"
+                    columns={[
+                      { key: "label", label: "Project type", getValue: (row) => row.label },
+                      { key: "count", label: "Donations", getValue: (row) => row.count ?? 0 },
+                      { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                      { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
+                    ]}
+                    data={toCsvRows([...waterProjectRows, ...sponsorshipProjectRows])}
+                  />
+                  <ReportExportButton
+                    label="Water donations (full)"
+                    filename="water-donations-full-detail.csv"
+                    columns={[
+                      { key: "id", label: "ID", getValue: (r) => r.id },
+                      { key: "createdAt", label: "Date", getValue: (r) => r.createdAt },
+                      { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
+                      { key: "donationType", label: "Type", getValue: (r) => r.donationType },
+                      { key: "paymentMethod", label: "Payment method", getValue: (r) => r.paymentMethod },
+                      { key: "status", label: "Status", getValue: (r) => r.status ?? "" },
+                      { key: "giftAid", label: "Gift Aid", getValue: (r) => (r.giftAid ? "Yes" : "No") },
+                      { key: "projectType", label: "Project type", getValue: (r) => r.projectType },
+                      { key: "country", label: "Country", getValue: (r) => r.country },
+                      { key: "donorName", label: "Donor name", getValue: (r) => r.donorName },
+                      { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail },
+                      { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
+                    ]}
+                    data={waterDonationsDetail}
+                  />
+                  <ReportExportButton
+                    label="Sponsorship donations (full)"
+                    filename="sponsorship-donations-full-detail.csv"
+                    columns={[
+                      { key: "id", label: "ID", getValue: (r) => r.id },
+                      { key: "createdAt", label: "Date", getValue: (r) => r.createdAt },
+                      { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
+                      { key: "donationType", label: "Type", getValue: (r) => r.donationType },
+                      { key: "paymentMethod", label: "Payment method", getValue: (r) => r.paymentMethod },
+                      { key: "status", label: "Status", getValue: (r) => r.status ?? "" },
+                      { key: "giftAid", label: "Gift Aid", getValue: (r) => (r.giftAid ? "Yes" : "No") },
+                      { key: "projectType", label: "Project type", getValue: (r) => r.projectType },
+                      { key: "country", label: "Country", getValue: (r) => r.country },
+                      { key: "donorName", label: "Donor name", getValue: (r) => r.donorName },
+                      { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail },
+                      { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
+                    ]}
+                    data={sponsorshipDonationsDetail}
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card>
@@ -975,7 +1269,8 @@ export function ReportsPageClient() {
                   columns={[
                     { key: "label", label: "Segment", getValue: (row) => row.label },
                     { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                    { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
+                    { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+                    { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
                   ]}
                   data={toCsvRows(recurringStatusRows)}
                 />

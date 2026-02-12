@@ -5,7 +5,6 @@ import {
   FundraisersDashboardClient,
   type FundraisedByCampaignRow,
 } from "@/components/fundraisers-dashboard-client"
-import { ExportCsvButton } from "@/components/export-csv-button"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -277,10 +276,7 @@ export default async function FundraisersPage({
 
   return (
     <>
-      <AdminHeader
-        title="Fundraisers"
-        actions={<ExportCsvButton variant="fundraisers" data={fundraisers} />}
-      />
+      <AdminHeader title="Fundraisers" />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">

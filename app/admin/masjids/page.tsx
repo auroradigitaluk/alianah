@@ -1,7 +1,6 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { MasjidsTable } from "@/components/masjids-table"
-import { ExportCsvButton } from "@/components/export-csv-button"
 import { MasjidCreateButton } from "@/components/masjid-create-button"
 import { formatAdminUserName } from "@/lib/utils"
 import { getAdminUser } from "@/lib/admin-auth"
@@ -106,10 +105,7 @@ export default async function MasjidsPage({
 
   return (
     <>
-      <AdminHeader
-        title="Masjids"
-        actions={<ExportCsvButton variant="masjids" data={masjids} />}
-      />
+      <AdminHeader title="Masjids" />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
