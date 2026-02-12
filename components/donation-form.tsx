@@ -72,11 +72,7 @@ export function DonationForm({
   const isDonationType = (value: string): value is DonationType =>
     value === "GENERAL" || value === "SADAQAH" || value === "ZAKAT" || value === "LILLAH"
 
-  const [donationType, setDonationType] = React.useState<DonationType>(
-    initialDonationType && donationTypesEnabled.includes(initialDonationType)
-      ? initialDonationType
-      : "GENERAL"
-  )
+  const [donationType, setDonationType] = React.useState<DonationType>("GENERAL")
   const [selectedProduct, setSelectedProduct] = React.useState<string | null>(null)
   const [customAmount, setCustomAmount] = React.useState<string>(
     initialPreset ? (initialPreset / 100).toString() : ""
@@ -87,13 +83,10 @@ export function DonationForm({
   const [isAnonymous, setIsAnonymous] = React.useState(false)
   const [walletAvailable, setWalletAvailable] = React.useState(false)
 
-  // Set initial values from URL params on mount
+  // Set initial values from URL params on mount (donation type always defaults to General)
   React.useEffect(() => {
     if (initialFrequency) {
       setFrequency(initialFrequency)
-    }
-    if (initialDonationType && donationTypesEnabled.includes(initialDonationType)) {
-      setDonationType(initialDonationType)
     }
     if (initialPreset) {
       const presetInPounds = initialPreset / 100
@@ -392,7 +385,7 @@ export function DonationForm({
             if (isDonationType(value)) setDonationType(value)
           }}
         >
-          <SelectTrigger className="h-11">
+          <SelectTrigger className="h-11 w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

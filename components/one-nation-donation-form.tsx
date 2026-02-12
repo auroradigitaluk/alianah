@@ -123,7 +123,9 @@ export function OneNationDonationForm({
   const [selectedSponsorshipType, setSelectedSponsorshipType] = React.useState<string>("")
   const [selectedSponsorshipCountry, setSelectedSponsorshipCountry] = React.useState<string>("")
   const [sponsorshipFrequency, setSponsorshipFrequency] = React.useState<"MONTHLY" | "YEARLY">("MONTHLY")
-  const [selectedIntention, setSelectedIntention] = React.useState<DonationType | "">("")
+  const [selectedIntention, setSelectedIntention] = React.useState<DonationType | "">(
+    donationTypesEnabled.includes("GENERAL") ? "GENERAL" : ((donationTypesEnabled[0] as DonationType) ?? "")
+  )
   const [selectedWaterCountry, setSelectedWaterCountry] = React.useState<string>("")
   const [customAmount, setCustomAmount] = React.useState<string>("")
   const [selectedProduct, setSelectedProduct] = React.useState<string>("")
@@ -1063,7 +1065,7 @@ export function OneNationDonationForm({
                   if (isDonationType(value)) setSelectedIntention(value)
                 }}
               >
-                <SelectTrigger id="intention-select" className="h-11">
+                <SelectTrigger id="intention-select" className="h-11 w-full">
                   <SelectValue placeholder="Select donation type" />
                 </SelectTrigger>
                 <SelectContent>
