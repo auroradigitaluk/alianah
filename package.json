@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/inline-email-logos.js && prisma migrate deploy && prisma generate && next build",
-    "generate:email-logos": "node scripts/inline-email-logos.js",
+    "build": "prisma migrate deploy && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",

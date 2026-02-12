@@ -27,51 +27,6 @@ function logoTextHtml(settings?: OrganizationSettings | null) {
   return `<span style="display:block; text-align:center; font-size:16px; font-weight:600; color:${BRAND.text};">${escapeHtml(name)}</span>`
 }
 
-function getPublicBaseUrl(settings?: OrganizationSettings | null) {
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return window.location.origin.replace(/\/$/, "")
-  }
-  // Prefer the app's own host so email images (e.g. logo) load from the same domain (Vercel sets VERCEL_URL)
-  const vercelUrl = process.env.VERCEL_URL
-  if (vercelUrl && !vercelUrl.startsWith("localhost")) {
-    return `https://${vercelUrl.replace(/\/$/, "")}`
-  }
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
-  }
-  if (settings?.websiteUrl) {
-    try {
-      return new URL(settings.websiteUrl).origin
-    } catch {
-      // fall through
-    }
-  }
-  return "http://localhost:3000"
-}
-
-function logoImageHtml(
-  baseUrl?: string,
-  settings?: OrganizationSettings | null,
-  logoDataUris?: { light: string; dark: string } | null
-) {
-  const alt = settings?.charityName ?? DEFAULT_CHARITY_NAME
-  const imgStyle = "display:block; width:80px; max-width:100%; height:auto; margin:0 auto 8px auto;"
-  if (logoDataUris) {
-    return `
-    <img class="logo-light" src="${logoDataUris.light}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle}" />
-    <img class="logo-dark" src="${logoDataUris.dark}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle} display:none;" />
-  `
-  }
-  const base = (baseUrl || getPublicBaseUrl(settings) || "").trim().replace(/\/$/, "")
-  const origin = base.startsWith("http") ? base : getPublicBaseUrl(settings)
-  const lightSrc = `${origin}/logo-light.png`
-  const darkSrc = `${origin}/logo-dark.png`
-  return `
-    <img class="logo-light" src="${escapeHtml(lightSrc)}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle}" />
-    <img class="logo-dark" src="${escapeHtml(darkSrc)}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle} display:none;" />
-  `
-}
-
 export function escapeHtml(input: string) {
   return input
     .replace(/&/g, "&amp;")
@@ -166,17 +121,18 @@ function layout(
   `
 }
 
-function card(params: { title?: string; bodyHtml: string; variant?: "default" | "success" | "info" }) {
-  const variant = params.variant ?? "default"
-  const bg =
-    variant === "success" ? BRAND.successBg : variant === "info" ? BRAND.infoBg : "#f9fafb"
-  const border =
-    variant === "success" ? BRAND.successBorder : variant === "info" ? BRAND.infoBorder : BRAND.border
+// Clean-style helpers (H&M-style: no cards, sections with labels + spacing only)
+const CLEAN = {
+  text: "#111827",
+  muted: "#6b7280",
+}
 
+/** Section: bold uppercase label + content, no border/background (H&M-style). */
+function section(params: { title?: string; bodyHtml: string }) {
   return `
-<div style="background:${bg}; border: 1px solid ${border}; border-radius: 12px; padding: 16px;">
-  ${params.title ? `<div style="font-weight: 700; margin-bottom: 8px;">${escapeHtml(params.title)}</div>` : ""}
-  ${params.bodyHtml}
+<div style="margin-bottom: 24px;">
+  ${params.title ? `<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color:${CLEAN.muted}; margin-bottom: 8px;">${escapeHtml(params.title)}</div>` : ""}
+  <div style="font-size: 14px; color:${CLEAN.text}; line-height: 1.5;">${params.bodyHtml}</div>
 </div>
   `
 }
@@ -185,41 +141,31 @@ function button(params: { href: string; label: string }) {
   const href = escapeHtml(params.href)
   const label = escapeHtml(params.label)
   return `
-<a href="${href}" target="_blank" rel="noopener noreferrer"
-  style="display:inline-block; background:${BRAND.primary}; color:${BRAND.primaryText}; text-decoration:none; padding: 12px 16px; border-radius: 10px; font-weight: 700;">
-  ${label}
-</a>
+<a href="${href}" target="_blank" rel="noopener noreferrer" style="display:inline-block; background:${BRAND.primary}; color:#ffffff; text-decoration:none; padding: 14px 28px; border-radius: 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;">${label}</a>
   `
 }
 
-/** Single layout for all emails: logo, green card, centered header, content, footer (matches donation confirmation). */
-function unifiedLayout(
+/** Clean, minimal donation confirmation layout (single version, no dark mode). Logo at top, clear sections, one CTA. */
+function donationConfirmationLayout(
   params: {
     preheader: string
-    title: string
-    subtitleHtml: string
-    referenceLine?: string
-    contentHtml: string
-    showCheckmark?: boolean
-    baseUrl?: string
-    logoDataUris?: { light: string; dark: string } | null
-  },
-  settings?: OrganizationSettings | null
+    charityName: string
+    supportEmail: string
+    websiteUrl: string
+    displayUrl: string
+    logoUrl: string
+    heading: string
+    orderNumber: string
+    orderDate: string
+    introParagraph: string
+    ctaHtml: string
+    summaryRowsHtml: string
+    totalPence: number
+    giftAidHtml: string
+    manageSubscriptionHtml: string
+  }
 ): string {
-  const { preheader, title, subtitleHtml, referenceLine, contentHtml, showCheckmark = false, baseUrl, logoDataUris } = params
-  const resolvedBaseUrl = baseUrl ?? getPublicBaseUrl(settings)
-  const supportEmail = settings?.supportEmail ?? DEFAULT_SUPPORT_EMAIL
-  const websiteUrl = settings?.websiteUrl ?? DEFAULT_WEBSITE_URL
-  const charityName = settings?.charityName ?? DEFAULT_CHARITY_NAME
-  const displayUrl = websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
-
-  const checkmarkBlock =
-    showCheckmark
-      ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td align="center" style="width:56px; height:56px; border-radius:999px; background:${BRAND.primary}; line-height:1; font-size:0;">
-      <span style="display:inline-block; color:#ffffff; font-size:28px; font-weight:700; line-height:56px; width:56px; text-align:center;">&#10004;</span>
-    </td></tr></table>`
-      : ""
-
+  const totalFormatted = moneyPence(params.totalPence)
   return `
 <!DOCTYPE html>
 <html>
@@ -227,61 +173,59 @@ function unifiedLayout(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-apple-disable-message-reformatting" />
-    <meta name="color-scheme" content="light dark" />
-    <title>${escapeHtml(title)} - ${escapeHtml(charityName)}</title>
-    <style type="text/css">
-      @media (prefers-color-scheme: dark) {
-        .logo-light { display: none !important; }
-        .logo-dark { display: block !important; }
-      }
-    </style>
+    <title>${escapeHtml(params.heading)} - ${escapeHtml(params.charityName)}</title>
   </head>
-  <body style="margin:0; padding:0; background:${BRAND.background}; color:${BRAND.text}; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height:1.5;">
-    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
-      ${escapeHtml(preheader)}
-    </div>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${BRAND.background}; padding: 24px 12px; margin:0;">
+  <body style="margin:0; padding:0; background:#f5f5f5; color:#111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.5;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">${escapeHtml(params.preheader)}</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f5f5;">
       <tr>
-        <td align="center">
-          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 640px;">
+        <td align="center" style="padding: 32px 16px 40px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px;">
             <tr>
-              <td style="padding: 0 8px 12px 8px;">
-                ${logoImageHtml(resolvedBaseUrl, settings, logoDataUris)}
-                ${logoTextHtml(settings)}
+              <td align="left" style="padding-bottom: 32px;">
+                <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.charityName)}" width="60" height="auto" style="display:block; max-width:60px; height:auto;" />
               </td>
             </tr>
             <tr>
-              <td style="background:${BRAND.primaryTint}; border: 1px solid ${BRAND.border}; border-radius: 16px; overflow:hidden;">
-                <div style="padding: 24px;">
-                  <div style="text-align:center;">
-                    ${checkmarkBlock}
-                    ${checkmarkBlock ? '<div style="margin-top: 12px;"></div>' : ""}
-                    <div style="font-weight: 700; font-size: 22px; letter-spacing:-0.02em;">${escapeHtml(title)}</div>
-                    <div style="margin-top: 6px; color:${BRAND.muted}; font-size: 14px;">
-                      ${subtitleHtml}
-                    </div>
-                    ${referenceLine ? `<div style="margin-top: 10px; color:${BRAND.muted}; font-size: 12px;">${referenceLine}</div>` : ""}
-                  </div>
-                </div>
-                <div style="padding: 0 24px 24px 24px;">
-                  <div style="background:${BRAND.surface}; border: 1px solid ${BRAND.border}; border-radius: 12px; padding: 16px;">
-                    ${contentHtml}
-                  </div>
-                </div>
-              </td>
+              <td style="padding: 0 0 24px; font-weight: 700; font-size: 18px; letter-spacing: 0.02em; text-transform: uppercase; color:#111827;">${escapeHtml(params.heading)}</td>
             </tr>
             <tr>
-              <td style="padding: 12px 8px 0 8px;">
-                <div style="color:${BRAND.muted}; font-size: 12px; line-height: 1.6;">
-                  Need help or want to update your details? Email ${escapeHtml(supportEmail)}.
-                  This mailbox is not monitored. Please use the email above for any questions.
-                  <div style="margin-top: 8px;">
-                    <a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; text-decoration:none;">${escapeHtml(displayUrl)}</a>
-                  </div>
-                  <div style="margin-top: 10px;">
-                    © ${new Date().getFullYear()} ${escapeHtml(charityName)}
-                  </div>
-                </div>
+              <td style="padding: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color:#6b7280;">Donation number</td>
+            </tr>
+            <tr>
+              <td style="padding: 0 0 20px; font-size: 14px; font-weight: 700; color:#111827;">${params.orderNumber}</td>
+            </tr>
+            <tr>
+              <td style="padding: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color:#6b7280;">Donation date</td>
+            </tr>
+            <tr>
+              <td style="padding: 0 0 24px; font-size: 14px; color:#111827;">${params.orderDate}</td>
+            </tr>
+            <tr>
+              <td style="padding: 0 0 28px; font-size: 14px; color:#374151;">${params.introParagraph}</td>
+            </tr>
+            ${params.ctaHtml ? `<tr><td style="padding: 0 0 32px;">${params.ctaHtml}</td></tr>` : ""}
+            <tr>
+              <td style="padding: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color:#6b7280;">Donation summary</td>
+            </tr>
+            <tr>
+              <td style="padding: 0 0 16px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
+                  ${params.summaryRowsHtml}
+                  <tr>
+                    <td style="padding: 12px 0 0; border-top: 1px solid #e5e7eb; font-weight: 700; color:#111827;">Total</td>
+                    <td align="right" style="padding: 12px 0 0; border-top: 1px solid #e5e7eb; font-weight: 700; font-size: 16px; color:#111827;">${totalFormatted}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            ${params.giftAidHtml ? `<tr><td style="padding: 0 0 20px; font-size: 13px;">${params.giftAidHtml}</td></tr>` : ""}
+            ${params.manageSubscriptionHtml ? `<tr><td style="padding: 0 0 32px;">${params.manageSubscriptionHtml}</td></tr>` : ""}
+            <tr>
+              <td style="padding: 24px 0 0; border-top: 1px solid #e5e7eb; font-size: 12px; color:#6b7280;">
+                Need help? Email <a href="mailto:${escapeHtml(params.supportEmail)}" style="color:${BRAND.primary}; text-decoration:none;">${escapeHtml(params.supportEmail)}</a>.
+                <div style="margin-top: 8px;"><a href="${escapeHtml(params.websiteUrl)}" style="color:${BRAND.primary}; text-decoration:none;">${escapeHtml(params.displayUrl)}</a></div>
+                <div style="margin-top: 12px;">© ${new Date().getFullYear()} ${escapeHtml(params.charityName)}</div>
               </td>
             </tr>
           </table>
@@ -293,6 +237,75 @@ function unifiedLayout(
   `
 }
 
+/** Clean layout for all emails: logo left, heading, optional intro, content, same footer. Single version, no dark mode. */
+function cleanLayout(
+  params: {
+    preheader: string
+    charityName: string
+    supportEmail: string
+    websiteUrl: string
+    displayUrl: string
+    logoUrl: string
+    title: string
+    heading: string
+    aboveContentHtml?: string
+    ctaHtml?: string
+    contentHtml: string
+  }
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>${escapeHtml(params.title)} - ${escapeHtml(params.charityName)}</title>
+  </head>
+  <body style="margin:0; padding:0; background:#f5f5f5; color:#111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.5;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">${escapeHtml(params.preheader)}</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f5f5;">
+      <tr>
+        <td align="center" style="padding: 32px 16px 40px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px;">
+            <tr>
+              <td align="left" style="padding-bottom: 32px;">
+                <img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.charityName)}" width="60" height="auto" style="display:block; max-width:60px; height:auto;" />
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 0 0 24px; font-weight: 700; font-size: 18px; letter-spacing: 0.02em; text-transform: uppercase; color:#111827;">${escapeHtml(params.heading)}</td>
+            </tr>
+            ${params.aboveContentHtml ? `<tr><td style="padding: 0 0 24px; font-size: 14px; color:#374151;">${params.aboveContentHtml}</td></tr>` : ""}
+            ${params.ctaHtml ? `<tr><td style="padding: 0 0 24px;">${params.ctaHtml}</td></tr>` : ""}
+            <tr>
+              <td style="padding: 0 0 32px;">${params.contentHtml}</td>
+            </tr>
+            <tr>
+              <td style="padding: 24px 0 0; border-top: 1px solid #e5e7eb; font-size: 12px; color:#6b7280;">
+                Need help? Email <a href="mailto:${escapeHtml(params.supportEmail)}" style="color:${BRAND.primary}; text-decoration:none;">${escapeHtml(params.supportEmail)}</a>.
+                <div style="margin-top: 8px;"><a href="${escapeHtml(params.websiteUrl)}" style="color:${BRAND.primary}; text-decoration:none;">${escapeHtml(params.displayUrl)}</a></div>
+                <div style="margin-top: 12px;">© ${new Date().getFullYear()} ${escapeHtml(params.charityName)}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+  `
+}
+
+function getCleanLayoutDefaults(settings?: OrganizationSettings | null, baseUrl?: string) {
+  const charityName = settings?.charityName ?? DEFAULT_CHARITY_NAME
+  const supportEmail = settings?.supportEmail ?? DEFAULT_SUPPORT_EMAIL
+  const websiteUrl = settings?.websiteUrl ?? DEFAULT_WEBSITE_URL
+  const displayUrl = websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
+  const logoUrl = (baseUrl || websiteUrl).replace(/\/$/, "") + "/logo-light.png"
+  return { charityName, supportEmail, websiteUrl, displayUrl, logoUrl }
+}
+
 export type DonationConfirmationEmailParams = {
   donorName: string
   orderNumber: string
@@ -301,14 +314,12 @@ export type DonationConfirmationEmailParams = {
   giftAid: boolean
   manageSubscriptionUrl?: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildDonationConfirmationEmail(
   params: DonationConfirmationEmailParams,
   settings?: OrganizationSettings | null
 ): EmailDoc {
-  const donorName = escapeHtml(params.donorName)
   const orderNumber = escapeHtml(params.orderNumber)
   const preheader = `Your donation has been received. Ref ${params.orderNumber}`
   const charityName = settings?.charityName ?? DEFAULT_CHARITY_NAME
@@ -317,58 +328,7 @@ export function buildDonationConfirmationEmail(
   const displayUrl = websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
   const subject = `Donation confirmation - ${charityName}`
 
-  const rows = params.items
-    .map((i) => {
-      const title = escapeHtml(i.title)
-      const amount = moneyPence(i.amountPence)
-      const freq = i.frequency ? ` <span style="color:${BRAND.muted}; font-size: 12px;">(${escapeHtml(i.frequency)})</span>` : ""
-      return `
-        <tr>
-          <td style="padding: 10px 0; border-bottom: 1px solid ${BRAND.border};">
-            <div style="font-weight: 600;">${title}${freq}</div>
-          </td>
-          <td align="right" style="padding: 10px 0; border-bottom: 1px solid ${BRAND.border}; font-weight: 700;">
-            ${amount}
-          </td>
-        </tr>
-      `
-    })
-    .join("")
-
-  const summaryTable = `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
-      ${rows}
-      <tr>
-        <td style="padding: 12px 0 0 0; border-top: 1px solid ${BRAND.border}; font-weight: 700;">
-          Total
-        </td>
-        <td align="right" style="padding: 12px 0 0 0; border-top: 1px solid ${BRAND.border}; font-weight: 700;">
-          ${moneyPence(params.totalPence)}
-        </td>
-      </tr>
-    </table>
-  `
-
-  const giftAidLine = params.giftAid
-    ? `<div style="margin-top: 10px; color:${BRAND.primary}; font-size: 13px; font-weight: 600;">
-         Gift Aid claimed — your donation is worth 25% more at no extra cost to you.
-       </div>`
-    : `<div style="margin-top: 10px; color:${BRAND.muted}; font-size: 13px;">
-         Gift Aid not claimed.
-       </div>`
-
-  const manage =
-    params.manageSubscriptionUrl
-      ? `
-        <div style="margin-top: 18px; border-top: 1px solid ${BRAND.border}; padding-top: 14px;">
-          <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px;">Manage your recurring donation</div>
-          <div style="font-size: 13px; color:${BRAND.muted}; margin-bottom: 12px;">
-            Update your payment method or cancel anytime.
-          </div>
-          ${button({ href: params.manageSubscriptionUrl, label: "Manage subscription" })}
-        </div>
-      `
-      : ""
+  const logoUrl = (params.baseUrl || websiteUrl).replace(/\/$/, "") + "/logo-light.png"
 
   const receiptDate = new Date().toLocaleDateString("en-GB", {
     day: "2-digit",
@@ -376,26 +336,42 @@ export function buildDonationConfirmationEmail(
     year: "numeric",
   })
 
-  const contentHtml = `
-    <div style="font-weight: 600; font-size: 14px; margin-bottom: 10px;">Donation summary</div>
-    ${summaryTable}
-    ${giftAidLine}
-    ${manage ? `<div style="margin-top: 14px;">${manage}</div>` : ""}
-  `
+  const summaryRowsHtml = params.items
+    .map((i) => {
+      const title = escapeHtml(i.title)
+      const amount = moneyPence(i.amountPence)
+      const freq = i.frequency ? ` <span style="color:#6b7280; font-size: 12px;">(${escapeHtml(i.frequency)})</span>` : ""
+      return `<tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color:#111827;">${title}${freq}</td><td align="right" style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: 600; color:#111827;">${amount}</td></tr>`
+    })
+    .join("")
 
-  const html = unifiedLayout(
-    {
-      preheader,
-      title: "Donation confirmed",
-      subtitleHtml: `Dear ${donorName}, we've received your donation.`,
-      referenceLine: `Reference: <span style="font-weight: 700; color:${BRAND.text};">${orderNumber}</span> • Date: <span style="font-weight: 600; color:${BRAND.text};">${receiptDate}</span>`,
-      contentHtml,
-      showCheckmark: true,
-      baseUrl: params.baseUrl,
-      logoDataUris: params.logoDataUris,
-    },
-    settings
-  )
+  const giftAidHtml = params.giftAid
+    ? `<span style="color:${BRAND.primary}; font-weight: 600;">Gift Aid claimed</span> — your donation is worth 25% more at no extra cost to you.`
+    : `Gift Aid not claimed.`
+
+  const ctaHtml = params.manageSubscriptionUrl
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr><td style="border-radius: 4px; background:${BRAND.primary};"><a href="${escapeHtml(params.manageSubscriptionUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 14px 28px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #ffffff; text-decoration: none;">Manage subscription</a></td></tr></table>`
+    : ""
+
+  const manageSubscriptionHtml = ""
+
+  const html = donationConfirmationLayout({
+    preheader,
+    charityName,
+    supportEmail,
+    websiteUrl,
+    displayUrl,
+    logoUrl,
+    heading: "Thank you for your donation",
+    orderNumber: params.orderNumber,
+    orderDate: receiptDate,
+    introParagraph: "We have received your donation. Below is your donation summary.",
+    ctaHtml,
+    summaryRowsHtml,
+    totalPence: params.totalPence,
+    giftAidHtml,
+    manageSubscriptionHtml,
+  })
 
   return {
     subject,
@@ -432,7 +408,6 @@ export type WaterProjectDonationEmailParams = {
   amount: number
   donationType: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildWaterProjectDonationEmail(
@@ -462,29 +437,29 @@ export function buildWaterProjectDonationEmail(
   `
 
   const contentHtml = `
-    ${card({ title: "Donation details", bodyHtml: details })}
+    ${section({ title: "Donation details", bodyHtml: details })}
     <div style="height: 12px;"></div>
-    ${card({
-      variant: "success",
+    ${section({
       title: "What happens next",
-      bodyHtml: `<div style="color:${BRAND.muted}; font-size: 14px;">Your donation is now being reviewed by our team. We will keep you updated on the progress of this project.</div>`,
+      bodyHtml: `<div style="color:${CLEAN.muted}; font-size: 14px;">Your donation is now being reviewed by our team. We will keep you updated on the progress of this project.</div>`,
     })}
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Thank you for your donation",
-        subtitleHtml: introHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Thank you for your donation",
+      heading: "Thank you for your donation",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
@@ -496,7 +471,6 @@ export type SponsorshipDonationEmailParams = {
   amount: number
   donationType: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildSponsorshipDonationEmail(
@@ -526,29 +500,29 @@ export function buildSponsorshipDonationEmail(
   `
 
   const contentHtml = `
-    ${card({ title: "Sponsorship details", bodyHtml: details })}
+    ${section({ title: "Sponsorship details", bodyHtml: details })}
     <div style="height: 12px;"></div>
-    ${card({
-      variant: "success",
+    ${section({
       title: "What happens next",
-      bodyHtml: `<div style="color:${BRAND.muted}; font-size: 14px;">Your sponsorship is now being reviewed by our team. We will keep you updated on the progress.</div>`,
+      bodyHtml: `<div style="color:${CLEAN.muted}; font-size: 14px;">Your sponsorship is now being reviewed by our team. We will keep you updated on the progress.</div>`,
     })}
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Thank you for your sponsorship",
-        subtitleHtml: introHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Thank you for your sponsorship",
+      heading: "Thank you for your sponsorship",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
@@ -558,7 +532,6 @@ export type FundraiserWelcomeEmailParams = {
   appealTitle: string
   fundraiserUrl: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildFundraiserWelcomeEmail(
@@ -577,33 +550,33 @@ export function buildFundraiserWelcomeEmail(
   `
 
   const contentHtml = `
-    ${card({
-      variant: "info",
+    ${section({
       title: "Your fundraising link",
       bodyHtml: `
-        <div style="margin-bottom: 12px; color:${BRAND.muted}; font-size: 14px;">Share this link with friends and family:</div>
+        <div style="margin-bottom: 12px; color:${CLEAN.muted}; font-size: 14px;">Share this link with friends and family:</div>
         ${button({ href: params.fundraiserUrl, label: "View fundraising page" })}
-        <div style="margin-top: 10px; font-size: 12px; color:${BRAND.muted}; word-break: break-all;">
+        <div style="margin-top: 10px; font-size: 12px; color:${CLEAN.muted}; word-break: break-all;">
           Or copy this link: ${escapeHtml(params.fundraiserUrl)}
         </div>
       `,
     })}
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Your fundraising page is ready",
-        subtitleHtml: introHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Your fundraising page is ready",
+      heading: "Your fundraising page is ready",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
@@ -615,7 +588,6 @@ export type FundraiserDonationNotificationEmailParams = {
   donationType: string
   fundraiserUrl: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildFundraiserDonationNotificationEmail(
@@ -642,36 +614,34 @@ export function buildFundraiserDonationNotificationEmail(
   `
 
   const contentHtml = `
-    ${card({ variant: "success", title: "Donation received", bodyHtml: details })}
-    <div style="height: 12px;"></div>
-    ${card({
-      variant: "info",
+    ${section({ title: "Donation received", bodyHtml: details })}
+    ${section({
       title: "View your fundraising page",
       bodyHtml: `${button({ href: params.fundraiserUrl, label: "Open fundraising page" })}`,
     })}
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "New donation received",
-        subtitleHtml: introHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "New donation received",
+      heading: "New donation received",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
 export type FundraiserOtpEmailParams = {
   code: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildFundraiserOtpEmail(
@@ -699,26 +669,81 @@ export function buildFundraiserOtpEmail(
   `
 
   const contentHtml = `
-    ${card({ title: "Your login code", bodyHtml: codeBox })}
+    ${section({ title: "Your login code", bodyHtml: codeBox })}
     <div style="margin-top: 12px; color:${BRAND.muted}; font-size: 12px;">
       If you didn’t request this code, you can safely ignore this email.
     </div>
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Your login code",
-        subtitleHtml: introHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Your login code",
+      heading: "Your login code",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
+  }
+}
+
+export type AdminLoginOtpEmailParams = {
+  code: string
+  baseUrl?: string
+}
+
+export function buildAdminLoginOtpEmail(
+  params: AdminLoginOtpEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
+  const preheader = "Your portal login code (expires in 10 minutes)."
+  const subject = "Your portal login code"
+
+  const introHtml = `
+    <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
+      You're signing in to the admin portal. Use the code below to complete login:
+    </div>
+  `
+
+  const codeBox = `
+    <div style="text-align:center; padding: 14px; border-radius: 12px; border: 1px solid #e5e7eb; background:#f9fafb;">
+      <div style="font-size: 28px; font-weight: 700; letter-spacing: 8px; color:${CLEAN.text};">
+        ${escapeHtml(params.code)}
+      </div>
+      <div style="margin-top: 8px; font-size: 12px; color:${CLEAN.muted};">
+        This code will expire in 10 minutes.
+      </div>
+    </div>
+  `
+
+  const contentHtml = `
+    ${section({ title: "Your login code", bodyHtml: codeBox })}
+    <div style="margin-top: 12px; color:${CLEAN.muted}; font-size: 12px;">
+      If you didn't request this code, you can safely ignore this email. Your password has not been changed.
+    </div>
+  `
+
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
+  return {
+    subject,
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Your login code",
+      heading: "Your login code",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
@@ -729,7 +754,6 @@ export type AbandonedCheckoutEmailParams = {
   totalPence: number
   resumeUrl: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildAbandonedCheckoutEmail(
@@ -784,28 +808,29 @@ export function buildAbandonedCheckoutEmail(
   `
 
   const contentHtml = `
-    ${card({ title: "Your intended donation", bodyHtml: summaryTable })}
+    ${section({ title: "Your intended donation", bodyHtml: summaryTable })}
     <div style="height: 14px;"></div>
     ${button({ href: params.resumeUrl, label: "Complete donation" })}
     <div style="margin-top: 10px; font-size: 12px; color:${BRAND.muted};">
-      Donation reference: <strong>${orderNumber}</strong>
+      Donation number: <strong>${orderNumber}</strong>
     </div>
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Complete your donation",
-        subtitleHtml: introHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Complete your donation",
+      heading: "Complete your donation",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
@@ -815,7 +840,6 @@ export type RefundConfirmationEmailParams = {
   orderNumber?: string | null
   donateUrl: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildRefundConfirmationEmail(
@@ -836,32 +860,32 @@ export function buildRefundConfirmationEmail(
   `
 
   const contentHtml = `
-    ${card({
+    ${section({
       title: "Refund summary",
       bodyHtml: `
-        <div style="color:${BRAND.muted}; font-size: 14px;">
-          Refund amount: <strong style="color:${BRAND.text};">${moneyPence(params.amountPence)}</strong>
+        <div style="color:${CLEAN.muted}; font-size: 14px;">
+          Refund amount: <strong style="color:${CLEAN.text};">${moneyPence(params.amountPence)}</strong>
         </div>
       `,
     })}
-    <div style="height: 14px;"></div>
     ${button({ href: params.donateUrl, label: "Make a donation" })}
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Refund processed",
-        subtitleHtml: introHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Refund processed",
+      heading: "Refund processed",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
@@ -869,7 +893,6 @@ export type AdminInviteEmailParams = {
   email: string
   setPasswordUrl: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildAdminInviteEmail(
@@ -879,7 +902,7 @@ export function buildAdminInviteEmail(
   const email = escapeHtml(params.email)
   const preheader = "You've been invited to the admin panel. Set your password to get started."
   const subject = "Set your admin password"
-  const charityName = settings?.charityName ?? DEFAULT_CHARITY_NAME
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
 
   const introHtml = `
     <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
@@ -890,39 +913,37 @@ export function buildAdminInviteEmail(
   `
 
   const contentHtml = `
-    ${card({
+    ${section({
       title: "Set your password",
       bodyHtml: `
-        <div style="color:${BRAND.muted}; font-size: 14px; margin-bottom: 12px;">
-          Account: <strong style="color:${BRAND.text};">${email}</strong>
+        <div style="color:${CLEAN.muted}; font-size: 14px; margin-bottom: 12px;">
+          Account: <strong style="color:${CLEAN.text};">${email}</strong>
         </div>
       `,
     })}
-    <div style="height: 14px;"></div>
     ${button({ href: params.setPasswordUrl, label: "Set password" })}
     <div style="margin-top: 16px; color:${BRAND.muted}; font-size: 12px;">
       If you didn't expect this invite, you can safely ignore this email.
     </div>
   `
-
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Set your admin password",
-        subtitleHtml: introHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Set your admin password",
+      heading: "Set your admin password",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
-// ---- Completion emails (unified layout) ----
+// ---- Completion emails (clean layout) ----
 
 export type WaterProjectCompletionEmailParams = {
   donorName: string
@@ -934,7 +955,6 @@ export type WaterProjectCompletionEmailParams = {
   completionReportPDF?: string | null
   googleDriveLink?: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildWaterProjectCompletionEmail(
@@ -996,12 +1016,12 @@ export function buildWaterProjectCompletionEmail(
     : ""
 
   const contentHtml = `
-    ${card({
+    ${section({
       title: "Project details",
       bodyHtml: `
-        <div style="color:${BRAND.muted}; font-size: 14px;">
-          <p style="margin: 0 0 4px 0;">Type: <strong style="color:${BRAND.text};">${escapeHtml(projectLabel)}</strong></p>
-          <p style="margin: 0;">Country: <strong style="color:${BRAND.text};">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</strong></p>
+        <div style="color:${CLEAN.muted}; font-size: 14px;">
+          <p style="margin: 0 0 4px 0;">Type: <strong style="color:${CLEAN.text};">${escapeHtml(projectLabel)}</strong></p>
+          <p style="margin: 0;">Country: <strong style="color:${CLEAN.text};">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</strong></p>
         </div>
       `,
     })}
@@ -1016,20 +1036,21 @@ export function buildWaterProjectCompletionEmail(
     </div>
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Project Complete!",
-        subtitleHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Project Complete!",
+      heading: "Project complete",
+      aboveContentHtml: subtitleHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 
@@ -1043,7 +1064,6 @@ export type SponsorshipCompletionEmailParams = {
   completionReportPDF?: string | null
   googleDriveLink?: string
   baseUrl?: string
-  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildSponsorshipCompletionEmail(
@@ -1105,12 +1125,12 @@ export function buildSponsorshipCompletionEmail(
     : ""
 
   const contentHtml = `
-    ${card({
+    ${section({
       title: "Sponsorship details",
       bodyHtml: `
-        <div style="color:${BRAND.muted}; font-size: 14px;">
-          <p style="margin: 0 0 4px 0;">Type: <strong style="color:${BRAND.text};">${escapeHtml(projectLabel)}</strong></p>
-          <p style="margin: 0;">Country: <strong style="color:${BRAND.text};">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</strong></p>
+        <div style="color:${CLEAN.muted}; font-size: 14px;">
+          <p style="margin: 0 0 4px 0;">Type: <strong style="color:${CLEAN.text};">${escapeHtml(projectLabel)}</strong></p>
+          <p style="margin: 0;">Country: <strong style="color:${CLEAN.text};">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</strong></p>
         </div>
       `,
     })}
@@ -1125,20 +1145,21 @@ export function buildSponsorshipCompletionEmail(
     </div>
   `
 
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
   return {
     subject,
-    html: unifiedLayout(
-      {
-        preheader,
-        title: "Sponsorship Update",
-        subtitleHtml,
-        contentHtml,
-        showCheckmark: false,
-        baseUrl: params.baseUrl,
-        logoDataUris: params.logoDataUris,
-      },
-      settings
-    ),
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Sponsorship Update",
+      heading: "Sponsorship update",
+      aboveContentHtml: subtitleHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
   }
 }
 

@@ -85,9 +85,9 @@ export default function AdminOtpPage() {
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs space-y-6">
             <div>
-              <h1 className="text-2xl font-semibold">Two-factor authentication</h1>
+              <h1 className="text-2xl font-semibold">Check your email</h1>
               <p className="text-muted-foreground text-sm">
-                Enter the 6-digit code from your authenticator app
+                Enter the 6-digit code we sent to your email to complete sign in
               </p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">

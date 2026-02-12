@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyPassword, setAdminSession } from "@/lib/admin-auth"
+import { verifyPassword } from "@/lib/admin-auth"
 import { checkLoginRateLimit, getClientIp } from "@/lib/rate-limit"
+import { sendAdminLoginOtpEmail } from "@/lib/email"
 import { z } from "zod"
 
 const loginSchema = z.object({
@@ -60,20 +61,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
-    // 2FA required
-    if (user.twoFactorEnabled) {
+    // Always require OTP: generate code, store, send email, redirect to OTP step
+    const code = Math.floor(100000 + Math.random() * 900000).toString()
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+
+    await prisma.adminLoginOtp.deleteMany({
+      where: { email: user.email, used: false },
+    })
+
+    await prisma.adminLoginOtp.create({
+      data: { email: user.email, code, expiresAt },
+    })
+
+    try {
+      await sendAdminLoginOtpEmail({ email: user.email, code })
+    } catch (emailError) {
+      console.error("Error sending admin OTP email:", emailError)
       return NextResponse.json(
-        { requiresTwoFactor: true, email: user.email },
-        { status: 200 }
+        { error: "Failed to send login code. Please try again." },
+        { status: 500 }
       )
     }
 
-    await setAdminSession(user.email)
-    return NextResponse.json({
-      success: true,
-      email: user.email,
-      role: user.role,
-    })
+    return NextResponse.json(
+      { requiresTwoFactor: true, email: user.email },
+      { status: 200 }
+    )
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })

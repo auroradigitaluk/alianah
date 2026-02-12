@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { setAdminSession } from "@/lib/admin-auth"
 import { checkOtpRateLimit, getClientIp } from "@/lib/rate-limit"
-import speakeasy from "speakeasy"
 import { z } from "zod"
 
 const verifySchema = z.object({
@@ -39,23 +38,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const otp = await prisma.adminLoginOtp.findFirst({
+      where: {
+        email,
+        code: data.code,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+
+    if (!otp) {
+      return NextResponse.json({ error: "Invalid or expired code" }, { status: 401 })
+    }
+
+    await prisma.adminLoginOtp.update({
+      where: { id: otp.id },
+      data: { used: true },
+    })
+
     const user = await prisma.adminUser.findUnique({
       where: { email },
     })
 
-    if (!user || !user.twoFactorSecret || !user.twoFactorEnabled) {
+    if (!user) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-    }
-
-    const valid = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
-      encoding: "base32",
-      token: data.code,
-      window: 1,
-    })
-
-    if (!valid) {
-      return NextResponse.json({ error: "Invalid code" }, { status: 401 })
     }
 
     await setAdminSession(user.email)
@@ -68,7 +75,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
-    console.error("2FA verify error:", error)
+    console.error("OTP verify error:", error)
     return NextResponse.json({ error: "Verification failed" }, { status: 500 })
   }
 }

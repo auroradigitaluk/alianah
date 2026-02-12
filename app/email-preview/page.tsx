@@ -27,6 +27,7 @@ const EMAIL_TYPES = [
   { value: "abandoned-checkout", label: "Abandoned checkout" },
   { value: "refund", label: "Refund confirmation" },
   { value: "admin-invite", label: "Admin invite" },
+  { value: "admin-otp", label: "Admin / staff login OTP" },
 ] as const
 
 export default function EmailPreviewPage() {
