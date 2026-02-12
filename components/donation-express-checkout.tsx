@@ -47,16 +47,21 @@ function DonationExpressInner({
   const [error, setError] = React.useState<string | null>(null)
   /** Prevent duplicate create-express + confirm (one payment per user action). */
   const processingRef = React.useRef(false)
+  /** Refs so the payment handler always uses current amount/item (e.g. after user changes £20 → £50). */
+  const itemRef = React.useRef(item)
+  const amountPenceRef = React.useRef(amountPence)
+  itemRef.current = item
+  amountPenceRef.current = amountPence
 
   React.useEffect(() => {
     onWalletAvailable?.(!!paymentRequest)
   }, [paymentRequest, onWalletAvailable])
 
-  // Create payment request when stripe is ready and amount is valid
+  // Create payment request once when stripe is ready and amount is valid
   React.useEffect(() => {
     let cancelled = false
     async function setup() {
-      if (!stripe || amountPence <= 0) return
+      if (!stripe || amountPence <= 0 || paymentRequest) return
       const pr = stripe.paymentRequest({
         country: "GB",
         currency: "gbp",
@@ -104,13 +109,15 @@ function DonationExpressInner({
             const donorPostcode = (addr?.postal_code as string | undefined)?.trim() || undefined
             const donorCountry = (addr?.country as string | undefined)?.trim() || undefined
 
+            const currentItem = itemRef.current
+            const currentAmount = amountPenceRef.current
             const res = await fetch("/api/checkout/create-express", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                items: [item],
+                items: [currentItem],
                 email,
-                subtotalPence: amountPence,
+                subtotalPence: currentAmount,
                 coverFees: false,
                 ...(donorFirstName && { donorFirstName }),
                 ...(donorLastName && { donorLastName }),
@@ -185,7 +192,14 @@ function DonationExpressInner({
     return () => {
       cancelled = true
     }
-  }, [stripe, item, amountPence, router, onWalletAvailable])
+  }, [stripe, amountPence, router, onWalletAvailable])
+
+  // When amount changes, update the Payment Request so Apple Pay shows the new total
+  React.useEffect(() => {
+    if (paymentRequest && amountPence > 0) {
+      paymentRequest.update({ total: { label: "Donation", amount: amountPence } })
+    }
+  }, [paymentRequest, amountPence])
 
   if (!paymentRequest) return null
 

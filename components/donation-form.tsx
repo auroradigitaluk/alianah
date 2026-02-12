@@ -425,6 +425,16 @@ export function DonationForm({
         </div>
       )}
 
+      {/* Add to Basket Button */}
+      <Button
+        onClick={handleAddToBasket}
+        className="w-full h-12 text-base font-semibold"
+        size="lg"
+        disabled={!donationType || (!presetAmount && !customAmount)}
+      >
+        Add to Basket
+      </Button>
+
       {/* Apple Pay / Google Pay for one-off (no cart, no duplicate orders) */}
       {expressItem && hasValidExpressAmount && (
         <div className="space-y-2">
@@ -438,16 +448,6 @@ export function DonationForm({
           />
         </div>
       )}
-
-      {/* Add to Basket Button */}
-      <Button
-        onClick={handleAddToBasket}
-        className="w-full h-12 text-base font-semibold"
-        size="lg"
-        disabled={!donationType || (!presetAmount && !customAmount)}
-      >
-        Add to Basket
-      </Button>
     </>
   )
 

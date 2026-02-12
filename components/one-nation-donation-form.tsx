@@ -1077,20 +1077,6 @@ export function OneNationDonationForm({
             </div>
             )}
 
-            {/* Apple Pay / Google Pay for one-off (no cart, no duplicate orders) */}
-            {expressCheckout && (
-              <div className="space-y-2 mt-6">
-                {walletAvailable && (
-                  <p className="text-sm text-muted-foreground">Or pay with</p>
-                )}
-                <DonationExpressCheckout
-                  item={expressCheckout.item}
-                  amountPence={expressCheckout.amountPence}
-                  onWalletAvailable={setWalletAvailable}
-                />
-              </div>
-            )}
-
             {/* Add to Donation Bag Button */}
             <Button
               onClick={handleAddToBag}
@@ -1105,6 +1091,20 @@ export function OneNationDonationForm({
             >
               Add to Donation Bag
             </Button>
+
+            {/* Apple Pay / Google Pay for one-off (no cart, no duplicate orders) */}
+            {expressCheckout && (
+              <div className="space-y-2 mt-4">
+                {walletAvailable && (
+                  <p className="text-sm text-muted-foreground">Or pay with</p>
+                )}
+                <DonationExpressCheckout
+                  item={expressCheckout.item}
+                  amountPence={expressCheckout.amountPence}
+                  onWalletAvailable={setWalletAvailable}
+                />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
