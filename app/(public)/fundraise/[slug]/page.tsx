@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { FundraiserForm } from "@/components/fundraiser-form"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
+import { FundraiserFloatingDonateBar } from "@/components/fundraiser-floating-donate-bar"
 import { FundraisingSlideshow } from "@/components/fundraising-slideshow"
 
 export const dynamic = 'force-dynamic'
@@ -297,7 +298,7 @@ export default async function FundraisePage({
             </div>
 
             {/* Right Column - Donation Card (~35%) - Sticky on Desktop */}
-            <div className="order-2 lg:order-2">
+            <div id="donate-section" className="order-2 lg:order-2 scroll-mt-4">
               <div className="lg:sticky lg:top-6">
                 <FundraiserDonationCard
                   totalRaised={totalRaised}
@@ -335,6 +336,7 @@ export default async function FundraisePage({
             </div>
           </div>
         </div>
+        <FundraiserFloatingDonateBar />
       </div>
     )
   }
