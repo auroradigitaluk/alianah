@@ -1,13 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      // Email-safe paths (no space) so logo loads in donation confirmation etc.
-      { source: "/logo-light.png", destination: "/logo%20light.png" },
-      { source: "/logo-dark.png", destination: "/logo%20dark.png" },
-    ]
-  },
   images: {
     remotePatterns: [
       {
