@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { prisma, invalidatePrismaCache } from "@/lib/prisma"
 import { requireAdminRole, requireAdminRoleSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
@@ -67,8 +67,26 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = createSchema.parse(body)
     const scheduledAt = new Date(data.scheduledAt)
+    if (Number.isNaN(scheduledAt.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid date or time for scheduledAt" },
+        { status: 400 }
+      )
+    }
 
-    const booking = await prisma.collectionBooking.create({
+    const delegate = prisma.collectionBooking
+    if (delegate == null || typeof delegate.create !== "function") {
+      invalidatePrismaCache()
+      return NextResponse.json(
+        {
+          error:
+            "Server needs a restart to use the latest database schema. Please run: npx prisma generate, then restart your dev server (e.g. stop and run npm run dev again), and try adding the booking again.",
+        },
+        { status: 503 }
+      )
+    }
+
+    const booking = await delegate.create({
       data: {
         locationName: data.locationName,
         addressLine1: data.addressLine1,
@@ -89,6 +107,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message || "Invalid request" }, { status: 400 })
     }
     console.error("Collection bookings POST error:", error)
-    return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+    const message =
+      error && typeof error === "object" && "message" in error && typeof (error as { message: unknown }).message === "string"
+        ? (error as { message: string }).message
+        : "Failed to create booking"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

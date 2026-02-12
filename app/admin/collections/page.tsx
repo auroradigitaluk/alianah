@@ -24,20 +24,6 @@ async function getCollections(staffId: string | null) {
   }
 }
 
-async function getUpcomingBookings() {
-  try {
-    return await prisma.collectionBooking.findMany({
-      where: { scheduledAt: { gte: new Date() } },
-      orderBy: { scheduledAt: "asc" },
-      include: {
-        addedBy: { select: { email: true, firstName: true, lastName: true } },
-      },
-    })
-  } catch {
-    return []
-  }
-}
-
 export default async function CollectionsPage({
   searchParams,
 }: {
@@ -46,7 +32,6 @@ export default async function CollectionsPage({
   const user = await getAdminUser()
   const isStaff = user?.role === "STAFF"
   const params = await searchParams
-  // Staff only see collections they've logged; admins can filter by staff via ?staff=
   const staffId = isStaff ? user!.id : params?.staff || null
 
   const staffUsers = user?.role === "ADMIN"
@@ -57,7 +42,7 @@ export default async function CollectionsPage({
       })
     : []
 
-  const [collectionsRaw, masjids, appeals, upcomingBookings] = await Promise.all([
+  const [collectionsRaw, masjids, appeals] = await Promise.all([
     getCollections(staffId),
     prisma.masjid.findMany({
       orderBy: { name: "asc" },
@@ -68,26 +53,12 @@ export default async function CollectionsPage({
       orderBy: { title: "asc" },
       select: { id: true, title: true },
     }),
-    getUpcomingBookings(),
   ])
   const collections = collectionsRaw.map((c) => ({
     ...c,
     addedByName: formatAdminUserName(c.addedBy),
   }))
   const canCreate = Boolean(user && user.role !== "VIEWER")
-
-  const initialBookings = upcomingBookings.map((b) => ({
-    id: b.id,
-    locationName: b.locationName,
-    addressLine1: b.addressLine1,
-    postcode: b.postcode,
-    city: b.city,
-    country: b.country,
-    bookedByName: b.bookedByName,
-    scheduledAt: b.scheduledAt.toISOString(),
-    notes: b.notes,
-    addedBy: b.addedBy,
-  }))
 
   return (
     <>
@@ -109,7 +80,6 @@ export default async function CollectionsPage({
                 canCreate={canCreate}
                 showLoggedBy={user?.role !== "STAFF"}
                 canEdit={user?.role === "ADMIN" || user?.role === "STAFF"}
-                initialBookings={initialBookings}
               />
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
   IconHistory,
   IconMoneybag,
   IconBuilding,
+  IconCalendarEvent,
   IconRepeat,
   IconSettings,
   IconUsers,
@@ -353,6 +354,18 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     <IconBuilding />
                     <span>Collections</span>
                     <NotificationBadge count={counts.collections} />
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Bookings"
+                  isActive={pathname === "/admin/bookings" || pathname?.startsWith("/admin/bookings/")}
+                >
+                  <Link href="/admin/bookings">
+                    <IconCalendarEvent />
+                    <span>Bookings</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
