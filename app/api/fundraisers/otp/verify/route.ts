@@ -2,17 +2,37 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { cookies } from "next/headers"
-import { nanoid } from "nanoid"
+import { createFundraiserSessionToken } from "@/lib/fundraiser-auth"
+import { checkOtpRateLimit, getClientIp } from "@/lib/rate-limit"
 
 const verifyOTPSchema = z.object({
   email: z.string().email(),
   code: z.string().length(6),
 })
 
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60 // 30 days
+
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request)
+    const ipLimit = checkOtpRateLimit(`fundraiser-otp-verify:ip:${ip}`)
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts. Try again later.", retryAfter: ipLimit.retryAfter },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const data = verifyOTPSchema.parse(body)
+
+    const emailLimit = checkOtpRateLimit(`fundraiser-otp-verify:email:${data.email}`)
+    if (!emailLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts. Try again later.", retryAfter: emailLimit.retryAfter },
+        { status: 429 }
+      )
+    }
 
     // Find valid OTP
     const otp = await prisma.fundraiserOTP.findFirst({
@@ -39,29 +59,19 @@ export async function POST(request: NextRequest) {
       data: { used: true },
     })
 
-    // Create session token
-    const sessionToken = nanoid(32)
+    // Signed session token (email + exp), verified on every request
+    const sessionToken = createFundraiserSessionToken(data.email)
 
-    // Store session in cookies
     const cookieStore = await cookies()
     cookieStore.set("fundraiser_session", sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 30 * 24 * 60 * 60, // 30 days
-      path: "/",
-    })
-    
-    // Store email in separate cookie for easy access
-    cookieStore.set("fundraiser_email", data.email, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: SESSION_MAX_AGE,
       path: "/",
     })
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       email: data.email,
     })

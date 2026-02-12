@@ -53,11 +53,13 @@ export function AdminGlobalSearch() {
 
   useEffect(() => {
     if (debouncedQuery.length < 2) {
-      setResults([])
-      setLoading(false)
+      queueMicrotask(() => {
+        setResults([])
+        setLoading(false)
+      })
       return
     }
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     fetch(`/api/admin/search?q=${encodeURIComponent(debouncedQuery)}`)
       .then((res) => res.json())
       .then((data) => {
@@ -105,9 +107,11 @@ export function AdminGlobalSearch() {
 
   useEffect(() => {
     if (!open) return
-    setQuery("")
-    setResults([])
-    setSelectedIndex(0)
+    queueMicrotask(() => {
+      setQuery("")
+      setResults([])
+      setSelectedIndex(0)
+    })
     setTimeout(() => inputRef.current?.focus(), 0)
   }, [open])
 

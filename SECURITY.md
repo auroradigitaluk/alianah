@@ -4,11 +4,17 @@ Enterprise-level security measures implemented in this application.
 
 ## Authentication & Session
 
+### Admin
 - **Signed session cookies** – HMAC-SHA256 signed; cannot be forged without `ADMIN_SESSION_SECRET`
 - **`__Host-` cookie prefix** (production) – Binds cookie to host, requires HTTPS
 - **SameSite=Strict** – Prevents CSRF via cross-site request forgery
 - **7-day session expiry** – Balances security with usability
 - **HttpOnly + Secure** – Cookies not accessible to JavaScript; HTTPS-only in production
+
+### Fundraiser portal
+- **Signed session cookies** – HMAC-SHA256 signed; cannot be forged without `FUNDRAISER_SESSION_SECRET` or `ADMIN_SESSION_SECRET`
+- **30-day session expiry** – SameSite=Lax, HttpOnly, Secure in production
+- In production, at least one of the above secrets must be set or fundraiser login will not work
 
 ## Password Policy
 
@@ -25,6 +31,8 @@ Enterprise-level security measures implemented in this application.
 | OTP verify | 5 attempts / 5 min (per IP + per email) | 30 min |
 | Set password | 5 attempts / 15 min (per IP) | 30 min |
 | Verify invite | 5 attempts / 15 min (per IP) | 30 min |
+| Fundraiser OTP send | 5 attempts / 5 min (per IP + per email) | 30 min |
+| Fundraiser OTP verify | 5 attempts / 5 min (per IP + per email) | 30 min |
 
 ## Security Headers
 
@@ -40,6 +48,7 @@ Enterprise-level security measures implemented in this application.
 - All admin API routes require authentication
 - Role-based access control (ADMIN, STAFF, VIEWER)
 - Signed session verification on every request
+- Fundraiser portal API routes require a valid signed fundraiser session; resource access is scoped to the authenticated fundraiser (e.g. by `email` + fundraiser `id`)
 
 ## Production Checklist
 
@@ -48,3 +57,4 @@ Enterprise-level security measures implemented in this application.
 3. Use strong, unique passwords for all admin accounts
 4. Enable 2FA for admin accounts (Settings → Security)
 5. Regularly rotate `ADMIN_SESSION_SECRET` (invalidates all sessions)
+6. Optionally set `FUNDRAISER_SESSION_SECRET` for fundraiser portal sessions (otherwise `ADMIN_SESSION_SECRET` is used)

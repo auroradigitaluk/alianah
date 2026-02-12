@@ -33,10 +33,6 @@ function toTitleCase(input: string) {
     .join(" ")
 }
 
-function toTitleCaseLive(input: string) {
-  return input.replace(/(^|\s+)([A-Za-z])/g, (match, sep, letter) => `${sep}${letter.toUpperCase()}`)
-}
-
 function isValidName(input: string) {
   const value = input.trim()
   if (value.length < 2 || value.length > 60) return false
@@ -67,14 +63,6 @@ function isValidUkPostcode(postcode: string) {
   // UK postcode regex (broad, practical)
   const uk = /^([A-Z]{1,2}\d[A-Z\d]?)\s?(\d[A-Z]{2})$/i
   return uk.test(postcode.trim())
-}
-
-function normalizePhone(input: string) {
-  // Keep + and digits; collapse spaces
-  const trimmed = input.trim()
-  if (!trimmed) return ""
-  const cleaned = trimmed.replace(/[^\d+]/g, "")
-  return cleaned
 }
 
 function normalizePhoneNumber(input: string) {
@@ -294,8 +282,9 @@ function PaymentStep(props: {
       if (cancelled) return
       if (result) {
         setPaymentRequest(pr)
-        if ((result as any).applePay) setWalletLabel("Apple Pay")
-        else if ((result as any).googlePay) setWalletLabel("Google Pay")
+        const payResult = result as { applePay?: boolean; googlePay?: boolean }
+        if (payResult.applePay) setWalletLabel("Apple Pay")
+        else if (payResult.googlePay) setWalletLabel("Google Pay")
         else setWalletLabel("Wallet Pay")
 
         pr.on("paymentmethod", async (ev) => {
@@ -554,7 +543,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   })
   const [errors, setErrors] = React.useState<Record<string, string>>({})
   const [primaryClientSecret, setPrimaryClientSecret] = React.useState<string | null>(null)
-  const [paymentClientSecret, setPaymentClientSecret] = React.useState<string | null>(null)
+  const [, setPaymentClientSecret] = React.useState<string | null>(null)
   const [subscriptionClientSecret, setSubscriptionClientSecret] = React.useState<string | null>(null)
   const [createdOrder, setCreatedOrder] = React.useState<CheckoutCreateResponse | null>(null)
   const [validatedSnapshot, setValidatedSnapshot] = React.useState<z.infer<typeof checkoutSchema> | null>(null)
@@ -581,7 +570,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
     const items = CHECKOUT_COUNTRIES
       .map((code) => {
         try {
-          const callingCode = `+${getCountryCallingCode(code as any)}`
+          const callingCode = `+${getCountryCallingCode(code as import("libphonenumber-js").CountryCode)}`
           return { code, label: callingCode, value: callingCode }
         } catch {
           return null
@@ -1458,7 +1447,12 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
 }
 
 export default function CheckoutPage() {
-  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null
+  const stripePromise = React.useMemo(
+    () => (publishableKey ? loadStripe(publishableKey) : null),
+    [publishableKey]
+  )
+
   if (!publishableKey) {
     return (
       <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 md:px-6">
@@ -1474,7 +1468,5 @@ export default function CheckoutPage() {
     )
   }
 
-  const stripePromise = React.useMemo(() => loadStripe(publishableKey), [publishableKey])
-
-  return <CheckoutInner stripePromise={stripePromise} />
+  return <CheckoutInner stripePromise={stripePromise!} />
 }

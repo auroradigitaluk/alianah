@@ -83,7 +83,7 @@ export function MasjidsTable({
   useEffect(() => {
     if (initialSelectedId) {
       const masjid = masjids.find((m) => m.id === initialSelectedId) ?? null
-      setSelectedMasjid(masjid)
+      queueMicrotask(() => setSelectedMasjid(masjid))
     }
   }, [initialSelectedId, masjids])
 

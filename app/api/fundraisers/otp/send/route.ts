@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { sendFundraiserOTPEmail } from "@/lib/email"
+import { checkOtpRateLimit, getClientIp } from "@/lib/rate-limit"
 
 const sendOTPSchema = z.object({
   email: z.string().email(),
@@ -9,8 +10,25 @@ const sendOTPSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request)
+    const ipLimit = checkOtpRateLimit(`fundraiser-otp:ip:${ip}`)
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts. Try again later.", retryAfter: ipLimit.retryAfter },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const data = sendOTPSchema.parse(body)
+
+    const emailLimit = checkOtpRateLimit(`fundraiser-otp:email:${data.email}`)
+    if (!emailLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts for this email. Try again later.", retryAfter: emailLimit.retryAfter },
+        { status: 429 }
+      )
+    }
 
     // Generate 6-digit OTP
     const code = Math.floor(100000 + Math.random() * 900000).toString()

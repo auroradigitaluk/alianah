@@ -19,7 +19,7 @@ async function getCollections(staffId: string | null) {
         addedBy: { select: { email: true, firstName: true, lastName: true } },
       },
     })
-  } catch (error) {
+  } catch {
     return []
   }
 }

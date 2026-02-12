@@ -29,7 +29,7 @@ export function AdminNavUser() {
   const [user, setUser] = useState<{ email: string; role: string } | null>(null)
 
   useEffect(() => {
-    setMounted(true)
+    queueMicrotask(() => setMounted(true))
   }, [])
 
   useEffect(() => {

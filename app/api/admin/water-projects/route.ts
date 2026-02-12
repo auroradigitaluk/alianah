@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
-import { sendWaterProjectDonationEmail } from "@/lib/email"
 
 const waterProjectSchema = z
   .object({

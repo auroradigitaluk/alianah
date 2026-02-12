@@ -207,10 +207,12 @@ export function DonationForm({
     setCustomAmount("")
   }
 
+  const presetAmountsJson = selectedProductData?.presetAmountsPence ?? ""
+  /* eslint-disable react-hooks/preserve-manual-memoization -- primitive dep from optional chain */
   const presetAmounts: number[] = React.useMemo(() => {
-    if (!selectedProductData?.presetAmountsPence) return []
+    if (!presetAmountsJson) return []
     try {
-      const arr: unknown = JSON.parse(selectedProductData.presetAmountsPence)
+      const arr: unknown = JSON.parse(presetAmountsJson)
       if (!Array.isArray(arr)) return []
       return arr
         .filter((n): n is number => typeof n === "number" && Number.isFinite(n) && n > 0)
@@ -218,7 +220,8 @@ export function DonationForm({
     } catch {
       return []
     }
-  }, [selectedProductData?.presetAmountsPence])
+  }, [presetAmountsJson])
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   const canUseCustom = selectedProductData?.allowCustom ?? false
 

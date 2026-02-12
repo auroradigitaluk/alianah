@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireAdminAuthSafe, requireAdminRoleSafe } from "@/lib/admin-auth"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const createSchema = z.object({

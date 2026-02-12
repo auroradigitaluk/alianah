@@ -21,7 +21,7 @@ export function DonorsTable({
   useEffect(() => {
     if (initialSelectedId) {
       const donor = donors.find((d) => d.id === initialSelectedId) ?? null
-      setSelectedDonor(donor)
+      queueMicrotask(() => setSelectedDonor(donor))
     }
   }, [initialSelectedId, donors])
   const [cityQuery, setCityQuery] = useState("")

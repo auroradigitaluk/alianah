@@ -274,7 +274,7 @@ export function OneNationDonationForm({
 
   React.useEffect(() => {
     if (!sponsorshipHasYearly && sponsorshipFrequency === "YEARLY") {
-      setSponsorshipFrequency("MONTHLY")
+      queueMicrotask(() => setSponsorshipFrequency("MONTHLY"))
     }
   }, [sponsorshipHasYearly, sponsorshipFrequency])
 
@@ -284,7 +284,7 @@ export function OneNationDonationForm({
       selectedSponsorshipCountryData &&
       !selectedSponsorshipCountryData.yearlyPricePence
     ) {
-      setSponsorshipFrequency("MONTHLY")
+      queueMicrotask(() => setSponsorshipFrequency("MONTHLY"))
     }
   }, [selectedSponsorshipCountryData, sponsorshipFrequency])
 
@@ -302,6 +302,7 @@ export function OneNationDonationForm({
   const requiresPlaqueName = !!waterProjectData?.plaqueAvailable
 
   // One-off express checkout (Apple Pay): same validation as Add to Bag, one-off only
+  /* eslint-disable react-hooks/preserve-manual-memoization -- complex dependency array with stable object refs */
   const expressCheckout = React.useMemo((): { item: DonationExpressItem; amountPence: number } | null => {
     if (!selectedIntention) return null
     if (donationType === "water") {
@@ -415,6 +416,7 @@ export function OneNationDonationForm({
     appealPresets.length,
     zakatFixedAmountPence,
   ])
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   const handleAddToBag = () => {
     if (donationType === "appeal" && !selectedAppeal) {
@@ -599,7 +601,7 @@ export function OneNationDonationForm({
         <CardHeader className="pb-4">
           <h2 className="text-xl font-semibold tracking-tight">Make a Donation</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Choose how you'd like to give and where your donation will be used. Secure, fast, and impactful.
+            Choose how you&apos;d like to give and where your donation will be used. Secure, fast, and impactful.
           </p>
         </CardHeader>
         <CardContent className="space-y-5">

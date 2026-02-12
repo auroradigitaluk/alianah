@@ -49,7 +49,7 @@ export function FundraisersDashboardClient({
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   useEffect(() => {
-    if (openId) setSelectedFundraiserId(openId)
+    if (openId) queueMicrotask(() => setSelectedFundraiserId(openId))
   }, [openId])
 
   const handleClearSelection = useCallback(() => {

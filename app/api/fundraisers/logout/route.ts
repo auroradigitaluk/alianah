@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    cookieStore.delete("fundraiser_session")
-    cookieStore.delete("fundraiser_email")
-    
+    cookieStore.set("fundraiser_session", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0,
+      path: "/",
+    })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Logout error:", error)

@@ -6,7 +6,6 @@ import {
   IconFileText,
   IconFolder,
   IconHeart,
-  IconHistory,
   IconMoneybag,
   IconBuilding,
   IconCalendarEvent,
@@ -165,7 +164,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const showTasks = role === "ADMIN" || role === "STAFF"
   const showDistributions = role === "ADMIN"
   const showReports = role !== "STAFF"
-  const showAudit = role === "ADMIN"
   const showAnalytics = role === "ADMIN"
   const showSettings = role === "ADMIN"
 
@@ -540,20 +538,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     <Link href="/admin/reports">
                       <IconReport />
                       <span>Reports</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {showAudit && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip="Audit Log"
-                    isActive={pathname === "/admin/audit" || pathname?.startsWith("/admin/audit/")}
-                  >
-                    <Link href="/admin/audit">
-                      <IconHistory />
-                      <span>Audit Log</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

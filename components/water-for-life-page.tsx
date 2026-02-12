@@ -62,9 +62,7 @@ export function WaterForLifePage({
   const [selectedProjectType, setSelectedProjectType] = useState<string>(initialProjectType || "")
 
   useEffect(() => {
-    if (initialProjectType) {
-      setSelectedProjectType(initialProjectType)
-    }
+    if (initialProjectType) queueMicrotask(() => setSelectedProjectType(initialProjectType))
   }, [initialProjectType])
 
   const availableProjectTypes = useMemo(() => {
@@ -86,14 +84,15 @@ export function WaterForLifePage({
     WUDHU_AREA: "water-wudhu",
   }
 
+  const selectedProjectImagesJson = selectedProject?.projectImageUrls ?? ""
   const selectedProjectImages = useMemo(() => {
-    if (!selectedProject?.projectImageUrls) return []
+    if (!selectedProjectImagesJson) return []
     try {
-      return JSON.parse(selectedProject.projectImageUrls) as string[]
+      return JSON.parse(selectedProjectImagesJson) as string[]
     } catch {
       return []
     }
-  }, [selectedProject?.projectImageUrls])
+  }, [selectedProjectImagesJson])
 
   return (
     <div className="min-h-screen bg-background">

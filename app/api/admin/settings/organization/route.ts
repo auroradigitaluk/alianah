@@ -5,7 +5,7 @@ import { requireAdminRoleSafe } from "@/lib/admin-auth"
 const SETTINGS_ID = "organization"
 
 export async function GET() {
-  const [user, err] = await requireAdminRoleSafe(["ADMIN"])
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     let settings = await prisma.settings.findUnique({
@@ -34,7 +34,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const [user, err] = await requireAdminRoleSafe(["ADMIN"])
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     const body = await request.json()

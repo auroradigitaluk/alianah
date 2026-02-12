@@ -959,9 +959,11 @@ export function ExportCsvButton({
   const [selectedColumns, setSelectedColumns] = useState(defaultColumns)
 
   useEffect(() => {
-    setTextSelectValues(textSelectDefaults)
-    setDateValues(dateDefaults)
-    setSelectedColumns(defaultColumns)
+    queueMicrotask(() => {
+      setTextSelectValues(textSelectDefaults)
+      setDateValues(dateDefaults)
+      setSelectedColumns(defaultColumns)
+    })
   }, [dateDefaults, defaultColumns, textSelectDefaults])
 
   const filteredData = useMemo(() => {

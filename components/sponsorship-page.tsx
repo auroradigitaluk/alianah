@@ -62,9 +62,7 @@ export function SponsorshipPage({
   const [sponsorshipFrequency, setSponsorshipFrequency] = useState<"MONTHLY" | "YEARLY">("MONTHLY")
 
   useEffect(() => {
-    if (initialProjectType) {
-      setSelectedProjectType(initialProjectType)
-    }
+    if (initialProjectType) queueMicrotask(() => setSelectedProjectType(initialProjectType))
   }, [initialProjectType])
 
   const availableTypes = useMemo(() => {
@@ -80,14 +78,15 @@ export function SponsorshipPage({
     [projects, selectedProjectType]
   )
 
+  const selectedProjectImagesJson = selectedProject?.projectImageUrls ?? ""
   const selectedProjectImages = useMemo(() => {
-    if (!selectedProject?.projectImageUrls) return []
+    if (!selectedProjectImagesJson) return []
     try {
-      return JSON.parse(selectedProject.projectImageUrls) as string[]
+      return JSON.parse(selectedProjectImagesJson) as string[]
     } catch {
       return []
     }
-  }, [selectedProject?.projectImageUrls])
+  }, [selectedProjectImagesJson])
 
   const filteredCountries = useMemo(() => {
     return countries
@@ -101,7 +100,7 @@ export function SponsorshipPage({
 
   useEffect(() => {
     if (!hasYearlyOption && sponsorshipFrequency === "YEARLY") {
-      setSponsorshipFrequency("MONTHLY")
+      queueMicrotask(() => setSponsorshipFrequency("MONTHLY"))
     }
   }, [hasYearlyOption, sponsorshipFrequency])
 
@@ -111,7 +110,7 @@ export function SponsorshipPage({
       selectedCountry &&
       !selectedCountry.yearlyPricePence
     ) {
-      setSponsorshipFrequency("MONTHLY")
+      queueMicrotask(() => setSponsorshipFrequency("MONTHLY"))
     }
   }, [selectedCountry, sponsorshipFrequency])
 
