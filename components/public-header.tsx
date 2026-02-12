@@ -4,8 +4,8 @@ import * as React from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { IconArrowLeft } from "@tabler/icons-react"
-import { ShoppingCart, LogIn } from "lucide-react"
-import { useRouter, usePathname } from "next/navigation"
+import { ShoppingCart } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useSidecart } from "@/components/sidecart-provider"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -14,7 +14,6 @@ import { ThemeToggle } from "@/components/theme-toggle"
 
 export function PublicHeader() {
   const router = useRouter()
-  const pathname = usePathname()
   const { items, setOpen } = useSidecart()
 
   const handleBack = () => {
@@ -22,7 +21,6 @@ export function PublicHeader() {
   }
 
   const itemCount = items.length
-  const isFundraisePage = pathname?.startsWith("/fundraise")
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -56,14 +54,6 @@ export function PublicHeader() {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {isFundraisePage && (
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/fundraise/login?redirect=${encodeURIComponent(pathname || "/fundraise/dashboard")}`}>
-              <LogIn className="mr-2 h-4 w-4" />
-              Login
-            </Link>
-          </Button>
-        )}
         <span className="hidden md:inline-flex">
           <ThemeToggle />
         </span>

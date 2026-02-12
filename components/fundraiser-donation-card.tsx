@@ -7,6 +7,7 @@ import { ProgressRing } from "@/components/ui/progress-ring"
 import { formatCurrency } from "@/lib/utils"
 import { Share2, Heart, ShieldCheck } from "lucide-react"
 import { DonationForm } from "@/components/donation-form"
+import { FundraiserPublicCashForm } from "@/components/fundraiser-public-cash-form"
 import { WaterProjectDonationForm } from "@/components/water-project-donation-form"
 
 type AppealProduct = {
@@ -150,6 +151,9 @@ export function FundraiserDonationCard({
         <Share2 className="h-4 w-4" />
         {copied ? "Copied!" : "Share"}
       </Button>
+
+      {/* Add cash donation (no login required) */}
+      <FundraiserPublicCashForm fundraiserId={fundraiserId} />
 
       {/* Recent Donations */}
       {recentDonations.length > 0 && (
