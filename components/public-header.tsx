@@ -37,14 +37,14 @@ export function PublicHeader() {
           </Button>
         <div className="ml-4 flex items-center gap-2 text-sm text-muted-foreground">
           <Image
-            src="/logo light.png"
+            src="/logo-light.png"
             alt="Alianah"
             width={24}
             height={24}
             className="h-5 w-5 object-contain dark:hidden"
           />
           <Image
-            src="/logo dark.png"
+            src="/logo-dark.png"
             alt="Alianah"
             width={24}
             height={24}

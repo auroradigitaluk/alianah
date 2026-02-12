@@ -6,6 +6,13 @@ const DEFAULT_CHARITY_NAME = "Alianah Humanity Welfare"
 const DEFAULT_SUPPORT_EMAIL = "support@alianah.org"
 const DEFAULT_WEBSITE_URL = "https://www.alianah.org"
 
+/**
+ * Absolute public URL for email logo. Email clients cannot load local/relative paths.
+ * Deploy: upload public/logo-light.png and public/logo-dark.png to production at
+ * /public_html/email-assets/ so https://alianah.org/email-assets/logo-light.png (and logo-dark.png) are live.
+ */
+const EMAIL_LOGO_LIGHT_URL = "https://alianah.org/email-assets/logo-light.png"
+
 // Brand / UI-aligned palette (email-safe) – Alianah greens
 const BRAND = {
   primary: "#009900", // brand green
@@ -297,13 +304,12 @@ function cleanLayout(
   `
 }
 
-function getCleanLayoutDefaults(settings?: OrganizationSettings | null, baseUrl?: string) {
+function getCleanLayoutDefaults(settings?: OrganizationSettings | null, _baseUrl?: string) {
   const charityName = settings?.charityName ?? DEFAULT_CHARITY_NAME
   const supportEmail = settings?.supportEmail ?? DEFAULT_SUPPORT_EMAIL
   const websiteUrl = settings?.websiteUrl ?? DEFAULT_WEBSITE_URL
   const displayUrl = websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
-  const logoUrl = (baseUrl || websiteUrl).replace(/\/$/, "") + "/logo-light.png"
-  return { charityName, supportEmail, websiteUrl, displayUrl, logoUrl }
+  return { charityName, supportEmail, websiteUrl, displayUrl, logoUrl: EMAIL_LOGO_LIGHT_URL }
 }
 
 export type DonationConfirmationEmailParams = {
@@ -328,7 +334,7 @@ export function buildDonationConfirmationEmail(
   const displayUrl = websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
   const subject = `Donation confirmation - ${charityName}`
 
-  const logoUrl = (params.baseUrl || websiteUrl).replace(/\/$/, "") + "/logo-light.png"
+  const logoUrl = EMAIL_LOGO_LIGHT_URL
 
   const receiptDate = new Date().toLocaleDateString("en-GB", {
     day: "2-digit",

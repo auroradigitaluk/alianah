@@ -65,14 +65,14 @@ export default function AdminLoginPage() {
         <div className="flex justify-center gap-2 md:justify-start">
           <Link href="/" className="flex items-center gap-2 font-medium">
             <Image
-              src="/logo light.png"
+              src="/logo-light.png"
               alt="Logo"
               width={48}
               height={48}
               className="dark:hidden"
             />
             <Image
-              src="/logo dark.png"
+              src="/logo-dark.png"
               alt="Logo"
               width={48}
               height={48}
