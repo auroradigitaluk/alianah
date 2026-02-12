@@ -36,6 +36,7 @@ model AdminUser {
   distributionsCreated Distribution[]
   fundraiserCashDonationsReviewed FundraiserCashDonation[]
   pageVisits          AdminPageVisit[]
+  collectionBookings  CollectionBooking[]
 
   @@index([email])
   @@index([inviteToken])
@@ -368,6 +369,26 @@ model Collection {
   @@index([collectedAt])
   @@index([addedByAdminUserId])
   @@map("collections")
+}
+
+model CollectionBooking {
+  id                  String    @id @default(cuid())
+  locationName        String    // e.g. masjid name, shop name
+  addressLine1        String    // first line of address
+  postcode            String?
+  city                String?
+  country             String?
+  bookedByName        String?   // who booked the collection (e.g. volunteer name)
+  scheduledAt         DateTime  // date and time of booking
+  notes               String?
+  addedByAdminUserId  String?
+  createdAt           DateTime  @default(now())
+
+  addedBy  AdminUser? @relation(fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
+
+  @@index([scheduledAt])
+  @@index([addedByAdminUserId])
+  @@map("collection_bookings")
 }
 
 model Donor {

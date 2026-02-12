@@ -61,7 +61,7 @@ interface Collection {
   amountPence: number
   donationType: string
   type: string
-  collectedAt: Date
+  collectedAt: Date | string
   masjidId?: string | null
   appealId?: string | null
   masjid?: { name: string } | null

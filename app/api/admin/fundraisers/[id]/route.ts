@@ -83,6 +83,10 @@ export async function GET(
             createdAt: "desc",
           },
         },
+        cashDonations: {
+          where: { status: "APPROVED" },
+          orderBy: { receivedAt: "desc" },
+        },
       },
     })
 
@@ -143,8 +147,45 @@ export async function GET(
       product: donation.product,
     }))
 
+    const campaignTitleForCash = fundraiser.appeal?.title
+      ?? (fundraiser.waterProject?.projectType === "WATER_PUMP"
+        ? "Water Pumps"
+        : fundraiser.waterProject?.projectType === "WATER_WELL"
+          ? "Water Wells"
+          : fundraiser.waterProject?.projectType === "WATER_TANK"
+            ? "Water Tanks"
+            : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+              ? "Wudhu Areas"
+              : "Water Project")
+
+    const normalizedCashDonations = fundraiser.cashDonations.map((cash) => ({
+      id: `cash-${cash.id}`,
+      amountPence: cash.amountPence,
+      donationType: "GENERAL",
+      frequency: "ONE_OFF",
+      status: "COMPLETED",
+      paymentMethod: "CASH",
+      giftAid: false,
+      transactionId: null,
+      billingAddress: null,
+      billingCity: null,
+      billingPostcode: null,
+      billingCountry: null,
+      createdAt: cash.receivedAt,
+      completedAt: cash.reviewedAt ?? cash.receivedAt,
+      donor: {
+        title: null,
+        firstName: cash.donorName?.trim() || "Cash donor",
+        lastName: "",
+        email: "",
+      },
+      appeal: { title: campaignTitleForCash },
+      product: null,
+    }))
+
     const combinedDonations = normalizedDonations
       .concat(normalizedWaterDonations)
+      .concat(normalizedCashDonations)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     // Calculate statistics

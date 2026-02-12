@@ -154,28 +154,26 @@ export default async function AppealsPage({
 
   return (
     <>
-      <AdminHeader
-        title="Appeals"
-        actions={
-          <div className="flex items-center gap-2">
-            <ArchivedAppealsModal appeals={archivedAppeals} />
-            <Button asChild>
-              <Link href="/admin/appeals/new">
-                <Plus className="mr-2 h-4 w-4" />
-                New Appeal
-              </Link>
-            </Button>
-          </div>
-        }
-      />
+      <AdminHeader title="Appeals" />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
             <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
               <div className="flex flex-col gap-4 sm:gap-4 sm:gap-6">
-                <div>
-                  <h2 className="text-base sm:text-base sm:text-lg font-semibold">Appeals</h2>
-                  <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">Manage donation appeals</p>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h2 className="text-base sm:text-base sm:text-lg font-semibold">Appeals</h2>
+                    <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">Manage donation appeals</p>
+                  </div>
+                  <div className="flex flex-nowrap items-end gap-2">
+                    <ArchivedAppealsModal appeals={archivedAppeals} />
+                    <Button asChild>
+                      <Link href="/admin/appeals/new">
+                        <Plus className="mr-2 h-4 w-4" />
+                        New Appeal
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <AppealsTable appeals={appeals} />

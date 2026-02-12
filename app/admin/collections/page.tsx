@@ -1,11 +1,9 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
-import { CollectionsTable } from "@/components/collections-table"
-import { CollectionModal } from "@/components/collection-modal"
+import { CollectionsPageClient } from "@/components/collections-page-client"
 import { ExportCsvButton } from "@/components/export-csv-button"
 import { getAdminUser } from "@/lib/admin-auth"
 import { formatAdminUserName } from "@/lib/utils"
-import { StaffFilterSelect } from "@/components/staff-filter-select"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -22,6 +20,20 @@ async function getCollections(staffId: string | null) {
       },
     })
   } catch (error) {
+    return []
+  }
+}
+
+async function getUpcomingBookings() {
+  try {
+    return await prisma.collectionBooking.findMany({
+      where: { scheduledAt: { gte: new Date() } },
+      orderBy: { scheduledAt: "asc" },
+      include: {
+        addedBy: { select: { email: true, firstName: true, lastName: true } },
+      },
+    })
+  } catch {
     return []
   }
 }
@@ -45,7 +57,7 @@ export default async function CollectionsPage({
       })
     : []
 
-  const [collectionsRaw, masjids, appeals] = await Promise.all([
+  const [collectionsRaw, masjids, appeals, upcomingBookings] = await Promise.all([
     getCollections(staffId),
     prisma.masjid.findMany({
       orderBy: { name: "asc" },
@@ -56,50 +68,49 @@ export default async function CollectionsPage({
       orderBy: { title: "asc" },
       select: { id: true, title: true },
     }),
+    getUpcomingBookings(),
   ])
   const collections = collectionsRaw.map((c) => ({
     ...c,
     addedByName: formatAdminUserName(c.addedBy),
   }))
-  const canCreate = user && user.role !== "VIEWER"
+  const canCreate = Boolean(user && user.role !== "VIEWER")
+
+  const initialBookings = upcomingBookings.map((b) => ({
+    id: b.id,
+    locationName: b.locationName,
+    addressLine1: b.addressLine1,
+    postcode: b.postcode,
+    city: b.city,
+    country: b.country,
+    bookedByName: b.bookedByName,
+    scheduledAt: b.scheduledAt.toISOString(),
+    notes: b.notes,
+    addedBy: b.addedBy,
+  }))
 
   return (
     <>
       <AdminHeader
         title="Collections"
         actions={
-          <div className="flex items-center gap-2">
-            <ExportCsvButton variant="collections" data={collections} />
-            {canCreate && (
-              <CollectionModal masjids={masjids} appeals={appeals} />
-            )}
-          </div>
+          <ExportCsvButton variant="collections" data={collections} />
         }
       />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
             <div className="px-2 sm:px-4 lg:px-6">
-              <div className="flex flex-col gap-4 sm:gap-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-base sm:text-lg font-semibold">Collections</h2>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Masjid collections (Jummah, Ramadan, Eid, etc.)</p>
-                  </div>
-                  {staffUsers.length > 0 && (
-                    <StaffFilterSelect staffUsers={staffUsers} />
-                  )}
-                </div>
-                <div>
-                  <CollectionsTable
-                    collections={collections}
-                    showLoggedBy={user?.role !== "STAFF"}
-                    canEdit={user?.role === "ADMIN" || user?.role === "STAFF"}
-                    masjids={masjids}
-                    appeals={appeals}
-                  />
-                </div>
-              </div>
+              <CollectionsPageClient
+                collections={collections}
+                masjids={masjids}
+                appeals={appeals}
+                staffUsers={staffUsers}
+                canCreate={canCreate}
+                showLoggedBy={user?.role !== "STAFF"}
+                canEdit={user?.role === "ADMIN" || user?.role === "STAFF"}
+                initialBookings={initialBookings}
+              />
             </div>
           </div>
         </div>

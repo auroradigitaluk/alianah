@@ -177,32 +177,30 @@ export default async function OfflineIncomePage({
     <>
       <AdminHeader
         title="Offline Income"
-        actions={
-          <div className="flex items-center gap-2">
-            <ExportCsvButton variant="offlineIncome" data={tableIncome} />
-            <OfflineIncomeModal
-              appeals={appeals}
-              waterProjects={waterProjects}
-              waterProjectCountries={waterProjectCountries}
-              sponsorshipProjects={sponsorshipProjects}
-              sponsorshipProjectCountries={sponsorshipProjectCountries}
-            />
-          </div>
-        }
+        actions={<ExportCsvButton variant="offlineIncome" data={tableIncome} />}
       />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
             <div className="px-2 sm:px-4 lg:px-6">
               <div className="flex flex-col gap-4 sm:gap-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <h2 className="text-base sm:text-lg font-semibold">Offline Income</h2>
                     <p className="text-xs sm:text-sm text-muted-foreground">Cash and bank transfer income</p>
                   </div>
-                  {staffUsers.length > 0 && (
-                    <StaffFilterSelect staffUsers={staffUsers} />
-                  )}
+                  <div className="flex flex-nowrap items-end gap-2">
+                    {staffUsers.length > 0 && (
+                      <StaffFilterSelect staffUsers={staffUsers} />
+                    )}
+                    <OfflineIncomeModal
+                      appeals={appeals}
+                      waterProjects={waterProjects}
+                      waterProjectCountries={waterProjectCountries}
+                      sponsorshipProjects={sponsorshipProjects}
+                      sponsorshipProjectCountries={sponsorshipProjectCountries}
+                    />
+                  </div>
                 </div>
                 <div>
                   <OfflineIncomeTable
