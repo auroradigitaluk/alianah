@@ -226,6 +226,12 @@ function Sidebar({
   }
 
   if (isMobile) {
+    const handleContentClick = (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest("a[href]")) {
+        setOpenMobile(false)
+      }
+    }
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent
@@ -244,7 +250,9 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div className="flex h-full w-full flex-col" onClick={handleContentClick}>
+            {children}
+          </div>
         </SheetContent>
       </Sheet>
     )

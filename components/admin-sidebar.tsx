@@ -30,6 +30,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -184,7 +185,9 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        {/* Overview */}
         <SidebarGroup>
+          <SidebarGroupLabel>Overview</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -199,19 +202,28 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Campaigns & Projects */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Campaigns & Projects</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
               {showAppeals && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Appeals"
-                  isActive={pathname === "/admin/appeals" || pathname?.startsWith("/admin/appeals/")}
-                >
-                  <Link href="/admin/appeals">
-                    <IconHeart />
-                    <span>Appeals</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Appeals"
+                    isActive={pathname === "/admin/appeals" || pathname?.startsWith("/admin/appeals/")}
+                  >
+                    <Link href="/admin/appeals">
+                      <IconHeart />
+                      <span>Appeals</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               )}
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -283,7 +295,9 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Income & Donations */}
         <SidebarGroup>
+          <SidebarGroupLabel>Income & Donations</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {showDonations && (
@@ -368,6 +382,15 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* People & Places */}
+        <SidebarGroup>
+          <SidebarGroupLabel>People & Places</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
               {showDonors && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -400,7 +423,9 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Operations */}
         <SidebarGroup>
+          <SidebarGroupLabel>Operations</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {showTasks && (
@@ -432,6 +457,15 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Team */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Team</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
               {showStaff && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -460,6 +494,15 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Content & Insights */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Content & Insights</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
               {showDocuments && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -516,6 +559,15 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Settings */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Settings</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
               {showSettings && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
