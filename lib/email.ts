@@ -50,6 +50,13 @@ function getResend(): Resend {
   return resend
 }
 
+/** From address with display name for inbox (e.g. "Alianah <support@alianah.org>"). */
+function getFromAddress(): string {
+  const email = process.env.FROM_EMAIL || "noreply@alianah.org"
+  const name = process.env.FROM_NAME || "Alianah"
+  return `${name} <${email}>`
+}
+
 const PROJECT_TYPE_LABELS: Record<string, string> = {
   WATER_PUMP: "Water Pump",
   WATER_WELL: "Water Well",
@@ -137,7 +144,7 @@ export async function sendDonationConfirmationEmail(params: {
 
   try {
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: donorEmail,
       subject,
       html,
@@ -167,7 +174,7 @@ export async function sendAbandonedCheckoutEmail(params: {
 
   try {
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: donorEmail,
       subject,
       html,
@@ -196,7 +203,7 @@ export async function sendRefundConfirmationEmail(params: {
 
   try {
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: donorEmail,
       subject,
       html,
@@ -230,7 +237,7 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
       settings
     )
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: donorEmail,
       subject,
       html,
@@ -264,7 +271,7 @@ export async function sendWaterProjectCompletionEmail(params: CompletionEmailPar
       settings
     )
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: params.donorEmail,
       subject,
       html,
@@ -306,7 +313,7 @@ export async function sendSponsorshipDonationEmail(params: {
       settings
     )
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: donorEmail,
       subject,
       html,
@@ -350,7 +357,7 @@ export async function sendSponsorshipCompletionEmail(params: {
       settings
     )
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: params.donorEmail,
       subject,
       html,
@@ -382,7 +389,7 @@ export async function sendFundraiserWelcomeEmail(params: FundraiserWelcomeEmailP
       settings
     )
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: fundraiserEmail,
       subject,
       html,
@@ -416,7 +423,7 @@ export async function sendFundraiserDonationNotification(params: FundraiserDonat
       settings
     )
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: fundraiserEmail,
       subject,
       html,
@@ -439,7 +446,7 @@ export async function sendFundraiserOTPEmail(params: FundraiserOTPEmailParams) {
     const settings = await getOrganizationSettings()
     const { subject, html } = buildFundraiserOtpEmail({ code, baseUrl: getEmailBaseUrl(settings) }, settings)
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: email,
       subject,
       html,
@@ -465,7 +472,7 @@ export async function sendAdminInviteEmail(params: {
     const settings = await getOrganizationSettings()
     const { subject, html } = buildAdminInviteEmail({ email, setPasswordUrl, baseUrl: getEmailBaseUrl(settings) }, settings)
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: email,
       subject,
       html,
@@ -491,7 +498,7 @@ export async function sendAdminLoginOtpEmail(params: { email: string; code: stri
       settings
     )
     await getResend().emails.send({
-      from: process.env.FROM_EMAIL || "noreply@alianah.org",
+      from: getFromAddress(),
       to: email,
       subject,
       html,

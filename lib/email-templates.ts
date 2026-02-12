@@ -77,13 +77,15 @@ function layout(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
     <title>${escapeHtml(title)}</title>
   </head>
   <body style="margin:0; padding:0; background:#ffffff; color:${BRAND.text}; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height:1.5;">
     <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
       ${escapeHtml(preheader)}
     </div>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${BRAND.background}; padding: 24px 12px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ffffff; padding: 24px 12px;">
       <tr>
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 640px;">
@@ -179,11 +181,13 @@ function donationConfirmationLayout(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
     <title>${escapeHtml(params.heading)} - ${escapeHtml(params.charityName)}</title>
   </head>
-  <body style="margin:0; padding:0; background:#f5f5f5; color:#111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.5;">
+  <body style="margin:0; padding:0; background:#ffffff; color:#111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.5;">
     <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">${escapeHtml(params.preheader)}</div>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f5f5;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ffffff;">
       <tr>
         <td align="center" style="padding: 32px 16px 40px;">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px;">
@@ -266,11 +270,13 @@ function cleanLayout(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
     <title>${escapeHtml(params.title)} - ${escapeHtml(params.charityName)}</title>
   </head>
-  <body style="margin:0; padding:0; background:#f5f5f5; color:#111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.5;">
+  <body style="margin:0; padding:0; background:#ffffff; color:#111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.5;">
     <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">${escapeHtml(params.preheader)}</div>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f5f5;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ffffff;">
       <tr>
         <td align="center" style="padding: 32px 16px 40px;">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px;">
