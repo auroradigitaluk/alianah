@@ -64,7 +64,9 @@ export function PublicHeader() {
             </Link>
           </Button>
         )}
-        <ThemeToggle />
+        <span className="hidden md:inline-flex">
+          <ThemeToggle />
+        </span>
         <Button
           variant="ghost"
           size="icon"
