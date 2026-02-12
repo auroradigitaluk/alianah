@@ -7,11 +7,10 @@ const DEFAULT_SUPPORT_EMAIL = "support@alianah.org"
 const DEFAULT_WEBSITE_URL = "https://www.alianah.org"
 
 /**
- * Absolute public URL for email logo. Email clients cannot load local/relative paths.
- * Deploy: upload public/logo-light.png and public/logo-dark.png to production at
- * /public_html/email-assets/ so https://alianah.org/email-assets/logo-light.png (and logo-dark.png) are live.
+ * Absolute public URL for email logo (served from public/ when app is deployed at give.alianah.org).
+ * Email clients cannot load local/relative paths.
  */
-const EMAIL_LOGO_LIGHT_URL = "https://alianah.org/email-assets/logo-light.png"
+const EMAIL_LOGO_LIGHT_URL = "https://give.alianah.org/logo-light.png"
 
 // Brand / UI-aligned palette (email-safe) – Alianah greens
 const BRAND = {

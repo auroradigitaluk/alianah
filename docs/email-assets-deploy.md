@@ -1,22 +1,15 @@
-# Email assets deployment
+# Email logo (public folder)
 
-Transactional emails (donation confirmation, refunds, recurring, Gift Aid, etc.) use a logo that **must** be served from a public HTTPS URL. Email clients (Gmail, Outlook, Apple Mail) cannot load local file paths or relative URLs.
+Transactional emails use a logo that **must** be served from a public HTTPS URL. Email clients cannot load local file paths or relative URLs.
 
-## Required URLs
+The logo files are in the app’s **public** folder:
 
-- `https://alianah.org/email-assets/logo-light.png`
-- `https://alianah.org/email-assets/logo-dark.png` (for future use if needed)
+- `public/logo-light.png`
+- `public/logo-dark.png`
 
-## Deploy steps
+When the app is deployed at **https://give.alianah.org**, Next.js serves them at:
 
-1. On the **production** server, ensure the directory exists:
-   - `/public_html/email-assets/`
+- `https://give.alianah.org/logo-light.png`
+- `https://give.alianah.org/logo-dark.png`
 
-2. Upload both logo files from this repo into that directory:
-   - `public/logo-light.png` → `/public_html/email-assets/logo-light.png`
-   - `public/logo-dark.png` → `/public_html/email-assets/logo-dark.png`
-
-3. Confirm the images are publicly accessible over HTTPS:
-   - Open https://alianah.org/email-assets/logo-light.png in a browser (should show the logo, not 404).
-
-All email templates in `lib/email-templates.ts` use the absolute URL `https://alianah.org/email-assets/logo-light.png` for the logo; no code changes are needed after upload.
+No separate upload is required. Email templates in `lib/email-templates.ts` use `https://give.alianah.org/logo-light.png` for the logo.
