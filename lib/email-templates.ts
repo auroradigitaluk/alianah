@@ -31,6 +31,14 @@ function getPublicBaseUrl(settings?: OrganizationSettings | null) {
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin
   }
+  // Prefer the app's own host so email images (e.g. logo) load from the same domain (Vercel sets VERCEL_URL)
+  const vercelUrl = process.env.VERCEL_URL
+  if (vercelUrl && !vercelUrl.startsWith("localhost")) {
+    return `https://${vercelUrl}`
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
   if (settings?.websiteUrl) {
     try {
       return new URL(settings.websiteUrl).origin
@@ -38,7 +46,7 @@ function getPublicBaseUrl(settings?: OrganizationSettings | null) {
       // fall through
     }
   }
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  return "http://localhost:3000"
 }
 
 function logoImageHtml(baseUrl?: string, settings?: OrganizationSettings | null) {
@@ -196,9 +204,9 @@ function unifiedLayout(
 
   const checkmarkBlock =
     showCheckmark
-      ? `<div style="display:inline-flex; align-items:center; justify-content:center; width: 48px; height: 48px; border-radius: 999px; background:${BRAND.primary};">
-      <span style="display:inline-block; color:${BRAND.primaryText}; font-size: 20px; font-weight: 700;">✓</span>
-    </div>`
+      ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td align="center" style="width:56px; height:56px; border-radius:999px; background:${BRAND.primary}; line-height:1; font-size:0;">
+      <span style="display:inline-block; color:${BRAND.primaryText}; font-size:28px; font-weight:700; line-height:56px; width:56px; text-align:center;">&#10004;</span>
+    </td></tr></table>`
       : ""
 
   return `
