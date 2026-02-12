@@ -119,6 +119,11 @@ export default function AdminLoginPage() {
               {error && (
                 <p className="text-sm text-destructive">{error}</p>
               )}
+              <p className="text-sm text-muted-foreground text-center">
+                <Link href="/login/forgot-password" className="underline hover:text-foreground">
+                  Forgot password?
+                </Link>
+              </p>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>

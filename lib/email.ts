@@ -11,6 +11,7 @@ import {
   buildWaterProjectCompletionEmail,
   buildWaterProjectDonationEmail,
   buildAdminInviteEmail,
+  buildAdminPasswordResetEmail,
   buildAdminLoginOtpEmail,
   escapeHtml,
 } from "@/lib/email-templates"
@@ -479,6 +480,35 @@ export async function sendAdminInviteEmail(params: {
     })
   } catch (error) {
     console.error("Error sending admin invite email:", error)
+    throw error
+  }
+}
+
+export async function sendAdminPasswordResetEmail(params: {
+  email: string
+  resetPasswordUrl: string
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { email, resetPasswordUrl } = params
+
+  try {
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildAdminPasswordResetEmail(
+      { email, resetPasswordUrl, baseUrl: getEmailBaseUrl(settings) },
+      settings
+    )
+    await getResend().emails.send({
+      from: getFromAddress(),
+      to: email,
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error("Error sending admin password reset email:", error)
     throw error
   }
 }

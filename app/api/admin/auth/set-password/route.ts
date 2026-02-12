@@ -31,16 +31,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
-    const user = await prisma.adminUser.findFirst({
+    const now = new Date()
+
+    const userByInvite = await prisma.adminUser.findFirst({
       where: {
         inviteToken: token,
-        inviteExpiresAt: { gt: new Date() },
+        inviteExpiresAt: { gt: now },
       },
     })
+    const userByReset = await prisma.adminUser.findFirst({
+      where: {
+        passwordResetToken: token,
+        passwordResetExpiresAt: { gt: now },
+      },
+    })
+    const user = userByInvite ?? userByReset
 
     if (!user) {
       return NextResponse.json(
-        { error: "Invalid or expired link. Please request a new invite." },
+        { error: "Invalid or expired link. Please request a new invite or password reset." },
         { status: 400 }
       )
     }
@@ -53,6 +62,8 @@ export async function POST(request: NextRequest) {
         passwordHash,
         inviteToken: null,
         inviteExpiresAt: null,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
       },
     })
 

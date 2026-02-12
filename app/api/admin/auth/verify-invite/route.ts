@@ -17,20 +17,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Token required" }, { status: 400 })
   }
 
-  const user = await prisma.adminUser.findFirst({
+  const now = new Date()
+
+  const inviteUser = await prisma.adminUser.findFirst({
     where: {
       inviteToken: token,
-      inviteExpiresAt: { gt: new Date() },
+      inviteExpiresAt: { gt: now },
     },
     select: { email: true },
   })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Invalid or expired link. Please request a new invite." },
-      { status: 400 }
-    )
+  if (inviteUser) {
+    return NextResponse.json({ email: inviteUser.email, type: "invite" })
   }
 
-  return NextResponse.json({ email: user.email })
+  const resetUser = await prisma.adminUser.findFirst({
+    where: {
+      passwordResetToken: token,
+      passwordResetExpiresAt: { gt: now },
+    },
+    select: { email: true },
+  })
+  if (resetUser) {
+    return NextResponse.json({ email: resetUser.email, type: "reset" })
+  }
+
+  return NextResponse.json(
+    { error: "Invalid or expired link. Please request a new invite or password reset." },
+    { status: 400 }
+  )
 }

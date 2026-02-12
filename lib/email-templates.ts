@@ -951,6 +951,60 @@ export function buildAdminInviteEmail(
   }
 }
 
+export type AdminPasswordResetEmailParams = {
+  email: string
+  resetPasswordUrl: string
+  baseUrl?: string
+}
+
+export function buildAdminPasswordResetEmail(
+  params: AdminPasswordResetEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
+  const email = escapeHtml(params.email)
+  const preheader = "Reset your admin password."
+  const subject = "Reset your admin password"
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
+
+  const introHtml = `
+    <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
+      We received a request to reset the password for your ${escapeHtml(charityName)} admin account.
+      <br /><br />
+      Click the button below to choose a new password. This link expires in 1 hour.
+    </div>
+  `
+
+  const contentHtml = `
+    ${section({
+      title: "Reset your password",
+      bodyHtml: `
+        <div style="color:${CLEAN.muted}; font-size: 14px; margin-bottom: 12px;">
+          Account: <strong style="color:${CLEAN.text};">${email}</strong>
+        </div>
+      `,
+    })}
+    ${button({ href: params.resetPasswordUrl, label: "Reset password" })}
+    <div style="margin-top: 16px; color:${BRAND.muted}; font-size: 12px;">
+      If you didn't request a password reset, you can safely ignore this email. Your password will stay the same.
+    </div>
+  `
+  return {
+    subject,
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Reset your admin password",
+      heading: "Reset your admin password",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
+  }
+}
+
 // ---- Completion emails (clean layout) ----
 
 export type WaterProjectCompletionEmailParams = {

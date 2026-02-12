@@ -15,6 +15,7 @@ export default function SetPasswordPage() {
   const token = searchParams.get("token")
 
   const [email, setEmail] = React.useState<string | null>(null)
+  const [tokenType, setTokenType] = React.useState<"invite" | "reset" | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [password, setPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
@@ -29,10 +30,18 @@ export default function SetPasswordPage() {
     fetch(`/api/admin/auth/verify-invite?token=${encodeURIComponent(token)}`)
       .then(async (res) => {
         const data = await res.json()
-        if (res.ok) setEmail(data.email)
-        else setEmail(null)
+        if (res.ok) {
+          setEmail(data.email)
+          setTokenType(data.type === "reset" ? "reset" : "invite")
+        } else {
+          setEmail(null)
+          setTokenType(null)
+        }
       })
-      .catch(() => setEmail(null))
+      .catch(() => {
+        setEmail(null)
+        setTokenType(null)
+      })
       .finally(() => setLoading(false))
   }, [token])
 
@@ -94,7 +103,7 @@ export default function SetPasswordPage() {
       <div className="flex min-h-svh flex-col items-center justify-center gap-4 p-6">
         <h1 className="text-xl font-semibold">Invalid or expired link</h1>
         <p className="text-muted-foreground text-center text-sm">
-          This link may have expired or is invalid. Please ask an admin to send you a new invite.
+          This link may have expired or is invalid. You can request a new password reset from the sign-in page, or ask an admin to send you a new invite.
         </p>
         <Button asChild>
           <Link href="/login">Back to sign in</Link>
@@ -102,6 +111,13 @@ export default function SetPasswordPage() {
       </div>
     )
   }
+
+  const isReset = tokenType === "reset"
+  const title = isReset ? "Reset your password" : "Set your password"
+  const description = isReset
+    ? `Choose a new password for ${email}. Use at least 12 characters with uppercase, lowercase, number, and special character.`
+    : `Create a password for ${email}. Use at least 12 characters with uppercase, lowercase, number, and special character.`
+  const submitLabel = isReset ? "Reset password and sign in" : "Set password and sign in"
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
@@ -128,9 +144,9 @@ export default function SetPasswordPage() {
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs space-y-6">
             <div>
-              <h1 className="text-2xl font-semibold">Set your password</h1>
+              <h1 className="text-2xl font-semibold">{title}</h1>
               <p className="text-muted-foreground text-sm">
-                Create a password for {email}. Use at least 12 characters with uppercase, lowercase, number, and special character.
+                {description}
               </p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -172,7 +188,7 @@ export default function SetPasswordPage() {
                     Setting password...
                   </>
                 ) : (
-                  "Set password and sign in"
+                  submitLabel
                 )}
               </Button>
             </form>
