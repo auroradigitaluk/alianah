@@ -140,11 +140,24 @@ export async function POST(
       console.error("Refund email failed:", error)
     }
 
+    const updatedDonation = await prisma.donation.findUnique({
+      where: { id: donation.id },
+      include: {
+        donor: true,
+        appeal: { select: { title: true } },
+        product: { select: { name: true } },
+        fundraiser: { select: { fundraiserName: true, title: true, slug: true } },
+      },
+    })
+    if (!updatedDonation) {
+      return NextResponse.json({ error: "Donation not found after update" }, { status: 500 })
+    }
+    const order = donation.orderNumber
+      ? await prisma.demoOrder.findUnique({ where: { orderNumber: donation.orderNumber } })
+      : null
     return NextResponse.json({
-      donation: await prisma.donation.findUnique({ where: { id: donation.id } }),
-      order: donation.orderNumber
-        ? await prisma.demoOrder.findUnique({ where: { orderNumber: donation.orderNumber } })
-        : null,
+      donation: updatedDonation,
+      order,
       stripe: stripeInfo,
     })
   } catch (error) {
