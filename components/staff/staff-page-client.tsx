@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { AdminUsersCard } from "@/components/admin-users-card"
 import { formatCurrency, formatAdminUserName, formatEnum, formatDate } from "@/lib/utils"
 import { IconLoader2, IconWallet, IconBuilding, IconDroplet, IconUsersGroup, IconChartBar } from "@tabler/icons-react"
 import { Wallet, Globe, Building2 } from "lucide-react"
@@ -272,46 +273,63 @@ export function StaffPageClient() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-base font-semibold">Portal Accounts</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          All admin, staff, and viewer accounts. Click an account to view their activity and linked data.
-        </p>
-      </div>
+      <Tabs defaultValue="portal" className="w-full">
+        <TabsList className="w-fit">
+          <TabsTrigger value="portal" className="gap-1.5">
+            <IconUsersGroup className="size-4" />
+            Portal Accounts
+          </TabsTrigger>
+          <TabsTrigger value="admin-users" className="gap-1.5">
+            Admin Users
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <AdminTable
-          data={users}
-          onRowClick={handleOpenModal}
-          columns={[
-            {
-              id: "name",
-              header: "Name",
-              cell: (user) => (
-                <div className="font-medium">
-                  {formatAdminUserName(user) || user.email}
-                </div>
-              ),
-            },
-            {
-              id: "email",
-              header: "Email",
-              cell: (user) => (
-                <div className="text-muted-foreground text-sm">{user.email}</div>
-              ),
-            },
-            {
-              id: "role",
-              header: "Role",
-              cell: (user) => (
-                <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
-                  {formatRole(user.role)}
-                </span>
-              ),
-            },
-          ]}
-        />
-      </div>
+        <TabsContent value="portal" className="mt-6 space-y-4">
+          <div>
+            <h2 className="text-base font-semibold">Portal Accounts</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              All admin, staff, and viewer accounts. Click an account to view their activity and linked data.
+            </p>
+          </div>
+          <div className="overflow-hidden rounded-lg border bg-card">
+            <AdminTable
+              data={users}
+              onRowClick={handleOpenModal}
+              columns={[
+                {
+                  id: "name",
+                  header: "Name",
+                  cell: (user) => (
+                    <div className="font-medium">
+                      {formatAdminUserName(user) || user.email}
+                    </div>
+                  ),
+                },
+                {
+                  id: "email",
+                  header: "Email",
+                  cell: (user) => (
+                    <div className="text-muted-foreground text-sm">{user.email}</div>
+                  ),
+                },
+                {
+                  id: "role",
+                  header: "Role",
+                  cell: (user) => (
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
+                      {formatRole(user.role)}
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="admin-users" className="mt-6">
+          <AdminUsersCard />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

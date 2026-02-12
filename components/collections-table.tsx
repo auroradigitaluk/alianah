@@ -28,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CollectionDetailDialog, type CollectionItem } from "@/components/collection-detail-dialog"
 import { Building2, Wallet, Calendar, Target, FileText, StickyNote, User, Pencil, Trash2, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -67,6 +68,10 @@ interface Collection {
   appeal?: { title: string } | null
   notes?: string | null
   addedByName?: string | null
+  sadaqahPence?: number
+  zakatPence?: number
+  lillahPence?: number
+  cardPence?: number
 }
 
 type MasjidOption = { id: string; name: string }
@@ -145,22 +150,39 @@ export function CollectionsTable({
     type: string
     collectedAt: string
     notes: string | null
+    sadaqahPence?: number
+    zakatPence?: number
+    lillahPence?: number
+    cardPence?: number
   }) => {
     if (!editingCollection) return
     setSaving(true)
     try {
+      const body: Record<string, unknown> = {
+        masjidId: data.masjidId || null,
+        appealId: data.appealId || null,
+        type: data.type,
+        collectedAt: data.collectedAt,
+        notes: data.notes || null,
+      }
+      if (
+        data.sadaqahPence !== undefined ||
+        data.zakatPence !== undefined ||
+        data.lillahPence !== undefined ||
+        data.cardPence !== undefined
+      ) {
+        body.sadaqahPence = data.sadaqahPence ?? 0
+        body.zakatPence = data.zakatPence ?? 0
+        body.lillahPence = data.lillahPence ?? 0
+        body.cardPence = data.cardPence ?? 0
+      } else {
+        body.amountPence = data.amountPence
+        body.donationType = data.donationType
+      }
       const res = await fetch(`/api/admin/collections/${editingCollection.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          masjidId: data.masjidId || null,
-          appealId: data.appealId || null,
-          amountPence: data.amountPence,
-          donationType: data.donationType,
-          type: data.type,
-          collectedAt: data.collectedAt,
-          notes: data.notes || null,
-        }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -329,192 +351,15 @@ export function CollectionsTable({
           : []),
       ]}
       />
-      <Dialog
+      <CollectionDetailDialog
+        item={selectedCollection as CollectionItem | null}
         open={!!selectedCollection}
         onOpenChange={(open) => !open && setSelectedCollection(null)}
-      >
-        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <DialogTitle className="text-2xl font-bold">
-                  Collection Details
-                </DialogTitle>
-                <DialogDescription>
-                  {selectedCollection && `${formatCurrency(selectedCollection.amountPence)} collected from ${selectedCollection.masjid?.name || "No masjid"}`}
-                </DialogDescription>
-              </div>
-              {canEdit && (
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditingCollection(selectedCollection)}
-                  >
-                    <Pencil className="mr-1 h-4 w-4" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => setDeleteConfirm(selectedCollection)}
-                  >
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    Delete
-                  </Button>
-                </div>
-              )}
-            </div>
-          </DialogHeader>
-
-          {selectedCollection && (
-            <div className="flex-1 overflow-hidden flex flex-col">
-              <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4">
-                  <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                  </TabsList>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-6 py-6">
-                  <TabsContent value="overview" className="space-y-6 mt-0">
-                    {/* Key Metrics */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12" />
-                        <CardHeader className="pb-0 px-6 pt-3 relative z-10">
-                          <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Amount
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                          <div className="text-2xl font-bold text-primary">
-                            {formatCurrency(selectedCollection.amountPence)}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-blue-500/5 via-card to-card border-blue-500/20">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -mr-12 -mt-12" />
-                        <CardHeader className="pb-0 px-6 pt-3 relative z-10">
-                          <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Type
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                          <Badge
-                            variant="outline"
-                            className={`px-1.5 ${COLLECTION_TYPE_STYLES[selectedCollection.type] || ""}`}
-                          >
-                            <IconCalendarEvent className="mr-1 size-3" />
-                            {formatEnum(selectedCollection.type)}
-                          </Badge>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <Separator className="my-6" />
-
-                    {/* Collection Information */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3 pb-2">
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Collection Information</h3>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Masjid
-                              </p>
-                              <p className="text-base font-semibold text-foreground">{selectedCollection.masjid?.name || "No masjid"}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Target className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Appeal
-                              </p>
-                              <p className="text-base text-foreground">{selectedCollection.appeal?.title || "General"}</p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-0">
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <FileText className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Donation Type
-                              </p>
-                              <p className="text-base text-foreground">{formatEnum(selectedCollection.donationType)}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Date Collected
-                              </p>
-                              <p className="text-base text-foreground">{formatDateTime(selectedCollection.collectedAt)}</p>
-                            </div>
-                          </div>
-                          {showLoggedBy && selectedCollection.addedByName && (
-                          <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
-                            <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                              <User className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Logged by
-                              </p>
-                              <p className="text-base text-foreground">{selectedCollection.addedByName}</p>
-                            </div>
-                          </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {selectedCollection.notes && (
-                      <>
-                        <Separator className="my-6" />
-                        <div className="space-y-6">
-                          <div className="flex items-center gap-3 pb-2">
-                            <div className="p-2 rounded-lg bg-muted/50">
-                              <StickyNote className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Notes</h3>
-                          </div>
-                          <div className="p-4 rounded-lg bg-muted/30">
-                            <p className="text-base text-foreground">{selectedCollection.notes}</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </TabsContent>
-                </div>
-              </Tabs>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        canEdit={canEdit}
+        showLoggedBy={showLoggedBy}
+        onEdit={(c) => setEditingCollection(c as Collection)}
+        onDelete={(c) => setDeleteConfirm(c as Collection)}
+      />
 
       {/* Edit dialog */}
       <Dialog open={!!editingCollection} onOpenChange={(open) => !open && setEditingCollection(null)}>
@@ -588,20 +433,37 @@ function CollectionEditForm({
     type: string
     collectedAt: string
     notes: string | null
+    sadaqahPence?: number
+    zakatPence?: number
+    lillahPence?: number
+    cardPence?: number
   }) => void
   onCancel: () => void
   saving: boolean
 }) {
   const toPence = (val: string) => Math.round((parseFloat(val) || 0) * 100)
-  const amountStr = (collection.amountPence / 100).toFixed(2)
+  const hasBreakdown =
+    (collection.sadaqahPence ?? 0) > 0 ||
+    (collection.zakatPence ?? 0) > 0 ||
+    (collection.lillahPence ?? 0) > 0 ||
+    (collection.cardPence ?? 0) > 0
+  const amountStr = (p: number) => (p / 100).toFixed(2)
   const [masjidId, setMasjidId] = useState(collection.masjidId ?? "__none__")
   const [masjidQuery, setMasjidQuery] = useState("")
   const [masjidOpen, setMasjidOpen] = useState(false)
   const [appealId, setAppealId] = useState(collection.appealId ?? "__none__")
-  const [sadaqah, setSadaqah] = useState(collection.donationType === "SADAQAH" ? amountStr : "")
-  const [zakat, setZakat] = useState(collection.donationType === "ZAKAT" ? amountStr : "")
-  const [lillah, setLillah] = useState(collection.donationType === "LILLAH" ? amountStr : "")
-  const [card, setCard] = useState(collection.donationType === "GENERAL" ? amountStr : "")
+  const [sadaqah, setSadaqah] = useState(
+    hasBreakdown ? amountStr(collection.sadaqahPence ?? 0) : collection.donationType === "SADAQAH" ? amountStr(collection.amountPence) : ""
+  )
+  const [zakat, setZakat] = useState(
+    hasBreakdown ? amountStr(collection.zakatPence ?? 0) : collection.donationType === "ZAKAT" ? amountStr(collection.amountPence) : ""
+  )
+  const [lillah, setLillah] = useState(
+    hasBreakdown ? amountStr(collection.lillahPence ?? 0) : collection.donationType === "LILLAH" ? amountStr(collection.amountPence) : ""
+  )
+  const [card, setCard] = useState(
+    hasBreakdown ? amountStr(collection.cardPence ?? 0) : collection.donationType === "GENERAL" ? amountStr(collection.amountPence) : ""
+  )
   const [type, setType] = useState(collection.type)
   const [collectedAt, setCollectedAt] = useState(() => {
     const d = new Date(collection.collectedAt)
@@ -627,30 +489,20 @@ function CollectionEditForm({
     const z = toPence(zakat)
     const l = toPence(lillah)
     const c = toPence(card)
-    let amountPence = 0
-    let donationType = "GENERAL"
-    if (s > 0) {
-      amountPence = s
-      donationType = "SADAQAH"
-    } else if (z > 0) {
-      amountPence = z
-      donationType = "ZAKAT"
-    } else if (l > 0) {
-      amountPence = l
-      donationType = "LILLAH"
-    } else if (c > 0) {
-      amountPence = c
-      donationType = "GENERAL"
-    }
-    if (amountPence <= 0) return
+    const totalPence = s + z + l + c
+    if (totalPence <= 0) return
     onSave({
       masjidId: masjidId && masjidId !== "__none__" ? masjidId : null,
       appealId: appealId && appealId !== "__none__" ? appealId : null,
-      amountPence,
-      donationType,
+      amountPence: totalPence,
+      donationType: "GENERAL",
       type,
       collectedAt: new Date(collectedAt).toISOString(),
       notes: notes.trim() || null,
+      sadaqahPence: s,
+      zakatPence: z,
+      lillahPence: l,
+      cardPence: c,
     })
   }
 

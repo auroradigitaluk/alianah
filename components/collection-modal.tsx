@@ -102,16 +102,13 @@ export function CollectionModal({ masjids, appeals }: Props) {
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || "Failed to create")
+        const data = await res.json().catch(() => ({}))
+        const message = typeof data.error === "string" ? data.error : "Failed to create"
+        throw new Error(message)
       }
 
-      const result = await res.json()
-      toast.success(
-        result.count === 1
-          ? "Collection created"
-          : `${result.count} collections created`
-      )
+      await res.json()
+      toast.success("Collection created")
       setOpen(false)
       resetForm()
       router.refresh()
@@ -133,7 +130,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
           <DialogHeader>
             <DialogTitle>New Collection</DialogTitle>
             <DialogDescription>
-              Record a masjid collection (Jummah, Ramadan, Eid, etc.). Log each category separately.
+              Record a masjid collection (Jummah, Ramadan, Eid, etc.) with amounts per category. One collection per event; view the breakdown in the detail modal.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-5">

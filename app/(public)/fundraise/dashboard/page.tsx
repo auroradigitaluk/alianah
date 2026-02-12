@@ -41,6 +41,10 @@ async function getFundraisers(email: string) {
             amountPence: true,
           },
         },
+        cashDonations: {
+          where: { status: "APPROVED" },
+          select: { amountPence: true },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -48,9 +52,11 @@ async function getFundraisers(email: string) {
     })
 
     return fundraisers.map((fundraiser) => {
-      const totalRaised = fundraiser.donations
-        .concat(fundraiser.waterProjectDonations)
-        .reduce((sum, d) => sum + d.amountPence, 0)
+      const totalRaised =
+        fundraiser.donations
+          .concat(fundraiser.waterProjectDonations)
+          .reduce((sum, d) => sum + d.amountPence, 0) +
+        fundraiser.cashDonations.reduce((sum, d) => sum + d.amountPence, 0)
       const progressPercentage = fundraiser.targetAmountPence
         ? Math.min((totalRaised / fundraiser.targetAmountPence) * 100, 100)
         : 0

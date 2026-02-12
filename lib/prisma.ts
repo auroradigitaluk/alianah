@@ -58,13 +58,39 @@ function createPrismaClient() {
   })
 }
 
-// Force new instance to avoid caching issues
-export const prisma =
-  globalForPrisma.prisma ?? createPrismaClient()
+// Force new instance to avoid caching issues. In development, if the cached
+// client is missing a delegate (e.g. after schema change + prisma generate
+// without restart), use a fresh client so new models are available.
+function getPrismaClient(): PrismaClient {
+  const cached = globalForPrisma.prisma
+  if (process.env.NODE_ENV !== "production" && cached != null) {
+    // Stale client may lack new models (e.g. fundraiserCashDonation)
+    if (!("fundraiserCashDonation" in cached)) {
+      globalForPrisma.prisma = undefined
+    }
+  }
+  const client = globalForPrisma.prisma ?? createPrismaClient()
+  if (process.env.NODE_ENV !== "production" && !globalForPrisma.prisma) {
+    globalForPrisma.prisma = client
+  }
+  return client
+}
 
-// Disconnect and reconnect to ensure fresh connection
-if (process.env.NODE_ENV !== "production") {
-  if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = prisma
+// In development, use a proxy so that after invalidatePrismaCache() the next
+// access gets a fresh client (avoids restart when schema + prisma generate happened).
+const prismaInstance = getPrismaClient()
+export const prisma =
+  process.env.NODE_ENV !== "production"
+    ? new Proxy(prismaInstance, {
+        get(_target, prop) {
+          return (getPrismaClient() as unknown as Record<string, unknown>)[prop as string]
+        },
+      })
+    : prismaInstance
+
+/** Call after detecting a stale Prisma client (e.g. Unknown argument for new fields). Next request will use a fresh client. */
+export function invalidatePrismaCache(): void {
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = undefined
   }
 }

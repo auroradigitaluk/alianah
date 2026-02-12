@@ -10,19 +10,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { IconCalendarEvent } from "@tabler/icons-react"
 import { formatCurrency, formatEnum, formatDateTime } from "@/lib/utils"
-import { Building2, Target, Calendar, FileText, StickyNote, User, Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2 } from "lucide-react"
 
-const COLLECTION_TYPE_STYLES: Record<string, string> = {
-  JUMMAH: "bg-primary text-primary-foreground border-primary",
-  RAMADAN: "bg-blue-500 text-white border-blue-500",
-  EID: "bg-orange-500 text-white border-orange-500",
-  SPECIAL: "bg-orange-500 text-white border-orange-500",
-  OTHER: "bg-pink-500 text-white border-pink-500",
+const COLLECTION_TYPE_LABELS: Record<string, string> = {
+  JUMMAH: "Jummah",
+  RAMADAN: "Ramadan",
+  EID: "Eid",
+  SPECIAL: "Special",
+  OTHER: "Other",
 }
 
 export type CollectionItem = {
@@ -37,6 +34,10 @@ export type CollectionItem = {
   appeal?: { title: string } | null
   notes?: string | null
   addedByName?: string | null
+  sadaqahPence?: number
+  zakatPence?: number
+  lillahPence?: number
+  cardPence?: number
 }
 
 type Props = {
@@ -61,27 +62,28 @@ export function CollectionDetailDialog({
   if (!item) return null
 
   const collectedAt = typeof item.collectedAt === "string" ? new Date(item.collectedAt) : item.collectedAt
+  const totalPence = item.amountPence
+  const hasBreakdown =
+    (item.sadaqahPence ?? 0) + (item.zakatPence ?? 0) + (item.lillahPence ?? 0) + (item.cardPence ?? 0) > 0
+  const sadaqahPence = hasBreakdown ? (item.sadaqahPence ?? 0) : item.donationType === "SADAQAH" ? totalPence : 0
+  const zakatPence = hasBreakdown ? (item.zakatPence ?? 0) : item.donationType === "ZAKAT" ? totalPence : 0
+  const lillahPence = hasBreakdown ? (item.lillahPence ?? 0) : item.donationType === "LILLAH" ? totalPence : 0
+  const cardPence = hasBreakdown ? (item.cardPence ?? 0) : item.donationType === "GENERAL" ? totalPence : 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+      <DialogContent className="p-6 max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <DialogTitle className="text-2xl font-bold">
-                Collection Details
-              </DialogTitle>
+              <DialogTitle>Collection Details</DialogTitle>
               <DialogDescription>
-                {formatCurrency(item.amountPence)} collected from {item.masjid?.name || "No masjid"}
+                {formatCurrency(totalPence)} collected from {item.masjid?.name || "No masjid"}
               </DialogDescription>
             </div>
             {canEdit && onEdit && onDelete && (
               <div className="flex gap-2 shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onEdit(item)}
-                >
+                <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
                   <Pencil className="mr-1 h-4 w-4" />
                   Edit
                 </Button>
@@ -99,154 +101,91 @@ export function CollectionDetailDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-6 pt-4">
-              <TabsList>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-              </TabsList>
+        <div className="space-y-6">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+              Collection type
+            </p>
+            <Badge variant="secondary" className="text-sm font-medium">
+              {COLLECTION_TYPE_LABELS[item.type] ?? formatEnum(item.type)}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                Masjid
+              </p>
+              <p className="text-sm font-medium">{item.masjid?.name || "—"}</p>
             </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <TabsContent value="overview" className="space-y-6 mt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
-                    <CardHeader className="pb-0 px-6 pt-3 relative z-10">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Amount
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                      <div className="text-2xl font-bold text-primary">
-                        {formatCurrency(item.amountPence)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="py-2 gap-1 relative overflow-hidden bg-gradient-to-br from-blue-500/5 via-card to-card border-blue-500/20">
-                    <CardHeader className="pb-0 px-6 pt-3 relative z-10">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Type
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                      <Badge
-                        variant="outline"
-                        className={`px-1.5 ${COLLECTION_TYPE_STYLES[item.type] || ""}`}
-                      >
-                        <IconCalendarEvent className="mr-1 size-3" />
-                        {formatEnum(item.type)}
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Separator className="my-6" />
-
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 pb-2">
-                    <div className="p-2 rounded-lg bg-muted/50">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-base font-bold uppercase tracking-wide text-foreground">
-                      Collection Information
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-0">
-                      <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                        <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                            Masjid
-                          </p>
-                          <p className="text-base font-semibold text-foreground">
-                            {item.masjid?.name || "No masjid"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                        <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                          <Target className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                            Appeal
-                          </p>
-                          <p className="text-base text-foreground">
-                            {item.appeal?.title || "General"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-0">
-                      <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                        <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                            Donation Type
-                          </p>
-                          <p className="text-base text-foreground">
-                            {formatEnum(item.donationType)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
-                        <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                            Date Collected
-                          </p>
-                          <p className="text-base text-foreground">
-                            {formatDateTime(collectedAt)}
-                          </p>
-                        </div>
-                      </div>
-                      {showLoggedBy && item.addedByName && (
-                        <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors">
-                          <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                              Logged by
-                            </p>
-                            <p className="text-base text-foreground">{item.addedByName}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {item.notes && (
-                  <>
-                    <Separator className="my-6" />
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3 pb-2">
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <StickyNote className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-base font-bold uppercase tracking-wide text-foreground">
-                          Notes
-                        </h3>
-                      </div>
-                      <div className="p-4 rounded-lg bg-muted/30">
-                        <p className="text-base text-foreground">{item.notes}</p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </TabsContent>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                Appeal
+              </p>
+              <p className="text-sm font-medium">{item.appeal?.title || "—"}</p>
             </div>
-          </Tabs>
+          </div>
+
+          <Separator />
+
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+              Amounts
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Sadaqah</p>
+                <p className="text-base font-semibold tabular-nums">{formatCurrency(sadaqahPence)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Zakat</p>
+                <p className="text-base font-semibold tabular-nums">{formatCurrency(zakatPence)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Lillah</p>
+                <p className="text-base font-semibold tabular-nums">{formatCurrency(lillahPence)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Card</p>
+                <p className="text-base font-semibold tabular-nums">{formatCurrency(cardPence)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Total</p>
+                <p className="text-base font-bold tabular-nums text-primary">{formatCurrency(totalPence)}</p>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                Collected at
+              </p>
+              <p className="text-sm font-medium">{formatDateTime(collectedAt)}</p>
+            </div>
+            {showLoggedBy && item.addedByName && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                  Logged by
+                </p>
+                <p className="text-sm font-medium">{item.addedByName}</p>
+              </div>
+            )}
+          </div>
+
+          {item.notes && (
+            <>
+              <Separator />
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                  Notes
+                </p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{item.notes}</p>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

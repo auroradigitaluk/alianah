@@ -48,13 +48,18 @@ async function getFundraisers() {
             amountPence: true,
           },
         },
+        cashDonations: {
+          where: { status: "APPROVED" },
+          select: { amountPence: true },
+        },
       },
     })
 
     return fundraisers.map((fundraiser) => {
       const amountRaised =
         sumDonationsDeduplicated(fundraiser.donations) +
-        fundraiser.waterProjectDonations.reduce((sum, d) => sum + d.amountPence, 0)
+        fundraiser.waterProjectDonations.reduce((sum, d) => sum + d.amountPence, 0) +
+        fundraiser.cashDonations.reduce((sum, d) => sum + d.amountPence, 0)
       const campaignTitle = fundraiser.appeal?.title
         ? fundraiser.appeal.title
         : fundraiser.waterProject?.projectType === "WATER_PUMP"

@@ -159,6 +159,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const showDocuments = role === "ADMIN"
   const showStaff = role === "ADMIN"
   const showTasks = role === "ADMIN" || role === "STAFF"
+  const showDistributions = role === "ADMIN"
   const showReports = role !== "STAFF"
   const showAudit = role === "ADMIN"
   const showAnalytics = role === "ADMIN"
@@ -411,6 +412,20 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                       <IconListCheck />
                       <span>Tasks</span>
                       <NotificationBadge count={counts.tasks} />
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {showDistributions && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Distributions"
+                    isActive={pathname === "/admin/distributions" || pathname?.startsWith("/admin/distributions/")}
+                  >
+                    <Link href="/admin/distributions" className="flex w-full items-center gap-2">
+                      <IconReceipt />
+                      <span>Distributions</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

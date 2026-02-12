@@ -33,6 +33,8 @@ model AdminUser {
   sponsorshipDons     SponsorshipDonation[]  @relation("AddedBySponsorship")
   tasksAssigned       Task[]                 @relation("TaskAssignee")
   tasksCreated        Task[]                 @relation("TaskCreator")
+  distributionsCreated Distribution[]
+  fundraiserCashDonationsReviewed FundraiserCashDonation[]
   pageVisits          AdminPageVisit[]
 
   @@index([email])
@@ -124,12 +126,31 @@ model Appeal {
   collections        Collection[]
   donations          Donation[]
   recurringDonations RecurringDonation[]
+  distributions      Distribution[]
 
   @@index([slug])
   @@index([isActive])
   @@index([archivedAt])
   @@index([sortOrder])
   @@map("appeals")
+}
+
+model Distribution {
+  id          String   @id @default(cuid())
+  appealId    String
+  amountPence Int
+  description String  // e.g. "Egypt to Gaza convoy", "Water tank in Gaza"
+  country     String  // e.g. "Gaza", "Egypt"
+  createdAt   DateTime @default(now())
+  createdById String?
+
+  appeal   Appeal    @relation(fields: [appealId], references: [id], onDelete: Cascade)
+  createdBy AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([appealId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("distributions")
 }
 
 model Product {
@@ -187,6 +208,7 @@ model Fundraiser {
   waterProject WaterProject? @relation(fields: [waterProjectId], references: [id], onDelete: Cascade)
   donations   Donation[]
   waterProjectDonations WaterProjectDonation[]
+  cashDonations FundraiserCashDonation[]
 
   @@index([appealId])
   @@index([waterProjectId])
@@ -194,6 +216,27 @@ model Fundraiser {
   @@index([isActive])
   @@index([email])
   @@map("fundraisers")
+}
+
+model FundraiserCashDonation {
+  id                  String    @id @default(cuid())
+  fundraiserId        String
+  amountPence         Int
+  donorName           String?   // Optional: who gave the cash (e.g. "Aunt Sarah")
+  notes               String?
+  receivedAt          DateTime  @default(now()) // When fundraiser says they received it
+  status              String    @default("PENDING_REVIEW") // PENDING_REVIEW | APPROVED | REJECTED
+  reviewedAt          DateTime?
+  reviewedByAdminUserId String?
+  createdAt           DateTime  @default(now())
+
+  fundraiser Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  reviewedBy AdminUser? @relation(fields: [reviewedByAdminUserId], references: [id], onDelete: SetNull)
+
+  @@index([fundraiserId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("fundraiser_cash_donations")
 }
 
 model FundraiserOTP {
@@ -281,9 +324,13 @@ model Collection {
   id                  String    @id @default(cuid())
   masjidId            String?
   appealId            String?
-  amountPence         Int
-  donationType        String // GENERAL | SADAQAH | ZAKAT | LILLAH
-  type                String // JUMMAH | RAMADAN | EID | SPECIAL | OTHER
+  amountPence         Int       // Total (sum of breakdown or legacy single amount)
+  donationType        String    // GENERAL | SADAQAH | ZAKAT | LILLAH (legacy / primary type)
+  sadaqahPence        Int       @default(0) // Breakdown: sadaqah amount
+  zakatPence          Int       @default(0) // Breakdown: zakat amount
+  lillahPence         Int       @default(0) // Breakdown: lillah amount
+  cardPence           Int       @default(0) // Breakdown: card / general amount
+  type                String    // JUMMAH | RAMADAN | EID | SPECIAL | OTHER
   collectedAt         DateTime
   notes               String?
   addedByAdminUserId  String?

@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "collections" ADD COLUMN "sadaqahPence" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "collections" ADD COLUMN "zakatPence" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "collections" ADD COLUMN "lillahPence" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "collections" ADD COLUMN "cardPence" INTEGER NOT NULL DEFAULT 0;

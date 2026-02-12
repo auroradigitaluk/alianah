@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { FundraisersDashboardKpis, type FundraiserStats } from "@/components/fundraisers-dashboard-kpis"
 import { FundraisersTable } from "@/components/fundraisers-table"
+import { FundraiserCashReviewTable } from "@/components/fundraiser-cash-review-table"
 import { CreateFundraiserDialog } from "@/components/create-fundraiser-dialog"
 import { formatCurrency } from "@/lib/utils"
 import { Plus } from "lucide-react"
@@ -79,6 +80,7 @@ export function FundraisersDashboardClient({
       <Tabs defaultValue="fundraisers" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="fundraisers">Fundraisers ({fundraisers.length})</TabsTrigger>
+          <TabsTrigger value="cash-review">Cash to review</TabsTrigger>
           <TabsTrigger value="appeals">Fundraising appeals ({byCampaign.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="fundraisers" className="mt-0">
@@ -89,6 +91,15 @@ export function FundraisersDashboardClient({
               initialSelectedId={selectedFundraiserId}
               onSelectionClear={handleClearSelection}
             />
+          </div>
+        </TabsContent>
+        <TabsContent value="cash-review" className="mt-0">
+          <div>
+            <h3 className="mb-4 text-base font-semibold">Pending cash donations</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Fundraisers can record cash they received from family and friends. Review and approve or reject each submission.
+            </p>
+            <FundraiserCashReviewTable />
           </div>
         </TabsContent>
         <TabsContent value="appeals" className="mt-0">
