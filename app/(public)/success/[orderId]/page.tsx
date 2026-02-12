@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { prisma } from "@/lib/prisma"
 import { formatCurrency } from "@/lib/utils"
 import { ShareButton } from "@/components/share-button"
+import { SuccessPending } from "./success-pending"
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 
 async function getOrder(orderId: string) {
   try {
@@ -34,6 +35,11 @@ export default async function SuccessPage({
     notFound()
   }
 
+  // Only show thank you once donation is complete; otherwise show loading and poll until complete
+  if (order.status !== "COMPLETED") {
+    return <SuccessPending orderId={orderId} orderNumber={order.orderNumber} />
+  }
+
   return (
     <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12 md:px-6">
       <div className="max-w-2xl mx-auto">
@@ -56,23 +62,13 @@ export default async function SuccessPage({
             </div>
             <CardTitle className="text-xl sm:text-2xl">Thank you!</CardTitle>
             <p className="text-sm sm:text-base text-muted-foreground mt-2">
-              {order.status === "COMPLETED"
-                ? `Your donation has been received and 100% of it will go directly to the cause you selected.`
-                : `Your payment is processing — please refresh in a moment.`}
+              Your donation has been received and 100% of it will go directly to the cause you selected.
             </p>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Donation reference: <span className="font-medium">{order.orderNumber}</span>
             </p>
           </CardHeader>
           <CardContent className="space-y-4 sm:space-y-6">
-            {order.status !== "COMPLETED" && (
-              <div className="bg-muted p-3 sm:p-4 rounded-lg">
-                <p className="text-xs sm:text-sm font-medium mb-1">Processing</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Stripe is confirming your payment. This page should update shortly—please refresh in a moment.
-                </p>
-              </div>
-            )}
             <div>
               <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3">Donation Summary</h3>
               <div className="space-y-2">

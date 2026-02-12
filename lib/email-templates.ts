@@ -49,14 +49,23 @@ function getPublicBaseUrl(settings?: OrganizationSettings | null) {
   return "http://localhost:3000"
 }
 
-function logoImageHtml(baseUrl?: string, settings?: OrganizationSettings | null) {
-  // Always use absolute URL so logo shows in all email clients (path without space = rewrite in next.config)
+function logoImageHtml(
+  baseUrl?: string,
+  settings?: OrganizationSettings | null,
+  logoDataUris?: { light: string; dark: string } | null
+) {
+  const alt = settings?.charityName ?? DEFAULT_CHARITY_NAME
+  const imgStyle = "display:block; width:80px; max-width:100%; height:auto; margin:0 auto 8px auto;"
+  if (logoDataUris) {
+    return `
+    <img class="logo-light" src="${logoDataUris.light}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle}" />
+    <img class="logo-dark" src="${logoDataUris.dark}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle} display:none;" />
+  `
+  }
   const base = (baseUrl || getPublicBaseUrl(settings) || "").trim().replace(/\/$/, "")
   const origin = base.startsWith("http") ? base : getPublicBaseUrl(settings)
   const lightSrc = `${origin}/logo-light.png`
   const darkSrc = `${origin}/logo-dark.png`
-  const alt = settings?.charityName ?? DEFAULT_CHARITY_NAME
-  const imgStyle = "display:block; width:80px; max-width:100%; height:auto; margin:0 auto 8px auto;"
   return `
     <img class="logo-light" src="${escapeHtml(lightSrc)}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle}" />
     <img class="logo-dark" src="${escapeHtml(darkSrc)}" alt="${escapeHtml(alt)}" width="80" style="${imgStyle} display:none;" />
@@ -193,10 +202,11 @@ function unifiedLayout(
     contentHtml: string
     showCheckmark?: boolean
     baseUrl?: string
+    logoDataUris?: { light: string; dark: string } | null
   },
   settings?: OrganizationSettings | null
 ): string {
-  const { preheader, title, subtitleHtml, referenceLine, contentHtml, showCheckmark = false, baseUrl } = params
+  const { preheader, title, subtitleHtml, referenceLine, contentHtml, showCheckmark = false, baseUrl, logoDataUris } = params
   const resolvedBaseUrl = baseUrl ?? getPublicBaseUrl(settings)
   const supportEmail = settings?.supportEmail ?? DEFAULT_SUPPORT_EMAIL
   const websiteUrl = settings?.websiteUrl ?? DEFAULT_WEBSITE_URL
@@ -236,7 +246,7 @@ function unifiedLayout(
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 640px;">
             <tr>
               <td style="padding: 0 8px 12px 8px;">
-                ${logoImageHtml(resolvedBaseUrl, settings)}
+                ${logoImageHtml(resolvedBaseUrl, settings, logoDataUris)}
                 ${logoTextHtml(settings)}
               </td>
             </tr>
@@ -291,6 +301,7 @@ export type DonationConfirmationEmailParams = {
   giftAid: boolean
   manageSubscriptionUrl?: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildDonationConfirmationEmail(
@@ -381,6 +392,7 @@ export function buildDonationConfirmationEmail(
       contentHtml,
       showCheckmark: true,
       baseUrl: params.baseUrl,
+      logoDataUris: params.logoDataUris,
     },
     settings
   )
@@ -420,6 +432,7 @@ export type WaterProjectDonationEmailParams = {
   amount: number
   donationType: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildWaterProjectDonationEmail(
@@ -468,6 +481,7 @@ export function buildWaterProjectDonationEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -482,6 +496,7 @@ export type SponsorshipDonationEmailParams = {
   amount: number
   donationType: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildSponsorshipDonationEmail(
@@ -530,6 +545,7 @@ export function buildSponsorshipDonationEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -542,6 +558,7 @@ export type FundraiserWelcomeEmailParams = {
   appealTitle: string
   fundraiserUrl: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildFundraiserWelcomeEmail(
@@ -583,6 +600,7 @@ export function buildFundraiserWelcomeEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -597,6 +615,7 @@ export type FundraiserDonationNotificationEmailParams = {
   donationType: string
   fundraiserUrl: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildFundraiserDonationNotificationEmail(
@@ -642,6 +661,7 @@ export function buildFundraiserDonationNotificationEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -651,6 +671,7 @@ export function buildFundraiserDonationNotificationEmail(
 export type FundraiserOtpEmailParams = {
   code: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildFundraiserOtpEmail(
@@ -694,6 +715,7 @@ export function buildFundraiserOtpEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -707,6 +729,7 @@ export type AbandonedCheckoutEmailParams = {
   totalPence: number
   resumeUrl: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildAbandonedCheckoutEmail(
@@ -779,6 +802,7 @@ export function buildAbandonedCheckoutEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -791,6 +815,7 @@ export type RefundConfirmationEmailParams = {
   orderNumber?: string | null
   donateUrl: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildRefundConfirmationEmail(
@@ -833,6 +858,7 @@ export function buildRefundConfirmationEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -843,6 +869,7 @@ export type AdminInviteEmailParams = {
   email: string
   setPasswordUrl: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildAdminInviteEmail(
@@ -888,6 +915,7 @@ export function buildAdminInviteEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -906,6 +934,7 @@ export type WaterProjectCompletionEmailParams = {
   completionReportPDF?: string | null
   googleDriveLink?: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildWaterProjectCompletionEmail(
@@ -997,6 +1026,7 @@ export function buildWaterProjectCompletionEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),
@@ -1013,6 +1043,7 @@ export type SponsorshipCompletionEmailParams = {
   completionReportPDF?: string | null
   googleDriveLink?: string
   baseUrl?: string
+  logoDataUris?: { light: string; dark: string } | null
 }
 
 export function buildSponsorshipCompletionEmail(
@@ -1104,6 +1135,7 @@ export function buildSponsorshipCompletionEmail(
         contentHtml,
         showCheckmark: false,
         baseUrl: params.baseUrl,
+        logoDataUris: params.logoDataUris,
       },
       settings
     ),

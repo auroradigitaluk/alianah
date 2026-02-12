@@ -15,6 +15,7 @@ import {
 } from "@/lib/email-templates"
 import { getOrganizationSettings } from "@/lib/settings"
 import type { OrganizationSettings } from "@/lib/settings"
+import { getLogoDataUris } from "@/lib/email-logo-server"
 
 /** Base URL for email assets (logo, links). Use same logic everywhere so logo always loads. */
 function getEmailBaseUrl(settings: OrganizationSettings | null): string {
@@ -132,7 +133,8 @@ export async function sendDonationConfirmationEmail(params: {
   const { donorEmail } = params
   const settings = await getOrganizationSettings()
   const baseUrl = params.baseUrl ?? getEmailBaseUrl(settings)
-  const { subject, html } = buildDonationConfirmationEmail({ ...params, baseUrl }, settings)
+  const logoDataUris = getLogoDataUris()
+  const { subject, html } = buildDonationConfirmationEmail({ ...params, baseUrl, logoDataUris }, settings)
 
   try {
     await getResend().emails.send({
@@ -162,7 +164,7 @@ export async function sendAbandonedCheckoutEmail(params: {
 
   const { donorEmail } = params
   const settings = await getOrganizationSettings()
-  const { subject, html } = buildAbandonedCheckoutEmail({ ...params, baseUrl: getEmailBaseUrl(settings) }, settings)
+  const { subject, html } = buildAbandonedCheckoutEmail({ ...params, baseUrl: getEmailBaseUrl(settings), logoDataUris: getLogoDataUris() }, settings)
 
   try {
     await getResend().emails.send({
@@ -191,7 +193,7 @@ export async function sendRefundConfirmationEmail(params: {
 
   const { donorEmail } = params
   const settings = await getOrganizationSettings()
-  const { subject, html } = buildRefundConfirmationEmail({ ...params, baseUrl: getEmailBaseUrl(settings) }, settings)
+  const { subject, html } = buildRefundConfirmationEmail({ ...params, baseUrl: getEmailBaseUrl(settings), logoDataUris: getLogoDataUris() }, settings)
 
   try {
     await getResend().emails.send({
@@ -225,6 +227,7 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
         amount,
         donationType,
         baseUrl: getEmailBaseUrl(settings),
+        logoDataUris: getLogoDataUris(),
       },
       settings
     )
@@ -259,6 +262,7 @@ export async function sendWaterProjectCompletionEmail(params: CompletionEmailPar
         completionReportPDF: params.completionReportPDF,
         googleDriveLink: params.googleDriveLink,
         baseUrl: getEmailBaseUrl(settings),
+        logoDataUris: getLogoDataUris(),
       },
       settings
     )
@@ -301,6 +305,7 @@ export async function sendSponsorshipDonationEmail(params: {
         amount,
         donationType,
         baseUrl: getEmailBaseUrl(settings),
+        logoDataUris: getLogoDataUris(),
       },
       settings
     )
@@ -345,6 +350,7 @@ export async function sendSponsorshipCompletionEmail(params: {
         completionReportPDF: params.completionReportPDF,
         googleDriveLink: params.googleDriveLink,
         baseUrl: getEmailBaseUrl(settings),
+        logoDataUris: getLogoDataUris(),
       },
       settings
     )
@@ -377,6 +383,7 @@ export async function sendFundraiserWelcomeEmail(params: FundraiserWelcomeEmailP
         appealTitle,
         fundraiserUrl,
         baseUrl: getEmailBaseUrl(settings),
+        logoDataUris: getLogoDataUris(),
       },
       settings
     )
@@ -411,6 +418,7 @@ export async function sendFundraiserDonationNotification(params: FundraiserDonat
         donationType,
         fundraiserUrl,
         baseUrl: getEmailBaseUrl(settings),
+        logoDataUris: getLogoDataUris(),
       },
       settings
     )
@@ -436,7 +444,7 @@ export async function sendFundraiserOTPEmail(params: FundraiserOTPEmailParams) {
 
   try {
     const settings = await getOrganizationSettings()
-    const { subject, html } = buildFundraiserOtpEmail({ code, baseUrl: getEmailBaseUrl(settings) }, settings)
+    const { subject, html } = buildFundraiserOtpEmail({ code, baseUrl: getEmailBaseUrl(settings), logoDataUris: getLogoDataUris() }, settings)
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: email,
@@ -462,7 +470,7 @@ export async function sendAdminInviteEmail(params: {
 
   try {
     const settings = await getOrganizationSettings()
-    const { subject, html } = buildAdminInviteEmail({ email, setPasswordUrl, baseUrl: getEmailBaseUrl(settings) }, settings)
+    const { subject, html } = buildAdminInviteEmail({ email, setPasswordUrl, baseUrl: getEmailBaseUrl(settings), logoDataUris: getLogoDataUris() }, settings)
     await getResend().emails.send({
       from: process.env.FROM_EMAIL || "noreply@alianah.org",
       to: email,

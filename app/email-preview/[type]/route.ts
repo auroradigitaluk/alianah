@@ -13,6 +13,7 @@ import {
   buildAdminInviteEmail,
 } from "@/lib/email-templates"
 import { getOrganizationSettings } from "@/lib/settings"
+import { getLogoDataUris } from "@/lib/email-logo-server"
 
 export const dynamic = "force-dynamic"
 
@@ -25,6 +26,7 @@ export async function GET(
   const { searchParams } = url
   const baseUrl = url.origin
   const settings = await getOrganizationSettings()
+  const logoDataUris = getLogoDataUris()
 
   const get = (key: string, def: string) => searchParams.get(key) ?? def
   const getNum = (key: string, def: number) => {
@@ -55,6 +57,7 @@ export async function GET(
             ? "https://example.com/manage-subscription?token=example"
             : undefined,
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -72,6 +75,7 @@ export async function GET(
           amount: getNum("amountPence", 5000),
           donationType: get("donationType", "SADAQAH"),
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -89,6 +93,7 @@ export async function GET(
           amount: getNum("amountPence", 3000),
           donationType: get("donationType", "SADAQAH"),
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -108,6 +113,7 @@ export async function GET(
           completionReportPDF: get("completionReportPDF", "https://example.com/report.pdf") || undefined,
           googleDriveLink: get("googleDriveLink", "https://drive.google.com/example") || undefined,
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -127,6 +133,7 @@ export async function GET(
           completionReportPDF: get("completionReportPDF", "https://example.com/report.pdf") || undefined,
           googleDriveLink: get("googleDriveLink", "https://drive.google.com/example") || undefined,
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -142,6 +149,7 @@ export async function GET(
           appealTitle: get("appealTitle", "Palestine Emergency Relief"),
           fundraiserUrl: get("fundraiserUrl", "https://example.com/fundraise/sarahs-palestine"),
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -159,6 +167,7 @@ export async function GET(
           donationType: get("donationType", "SADAQAH"),
           fundraiserUrl: get("fundraiserUrl", "https://example.com/fundraise/sarahs-palestine"),
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -168,7 +177,7 @@ export async function GET(
     }
     case "fundraiser-otp": {
       const { subject: s, html: h } = buildFundraiserOtpEmail(
-        { code: get("code", "123456"), baseUrl },
+        { code: get("code", "123456"), baseUrl, logoDataUris },
         settings
       )
       subject = s
@@ -190,6 +199,7 @@ export async function GET(
           totalPence: getNum("totalPence", 2500),
           resumeUrl: get("resumeUrl", "https://example.com/checkout?resume=example"),
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -205,6 +215,7 @@ export async function GET(
           orderNumber: get("orderNumber", "786-112345678"),
           donateUrl: get("donateUrl", "https://example.com"),
           baseUrl,
+          logoDataUris,
         },
         settings
       )
@@ -218,6 +229,7 @@ export async function GET(
           email: get("email", "admin@example.com"),
           setPasswordUrl: get("setPasswordUrl", "https://example.com/login/set-password?token=example"),
           baseUrl,
+          logoDataUris,
         },
         settings
       )
