@@ -52,6 +52,7 @@ export function FundraiserForm({
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
   const previousNameRef = React.useRef<string>("")
+  const hasUserEditedTitleRef = React.useRef(false)
   const [countries, setCountries] = React.useState<Array<{ id: string; country: string; pricePence: number }>>([])
   const [selectedCountryId, setSelectedCountryId] = React.useState<string>("")
   const [quantity, setQuantity] = React.useState<number>(1)
@@ -86,9 +87,11 @@ export function FundraiserForm({
     return `Fundraising for ${countryLabel}${campaignTitle}`
   }, [campaignTitle, countries, fundraiserName, selectedCountryId, waterProjectId])
 
-  // Ensure the title is always set to the required format
+  // Auto-fill title from name/campaign; only update when user hasn't edited it
   React.useEffect(() => {
-    setValue("title", getFundraiserTitle())
+    if (!hasUserEditedTitleRef.current) {
+      setValue("title", getFundraiserTitle())
+    }
   }, [getFundraiserTitle, setValue])
 
   React.useEffect(() => {
@@ -189,7 +192,13 @@ export function FundraiserForm({
   }, [fundraiserName, campaignTitle, defaultMessage, setValue, message])
 
   const onSubmit: SubmitHandler<FormInput> = async (data) => {
-    const parsed = fundraiserSchema.parse(data)
+    setValue("title", getFundraiserTitle(), { shouldValidate: false })
+    // Resolver already validated and transformed; data may have output types (e.g. targetAmountPence as number)
+    const payload: FormOutput = {
+      ...data,
+      title: (data.title?.trim()) ? data.title : getFundraiserTitle(),
+      targetAmountPence: typeof data.targetAmountPence === "number" ? data.targetAmountPence : Math.round(parseFloat(String(data.targetAmountPence)) * 100),
+    }
     setLoading(true)
     try {
       if (waterProjectId && !selectedCountryId) {
@@ -199,7 +208,7 @@ export function FundraiserForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...parsed,
+          ...payload,
           ...(appealId ? { appealId } : {}),
           ...(waterProjectId ? { waterProjectId } : {}),
         }),
@@ -212,7 +221,7 @@ export function FundraiserForm({
         if (errorData.requiresLogin) {
           // Get current path to redirect back to the same appeal page
           const currentPath = window.location.pathname
-          const loginUrl = `/fundraise/login?redirect=${encodeURIComponent(currentPath)}&email=${encodeURIComponent(parsed.email)}`
+          const loginUrl = `/fundraise/login?redirect=${encodeURIComponent(currentPath)}&email=${encodeURIComponent(payload.email)}`
           router.push(loginUrl)
           return
         }
@@ -237,14 +246,26 @@ export function FundraiserForm({
         <CardDescription>Create your fundraising page for {campaignTitle}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={handleSubmit(onSubmit, (err) => {
+            const firstError = Object.values(err)[0] as { message?: string } | undefined
+            const message = firstError?.message ?? "Please fix the errors below."
+            alert(message)
+            const firstErrorEl = document.querySelector('[data-slot="card"] .text-destructive')
+            firstErrorEl?.scrollIntoView({ behavior: "smooth", block: "center" })
+          })}
+          className="space-y-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="title">Fundraiser Name *</Label>
             <Input
               id="title"
-              disabled
-              className="bg-muted cursor-not-allowed"
-              {...register("title")}
+              value={watch("title") ?? ""}
+              onChange={(e) => {
+                hasUserEditedTitleRef.current = true
+                setValue("title", e.target.value)
+              }}
+              placeholder={getFundraiserTitle()}
             />
             {errors.title && (
               <p className="text-sm text-destructive">{errors.title.message}</p>
