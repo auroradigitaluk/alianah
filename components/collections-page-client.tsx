@@ -47,7 +47,7 @@ export function CollectionsPageClient({
         <div>
           <h2 className="text-base sm:text-lg font-semibold">Collections</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Masjid collections (Jummah, Ramadan, Eid, etc.)
+            Collections from masjids, shops, events, and other locations
           </p>
         </div>
         <div className="flex flex-nowrap items-end gap-2">

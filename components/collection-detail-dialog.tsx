@@ -29,6 +29,7 @@ export type CollectionItem = {
   type: string
   collectedAt: Date | string
   masjidId?: string | null
+  otherLocationName?: string | null
   appealId?: string | null
   masjid?: { name: string } | null
   appeal?: { title: string } | null
@@ -78,7 +79,7 @@ export function CollectionDetailDialog({
             <div>
               <DialogTitle>Collection Details</DialogTitle>
               <DialogDescription>
-                {formatCurrency(totalPence)} collected from {item.masjid?.name || "No masjid"}
+                {formatCurrency(totalPence)} collected from {item.masjid?.name || item.otherLocationName || "—"}
               </DialogDescription>
             </div>
             {canEdit && onEdit && onDelete && (
@@ -114,9 +115,9 @@ export function CollectionDetailDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                Masjid
+                Location
               </p>
-              <p className="text-sm font-medium">{item.masjid?.name || "—"}</p>
+              <p className="text-sm font-medium">{item.masjid?.name || item.otherLocationName || "—"}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">

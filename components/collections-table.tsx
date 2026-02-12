@@ -63,6 +63,7 @@ interface Collection {
   type: string
   collectedAt: Date | string
   masjidId?: string | null
+  otherLocationName?: string | null
   appealId?: string | null
   masjid?: { name: string } | null
   appeal?: { title: string } | null
@@ -117,12 +118,12 @@ export function CollectionsTable({
 
     return collections.filter((item) => {
       const appealName = (item.appeal?.title || "General").toLowerCase()
-      const masjidName = (item.masjid?.name || "No masjid").toLowerCase()
+      const locationLabel = (item.masjid?.name || item.otherLocationName || "").toLowerCase()
       const matchesAppeal = normalizedAppeal
         ? appealName.includes(normalizedAppeal)
         : true
       const matchesMasjid = normalizedMasjid
-        ? masjidName.includes(normalizedMasjid)
+        ? locationLabel.includes(normalizedMasjid)
         : true
       const matchesType = typeFilter === "all" || item.type === typeFilter
       const dateValue = item.collectedAt ? new Date(item.collectedAt) : null
@@ -144,6 +145,7 @@ export function CollectionsTable({
 
   const handleSaveEdit = async (data: {
     masjidId: string | null
+    otherLocationName: string | null
     appealId: string | null
     amountPence: number
     donationType: string
@@ -160,6 +162,7 @@ export function CollectionsTable({
     try {
       const body: Record<string, unknown> = {
         masjidId: data.masjidId || null,
+        otherLocationName: data.otherLocationName ?? null,
         appealId: data.appealId || null,
         type: data.type,
         collectedAt: data.collectedAt,
@@ -223,11 +226,11 @@ export function CollectionsTable({
       <div className="mb-4 rounded-lg border bg-card p-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-2">
-            <Label htmlFor="collections-masjid">Masjid</Label>
+            <Label htmlFor="collections-masjid">Location</Label>
             <Input
               id="collections-masjid"
               transform="titleCase"
-              placeholder="Search masjid"
+              placeholder="Search location"
               value={masjidQuery}
               onChange={(event) => setMasjidQuery(event.target.value)}
             />
@@ -289,10 +292,10 @@ export function CollectionsTable({
         columns={[
         {
           id: "masjid",
-          header: "Masjid Name",
+          header: "Location",
           cell: (item) => (
             <div className="font-medium">
-              {item.masjid?.name || "No masjid"}
+              {item.masjid?.name || item.otherLocationName || "—"}
             </div>
           ),
         },
@@ -427,6 +430,7 @@ function CollectionEditForm({
   appeals: AppealOption[]
   onSave: (data: {
     masjidId: string | null
+    otherLocationName: string | null
     appealId: string | null
     amountPence: number
     donationType: string
@@ -449,6 +453,7 @@ function CollectionEditForm({
     (collection.cardPence ?? 0) > 0
   const amountStr = (p: number) => (p / 100).toFixed(2)
   const [masjidId, setMasjidId] = useState(collection.masjidId ?? "__none__")
+  const [otherLocationName, setOtherLocationName] = useState(collection.otherLocationName ?? "")
   const [masjidQuery, setMasjidQuery] = useState("")
   const [masjidOpen, setMasjidOpen] = useState(false)
   const [appealId, setAppealId] = useState(collection.appealId ?? "__none__")
@@ -493,6 +498,7 @@ function CollectionEditForm({
     if (totalPence <= 0) return
     onSave({
       masjidId: masjidId && masjidId !== "__none__" ? masjidId : null,
+      otherLocationName: otherLocationName.trim() || null,
       appealId: appealId && appealId !== "__none__" ? appealId : null,
       amountPence: totalPence,
       donationType: "GENERAL",
@@ -580,6 +586,18 @@ function CollectionEditForm({
             </PopoverContent>
           </Popover>
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="edit-other-location" className="text-sm font-medium text-foreground">Other location</Label>
+          <Input
+            id="edit-other-location"
+            placeholder="e.g. shop, event venue (optional)"
+            value={otherLocationName}
+            onChange={(e) => setOtherLocationName(e.target.value)}
+            className="h-9"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="edit-appeal" className="text-sm font-medium text-foreground">Appeal</Label>
           <Select value={appealId} onValueChange={setAppealId}>

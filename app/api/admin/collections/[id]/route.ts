@@ -38,6 +38,7 @@ export async function GET(
       type: collection.type,
       collectedAt: collection.collectedAt,
       masjidId: collection.masjidId,
+      otherLocationName: collection.otherLocationName,
       appealId: collection.appealId,
       masjid: collection.masjid,
       appeal: collection.appeal,
@@ -52,6 +53,7 @@ export async function GET(
 
 const patchSchema = z.object({
   masjidId: z.string().nullable().optional(),
+  otherLocationName: z.string().nullable().optional().transform((v) => (v == null || (typeof v === "string" && !v.trim()) ? null : String(v).trim())),
   appealId: z.string().nullable().optional(),
   amountPence: z.number().int().min(0).optional(),
   donationType: z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"]).optional(),
@@ -89,6 +91,7 @@ export async function PATCH(
     }
     const updateData: Record<string, unknown> = {}
     if (data.masjidId !== undefined) updateData.masjidId = data.masjidId
+    if (data.otherLocationName !== undefined) updateData.otherLocationName = data.otherLocationName
     if (data.appealId !== undefined) updateData.appealId = data.appealId
     if (data.type !== undefined) updateData.type = data.type
     if (data.collectedAt !== undefined) updateData.collectedAt = new Date(data.collectedAt)

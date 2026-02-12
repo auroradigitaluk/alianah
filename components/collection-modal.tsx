@@ -34,6 +34,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [masjidId, setMasjidId] = React.useState<string>("__none__")
+  const [otherLocationName, setOtherLocationName] = React.useState("")
   const [masjidQuery, setMasjidQuery] = React.useState("")
   const [masjidOpen, setMasjidOpen] = React.useState(false)
   const [appealId, setAppealId] = React.useState<string>("__none__")
@@ -64,6 +65,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
 
   const resetForm = () => {
     setMasjidId("__none__")
+    setOtherLocationName("")
     setMasjidQuery("")
     setAppealId("__none__")
     setSadaqah("")
@@ -90,6 +92,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           masjidId: masjidId && masjidId !== "__none__" ? masjidId : null,
+          otherLocationName: otherLocationName.trim() || null,
           appealId: appealId && appealId !== "__none__" ? appealId : null,
           sadaqahPence: toPence(sadaqah),
           zakatPence: toPence(zakat),
@@ -130,7 +133,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
           <DialogHeader>
             <DialogTitle>New Collection</DialogTitle>
             <DialogDescription>
-              Record a masjid collection (Jummah, Ramadan, Eid, etc.) with amounts per category. One collection per event; view the breakdown in the detail modal.
+              Record a collection (e.g. masjid, shop, event) with amounts per category. One collection per event; view the breakdown in the detail modal.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -223,6 +226,17 @@ export function CollectionModal({ masjids, appeals }: Props) {
                   </PopoverContent>
                 </Popover>
               </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">Other location</Label>
+                <Input
+                  placeholder="e.g. shop, event venue (optional)"
+                  value={otherLocationName}
+                  onChange={(e) => setOtherLocationName(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Appeal</Label>
                 <Select value={appealId} onValueChange={setAppealId}>

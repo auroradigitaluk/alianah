@@ -198,20 +198,24 @@ export async function GET(request: NextRequest) {
             id: true,
             amountPence: true,
             notes: true,
+            otherLocationName: true,
             masjid: { select: { name: true } },
           },
           take: LIMIT,
         })
         .then((rows) =>
-          rows.map((c) => ({
+          rows.map((c) => {
+            const location = c.masjid?.name ?? c.otherLocationName
+            return {
             type: "collection",
             id: c.id,
-            label: c.masjid?.name
-              ? `${formatCurrency(c.amountPence)} – ${c.masjid.name}`
+            label: location
+              ? `${formatCurrency(c.amountPence)} – ${location}`
               : formatCurrency(c.amountPence),
             subtitle: c.notes ?? undefined,
             url: "/admin/collections",
-          }))
+          }
+          })
         ),
 
       prisma.offlineIncome

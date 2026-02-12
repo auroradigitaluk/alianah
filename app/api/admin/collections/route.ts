@@ -5,6 +5,7 @@ import { z } from "zod"
 
 const createSchema = z.object({
   masjidId: z.string().nullable().optional().transform((v) => (v && v !== "__none__" ? v : null)),
+  otherLocationName: z.string().nullable().optional().transform((v) => (v == null || (typeof v === "string" && !v.trim()) ? null : String(v).trim())),
   appealId: z.string().nullable().optional().transform((v) => (v && v !== "__none__" ? v : null)),
   sadaqahPence: z.number().int().min(0).optional().default(0),
   zakatPence: z.number().int().min(0).optional().default(0),
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
     const collection = await prisma.collection.create({
       data: {
         ...(data.masjidId ? { masjid: { connect: { id: data.masjidId } } } : {}),
+        otherLocationName: data.otherLocationName ?? null,
         ...(data.appealId ? { appeal: { connect: { id: data.appealId } } } : {}),
         type: data.type,
         collectedAt,

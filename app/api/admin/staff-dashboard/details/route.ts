@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
         type: c.type,
         collectedAt: c.collectedAt.toISOString(),
         notes: c.notes,
-        masjidName: c.masjid?.name ?? null,
+        masjidName: c.masjid?.name ?? c.otherLocationName ?? null,
         appealTitle: c.appeal?.title ?? null,
       })),
       waterDonations: waterDonations.map((d) => ({

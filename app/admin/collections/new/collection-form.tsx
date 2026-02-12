@@ -38,6 +38,7 @@ export function CollectionForm({
   const router = useRouter()
   const [saving, setSaving] = React.useState(false)
   const [masjidId, setMasjidId] = React.useState<string>("__none__")
+  const [otherLocationName, setOtherLocationName] = React.useState("")
   const [masjidQuery, setMasjidQuery] = React.useState("")
   const [masjidOpen, setMasjidOpen] = React.useState(false)
   const [appealId, setAppealId] = React.useState<string>("__none__")
@@ -79,6 +80,7 @@ export function CollectionForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           masjidId: masjidId && masjidId !== "__none__" ? masjidId : null,
+          otherLocationName: otherLocationName.trim() || null,
           appealId: appealId && appealId !== "__none__" ? appealId : null,
           sadaqahPence: toPence(sadaqah),
           zakatPence: toPence(zakat),
@@ -107,76 +109,88 @@ export function CollectionForm({
 
   return (
     <form onSubmit={handleSubmit} className="max-w-xl space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="masjid">Masjid</Label>
-        <Popover open={masjidOpen} onOpenChange={setMasjidOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              role="combobox"
-              aria-expanded={masjidOpen}
-              className={cn(
-                "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 hover:bg-muted/50 dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:opacity-50",
-                !selectedMasjid && "text-muted-foreground"
-              )}
-            >
-              <span className="line-clamp-1 flex items-center gap-2">
-                {selectedMasjid ? selectedMasjid.name : "Select masjid (optional)"}
-              </span>
-              <ChevronDown className="size-4 shrink-0 opacity-50" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-            <div className="p-2 border-b">
-              <Input
-                placeholder="Search masjid..."
-                transform="titleCase"
-                value={masjidQuery}
-                onChange={(e) => setMasjidQuery(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-                className="h-9"
-              />
-            </div>
-            <div className="max-h-[200px] overflow-y-auto p-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="masjid">Masjid</Label>
+          <Popover open={masjidOpen} onOpenChange={setMasjidOpen}>
+            <PopoverTrigger asChild>
               <button
                 type="button"
+                role="combobox"
+                aria-expanded={masjidOpen}
                 className={cn(
-                  "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-muted/50",
-                  masjidId === "__none__" && "bg-muted"
+                  "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 hover:bg-muted/50 dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:opacity-50",
+                  !selectedMasjid && "text-muted-foreground"
                 )}
-                onClick={() => {
-                  setMasjidId("__none__")
-                  setMasjidOpen(false)
-                  setMasjidQuery("")
-                }}
               >
-                None
+                <span className="line-clamp-1 flex items-center gap-2">
+                  {selectedMasjid ? selectedMasjid.name : "Select masjid (optional)"}
+                </span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" />
               </button>
-              {filteredMasjids.map((m) => (
+            </PopoverTrigger>
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+              <div className="p-2 border-b">
+                <Input
+                  placeholder="Search masjid..."
+                  transform="titleCase"
+                  value={masjidQuery}
+                  onChange={(e) => setMasjidQuery(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className="h-9"
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto p-1">
                 <button
-                  key={m.id}
                   type="button"
                   className={cn(
                     "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-muted/50",
-                    masjidId === m.id && "bg-muted"
+                    masjidId === "__none__" && "bg-muted"
                   )}
                   onClick={() => {
-                    setMasjidId(m.id)
+                    setMasjidId("__none__")
                     setMasjidOpen(false)
                     setMasjidQuery("")
                   }}
                 >
-                  {m.name}
+                  None
                 </button>
-              ))}
-              {filteredMasjids.length === 0 && masjidQuery && (
-                <p className="px-2 py-4 text-sm text-muted-foreground text-center">
-                  No masjid found
-                </p>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+                {filteredMasjids.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={cn(
+                      "w-full px-2 py-2 text-left text-sm rounded-sm hover:bg-muted/50",
+                      masjidId === m.id && "bg-muted"
+                    )}
+                    onClick={() => {
+                      setMasjidId(m.id)
+                      setMasjidOpen(false)
+                      setMasjidQuery("")
+                    }}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+                {filteredMasjids.length === 0 && masjidQuery && (
+                  <p className="px-2 py-4 text-sm text-muted-foreground text-center">
+                    No masjid found
+                  </p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="other-location">Other location</Label>
+          <Input
+            id="other-location"
+            placeholder="e.g. shop, event venue (optional)"
+            value={otherLocationName}
+            onChange={(e) => setOtherLocationName(e.target.value)}
+            className="h-9"
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="appeal">Appeal</Label>

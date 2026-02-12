@@ -347,6 +347,7 @@ model Masjid {
 model Collection {
   id                  String    @id @default(cuid())
   masjidId            String?
+  otherLocationName   String?   // When not a masjid (e.g. shop, event venue)
   appealId            String?
   amountPence         Int       // Total (sum of breakdown or legacy single amount)
   donationType        String    // GENERAL | SADAQAH | ZAKAT | LILLAH (legacy / primary type)
