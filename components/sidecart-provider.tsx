@@ -22,6 +22,10 @@ interface CartItem {
   sponsorshipProjectId?: string
   sponsorshipCountryId?: string
   sponsorshipProjectType?: string
+  // Qurbani specific fields
+  qurbaniCountryId?: string
+  qurbaniSize?: "ONE_SEVENTH" | "SMALL" | "LARGE"
+  qurbaniNames?: string // Whose name the qurbani is for (comma-separated for Large)
 }
 
 interface SidecartContextType {
@@ -60,8 +64,9 @@ export function SidecartProvider({ children }: { children: React.ReactNode }) {
         item.appealId ||
         item.waterProjectId ||
         item.sponsorshipProjectId ||
+        item.qurbaniCountryId ||
         "item"
-      const newItem = { ...item, id: `${baseId}-${item.productId || "direct"}-${Date.now()}` }
+      const newItem = { ...item, id: `${baseId}-${item.productId || item.qurbaniSize || "direct"}-${Date.now()}` }
       return [...prev, newItem]
     })
     setOpen(true)

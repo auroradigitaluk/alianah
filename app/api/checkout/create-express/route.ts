@@ -36,6 +36,9 @@ const itemSchema = z.object({
   sponsorshipProjectId: z.string().optional(),
   sponsorshipCountryId: z.string().optional(),
   sponsorshipProjectType: z.string().optional(),
+  qurbaniCountryId: z.string().optional(),
+  qurbaniSize: z.enum(["ONE_SEVENTH", "SMALL", "LARGE"]).optional(),
+  qurbaniNames: z.string().optional(),
 })
 
 const expressSchema = z.object({
@@ -57,6 +60,10 @@ function isWaterProjectItem(item: z.infer<typeof itemSchema>) {
 
 function isSponsorshipItem(item: z.infer<typeof itemSchema>) {
   return Boolean(item.sponsorshipProjectId)
+}
+
+function isQurbaniItem(item: z.infer<typeof itemSchema>) {
+  return Boolean(item.qurbaniCountryId)
 }
 
 async function generateOrderNumber() {
@@ -131,6 +138,30 @@ export async function POST(request: NextRequest) {
           }
           if (item.amountPence !== country.pricePence) {
             throw new Error("Sponsorship amount does not match selected country price")
+          }
+          return null
+        })
+    )
+
+    await Promise.all(
+      validated.items
+        .filter(isQurbaniItem)
+        .map(async (item) => {
+          if (!item.qurbaniCountryId || !item.qurbaniSize) {
+            throw new Error("Qurbani item is missing required information")
+          }
+          const country = await prisma.qurbaniCountry.findUnique({
+            where: { id: item.qurbaniCountryId, isActive: true },
+          })
+          if (!country) throw new Error("Qurbani country not found or inactive")
+          const price =
+            item.qurbaniSize === "ONE_SEVENTH"
+              ? country.priceOneSeventhPence
+              : item.qurbaniSize === "SMALL"
+                ? country.priceSmallPence
+                : country.priceLargePence
+          if (price == null || item.amountPence !== price) {
+            throw new Error("Qurbani amount does not match selected option")
           }
           return null
         })
@@ -211,6 +242,9 @@ export async function POST(request: NextRequest) {
             sponsorshipCountryId: item.sponsorshipCountryId || null,
             sponsorshipProjectType: item.sponsorshipProjectType || null,
             plaqueName: item.plaqueName || null,
+            qurbaniCountryId: item.qurbaniCountryId || null,
+            qurbaniSize: item.qurbaniSize || null,
+            qurbaniNames: item.qurbaniNames || null,
           })),
         },
       },

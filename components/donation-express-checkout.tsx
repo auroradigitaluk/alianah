@@ -22,6 +22,9 @@ export type DonationExpressItem = {
   sponsorshipProjectId?: string
   sponsorshipCountryId?: string
   sponsorshipProjectType?: string
+  qurbaniCountryId?: string
+  qurbaniSize?: "ONE_SEVENTH" | "SMALL" | "LARGE"
+  qurbaniNames?: string
 }
 
 const stripePromise =

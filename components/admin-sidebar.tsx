@@ -40,6 +40,7 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react"
+import { Beef } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type NotificationCounts = {
@@ -281,6 +282,18 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                       ))}
                   </SidebarMenuSub>
                 )}
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Qurbani"
+                  isActive={pathname === "/admin/qurbani" || pathname?.startsWith("/admin/qurbani/")}
+                >
+                  <Link href="/admin/qurbani">
+                    <Beef className="h-5 w-5" />
+                    <span>Qurbani</span>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>

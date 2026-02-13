@@ -12,6 +12,7 @@ import type {
   OfflineIncomeDetailRow,
   WaterDonationDetailRow,
   SponsorshipDonationDetailRow,
+  QurbaniDonationDetailRow,
 } from "@/lib/reports"
 
 const querySchema = z.object({
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
       donorTotals,
       waterDonorTotals,
       sponsorshipDonorTotals,
+      qurbaniDonorTotals,
       waterProjectTotals,
       sponsorshipProjectTotals,
       waterReportCount,
@@ -293,6 +295,14 @@ export async function GET(request: NextRequest) {
           sponsorshipProject: { select: { projectType: true } },
           country: { select: { country: true } },
           addedBy: { select: { firstName: true, lastName: true, email: true } },
+        },
+      }),
+      prisma.qurbaniDonation.findMany({
+        where: { createdAt: dateFilter },
+        orderBy: { createdAt: "desc" },
+        include: {
+          donor: { select: { firstName: true, lastName: true, email: true } },
+          qurbaniCountry: { select: { country: true } },
         },
       }),
       prisma.waterProjectDonation.groupBy({
@@ -529,6 +539,7 @@ export async function GET(request: NextRequest) {
     addFundraiserTotals(waterByFundraiser)
     const fundraiserRows = Array.from(fundraiserTotalsById.values())
 
+    const qurbaniTotalPence = qurbaniDonorTotals.reduce((sum, row) => sum + row.amountPence, 0)
     const sourceRows = [
       {
         label: "Online donations",
@@ -537,6 +548,7 @@ export async function GET(request: NextRequest) {
       },
       { label: "Water projects", amountPence: waterType.reduce((sum, row) => sum + (row._sum.amountPence || 0), 0), count: waterType.reduce((sum, row) => sum + row._count._all, 0) },
       { label: "Sponsorships", amountPence: sponsorshipType.reduce((sum, row) => sum + (row._sum.amountPence || 0), 0), count: sponsorshipType.reduce((sum, row) => sum + row._count._all, 0) },
+      { label: "Qurbani", amountPence: qurbaniTotalPence, count: qurbaniDonorTotals.length },
       { label: "Offline income", amountPence: offlineIncome._sum.amountPence || 0, count: offlineIncome._count._all },
       { label: "Collections", amountPence: collections.reduce((sum, row) => sum + row.amountPence, 0), count: collections.length },
       { label: "Recurring (active)", amountPence: recurringActive._sum.amountPence || 0, count: recurringActive._count._all },
@@ -546,11 +558,12 @@ export async function GET(request: NextRequest) {
     const totalIncomeCount = sourceRows.reduce((sum, row) => sum + (row.count || 0), 0)
     const giftAidPence = giftAidRows.reduce((sum, row) => sum + (row.amountPence || 0), 0)
 
-    const donationCount = donorTotalsDeduped.length + waterDonorTotals.length + sponsorshipDonorTotals.length
+    const donationCount = donorTotalsDeduped.length + waterDonorTotals.length + sponsorshipDonorTotals.length + qurbaniDonorTotals.length
     const giftAidCount =
       donorTotalsDeduped.filter((row) => row.giftAid).length +
       waterDonorTotals.filter((row) => row.giftAid).length +
-      sponsorshipDonorTotals.filter((row) => row.giftAid).length
+      sponsorshipDonorTotals.filter((row) => row.giftAid).length +
+      qurbaniDonorTotals.filter((row) => row.giftAid).length
 
     const donorAmountMap = new Map<string, { amountPence: number; count: number }>()
     const addToDonorTotals = (rows: Array<{ donorId: string; amountPence: number }>) => {
@@ -564,6 +577,7 @@ export async function GET(request: NextRequest) {
     addToDonorTotals(donorTotalsDeduped)
     addToDonorTotals(waterDonorTotals)
     addToDonorTotals(sponsorshipDonorTotals)
+    addToDonorTotals(qurbaniDonorTotals)
 
     const donorIds = Array.from(donorAmountMap.keys())
     const donors = await prisma.donor.findMany({
@@ -974,6 +988,43 @@ export async function GET(request: NextRequest) {
       })
     )
 
+    const qurbaniDonationsDetail: QurbaniDonationDetailRow[] = qurbaniDonorTotals.map((q) => ({
+      id: q.id,
+      createdAt: q.createdAt.toISOString(),
+      amountPence: q.amountPence,
+      donationType: q.donationType,
+      paymentMethod: q.paymentMethod,
+      giftAid: q.giftAid,
+      country: q.qurbaniCountry?.country ?? "",
+      size: q.size,
+      qurbaniNames: q.qurbaniNames ?? null,
+      donorName: q.donor
+        ? [q.donor.firstName, q.donor.lastName].filter(Boolean).join(" ")
+        : "Unknown",
+      donorEmail: q.donor?.email ?? "",
+    }))
+
+    const qurbaniByCountryMap = new Map<string, { amountPence: number; count: number }>()
+    const qurbaniBySizeMap = new Map<string, { amountPence: number; count: number }>()
+    qurbaniDonorTotals.forEach((q) => {
+      const country = q.qurbaniCountry?.country ?? "Unknown"
+      const c = qurbaniByCountryMap.get(country) || { amountPence: 0, count: 0 }
+      c.amountPence += q.amountPence
+      c.count += 1
+      qurbaniByCountryMap.set(country, c)
+      const sizeLabel = q.size === "ONE_SEVENTH" ? "1/7th" : q.size === "SMALL" ? "Small" : q.size === "LARGE" ? "Large" : q.size
+      const s = qurbaniBySizeMap.get(sizeLabel) || { amountPence: 0, count: 0 }
+      s.amountPence += q.amountPence
+      s.count += 1
+      qurbaniBySizeMap.set(sizeLabel, s)
+    })
+    const qurbaniByCountry = Array.from(qurbaniByCountryMap.entries())
+      .map(([label, v]) => ({ label, amountPence: v.amountPence, count: v.count }))
+      .sort((a, b) => (b.amountPence ?? 0) - (a.amountPence ?? 0))
+    const qurbaniBySize = Array.from(qurbaniBySizeMap.entries())
+      .map(([label, v]) => ({ label, amountPence: v.amountPence, count: v.count }))
+      .sort((a, b) => (b.amountPence ?? 0) - (a.amountPence ?? 0))
+
     const response: ReportsResponse = {
       range: { start: range.start.toISOString(), end: range.end.toISOString() },
       financial: {
@@ -1040,6 +1091,12 @@ export async function GET(request: NextRequest) {
           byProjectType: sponsorshipProjectRows,
           byStatus: sponsorshipStatusReport,
         },
+        qurbani: {
+          totalPence: qurbaniTotalPence,
+          donationCount: qurbaniDonorTotals.length,
+          byCountry: qurbaniByCountry,
+          bySize: qurbaniBySize,
+        },
       },
       recurring: {
         activeTotalPence: recurringActive._sum.amountPence || 0,
@@ -1063,6 +1120,7 @@ export async function GET(request: NextRequest) {
       offlineIncomeDetail,
       waterDonationsDetail,
       sponsorshipDonationsDetail,
+      qurbaniDonationsDetail,
     }
 
     return NextResponse.json(response)

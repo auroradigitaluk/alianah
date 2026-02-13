@@ -87,6 +87,12 @@ export type ProjectsReport = {
     byProjectType: ReportRow[]
     byStatus: ReportRow[]
   }
+  qurbani: {
+    totalPence: number
+    donationCount: number
+    byCountry: ReportRow[]
+    bySize: ReportRow[]
+  }
 }
 
 export type RecurringReport = {
@@ -227,6 +233,20 @@ export type SponsorshipDonationDetailRow = {
   addedByName: string | null
 }
 
+export type QurbaniDonationDetailRow = {
+  id: string
+  createdAt: string
+  amountPence: number
+  donationType: string
+  paymentMethod: string
+  giftAid: boolean
+  country: string
+  size: string
+  qurbaniNames: string | null
+  donorName: string
+  donorEmail: string
+}
+
 export type ReportsResponse = {
   range: ReportDateRange
   financial: FinancialReport
@@ -245,4 +265,5 @@ export type ReportsResponse = {
   offlineIncomeDetail: OfflineIncomeDetailRow[]
   waterDonationsDetail: WaterDonationDetailRow[]
   sponsorshipDonationsDetail: SponsorshipDonationDetailRow[]
+  qurbaniDonationsDetail: QurbaniDonationDetailRow[]
 }

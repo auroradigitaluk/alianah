@@ -425,7 +425,8 @@ model Donor {
   donations                Donation[]
   recurringDonations       RecurringDonation[]
   waterProjectDonations    WaterProjectDonation[]
-  sponsorshipDonations     SponsorshipDonation[]
+  sponsorshipDonations      SponsorshipDonation[]
+  qurbaniDonations         QurbaniDonation[]
   offlineIncome            OfflineIncome[]
 
   @@index([email])
@@ -624,6 +625,9 @@ model DemoOrderItem {
   sponsorshipCountryId  String?
   sponsorshipProjectType String?
   plaqueName            String?
+  qurbaniCountryId      String?
+  qurbaniSize           String? // ONE_SEVENTH | SMALL | LARGE
+  qurbaniNames          String? // Whose name the qurbani is for (comma-separated for Large)
   createdAt    DateTime @default(now())
 
   order DemoOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -631,6 +635,60 @@ model DemoOrderItem {
   @@index([orderId])
   @@index([fundraiserId])
   @@map("demo_order_items")
+}
+
+model QurbaniCountry {
+  id                   String   @id @default(cuid())
+  country              String
+  priceOneSeventhPence  Int?     // 1/7th share (e.g. cow/camel) - null = not available
+  priceSmallPence      Int?     // Small animal (e.g. sheep/goat) - null = not available
+  priceLargePence     Int?     // Large (full animal) - null = not available
+  labelOneSeventh      String?  // e.g. "Cow (1/7th)", "Camel (1/7th)"
+  labelSmall           String?  // e.g. "Sheep", "Goat"
+  labelLarge           String?  // e.g. "Cow", "Camel"
+  isActive             Boolean  @default(true)
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  donations QurbaniDonation[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("qurbani_countries")
+}
+
+model QurbaniDonation {
+  id                  String    @id @default(cuid())
+  qurbaniCountryId    String
+  size                String    // ONE_SEVENTH | SMALL | LARGE
+  donorId             String
+  amountPence         Int
+  donationType        String    // GENERAL | SADAQAH | ZAKAT | LILLAH
+  paymentMethod      String    // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
+  collectedVia        String?
+  transactionId       String?
+  giftAid             Boolean   @default(false)
+  giftAidClaimed      Boolean   @default(false)
+  giftAidClaimedAt    DateTime?
+  isAnonymous         Boolean   @default(false)
+  billingAddress      String?
+  billingCity         String?
+  billingPostcode     String?
+  billingCountry      String?
+  notes               String?   // e.g. OrderNumber:786-1...
+  qurbaniNames        String?   // Whose name the qurbani is for (comma-separated for Large)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  qurbaniCountry QurbaniCountry @relation(fields: [qurbaniCountryId], references: [id], onDelete: Cascade)
+  donor          Donor          @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  @@index([qurbaniCountryId])
+  @@index([donorId])
+  @@index([size])
+  @@index([createdAt])
+  @@map("qurbani_donations")
 }
 
 model WaterProjectCountry {

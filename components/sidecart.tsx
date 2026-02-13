@@ -62,6 +62,12 @@ export function Sidecart() {
                         Sponsorship{item.sponsorshipProjectType ? ` • ${formatEnum(item.sponsorshipProjectType)}` : ""}
                       </p>
                     )}
+                    {item.qurbaniCountryId && (
+                      <p className="text-xs text-muted-foreground">Qurbani</p>
+                    )}
+                    {item.qurbaniNames && (
+                      <p className="text-xs text-muted-foreground">Name(s): {item.qurbaniNames}</p>
+                    )}
                     {item.plaqueName && (
                       <p className="text-xs text-muted-foreground">Plaque: {item.plaqueName}</p>
                     )}

@@ -286,6 +286,43 @@ export async function finalizeOrderByOrderNumber(params: {
     )
   }
 
+  const existingQurbaniDonations = await prisma.qurbaniDonation.findMany({
+    where: { notes: { contains: `OrderNumber:${orderNumber}` } },
+    select: { id: true },
+  })
+  const qurbaniItems = order.items.filter(
+    (item) =>
+      item.qurbaniCountryId &&
+      item.qurbaniSize &&
+      targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY")
+  )
+  if (qurbaniItems.length > 0 && existingQurbaniDonations.length === 0) {
+    await Promise.all(
+      qurbaniItems.map((item) =>
+        prisma.qurbaniDonation.create({
+          data: {
+            qurbaniCountryId: item.qurbaniCountryId!,
+            size: item.qurbaniSize!,
+            donorId: donor.id,
+            amountPence: item.amountPence,
+            donationType: item.donationType,
+            paymentMethod,
+            collectedVia,
+            transactionId: paymentRef,
+            giftAid: order.giftAid,
+            isAnonymous: item.isAnonymous ?? false,
+            billingAddress,
+            billingCity,
+            billingPostcode,
+            billingCountry,
+            notes: `OrderNumber:${orderNumber}`,
+            qurbaniNames: item.qurbaniNames ?? null,
+          },
+        })
+      )
+    )
+  }
+
   if (!wasAlreadyCompleted && shouldFinalizeOrder) {
     await prisma.demoOrder.update({
       where: { orderNumber },

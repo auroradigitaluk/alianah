@@ -14,6 +14,7 @@ import type {
   CollectionDetailRow,
   WaterDonationDetailRow,
   SponsorshipDonationDetailRow,
+  QurbaniDonationDetailRow,
 } from "@/lib/reports"
 import { ReportExportButton } from "@/components/reports/report-export-button"
 import { ReportTable } from "@/components/reports/report-table"
@@ -114,8 +115,11 @@ export function ReportsPageClient() {
     () => data?.sponsorshipDonationsDetail ?? [],
     [data]
   )
+  const qurbaniDonationsDetail = useMemo(() => data?.qurbaniDonationsDetail ?? [], [data])
+  const qurbaniCountryRows = useMemo(() => (data ? data.projects.qurbani.byCountry : []), [data])
+  const qurbaniSizeRows = useMemo(() => (data ? data.projects.qurbani.bySize : []), [data])
 
-  /** Combined view: online, offline, collections, water, sponsorship — one row per donation/income, sorted by date */
+  /** Combined view: online, offline, collections, water, sponsorship, qurbani — one row per donation/income, sorted by date */
   const allDonationsRows = useMemo(() => {
     type Row = {
       label: string
@@ -201,6 +205,19 @@ export function ReportsPageClient() {
         addedByName: r.addedByName ?? undefined,
       })
     })
+    qurbaniDonationsDetail.forEach((r: QurbaniDonationDetailRow) => {
+      rows.push({
+        label: `${r.createdAt}-${r.donorName}-${r.amountPence}`,
+        source: "Qurbani",
+        date: r.createdAt,
+        amountPence: r.amountPence,
+        donorOrLocation: r.qurbaniNames ? `${r.donorName} (${r.qurbaniNames})` : r.donorName,
+        paymentMethodOrType: r.paymentMethod,
+        donationType: r.donationType,
+        appealTitle: null,
+        donorEmail: r.donorEmail,
+      })
+    })
     rows.sort((a, b) => (b.date < a.date ? -1 : b.date > a.date ? 1 : 0))
     return rows
   }, [
@@ -209,6 +226,7 @@ export function ReportsPageClient() {
     collectionsDetail,
     waterDonationsDetail,
     sponsorshipDonationsDetail,
+    qurbaniDonationsDetail,
   ])
 
   return (
@@ -1153,7 +1171,7 @@ export function ReportsPageClient() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm text-muted-foreground">Water projects total</CardTitle>
@@ -1172,6 +1190,14 @@ export function ReportsPageClient() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-muted-foreground">Qurbani total</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-2xl font-semibold">
+                    {formatAmount(data.projects.qurbani.totalPence)}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
                     <CardTitle className="text-sm text-muted-foreground">Reports sent</CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
@@ -1183,6 +1209,7 @@ export function ReportsPageClient() {
                 <TabsList className="flex flex-wrap">
                   <TabsTrigger value="water">Water</TabsTrigger>
                   <TabsTrigger value="sponsorship">Sponsorship</TabsTrigger>
+                  <TabsTrigger value="qurbani">Qurbani</TabsTrigger>
                   <TabsTrigger value="status">Status</TabsTrigger>
                 </TabsList>
 
@@ -1218,6 +1245,43 @@ export function ReportsPageClient() {
                     ]}
                     data={sponsorshipProjectRows}
                   />
+                </TabsContent>
+
+                <TabsContent value="qurbani" className="space-y-4 mt-4">
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold">Qurbani by country</h4>
+                      <ReportTable
+                        columns={[
+                          { key: "label", header: "Country", render: (row) => row.label },
+                          { key: "count", header: "Donations", align: "right", render: (row) => row.count ?? 0 },
+                          {
+                            key: "amountPence",
+                            header: "Amount",
+                            align: "right",
+                            render: (row) => formatAmount(row.amountPence),
+                          },
+                        ]}
+                        data={qurbaniCountryRows}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold">Qurbani by size</h4>
+                      <ReportTable
+                        columns={[
+                          { key: "label", header: "Size", render: (row) => row.label },
+                          { key: "count", header: "Donations", align: "right", render: (row) => row.count ?? 0 },
+                          {
+                            key: "amountPence",
+                            header: "Amount",
+                            align: "right",
+                            render: (row) => formatAmount(row.amountPence),
+                          },
+                        ]}
+                        data={qurbaniSizeRows}
+                      />
+                    </div>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="status" className="space-y-4 mt-4">
