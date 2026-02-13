@@ -124,7 +124,6 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
       qurbaniSize: selectedSize,
       qurbaniNames: qurbaniNames.trim() || undefined,
     })
-    toast.success("Added to basket")
     setSelectedSize(null)
   }
 
