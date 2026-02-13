@@ -161,7 +161,7 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
                   setSelectedSize(null)
                 }}
               >
-                <SelectTrigger className="h-11 w-full" id="qurbani-country">
+                <SelectTrigger className="!h-11 w-full min-h-11 text-base" id="qurbani-country">
                   <SelectValue placeholder="Choose a country" />
                 </SelectTrigger>
                 <SelectContent>
@@ -226,6 +226,7 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
                   placeholder="e.g. Ahmed Khan, or leave blank"
                   value={qurbaniNames}
                   onChange={(e) => setQurbaniNames(e.target.value)}
+                  transform="titleCase"
                   className="h-11"
                 />
                 {selectedSize === "ONE_SEVENTH" || selectedSize === "SMALL" ? (
@@ -248,7 +249,7 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">Donation Type</Label>
               <Select value={donationType} onValueChange={(v) => setDonationType(v as typeof donationType)}>
-                <SelectTrigger className="h-11 w-full">
+                <SelectTrigger className="!h-11 w-full min-h-11 text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
