@@ -72,6 +72,11 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
   const [qurbaniNames, setQurbaniNames] = useState("")
   const [walletAvailable, setWalletAvailable] = useState(false)
 
+  const countriesAlphabetical = useMemo(
+    () => [...countries].sort((a, b) => a.country.localeCompare(b.country, undefined, { sensitivity: "base" })),
+    [countries]
+  )
+
   const selectedCountry = useMemo(
     () => countries.find((c) => c.id === selectedCountryId) ?? null,
     [countries, selectedCountryId]
@@ -137,10 +142,10 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:px-6 md:py-8 max-w-2xl">
         <div className="mb-4 sm:mb-6 text-center">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight md:text-3xl mb-2">
-            Qurbani Donations
+            Qurbani for Eid ul-Adha
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
-            Choose a country and option. Your sacrifice will support those in need.
+            Give your sacrifice this Eid. Choose a country and option to support those in need.
           </p>
         </div>
 
@@ -165,7 +170,7 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
                   <SelectValue placeholder="Choose a country" />
                 </SelectTrigger>
                 <SelectContent>
-                  {countries.map((c) => (
+                  {countriesAlphabetical.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.country}
                     </SelectItem>
