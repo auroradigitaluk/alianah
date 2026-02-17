@@ -439,8 +439,8 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Operations - ADMIN only (Tasks, Distributions) */}
-        {role === "ADMIN" && (
+        {/* Operations - Tasks for ADMIN + STAFF, Distributions for ADMIN only */}
+        {(role === "ADMIN" || role === "STAFF") && (
           <SidebarGroup>
             <SidebarGroupLabel>Operations</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -458,18 +458,20 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip="Distributions"
-                    isActive={pathname === "/admin/distributions" || pathname?.startsWith("/admin/distributions/")}
-                  >
-                    <Link href="/admin/distributions" className="flex w-full items-center gap-2">
-                      <IconReceipt />
-                      <span>Distributions</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {role === "ADMIN" && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Distributions"
+                      isActive={pathname === "/admin/distributions" || pathname?.startsWith("/admin/distributions/")}
+                    >
+                      <Link href="/admin/distributions" className="flex w-full items-center gap-2">
+                        <IconReceipt />
+                        <span>Distributions</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

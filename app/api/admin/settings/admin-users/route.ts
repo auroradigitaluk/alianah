@@ -20,9 +20,15 @@ export async function GET() {
         lastName: true,
         role: true,
         createdAt: true,
+        passwordHash: true,
       },
     })
-    return NextResponse.json(users)
+    return NextResponse.json(
+      users.map(({ passwordHash, ...u }) => ({
+        ...u,
+        hasSetPassword: !!passwordHash,
+      }))
+    )
   } catch (error) {
     console.error("Admin users GET error:", error)
     return NextResponse.json(
@@ -40,7 +46,7 @@ export async function POST(request: Request) {
   }
   try {
     const body = await request.json()
-    const { email, role } = body
+    const { email, role, firstName, lastName } = body
 
     if (!email || typeof email !== "string") {
       return NextResponse.json(
@@ -51,6 +57,10 @@ export async function POST(request: Request) {
 
     const validRoles = ["ADMIN", "STAFF", "VIEWER"]
     const userRole = validRoles.includes(role) ? role : "STAFF"
+    const firstNameStr =
+      firstName != null && typeof firstName === "string" ? firstName.trim() || null : null
+    const lastNameStr =
+      lastName != null && typeof lastName === "string" ? lastName.trim() || null : null
 
     const existing = await prisma.adminUser.findUnique({
       where: { email: email.trim().toLowerCase() },
@@ -69,6 +79,8 @@ export async function POST(request: Request) {
       data: {
         email: email.trim().toLowerCase(),
         role: userRole,
+        firstName: firstNameStr,
+        lastName: lastNameStr,
         inviteToken,
         inviteExpiresAt,
       },

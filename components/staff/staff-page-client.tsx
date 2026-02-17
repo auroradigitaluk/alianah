@@ -23,8 +23,9 @@ import {
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { AdminUsersCard } from "@/components/admin-users-card"
+import { RecentActivity } from "@/components/recent-activity"
 import { formatCurrency, formatAdminUserName, formatEnum, formatDate } from "@/lib/utils"
-import { IconLoader2, IconWallet, IconBuilding, IconDroplet, IconUsersGroup, IconChartBar } from "@tabler/icons-react"
+import { IconLoader2, IconWallet, IconBuilding, IconDroplet, IconUsersGroup, IconChartBar, IconHistory } from "@tabler/icons-react"
 import { Wallet, Globe, Building2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -181,6 +182,41 @@ export function StaffPageClient() {
     [dateRange]
   )
 
+  const staffActivities = React.useMemo(() => {
+    if (!staffDetails) return []
+    const activities: Array<{ type: string; message: string; timestamp: Date }> = []
+    staffDetails.offlineIncome.forEach((i) => {
+      activities.push({
+        type: "offline",
+        message: `Offline income added: ${formatCurrency(i.amountPence)} (${formatEnum(i.source)})`,
+        timestamp: new Date(i.receivedAt),
+      })
+    })
+    staffDetails.collections.forEach((c) => {
+      activities.push({
+        type: "collection",
+        message: `Collection logged: ${formatCurrency(c.amountPence)}`,
+        timestamp: new Date(c.collectedAt),
+      })
+    })
+    staffDetails.waterDonations.forEach((d) => {
+      activities.push({
+        type: "water",
+        message: `Water donation logged: ${formatCurrency(d.amountPence)} (${formatEnum(d.projectType ?? "") || "Water"})`,
+        timestamp: new Date(d.createdAt),
+      })
+    })
+    staffDetails.sponsorshipDonations.forEach((d) => {
+      activities.push({
+        type: "sponsor",
+        message: `Sponsor donation logged: ${formatCurrency(d.amountPence)} (${formatEnum(d.projectType ?? "") || "Sponsorship"})`,
+        timestamp: new Date(d.createdAt),
+      })
+    })
+    activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    return activities
+  }, [staffDetails])
+
   const handleOpenModal = React.useCallback(
     (user: StaffUser) => {
       setSelectedUser(user)
@@ -280,7 +316,7 @@ export function StaffPageClient() {
             Portal Accounts
           </TabsTrigger>
           <TabsTrigger value="admin-users" className="gap-1.5">
-            Admin Users
+            Manage Users
           </TabsTrigger>
         </TabsList>
 
@@ -404,6 +440,15 @@ export function StaffPageClient() {
                       {dashboardData.summary.counts.sponsorshipDonations > 0 && (
                         <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs">
                           {dashboardData.summary.counts.sponsorshipDonations}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="activity" className="gap-1.5">
+                      <IconHistory className="size-4" />
+                      Activity
+                      {staffActivities.length > 0 && (
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs">
+                          {staffActivities.length}
                         </span>
                       )}
                     </TabsTrigger>
@@ -677,6 +722,10 @@ export function StaffPageClient() {
                     {staffDetails?.sponsorshipDonations.length === 0 && (
                       <p className="py-8 text-center text-sm text-muted-foreground">No sponsorship donations in this period</p>
                     )}
+                  </TabsContent>
+
+                  <TabsContent value="activity" className="mt-4">
+                    <RecentActivity activities={staffActivities} />
                   </TabsContent>
                 </Tabs>
               ) : null}

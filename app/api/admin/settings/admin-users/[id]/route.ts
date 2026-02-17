@@ -2,6 +2,62 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
+  if (err) return err
+  try {
+    const { id } = await params
+    let user: { id: string; email: string; firstName: string | null; lastName: string | null; role: string; createdAt: Date; passwordHash: string | null; lastLoginAt?: Date | null } | null
+    try {
+      user = await prisma.adminUser.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          createdAt: true,
+          lastLoginAt: true,
+          passwordHash: true,
+        },
+      })
+    } catch {
+      user = await prisma.adminUser.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          createdAt: true,
+          passwordHash: true,
+        },
+      })
+    }
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+    const { passwordHash, ...rest } = user
+    return NextResponse.json({
+      ...rest,
+      hasSetPassword: !!passwordHash,
+      createdAt: user.createdAt.toISOString(),
+      lastLoginAt: "lastLoginAt" in user && user.lastLoginAt != null ? user.lastLoginAt.toISOString() : null,
+    })
+  } catch (error) {
+    console.error("Admin user GET error:", error)
+    return NextResponse.json(
+      { error: "Failed to load user" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -66,6 +66,20 @@ export async function POST(request: NextRequest) {
     }
 
     await setAdminSession(user.email)
+    const now = new Date()
+    await Promise.all([
+      prisma.adminUser.update({
+        where: { id: user.id },
+        data: { lastLoginAt: now },
+      }),
+      prisma.auditLog.create({
+        data: {
+          adminUserId: user.id,
+          action: "LOGIN",
+          entityType: "session",
+        },
+      }),
+    ])
     return NextResponse.json({
       success: true,
       email: user.email,
