@@ -213,8 +213,9 @@ export function BookingsPageClient({
     setSelectedBooking(null)
     try {
       const res = await fetch(`/api/admin/collections/bookings/${id}`, { method: "DELETE" })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        toast.error("Failed to delete booking")
+        toast.error(typeof data?.error === "string" ? data.error : "Failed to delete booking")
         return
       }
       toast.success("Booking removed")

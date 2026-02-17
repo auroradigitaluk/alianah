@@ -28,16 +28,6 @@ export async function PATCH(
     const body = await request.json()
     const data = patchSchema.parse(body)
 
-    if (user.role === "STAFF") {
-      const existing = await prisma.collectionBooking.findUnique({
-        where: { id },
-        select: { addedByAdminUserId: true },
-      })
-      if (!existing || existing.addedByAdminUserId !== user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-      }
-    }
-
     const updateData: Record<string, unknown> = {}
     if (data.locationName !== undefined) updateData.locationName = data.locationName
     if (data.addressLine1 !== undefined) updateData.addressLine1 = data.addressLine1
@@ -74,14 +64,12 @@ export async function DELETE(
   }
   try {
     const { id } = await params
-    if (user.role === "STAFF") {
-      const existing = await prisma.collectionBooking.findUnique({
-        where: { id },
-        select: { addedByAdminUserId: true },
-      })
-      if (!existing || existing.addedByAdminUserId !== user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-      }
+    const existing = await prisma.collectionBooking.findUnique({
+      where: { id },
+      select: { addedByAdminUserId: true },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 })
     }
     await prisma.collectionBooking.delete({
       where: { id },
@@ -89,6 +77,7 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Collection booking DELETE error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Failed to delete booking"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
