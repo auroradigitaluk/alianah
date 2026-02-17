@@ -3,11 +3,14 @@ import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
+const prioritySchema = z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable().optional()
+
 const createSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable().optional(),
   assigneeId: z.string().min(1, "Assignee is required"),
   dueDate: z.string().nullable().optional(),
+  priority: prioritySchema,
 })
 
 export async function GET(request: NextRequest) {
@@ -20,8 +23,16 @@ export async function GET(request: NextRequest) {
     const assigneeId = searchParams.get("assigneeId") ?? undefined
     const status = searchParams.get("status") ?? undefined
     const view = searchParams.get("view") ?? undefined // "active" | "completed"
+    const search = searchParams.get("search")?.trim() ?? undefined
+    const dueFrom = searchParams.get("dueFrom") ?? undefined
+    const dueTo = searchParams.get("dueTo") ?? undefined
 
-    const where: { assigneeId?: string; status?: string | { in: string[] } } = {}
+    const where: {
+      assigneeId?: string
+      status?: string | { in: string[] }
+      OR?: Array<{ title?: { contains: string; mode: "insensitive" }; description?: { contains: string; mode: "insensitive" } }>
+      dueDate?: { gte?: Date; lte?: Date }
+    } = {}
     if (user.role === "STAFF") {
       where.assigneeId = user.id
     } else {
@@ -36,6 +47,21 @@ export async function GET(request: NextRequest) {
       where.status = "DONE"
     } else if (status) {
       where.status = status
+    }
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ]
+    }
+    if (dueFrom || dueTo) {
+      where.dueDate = {}
+      if (dueFrom) where.dueDate.gte = new Date(dueFrom)
+      if (dueTo) {
+        const end = new Date(dueTo)
+        end.setHours(23, 59, 59, 999)
+        where.dueDate.lte = end
+      }
     }
 
     const orderBy = view === "completed"
@@ -61,6 +87,7 @@ export async function GET(request: NextRequest) {
         title: t.title,
         description: t.description,
         status: t.status,
+        priority: t.priority,
         dueDate: t.dueDate?.toISOString() ?? null,
         staffNote: t.staffNote,
         createdAt: t.createdAt.toISOString(),
@@ -81,6 +108,7 @@ const staffCreateSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
+  priority: prioritySchema,
 })
 
 export async function POST(request: NextRequest) {
@@ -103,6 +131,7 @@ export async function POST(request: NextRequest) {
         description: parsed.description ?? null,
         assigneeId,
         dueDate: parsed.dueDate ? new Date(parsed.dueDate) : null,
+        priority: parsed.priority ?? null,
         status: "TODO",
         createdById: user.id,
       },
@@ -121,6 +150,7 @@ export async function POST(request: NextRequest) {
       title: task.title,
       description: task.description,
       status: task.status,
+      priority: task.priority,
       dueDate: task.dueDate?.toISOString() ?? null,
       staffNote: task.staffNote,
       createdAt: task.createdAt.toISOString(),
@@ -135,6 +165,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     console.error("Tasks POST error:", error)
-    return NextResponse.json({ error: "Failed to create task" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Failed to create task"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
