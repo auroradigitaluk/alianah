@@ -502,15 +502,20 @@ export function OfflineIncomeModal({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="appeal-amount">Amount (GBP)</Label>
-                    <Input
-                      id="appeal-amount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                    />
+                    <Label htmlFor="appeal-amount">Amount (£)</Label>
+                    <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+                      <span className="pl-3 text-muted-foreground text-sm">£</span>
+                      <Input
+                        id="appeal-amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="receivedAt">Received Date</Label>
@@ -939,8 +944,11 @@ export function OfflineIncomeModal({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sponsor-amount">Yearly Amount (GBP)</Label>
-                    <Input id="sponsor-amount" value={amount} readOnly />
+                    <Label htmlFor="sponsor-amount">Yearly Amount (£)</Label>
+                    <div className="flex h-9 items-center rounded-md border border-input bg-muted shadow-xs overflow-hidden">
+                      <span className="pl-3 text-muted-foreground text-sm">£</span>
+                      <Input id="sponsor-amount" value={amount} readOnly className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 bg-transparent" />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="receivedAtSponsor">Received Date</Label>

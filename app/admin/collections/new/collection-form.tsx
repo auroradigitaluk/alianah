@@ -65,9 +65,11 @@ export function CollectionForm({
   React.useEffect(() => {
     if (selectedMasjid) {
       const prefilled = selectedMasjid.email?.trim() || selectedMasjid.emailAlt?.trim() || ""
-      setReceiptEmail((prev) => (prev.trim() ? prev : prefilled))
+      setReceiptEmail(prefilled)
+    } else {
+      setReceiptEmail("")
     }
-  }, [selectedMasjid?.id])
+  }, [selectedMasjid])
 
   const filteredMasjids = React.useMemo(() => {
     const q = masjidQuery.trim().toLowerCase()
@@ -202,74 +204,110 @@ export function CollectionForm({
           />
         </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="appeal">Appeal</Label>
-        <Select value={appealId} onValueChange={setAppealId}>
-          <SelectTrigger id="appeal">
-            <SelectValue placeholder="Select appeal (optional)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">None</SelectItem>
-            {appeals.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="appeal">Appeal</Label>
+          <Select value={appealId} onValueChange={setAppealId}>
+            <SelectTrigger id="appeal">
+              <SelectValue placeholder="Select appeal (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">None</SelectItem>
+              {appeals.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="receiptEmail">Email for receipt (optional)</Label>
+          <Input
+            id="receiptEmail"
+            type="email"
+            value={receiptEmail}
+            onChange={(e) => setReceiptEmail(e.target.value)}
+            placeholder="Send collection receipt to this email"
+          />
+          {selectedMasjid && (selectedMasjid.email || selectedMasjid.emailAlt) && (
+            <p className="text-xs text-muted-foreground">
+              Prefilled from masjid contact. Edit if needed.
+            </p>
+          )}
+        </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-5">
         <div className="space-y-2">
           <Label htmlFor="sadaqah">Sadaqah (£)</Label>
-          <Input
-            id="sadaqah"
-            type="number"
-            step="0.01"
-            min="0"
-            value={sadaqah}
-            onChange={(e) => setSadaqah(e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+            <span className="pl-3 text-muted-foreground text-sm">£</span>
+            <Input
+              id="sadaqah"
+              type="number"
+              step="0.01"
+              min="0"
+              value={sadaqah}
+              onChange={(e) => setSadaqah(e.target.value)}
+              placeholder="0.00"
+              className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="zakat">Zakat (£)</Label>
-          <Input
-            id="zakat"
-            type="number"
-            step="0.01"
-            min="0"
-            value={zakat}
-            onChange={(e) => setZakat(e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+            <span className="pl-3 text-muted-foreground text-sm">£</span>
+            <Input
+              id="zakat"
+              type="number"
+              step="0.01"
+              min="0"
+              value={zakat}
+              onChange={(e) => setZakat(e.target.value)}
+              placeholder="0.00"
+              className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="lillah">Lillah (£)</Label>
-          <Input
-            id="lillah"
-            type="number"
-            step="0.01"
-            min="0"
-            value={lillah}
-            onChange={(e) => setLillah(e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+            <span className="pl-3 text-muted-foreground text-sm">£</span>
+            <Input
+              id="lillah"
+              type="number"
+              step="0.01"
+              min="0"
+              value={lillah}
+              onChange={(e) => setLillah(e.target.value)}
+              placeholder="0.00"
+              className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="card">Card (£)</Label>
-          <Input
-            id="card"
-            type="number"
-            step="0.01"
-            min="0"
-            value={card}
-            onChange={(e) => setCard(e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+            <span className="pl-3 text-muted-foreground text-sm">£</span>
+            <Input
+              id="card"
+              type="number"
+              step="0.01"
+              min="0"
+              value={card}
+              onChange={(e) => setCard(e.target.value)}
+              placeholder="0.00"
+              className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label>Total (£)</Label>
-          <Input value={totalDisplay} readOnly className="bg-muted font-semibold" />
+          <div className="flex h-9 items-center rounded-md border border-input bg-muted shadow-xs overflow-hidden">
+            <span className="pl-3 text-muted-foreground text-sm">£</span>
+            <Input value={totalDisplay} readOnly className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 bg-transparent font-semibold" />
+          </div>
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -308,21 +346,6 @@ export function CollectionForm({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Optional notes"
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="receiptEmail">Email for receipt (optional)</Label>
-        <Input
-          id="receiptEmail"
-          type="email"
-          value={receiptEmail}
-          onChange={(e) => setReceiptEmail(e.target.value)}
-          placeholder="Send collection receipt to this email"
-        />
-        {selectedMasjid && (selectedMasjid.email || selectedMasjid.emailAlt) && (
-          <p className="text-xs text-muted-foreground">
-            Prefilled from masjid contact. Edit if needed.
-          </p>
-        )}
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={saving || totalPence <= 0}>

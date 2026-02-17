@@ -803,16 +803,20 @@ export function DonationsTable({
             </div>
             {refundType === "partial" && (
               <div className="space-y-2">
-                <Label htmlFor="refundAmount">Refund Amount (GBP)</Label>
-                <Input
-                  id="refundAmount"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={refundAmount}
-                  onChange={(e) => setRefundAmount(e.target.value)}
-                  placeholder="e.g. 10.00"
-                />
+                <Label htmlFor="refundAmount">Refund Amount (£)</Label>
+                <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+                  <span className="pl-3 text-muted-foreground text-sm">£</span>
+                  <Input
+                    id="refundAmount"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={refundAmount}
+                    onChange={(e) => setRefundAmount(e.target.value)}
+                    placeholder="e.g. 10.00"
+                    className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
               </div>
             )}
             <div className="space-y-2">
