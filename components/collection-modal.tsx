@@ -13,7 +13,7 @@ import { toast } from "sonner"
 import { Plus, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type Masjid = { id: string; name: string }
+type Masjid = { id: string; name: string; email?: string | null; emailAlt?: string | null }
 type Appeal = { id: string; title: string }
 
 type Props = {
@@ -48,6 +48,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
     return d.toISOString().slice(0, 16)
   })
   const [notes, setNotes] = React.useState("")
+  const [receiptEmail, setReceiptEmail] = React.useState("")
 
   const toPence = (val: string) => Math.round((parseFloat(val) || 0) * 100)
   const totalPence =
@@ -57,6 +58,14 @@ export function CollectionModal({ masjids, appeals }: Props) {
   const selectedMasjid = masjidId && masjidId !== "__none__"
     ? masjids.find((m) => m.id === masjidId)
     : null
+
+  React.useEffect(() => {
+    if (selectedMasjid) {
+      const prefilled = selectedMasjid.email?.trim() || selectedMasjid.emailAlt?.trim() || ""
+      setReceiptEmail((prev) => (prev.trim() ? prev : prefilled))
+    }
+  }, [selectedMasjid?.id])
+
   const filteredMasjids = React.useMemo(() => {
     const q = masjidQuery.trim().toLowerCase()
     if (!q) return masjids
@@ -76,6 +85,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
     const d = new Date()
     setCollectedAt(d.toISOString().slice(0, 16))
     setNotes("")
+    setReceiptEmail("")
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,6 +111,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
           type,
           collectedAt: new Date(collectedAt).toISOString(),
           notes: notes.trim() || null,
+          receiptEmail: receiptEmail.trim() || undefined,
         }),
       })
 
@@ -340,6 +351,22 @@ export function CollectionModal({ masjids, appeals }: Props) {
                 placeholder="Optional notes"
                 rows={3}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="receiptEmail" className="text-sm font-medium text-foreground">Email for receipt (optional)</Label>
+              <Input
+                id="receiptEmail"
+                type="email"
+                value={receiptEmail}
+                onChange={(e) => setReceiptEmail(e.target.value)}
+                placeholder="Send collection receipt to this email"
+              />
+              {selectedMasjid && (selectedMasjid.email || selectedMasjid.emailAlt) && (
+                <p className="text-xs text-muted-foreground">
+                  Prefilled from masjid contact. Edit if needed.
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-4">

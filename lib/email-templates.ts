@@ -172,6 +172,7 @@ function donationConfirmationLayout(
     totalPence: number
     giftAidHtml: string
     manageSubscriptionHtml: string
+    thankYouParagraph?: string
   }
 ): string {
   const totalFormatted = moneyPence(params.totalPence)
@@ -230,7 +231,8 @@ function donationConfirmationLayout(
                 </table>
               </td>
             </tr>
-            ${params.giftAidHtml ? `<tr><td style="padding: 0 0 20px; font-size: 13px;">${params.giftAidHtml}</td></tr>` : ""}
+            ${params.thankYouParagraph ? `<tr><td style="padding: 20px 0 0; font-size: 14px; color:#6b7280; line-height: 1.6;">${params.thankYouParagraph}</td></tr>` : ""}
+            ${params.giftAidHtml ? `<tr><td style="padding: 32px 0 20px; font-size: 13px;">${params.giftAidHtml}</td></tr>` : ""}
             ${params.manageSubscriptionHtml ? `<tr><td style="padding: 0 0 32px;">${params.manageSubscriptionHtml}</td></tr>` : ""}
             <tr>
               <td style="padding: 24px 0 0; border-top: 1px solid #e5e7eb; font-size: 12px; color:#6b7280;">
@@ -363,6 +365,9 @@ export function buildDonationConfirmationEmail(
 
   const manageSubscriptionHtml = ""
 
+  const firstName = params.donorName.trim().split(/\s+/)[0] || "there"
+  const introParagraph = `${escapeHtml(firstName)}, thank you for your generous donation. Below is a summary of your donation.`
+  const thankYouParagraph = `Thank you for donating to ${escapeHtml(charityName)}. Your generosity helps us support those in need and continue our vital work. We are truly grateful for your trust and support.`
   const html = donationConfirmationLayout({
     preheader,
     charityName,
@@ -373,12 +378,13 @@ export function buildDonationConfirmationEmail(
     heading: "Thank you for your donation",
     orderNumber: params.orderNumber,
     orderDate: receiptDate,
-    introParagraph: "We have received your donation. Below is your donation summary.",
+    introParagraph,
     ctaHtml,
     summaryRowsHtml,
     totalPence: params.totalPence,
     giftAidHtml,
     manageSubscriptionHtml,
+    thankYouParagraph,
   })
 
   return {
@@ -415,6 +421,7 @@ export type WaterProjectDonationEmailParams = {
   country: string
   amount: number
   donationType: string
+  donationNumber: string
   baseUrl?: string
 }
 
@@ -435,12 +442,14 @@ export function buildWaterProjectDonationEmail(
     </div>
   `
 
+  const rowBorder = `border-bottom: 1px solid ${BRAND.border};`
   const details = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
-      <tr><td style="padding: 6px 0; color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 6px 0; font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType] || params.donationType)}</td></tr>
-      <tr><td style="padding: 6px 0; color:${BRAND.muted};">Project</td><td align="right" style="padding: 6px 0; font-weight: 700;">${escapeHtml(projectLabel)}</td></tr>
-      <tr><td style="padding: 6px 0; color:${BRAND.muted};">Location</td><td align="right" style="padding: 6px 0; font-weight: 700;">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</td></tr>
-      <tr><td style="padding: 6px 0; color:${BRAND.muted};">Amount</td><td align="right" style="padding: 6px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation number</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.donationNumber)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType] || params.donationType)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Project</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(projectLabel)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Location</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</td></tr>
+      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>
     </table>
   `
 
@@ -478,6 +487,7 @@ export type SponsorshipDonationEmailParams = {
   country: string
   amount: number
   donationType: string
+  donationNumber: string
   baseUrl?: string
 }
 
@@ -498,12 +508,14 @@ export function buildSponsorshipDonationEmail(
     </div>
   `
 
+  const rowBorder = `border-bottom: 1px solid ${BRAND.border};`
   const details = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
-      <tr><td style="padding: 6px 0; color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 6px 0; font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType] || params.donationType)}</td></tr>
-      <tr><td style="padding: 6px 0; color:${BRAND.muted};">Programme</td><td align="right" style="padding: 6px 0; font-weight: 700;">${escapeHtml(projectLabel)}</td></tr>
-      <tr><td style="padding: 6px 0; color:${BRAND.muted};">Location</td><td align="right" style="padding: 6px 0; font-weight: 700;">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</td></tr>
-      <tr><td style="padding: 6px 0; color:${BRAND.muted};">Amount</td><td align="right" style="padding: 6px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation number</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.donationNumber)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType] || params.donationType)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Programme</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(projectLabel)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Location</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</td></tr>
+      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>
     </table>
   `
 
@@ -528,6 +540,150 @@ export function buildSponsorshipDonationEmail(
       logoUrl,
       title: "Thank you for your sponsorship",
       heading: "Thank you for your sponsorship",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
+  }
+}
+
+export type OfflineDonationReceiptEmailParams = {
+  donorEmail: string
+  donorName: string
+  appealTitle: string
+  amountPence: number
+  donationType: string
+  receivedAt: Date
+  donationNumber: string
+  baseUrl?: string
+}
+
+export function buildOfflineDonationReceiptEmail(
+  params: OfflineDonationReceiptEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
+  const preheader = `Your donation receipt – ${escapeHtml(params.appealTitle)}`
+  const subject = `Donation receipt – ${escapeHtml(params.appealTitle)}`
+  const receivedDate = formatDate(params.receivedAt)
+  const introHtml = `
+    <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
+      Dear ${escapeHtml(params.donorName)},
+      <br />
+      Jazak'Allah for your donation. Please find your receipt below.
+    </div>
+  `
+  const rowBorder = `border-bottom: 1px solid ${BRAND.border};`
+  const details = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation number</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.donationNumber)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Appeal</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.appealTitle)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType] || params.donationType)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.amountPence)}</td></tr>
+      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Date received</td><td align="right" style="padding: 8px 0; font-weight: 700;">${escapeHtml(receivedDate)}</td></tr>
+    </table>
+  `
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
+  const thankYouHtml = `<div style="margin-top: 20px; font-size: 14px; color:${BRAND.muted}; line-height: 1.6;">Thank you for donating to ${escapeHtml(charityName)}. Your generosity helps us support those in need and continue our vital work. We are truly grateful for your trust and support.</div>`
+  const contentHtml = section({ title: "Receipt details", bodyHtml: details + thankYouHtml })
+  return {
+    subject,
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Donation receipt",
+      heading: "Donation receipt",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
+  }
+}
+
+const COLLECTION_TYPE_LABELS: Record<string, string> = {
+  JUMMAH: "Jummah",
+  RAMADAN: "Ramadan",
+  EID: "Eid",
+  SPECIAL: "Special",
+  OTHER: "Other",
+}
+
+export type CollectionReceiptEmailParams = {
+  recipientEmail: string
+  recipientName?: string | null
+  locationName: string
+  collectionType: string
+  collectedAt: Date
+  totalPence: number
+  sadaqahPence: number
+  zakatPence: number
+  lillahPence: number
+  cardPence: number
+  baseUrl?: string
+  /** When set, a "Print receipt" button is shown linking to this URL. */
+  printUrl?: string
+}
+
+export function buildCollectionReceiptEmail(
+  params: CollectionReceiptEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
+  const preheader = `Collection receipt – ${escapeHtml(params.locationName)}`
+  const subject = `Collection receipt – ${escapeHtml(params.locationName)}`
+  const collectedDate = formatDate(params.collectedAt)
+  const typeLabel = COLLECTION_TYPE_LABELS[params.collectionType] || params.collectionType
+  const greetingName = (params.recipientName || params.locationName).trim() || "there"
+  const greeting = `Assalaamu 'Alaikum ${escapeHtml(greetingName)},`
+  const introHtml = `
+    <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
+      ${greeting}
+      <br />
+      Please find below the receipt for the collection recorded for ${escapeHtml(params.locationName)}.
+    </div>
+  `
+  const rowBorder = `border-bottom: 1px solid ${BRAND.border};`
+  const receiptDetailsTable = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Location</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.locationName)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Collection type</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(typeLabel)}</td></tr>
+      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Date collected</td><td align="right" style="padding: 8px 0; font-weight: 700;">${escapeHtml(collectedDate)}</td></tr>
+    </table>
+  `
+  const amountRows: string[] = []
+  if (params.sadaqahPence > 0) amountRows.push(`<tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Sadaqah</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.sadaqahPence)}</td></tr>`)
+  if (params.zakatPence > 0) amountRows.push(`<tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Zakat</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.zakatPence)}</td></tr>`)
+  if (params.lillahPence > 0) amountRows.push(`<tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Lillah</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.lillahPence)}</td></tr>`)
+  if (params.cardPence > 0) amountRows.push(`<tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Card / General</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.cardPence)}</td></tr>`)
+  const amountsTable = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+      ${amountRows.join("")}
+      <tr><td style="padding: 12px 0 0; border-top: 1px solid ${BRAND.border}; font-weight: 700; color:#111827;">Total</td><td align="right" style="padding: 12px 0 0; border-top: 1px solid ${BRAND.border}; font-weight: 700;">${moneyPence(params.totalPence)}</td></tr>
+    </table>
+  `
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(settings, params.baseUrl)
+  const thankYouHtml = `<div style="margin-top: 32px; font-size: 14px; color:${BRAND.muted}; line-height: 1.6;">Thank you for your support and for partnering with ${escapeHtml(charityName)}. Your collection helps us reach more people in need and continue our work. We are deeply grateful for your commitment.</div>`
+  const printButtonHtml = params.printUrl
+    ? `<div style="margin-top: 28px;">${button({ href: params.printUrl, label: "Print receipt" })}</div>`
+    : ""
+  const contentHtml = `
+    ${section({ title: "Receipt details", bodyHtml: receiptDetailsTable })}
+    <div style="height: 12px;"></div>
+    ${section({ title: "Amounts", bodyHtml: amountsTable })}
+    ${thankYouHtml}
+    ${printButtonHtml}
+  `
+  return {
+    subject,
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Collection receipt",
+      heading: "Collection receipt",
       aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
       contentHtml,
     }),

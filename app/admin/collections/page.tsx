@@ -45,7 +45,7 @@ export default async function CollectionsPage({
     getCollections(staffId),
     prisma.masjid.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, email: true, emailAlt: true },
     }),
     prisma.appeal.findMany({
       where: { isActive: true },

@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRole } from "@/lib/admin-auth"
-import { isValidPhone } from "@/lib/utils"
+import { isValidPhone, isPlaceholderDonorEmail } from "@/lib/utils"
+import { generateDonationNumber } from "@/lib/donation-number"
+import {
+  sendOfflineDonationReceiptEmail,
+  sendWaterProjectDonationEmail,
+  sendSponsorshipDonationEmail,
+} from "@/lib/email"
 
 const donorPhoneRefine = (v: string | undefined) => !v || isValidPhone(v)
 
@@ -13,6 +19,7 @@ const baseSchema = z.object({
   collectedVia: z.string().optional().default("office"),
   receivedAt: z.string(),
   notes: z.string().nullable().optional(),
+  sendReceiptEmail: z.boolean().optional().default(false),
 })
 
 const appealSchema = baseSchema.extend({
@@ -89,16 +96,27 @@ export async function POST(request: NextRequest) {
       let billingPostcode: string | null = null
       let billingCountry: string | null = null
 
-      if (giftAid && donorInput) {
-        const email = donorInput.email?.trim()
-        const firstName = donorInput.firstName?.trim() || "Anonymous"
-        const lastName = donorInput.lastName?.trim() || "Donor"
-        if (!email) {
-          return NextResponse.json(
-            { error: "Email is required for Gift Aid" },
-            { status: 400 }
-          )
+      if ((giftAid || data.sendReceiptEmail) && donorInput) {
+        const emailProvided = donorInput.email?.trim()
+        const firstProvided = donorInput.firstName?.trim()
+        const lastProvided = donorInput.lastName?.trim()
+        if (data.sendReceiptEmail) {
+          if (!emailProvided) {
+            return NextResponse.json(
+              { error: "Email is required to send receipt" },
+              { status: 400 }
+            )
+          }
+          if (!firstProvided || !lastProvided) {
+            return NextResponse.json(
+              { error: "First name and last name are required to send receipt" },
+              { status: 400 }
+            )
+          }
         }
+        const email = emailProvided || makeFallbackEmail()
+        const firstName = firstProvided || "Anonymous"
+        const lastName = lastProvided || "Donor"
         const donor = await prisma.donor.upsert({
           where: { email: email.toLowerCase() },
           update: {
@@ -129,7 +147,14 @@ export async function POST(request: NextRequest) {
         billingPostcode = donorInput.postcode?.trim() || donor.postcode || null
         billingCountry = donorInput.country?.trim() || donor.country || null
       }
+      if (data.sendReceiptEmail && !donorId) {
+        return NextResponse.json(
+          { error: "Email is required to send receipt" },
+          { status: 400 }
+        )
+      }
 
+      const donationNumber = await generateDonationNumber()
       const income = await prisma.offlineIncome.create({
         data: {
           appealId: data.appealId,
@@ -146,8 +171,35 @@ export async function POST(request: NextRequest) {
           billingCity,
           billingPostcode,
           billingCountry,
+          donationNumber,
         },
+        include: { donor: true, appeal: { select: { title: true } } },
       })
+
+      if (
+        data.sendReceiptEmail &&
+        income.donor &&
+        income.appeal &&
+        !isPlaceholderDonorEmail(income.donor.email)
+      ) {
+        try {
+          await sendOfflineDonationReceiptEmail({
+            donorEmail: income.donor.email,
+            donorName: [income.donor.firstName, income.donor.lastName].filter(Boolean).join(" ") || "Donor",
+            appealTitle: income.appeal.title,
+            amountPence: data.amountPence,
+            donationType: data.donationType,
+            receivedAt,
+            donationNumber: income.donationNumber ?? donationNumber,
+          })
+        } catch (err) {
+          console.error("Failed to send offline donation receipt:", err)
+          return NextResponse.json(
+            { error: "Entry saved but receipt email failed to send" },
+            { status: 500 }
+          )
+        }
+      }
 
       return NextResponse.json({ success: true, incomeId: income.id })
     }
@@ -172,6 +224,20 @@ export async function POST(request: NextRequest) {
       }
 
       const donorInput = data.donor
+      if (data.sendReceiptEmail) {
+        if (!donorInput?.email?.trim() || isPlaceholderDonorEmail(donorInput.email.trim())) {
+          return NextResponse.json(
+            { error: "Valid email is required to send receipt" },
+            { status: 400 }
+          )
+        }
+        if (!donorInput?.firstName?.trim() || !donorInput?.lastName?.trim()) {
+          return NextResponse.json(
+            { error: "First name and last name are required to send receipt" },
+            { status: 400 }
+          )
+        }
+      }
       const donorEmail = donorInput?.email?.trim() || makeFallbackEmail()
       const donorFirst = donorInput?.firstName?.trim() || "Anonymous"
       const donorLast = donorInput?.lastName?.trim() || "Donor"
@@ -191,6 +257,7 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      const sponsorshipDonationNumber = await generateDonationNumber()
       const donation = await prisma.sponsorshipDonation.create({
         data: {
           sponsorshipProjectId: project.id,
@@ -209,6 +276,7 @@ export async function POST(request: NextRequest) {
             .filter(Boolean)
             .join(" | ") || null,
           addedByAdminUserId: adminUser.id,
+          donationNumber: sponsorshipDonationNumber,
         },
       })
 
@@ -217,6 +285,31 @@ export async function POST(request: NextRequest) {
           where: { id: project.id },
           data: { status: "WAITING_TO_REVIEW" },
         })
+      }
+
+      if (data.sendReceiptEmail && !isPlaceholderDonorEmail(donor.email)) {
+        try {
+          await sendSponsorshipDonationEmail({
+            donorEmail: donor.email,
+            donorName: [donorFirst, donorLast].filter(Boolean).join(" ") || "Donor",
+            projectType: project.projectType,
+            location: project.location,
+            country: country.country,
+            amount: country.yearlyPricePence,
+            donationType: data.donationType,
+            donationNumber: donation.donationNumber ?? sponsorshipDonationNumber,
+          })
+          await prisma.sponsorshipDonation.update({
+            where: { id: donation.id },
+            data: { emailSent: true },
+          })
+        } catch (err) {
+          console.error("Failed to send sponsorship receipt:", err)
+          return NextResponse.json(
+            { error: "Donation saved but receipt email failed to send" },
+            { status: 500 }
+          )
+        }
       }
 
       return NextResponse.json({ success: true, donationId: donation.id })
@@ -238,6 +331,20 @@ export async function POST(request: NextRequest) {
     }
 
       const donorInput = data.donor
+      if (data.sendReceiptEmail) {
+        if (!donorInput?.email?.trim() || isPlaceholderDonorEmail(donorInput.email.trim())) {
+          return NextResponse.json(
+            { error: "Valid email is required to send receipt" },
+            { status: 400 }
+          )
+        }
+        if (!donorInput?.firstName?.trim() || !donorInput?.lastName?.trim()) {
+          return NextResponse.json(
+            { error: "First name and last name are required to send receipt" },
+            { status: 400 }
+          )
+        }
+      }
       const donorEmail = donorInput?.email?.trim() || makeFallbackEmail()
       const donorFirst = donorInput?.firstName?.trim() || "Anonymous"
       const donorLast = donorInput?.lastName?.trim() || "Donor"
@@ -257,6 +364,7 @@ export async function POST(request: NextRequest) {
         },
       })
 
+    const waterDonationNumber = await generateDonationNumber()
     const donation = await prisma.waterProjectDonation.create({
       data: {
         waterProjectId: project.id,
@@ -278,6 +386,7 @@ export async function POST(request: NextRequest) {
           .filter(Boolean)
           .join(" | ") || null,
         addedByAdminUserId: adminUser.id,
+        donationNumber: waterDonationNumber,
       },
     })
 
@@ -286,6 +395,31 @@ export async function POST(request: NextRequest) {
         where: { id: project.id },
         data: { status: "WAITING_TO_REVIEW" },
       })
+    }
+
+    if (data.sendReceiptEmail && !isPlaceholderDonorEmail(donor.email)) {
+      try {
+        await sendWaterProjectDonationEmail({
+          donorEmail: donor.email,
+          donorName: [donorFirst, donorLast].filter(Boolean).join(" ") || "Donor",
+          projectType: project.projectType,
+          location: project.location,
+          country: country.country,
+          amount: country.pricePence,
+          donationType: data.donationType,
+          donationNumber: donation.donationNumber ?? waterDonationNumber,
+        })
+        await prisma.waterProjectDonation.update({
+          where: { id: donation.id },
+          data: { emailSent: true },
+        })
+      } catch (err) {
+        console.error("Failed to send water project receipt:", err)
+        return NextResponse.json(
+          { error: "Donation saved but receipt email failed to send" },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({ success: true, donationId: donation.id })

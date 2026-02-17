@@ -441,6 +441,7 @@ export async function finalizeOrderByOrderNumber(params: {
           country: donation.country.country,
           amount: donation.amountPence,
           donationType: donation.donationType,
+          donationNumber: (donation as { donationNumber?: string | null }).donationNumber ?? orderNumber,
         })
         await prisma.waterProjectDonation.update({
           where: { id: donation.id },
@@ -488,6 +489,7 @@ export async function finalizeOrderByOrderNumber(params: {
           country: donation.country.country,
           amount: donation.amountPence,
           donationType: donation.donationType,
+          donationNumber: (donation as { donationNumber?: string | null }).donationNumber ?? orderNumber,
         })
         await prisma.sponsorshipDonation.update({
           where: { id: donation.id },

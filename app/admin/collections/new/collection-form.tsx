@@ -17,7 +17,7 @@ import { toast } from "sonner"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type Masjid = { id: string; name: string }
+type Masjid = { id: string; name: string; email?: string | null; emailAlt?: string | null }
 type Appeal = { id: string; title: string }
 
 const COLLECTION_TYPES = [
@@ -52,6 +52,7 @@ export function CollectionForm({
     return d.toISOString().slice(0, 16)
   })
   const [notes, setNotes] = React.useState("")
+  const [receiptEmail, setReceiptEmail] = React.useState("")
 
   const toPence = (val: string) => Math.round((parseFloat(val) || 0) * 100)
   const totalPence = toPence(sadaqah) + toPence(zakat) + toPence(lillah) + toPence(card)
@@ -60,6 +61,14 @@ export function CollectionForm({
   const selectedMasjid = masjidId && masjidId !== "__none__"
     ? masjids.find((m) => m.id === masjidId)
     : null
+
+  React.useEffect(() => {
+    if (selectedMasjid) {
+      const prefilled = selectedMasjid.email?.trim() || selectedMasjid.emailAlt?.trim() || ""
+      setReceiptEmail((prev) => (prev.trim() ? prev : prefilled))
+    }
+  }, [selectedMasjid?.id])
+
   const filteredMasjids = React.useMemo(() => {
     const q = masjidQuery.trim().toLowerCase()
     if (!q) return masjids
@@ -89,6 +98,7 @@ export function CollectionForm({
           type,
           collectedAt: new Date(collectedAt).toISOString(),
           notes: notes.trim() || null,
+          receiptEmail: receiptEmail.trim() || undefined,
         }),
       })
 
@@ -298,6 +308,21 @@ export function CollectionForm({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Optional notes"
         />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="receiptEmail">Email for receipt (optional)</Label>
+        <Input
+          id="receiptEmail"
+          type="email"
+          value={receiptEmail}
+          onChange={(e) => setReceiptEmail(e.target.value)}
+          placeholder="Send collection receipt to this email"
+        />
+        {selectedMasjid && (selectedMasjid.email || selectedMasjid.emailAlt) && (
+          <p className="text-xs text-muted-foreground">
+            Prefilled from masjid contact. Edit if needed.
+          </p>
+        )}
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={saving || totalPence <= 0}>

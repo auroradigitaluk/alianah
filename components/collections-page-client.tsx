@@ -24,7 +24,7 @@ type CollectionRow = {
 
 type CollectionsPageClientProps = {
   collections: CollectionRow[]
-  masjids: { id: string; name: string }[]
+  masjids: { id: string; name: string; email?: string | null; emailAlt?: string | null }[]
   appeals: { id: string; title: string }[]
   staffUsers: { id: string; email: string; role: string; firstName: string | null; lastName: string | null }[]
   canCreate: boolean

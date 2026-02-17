@@ -9,9 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { Plus, Gift } from "lucide-react"
+import { Plus, Gift, Mail } from "lucide-react"
 import { CHECKOUT_COUNTRIES } from "@/lib/countries"
-import { isValidEmail, isValidPhone, isValidPostcode } from "@/lib/utils"
+import { isValidEmail, isValidPhone, isValidPostcode, toTitleCaseLive } from "@/lib/utils"
 
 type AppealOption = { id: string; title: string }
 type WaterProjectOption = { id: string; projectType: string; location: string | null }
@@ -101,6 +101,10 @@ export function OfflineIncomeModal({
   const [giftaidCity, setGiftaidCity] = React.useState("")
   const [giftaidPostcode, setGiftaidPostcode] = React.useState("")
   const [giftaidCountry, setGiftaidCountry] = React.useState("GB")
+  const [sendReceiptEmail, setSendReceiptEmail] = React.useState(false)
+  const [receiptEmail, setReceiptEmail] = React.useState("")
+  const [receiptFirstName, setReceiptFirstName] = React.useState("")
+  const [receiptLastName, setReceiptLastName] = React.useState("")
 
   const selectedWaterProject = waterProjects.find((p) => p.projectType === projectType) || null
   const filteredCountries = waterProjectCountries
@@ -144,6 +148,10 @@ export function OfflineIncomeModal({
       setGiftaidCity("")
       setGiftaidPostcode("")
       setGiftaidCountry("GB")
+      setSendReceiptEmail(false)
+      setReceiptEmail("")
+      setReceiptFirstName("")
+      setReceiptLastName("")
     }
     if (entryType === "water") {
       setAppealId("")
@@ -198,6 +206,10 @@ export function OfflineIncomeModal({
     setGiftaidCity("")
     setGiftaidPostcode("")
     setGiftaidCountry("GB")
+    setSendReceiptEmail(false)
+    setReceiptEmail("")
+    setReceiptFirstName("")
+    setReceiptLastName("")
     const today = new Date()
     setReceivedAt(today.toISOString().slice(0, 10))
   }
@@ -213,10 +225,6 @@ export function OfflineIncomeModal({
         toast.error("Enter a valid amount")
         return
       }
-      if (giftAidExpanded && !email.trim()) {
-        toast.error("Email is required for Gift Aid")
-        return
-      }
       if (giftAidExpanded && giftaidPostcode.trim() && !isValidPostcode(giftaidPostcode, giftaidCountry)) {
         toast.error("Enter a valid postcode")
         return
@@ -228,6 +236,23 @@ export function OfflineIncomeModal({
       if (giftAidExpanded && giftaidPhone.trim() && !isValidPhone(giftaidPhone)) {
         toast.error("Enter a valid phone number")
         return
+      }
+      if (sendReceiptEmail) {
+        const emailForReceipt = giftAidExpanded ? email.trim() : receiptEmail.trim()
+        const firstForReceipt = giftAidExpanded ? firstName.trim() : receiptFirstName.trim()
+        const lastForReceipt = giftAidExpanded ? lastName.trim() : receiptLastName.trim()
+        if (!firstForReceipt || !lastForReceipt) {
+          toast.error("First name and last name are required to send receipt")
+          return
+        }
+        if (!emailForReceipt) {
+          toast.error("Email is required to send receipt")
+          return
+        }
+        if (!isValidEmail(emailForReceipt)) {
+          toast.error("Enter a valid email address for receipt")
+          return
+        }
       }
     }
 
@@ -271,29 +296,44 @@ export function OfflineIncomeModal({
         toast.error("Enter a valid phone number")
         return
       }
+      if (sendReceiptEmail) {
+        if (!firstName.trim() || !lastName.trim()) {
+          toast.error("First name and last name are required to send receipt")
+          return
+        }
+        if (!email.trim()) {
+          toast.error("Email is required to send receipt")
+          return
+        }
+        if (!isValidEmail(email)) {
+          toast.error("Enter a valid email address for receipt")
+          return
+        }
+      }
     }
 
     setSubmitting(true)
     try {
       const payload =
         entryType === "appeal"
-          ? {
-              type: "appeal",
-              appealId,
-              amountPence: Math.round(Number(amount) * 100),
-              donationType,
-              source,
-              collectedVia: "office",
-              receivedAt,
-              notes: notes || null,
-              giftAid: giftAidExpanded,
-              ...(giftAidExpanded && email.trim()
+          ? (() => {
+              const hasGiftAidDetails =
+                giftAidExpanded &&
+                (firstName.trim() ||
+                  lastName.trim() ||
+                  email.trim() ||
+                  giftaidPhone.trim() ||
+                  giftaidAddress.trim() ||
+                  giftaidCity.trim() ||
+                  giftaidPostcode.trim() ||
+                  giftaidCountry.trim())
+              const donorPayload = hasGiftAidDetails
                 ? {
                     donor: {
                       title: giftaidTitle.trim() || undefined,
-                      firstName: firstName.trim() || undefined,
-                      lastName: lastName.trim() || undefined,
-                      email: email.trim(),
+                      firstName: firstName.trim() ? toTitleCaseLive(firstName.trim()) : undefined,
+                      lastName: lastName.trim() ? toTitleCaseLive(lastName.trim()) : undefined,
+                      email: email.trim() || undefined,
                       phone: giftaidPhone.trim() || undefined,
                       address: giftaidAddress.trim() || undefined,
                       city: giftaidCity.trim() || undefined,
@@ -301,8 +341,29 @@ export function OfflineIncomeModal({
                       country: giftaidCountry.trim() || undefined,
                     },
                   }
-                : {}),
-            }
+                : sendReceiptEmail && receiptEmail.trim() && receiptFirstName.trim() && receiptLastName.trim()
+                  ? {
+                      donor: {
+                        firstName: toTitleCaseLive(receiptFirstName.trim()),
+                        lastName: toTitleCaseLive(receiptLastName.trim()),
+                        email: receiptEmail.trim(),
+                      },
+                    }
+                  : {}
+              return {
+                type: "appeal",
+                appealId,
+                amountPence: Math.round(Number(amount) * 100),
+                donationType,
+                source,
+                collectedVia: "office",
+                receivedAt,
+                notes: notes || null,
+                giftAid: giftAidExpanded,
+                sendReceiptEmail,
+                ...donorPayload,
+              }
+            })()
           : entryType === "water"
           ? {
               type: "water",
@@ -315,11 +376,12 @@ export function OfflineIncomeModal({
               receivedAt,
               plaqueName: plaqueName || null,
               notes: notes || null,
+              sendReceiptEmail,
               ...(firstName.trim() || lastName.trim() || email.trim() || phone.trim()
                 ? {
                     donor: {
-                      firstName: firstName.trim() || undefined,
-                      lastName: lastName.trim() || undefined,
+                      firstName: firstName.trim() ? toTitleCaseLive(firstName.trim()) : undefined,
+                      lastName: lastName.trim() ? toTitleCaseLive(lastName.trim()) : undefined,
                       email: email.trim() || undefined,
                       phone: phone.trim() || undefined,
                     },
@@ -336,11 +398,12 @@ export function OfflineIncomeModal({
               collectedVia: "office",
               receivedAt,
               notes: notes || null,
+              sendReceiptEmail,
               ...(firstName.trim() || lastName.trim() || email.trim() || phone.trim()
                 ? {
                     donor: {
-                      firstName: firstName.trim() || undefined,
-                      lastName: lastName.trim() || undefined,
+                      firstName: firstName.trim() ? toTitleCaseLive(firstName.trim()) : undefined,
+                      lastName: lastName.trim() ? toTitleCaseLive(lastName.trim()) : undefined,
                       email: email.trim() || undefined,
                       phone: phone.trim() || undefined,
                     },
@@ -461,20 +524,32 @@ export function OfflineIncomeModal({
                 </div>
 
                 <div className="space-y-3">
-                  <Button
-                    type="button"
-                    variant={giftAidExpanded ? "secondary" : "outline"}
-                    size="sm"
-                    onClick={() => setGiftAidExpanded((v) => !v)}
-                    className="gap-2"
-                  >
-                    <Gift className="h-4 w-4" />
-                    {giftAidExpanded ? "Gift Aid (details added)" : "Add Gift Aid"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant={giftAidExpanded ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => setGiftAidExpanded((v) => !v)}
+                      className="gap-2"
+                    >
+                      <Gift className="h-4 w-4" />
+                      {giftAidExpanded ? "Gift Aid (details added)" : "Add Gift Aid"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={sendReceiptEmail ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => setSendReceiptEmail((v) => !v)}
+                      className="gap-2 w-fit"
+                    >
+                      <Mail className="h-4 w-4" />
+                      {sendReceiptEmail ? "Send Email Receipt (on)" : "Send Email Receipt"}
+                    </Button>
+                  </div>
                   {giftAidExpanded && (
                     <div className="rounded-lg border p-4 space-y-4 bg-muted/30">
                       <p className="text-sm text-muted-foreground">
-                        Donor details required for Gift Aid (UK taxpayer). Email is required.
+                        Donor details for Gift Aid (UK taxpayer). Optional
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div className="space-y-2">
@@ -586,6 +661,46 @@ export function OfflineIncomeModal({
                       </div>
                     </div>
                   )}
+                  {sendReceiptEmail && (
+                    <div className="space-y-4">
+                      {!giftAidExpanded && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="appeal-receipt-first">First name</Label>
+                            <Input
+                              id="appeal-receipt-first"
+                              transform="titleCase"
+                              value={receiptFirstName}
+                              onChange={(e) => setReceiptFirstName(e.target.value)}
+                              placeholder="First name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="appeal-receipt-last">Last name</Label>
+                            <Input
+                              id="appeal-receipt-last"
+                              transform="titleCase"
+                              value={receiptLastName}
+                              onChange={(e) => setReceiptLastName(e.target.value)}
+                              placeholder="Last name"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <Label htmlFor="appeal-receipt-email">Email for Receipt</Label>
+                        <Input
+                          id="appeal-receipt-email"
+                          type="email"
+                          value={giftAidExpanded ? email : receiptEmail}
+                          onChange={(e) =>
+                            giftAidExpanded ? setEmail(e.target.value) : setReceiptEmail(e.target.value)
+                          }
+                          placeholder="email@example.com"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -636,7 +751,9 @@ export function OfflineIncomeModal({
 
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="space-y-2">
-                    <Label htmlFor="donor-first">First Name (optional)</Label>
+                    <Label htmlFor="donor-first">
+                      First name{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
                     <Input
                       id="donor-first"
                       transform="titleCase"
@@ -645,7 +762,9 @@ export function OfflineIncomeModal({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="donor-last">Last Name (optional)</Label>
+                    <Label htmlFor="donor-last">
+                      Last name{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
                     <Input
                       id="donor-last"
                       transform="titleCase"
@@ -654,7 +773,9 @@ export function OfflineIncomeModal({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="donor-email">Email (optional)</Label>
+                    <Label htmlFor="donor-email">
+                      Email{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
                     <Input
                       id="donor-email"
                       type="email"
@@ -672,6 +793,17 @@ export function OfflineIncomeModal({
                     />
                   </div>
                 </div>
+
+                <Button
+                  type="button"
+                  variant={sendReceiptEmail ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setSendReceiptEmail((v) => !v)}
+                  className="gap-2 w-fit"
+                >
+                  <Mail className="h-4 w-4" />
+                  {sendReceiptEmail ? "Send Email Receipt (on)" : "Send Email Receipt"}
+                </Button>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -751,7 +883,9 @@ export function OfflineIncomeModal({
 
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sponsor-first">First Name (optional)</Label>
+                    <Label htmlFor="sponsor-first">
+                      First name{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
                     <Input
                       id="sponsor-first"
                       transform="titleCase"
@@ -760,7 +894,9 @@ export function OfflineIncomeModal({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sponsor-last">Last Name (optional)</Label>
+                    <Label htmlFor="sponsor-last">
+                      Last name{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
                     <Input
                       id="sponsor-last"
                       transform="titleCase"
@@ -769,7 +905,9 @@ export function OfflineIncomeModal({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sponsor-email">Email (optional)</Label>
+                    <Label htmlFor="sponsor-email">
+                      Email{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
                     <Input
                       id="sponsor-email"
                       type="email"
@@ -787,6 +925,17 @@ export function OfflineIncomeModal({
                     />
                   </div>
                 </div>
+
+                <Button
+                  type="button"
+                  variant={sendReceiptEmail ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setSendReceiptEmail((v) => !v)}
+                  className="gap-2 w-fit"
+                >
+                  <Mail className="h-4 w-4" />
+                  {sendReceiptEmail ? "Send Email Receipt (on)" : "Send Email Receipt"}
+                </Button>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

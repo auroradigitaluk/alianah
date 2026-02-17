@@ -310,6 +310,7 @@ model OfflineIncome {
   billingCity         String?
   billingPostcode     String?
   billingCountry      String?
+  donationNumber      String?   // Reference for receipts (e.g. 786-1xxxxxxxx), same format as online
   createdAt           DateTime  @default(now())
 
   appeal    Appeal?    @relation(fields: [appealId], references: [id], onDelete: SetNull)
@@ -321,6 +322,7 @@ model OfflineIncome {
   @@index([addedByAdminUserId])
   @@index([donorId])
   @@index([giftAid])
+  @@index([donationNumber])
   @@map("offline_income")
 }
 
@@ -597,6 +599,7 @@ model DemoOrder {
   donorCountry   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  abandonedEmail2SentAt DateTime? // Set when second (24h) abandoned email sent
 
   items DemoOrderItem[]
 
@@ -604,6 +607,7 @@ model DemoOrder {
   @@index([status])
   @@index([transactionId])
   @@index([createdAt])
+  @@index([abandonedEmail2SentAt])
   @@map("demo_orders")
 }
 
@@ -760,6 +764,7 @@ model WaterProjectDonation {
   notes               String?   // Internal notes/updates for this donation
   status              String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (individual donation status)
   addedByAdminUserId  String?
+  donationNumber      String?   // Reference for receipts (e.g. 786-1xxxxxxxx), same format as online
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   completedAt         DateTime?
@@ -777,6 +782,7 @@ model WaterProjectDonation {
   @@index([status])
   @@index([createdAt])
   @@index([addedByAdminUserId])
+  @@index([donationNumber])
   @@map("water_project_donations")
 }
 
@@ -860,6 +866,7 @@ model SponsorshipDonation {
   notes               String?
   status              String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE
   addedByAdminUserId  String?
+  donationNumber      String?   // Reference for receipts (e.g. 786-1xxxxxxxx), same format as online
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   completedAt         DateTime?
@@ -875,5 +882,6 @@ model SponsorshipDonation {
   @@index([status])
   @@index([createdAt])
   @@index([addedByAdminUserId])
+  @@index([donationNumber])
   @@map("sponsorship_donations")
 }

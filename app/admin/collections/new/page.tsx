@@ -8,7 +8,7 @@ async function getData() {
   const [masjids, appeals] = await Promise.all([
     prisma.masjid.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, email: true, emailAlt: true },
     }),
     prisma.appeal.findMany({
       where: { isActive: true },

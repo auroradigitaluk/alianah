@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, PaymentRequestButtonElement, useElements, useStripe } from "@stripe/react-stripe-js"
@@ -520,9 +520,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   const { stripePromise } = props
   const router = useRouter()
   const { resolvedTheme } = useTheme()
-  const { items, clearCart } = useSidecart()
+  const { items, clearCart, setItems } = useSidecart()
+  const searchParams = useSearchParams()
   const formStorageKey = "checkout:billing-details"
   const [loading, setLoading] = React.useState(false)
+  const [resumeApplied, setResumeApplied] = React.useState(false)
   const [countryOpen, setCountryOpen] = React.useState(false)
   const [countryQuery, setCountryQuery] = React.useState("")
   const [phoneCodeOpen, setPhoneCodeOpen] = React.useState(false)
@@ -554,6 +556,79 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
     },
     [errors]
   )
+
+  // Resume abandoned checkout: prefill basket (and form) from ?resume=orderNumber
+  React.useEffect(() => {
+    const orderNumber = searchParams.get("resume")?.trim()
+    if (!orderNumber || resumeApplied) return
+
+    let cancelled = false
+    const apply = async () => {
+      try {
+        const res = await fetch(`/api/checkout/resume?orderNumber=${encodeURIComponent(orderNumber)}`)
+        if (!res.ok || cancelled) return
+        const data = (await res.json()) as {
+          items: Array<{
+            appealId?: string
+            appealTitle: string
+            fundraiserId?: string
+            productId?: string
+            productName?: string
+            frequency: string
+            donationType: string
+            amountPence: number
+            isAnonymous?: boolean
+            waterProjectId?: string
+            waterProjectCountryId?: string
+            plaqueName?: string
+            sponsorshipProjectId?: string
+            sponsorshipCountryId?: string
+            sponsorshipProjectType?: string
+            qurbaniCountryId?: string
+            qurbaniSize?: string
+            qurbaniNames?: string
+          }>
+          donor?: { firstName: string; lastName: string; email: string; phone?: string; address?: string; city?: string; postcode?: string; country?: string }
+        }
+        if (cancelled) return
+        setItems(
+          data.items.map((item) => {
+            const { qurbaniSize: rawQurbani, ...rest } = item
+            const qurbaniSize: "ONE_SEVENTH" | "SMALL" | "LARGE" | undefined =
+              rawQurbani && ["ONE_SEVENTH", "SMALL", "LARGE"].includes(rawQurbani)
+                ? (rawQurbani as "ONE_SEVENTH" | "SMALL" | "LARGE")
+                : undefined
+            return {
+              ...rest,
+              frequency: item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY",
+              donationType: item.donationType as "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH",
+              ...(qurbaniSize && { qurbaniSize }),
+            }
+          })
+        )
+        if (data.donor) {
+          setFormData((prev) => ({
+            ...prev,
+            firstName: data.donor!.firstName ?? prev.firstName,
+            lastName: data.donor!.lastName ?? prev.lastName,
+            email: data.donor!.email ?? prev.email,
+            address: data.donor!.address ?? prev.address,
+            city: data.donor!.city ?? prev.city,
+            postcode: data.donor!.postcode ?? prev.postcode,
+            country: data.donor!.country ?? prev.country,
+          }))
+        }
+        setResumeApplied(true)
+        router.replace("/checkout", { scroll: false })
+      } catch {
+        // ignore
+      }
+    }
+    apply()
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams, resumeApplied, setItems, router])
 
   const countryOptions = React.useMemo(() => {
     const display = new Intl.DisplayNames(["en"], { type: "region" })

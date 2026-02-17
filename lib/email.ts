@@ -10,6 +10,8 @@ import {
   buildSponsorshipCompletionEmail,
   buildWaterProjectCompletionEmail,
   buildWaterProjectDonationEmail,
+  buildOfflineDonationReceiptEmail,
+  buildCollectionReceiptEmail,
   buildAdminInviteEmail,
   buildAdminPasswordResetEmail,
   buildAdminLoginOtpEmail,
@@ -17,6 +19,7 @@ import {
 } from "@/lib/email-templates"
 import { getOrganizationSettings } from "@/lib/settings"
 import type { OrganizationSettings } from "@/lib/settings"
+import { createCollectionReceiptToken } from "@/lib/collection-receipt-token"
 
 /** Base URL for email links. */
 function getEmailBaseUrl(settings: OrganizationSettings | null): string {
@@ -86,6 +89,7 @@ interface DonationEmailParams {
   country: string
   amount: number
   donationType: string
+  donationNumber: string
 }
 
 interface CompletionEmailParams {
@@ -221,7 +225,7 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
     return
   }
 
-  const { donorEmail, donorName, projectType, location, country, amount, donationType } = params
+  const { donorEmail, donorName, projectType, location, country, amount, donationType, donationNumber } = params
 
   try {
     const settings = await getOrganizationSettings()
@@ -233,6 +237,7 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
         country,
         amount,
         donationType,
+        donationNumber,
         baseUrl: getEmailBaseUrl(settings),
       },
       settings
@@ -291,13 +296,14 @@ export async function sendSponsorshipDonationEmail(params: {
   country: string
   amount: number
   donationType: string
+  donationNumber: string
 }) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set, skipping email")
     return
   }
 
-  const { donorEmail, donorName, projectType, location, country, amount, donationType } = params
+  const { donorEmail, donorName, projectType, location, country, amount, donationType, donationNumber } = params
 
   try {
     const settings = await getOrganizationSettings()
@@ -309,6 +315,7 @@ export async function sendSponsorshipDonationEmail(params: {
         country,
         amount,
         donationType,
+        donationNumber,
         baseUrl: getEmailBaseUrl(settings),
       },
       settings
@@ -535,6 +542,90 @@ export async function sendAdminLoginOtpEmail(params: { email: string; code: stri
     })
   } catch (error) {
     console.error("Error sending admin login OTP email:", error)
+    throw error
+  }
+}
+
+export async function sendOfflineDonationReceiptEmail(params: {
+  donorEmail: string
+  donorName: string
+  appealTitle: string
+  amountPence: number
+  donationType: string
+  receivedAt: Date
+  donationNumber: string
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping offline donation receipt email")
+    return
+  }
+  const { donorEmail } = params
+  try {
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildOfflineDonationReceiptEmail(
+      { ...params, baseUrl: getEmailBaseUrl(settings) },
+      settings
+    )
+    await getResend().emails.send({
+      from: getFromAddress(),
+      to: donorEmail,
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error("Error sending offline donation receipt email:", error)
+    throw error
+  }
+}
+
+export async function sendCollectionReceiptEmail(params: {
+  recipientEmail: string
+  recipientName?: string | null
+  locationName: string
+  collectionType: string
+  collectedAt: Date
+  totalPence: number
+  sadaqahPence: number
+  zakatPence: number
+  lillahPence: number
+  cardPence: number
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping collection receipt email")
+    return
+  }
+  const { recipientEmail } = params
+  try {
+    const settings = await getOrganizationSettings()
+    const baseUrl = getEmailBaseUrl(settings)
+    let printUrl: string | undefined
+    try {
+      const token = createCollectionReceiptToken({
+        locationName: params.locationName,
+        collectionType: params.collectionType,
+        collectedAt: params.collectedAt.toISOString(),
+        totalPence: params.totalPence,
+        sadaqahPence: params.sadaqahPence,
+        zakatPence: params.zakatPence,
+        lillahPence: params.lillahPence,
+        cardPence: params.cardPence,
+      })
+      printUrl = `${baseUrl}/receipt/collection/print?t=${encodeURIComponent(token)}`
+    } catch {
+      // COLLECTION_RECEIPT_SECRET not set; omit print button
+    }
+    const { subject, html } = buildCollectionReceiptEmail(
+      { ...params, baseUrl, printUrl },
+      settings
+    )
+    await getResend().emails.send({
+      from: getFromAddress(),
+      to: recipientEmail,
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error("Error sending collection receipt email:", error)
     throw error
   }
 }

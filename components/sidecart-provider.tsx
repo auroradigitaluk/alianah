@@ -33,6 +33,8 @@ interface SidecartContextType {
   addItem: (item: CartItem) => void
   removeItem: (id: string) => void
   clearCart: () => void
+  /** Replace cart with these items (e.g. when resuming an abandoned checkout). */
+  setItems: (items: Omit<CartItem, "id">[]) => void
   open: boolean
   setOpen: (open: boolean) => void
 }
@@ -81,8 +83,23 @@ export function SidecartProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("cart")
   }, [])
 
+  const setItemsFromResume = React.useCallback((newItems: Omit<CartItem, "id">[]) => {
+    const withIds: CartItem[] = newItems.map((item, index) => {
+      const baseId =
+        item.appealId ||
+        item.waterProjectId ||
+        item.sponsorshipProjectId ||
+        item.qurbaniCountryId ||
+        "item"
+      const id = `${baseId}-${item.productId || item.qurbaniSize || "direct"}-resume-${index}-${Date.now()}`
+      return { ...item, id }
+    })
+    setItems(withIds)
+    setOpen(true)
+  }, [])
+
   return (
-    <SidecartContext.Provider value={{ items, addItem, removeItem, clearCart, open, setOpen }}>
+    <SidecartContext.Provider value={{ items, addItem, removeItem, clearCart, setItems: setItemsFromResume, open, setOpen }}>
       {children}
       <Sidecart />
     </SidecartContext.Provider>

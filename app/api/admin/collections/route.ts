@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma, invalidatePrismaCache } from "@/lib/prisma"
 import { requireAdminRole } from "@/lib/admin-auth"
 import { z } from "zod"
+import { sendCollectionReceiptEmail } from "@/lib/email"
+import { isValidEmail } from "@/lib/utils"
 
 const createSchema = z.object({
   masjidId: z.string().nullable().optional().transform((v) => (v && v !== "__none__" ? v : null)),
@@ -18,6 +20,10 @@ const createSchema = z.object({
     .nullable()
     .optional()
     .transform((v) => (v == null || (typeof v === "string" && !v.trim()) ? null : String(v).trim())),
+  receiptEmail: z
+    .string()
+    .optional()
+    .transform((v) => (typeof v === "string" && v.trim() ? v.trim() : undefined)),
 })
 
 export async function POST(request: NextRequest) {
@@ -55,7 +61,36 @@ export async function POST(request: NextRequest) {
         lillahPence: data.lillahPence,
         cardPence: data.cardPence,
       },
+      include: { masjid: { select: { name: true } } },
     })
+
+    const receiptEmail = data.receiptEmail
+    if (receiptEmail) {
+      if (!isValidEmail(receiptEmail)) {
+        return NextResponse.json({ error: "Invalid receipt email address" }, { status: 400 })
+      }
+      const locationName =
+        collection.masjid?.name ?? data.otherLocationName ?? "Collection"
+      try {
+        await sendCollectionReceiptEmail({
+          recipientEmail: receiptEmail,
+          locationName,
+          collectionType: data.type,
+          collectedAt,
+          totalPence,
+          sadaqahPence: data.sadaqahPence,
+          zakatPence: data.zakatPence,
+          lillahPence: data.lillahPence,
+          cardPence: data.cardPence,
+        })
+      } catch (err) {
+        console.error("Failed to send collection receipt:", err)
+        return NextResponse.json(
+          { error: "Collection created but receipt email failed to send" },
+          { status: 500 }
+        )
+      }
+    }
 
     return NextResponse.json({ success: true, collection, count: 1 })
   } catch (error) {
