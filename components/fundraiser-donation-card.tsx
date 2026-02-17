@@ -4,7 +4,7 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ProgressRing } from "@/components/ui/progress-ring"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrencyWhole } from "@/lib/utils"
 import { Share2, Heart, ShieldCheck } from "lucide-react"
 import { DonationForm } from "@/components/donation-form"
 import { FundraiserPublicCashForm } from "@/components/fundraiser-public-cash-form"
@@ -73,6 +73,19 @@ export function FundraiserDonationCard({
 }: FundraiserDonationCardProps) {
   const [copied, setCopied] = React.useState(false)
 
+  const ringSize = React.useMemo(() => {
+    const raisedStr = formatCurrencyWhole(totalRaised)
+    const targetStr = formatCurrencyWhole(targetAmountPence ?? 0)
+    const maxLen = Math.max(raisedStr.length, targetStr.length)
+    const base = 160
+    const minSize = 160
+    const maxSize = 280
+    if (maxLen <= 7) return minSize
+    return Math.min(maxSize, base + (maxLen - 7) * 30)
+  }, [totalRaised, targetAmountPence])
+
+  const innerMaxWidth = Math.round(ringSize * 0.78)
+
   const handleShare = () => {
     const url = window.location.href
     navigator.clipboard.writeText(url).then(() => {
@@ -90,18 +103,18 @@ export function FundraiserDonationCard({
           <div className="flex flex-col items-center gap-4 pb-6 border-b">
             <ProgressRing
               value={progressPercentage}
-              size={140}
+              size={ringSize}
               strokeWidth={10}
             >
-              <div className="text-center max-w-[110px]">
-                <p className="font-bold leading-tight text-[clamp(1rem,3vw,1.5rem)] break-words">
-                  {formatCurrency(totalRaised)}
+              <div className="text-center min-w-0 overflow-hidden px-1" style={{ maxWidth: innerMaxWidth }}>
+                <p className="font-bold leading-tight break-words text-[clamp(1.09rem,3.2vw,1.31rem)] sm:text-[clamp(0.95rem,2.78vw,1.14rem)]">
+                  {formatCurrencyWhole(totalRaised)}
                 </p>
                 <p className="mt-1 text-[clamp(0.65rem,1.8vw,0.8rem)] font-normal text-muted-foreground">
                   raised of
                 </p>
-                <p className="text-[clamp(0.75rem,2.2vw,0.9rem)] font-semibold text-muted-foreground break-words">
-                  {formatCurrency(targetAmountPence ?? 0)}
+                <p className="text-[clamp(0.9rem,2.64vw,1.08rem)] font-semibold text-muted-foreground break-words sm:text-[clamp(0.75rem,2.2vw,0.9rem)]">
+                  {formatCurrencyWhole(targetAmountPence ?? 0)}
                 </p>
               </div>
             </ProgressRing>
@@ -179,7 +192,7 @@ export function FundraiserDonationCard({
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-semibold text-sm">{formatCurrency(donation.amountPence)}</p>
+                    <p className="font-semibold text-sm">{formatCurrencyWhole(donation.amountPence)}</p>
                   </div>
                 </div>
               ))}

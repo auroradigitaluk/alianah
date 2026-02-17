@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
+import { getFundraiserTotalRaisedAndCount } from "@/lib/fundraiser-totals"
 import { FundraiserForm } from "@/components/fundraiser-form"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
 import { FundraiserFloatingDonateBar } from "@/components/fundraiser-floating-donate-bar"
@@ -228,7 +229,11 @@ export default async function FundraisePage({
     const completedDonations = isWaterFundraiser
       ? fundraiser.waterProjectDonations
       : fundraiser.donations
-    const totalRaised = completedDonations.reduce((sum, d) => sum + d.amountPence, 0)
+    const { totalRaisedPence, donationCount } = await getFundraiserTotalRaisedAndCount(
+      fundraiser.id,
+      isWaterFundraiser
+    )
+    const totalRaised = totalRaisedPence
 
     const progressPercentage = fundraiser.targetAmountPence
       ? Math.min((totalRaised / fundraiser.targetAmountPence) * 100, 100)
@@ -304,7 +309,7 @@ export default async function FundraisePage({
                   totalRaised={totalRaised}
                   targetAmountPence={fundraiser.targetAmountPence}
                   progressPercentage={progressPercentage}
-                  donationCount={completedDonations.length}
+                  donationCount={donationCount}
                   {...(isWaterFundraiser
                     ? {
                         waterProject: {

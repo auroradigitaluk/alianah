@@ -11,6 +11,7 @@ const updateSchema = z
     fundraiserName: z.string().min(1, "Name is required").optional(),
     email: z.string().email("Invalid email").optional(),
     message: z.string().nullable().optional(),
+    targetAmountPence: z.union([z.number().int().min(0), z.null()]).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: "At least one field required" })
 
@@ -281,11 +282,18 @@ export async function PATCH(
     const body = await request.json()
     const data = updateSchema.parse(body)
 
-    const updateData: { isActive?: boolean; fundraiserName?: string; email?: string; message?: string | null } = {}
+    const updateData: {
+      isActive?: boolean
+      fundraiserName?: string
+      email?: string
+      message?: string | null
+      targetAmountPence?: number | null
+    } = {}
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.fundraiserName !== undefined) updateData.fundraiserName = data.fundraiserName
     if (data.email !== undefined) updateData.email = data.email
     if (data.message !== undefined) updateData.message = data.message
+    if (data.targetAmountPence !== undefined) updateData.targetAmountPence = data.targetAmountPence
 
     const fundraiser = await prisma.fundraiser.update({
       where: { id },

@@ -75,6 +75,12 @@ export function formatCurrency(amountPence: number): string {
   return `£${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+/** Whole pounds only (no pence), for fundraising pages. */
+export function formatCurrencyWhole(amountPence: number): string {
+  const pounds = Math.round(amountPence / 100)
+  return `£${pounds.toLocaleString("en-GB", { maximumFractionDigits: 0 })}`
+}
+
 export function formatEnum(value: string): string {
   return value
     .split("_")

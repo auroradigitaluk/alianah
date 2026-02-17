@@ -133,6 +133,7 @@ export function FundraisersTable({
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editMessage, setEditMessage] = useState("")
+  const [editTargetAmountPence, setEditTargetAmountPence] = useState("")
   const [savingDetails, setSavingDetails] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -238,6 +239,11 @@ export function FundraisersTable({
       setEditName(fundraiserDetails.fundraiserName)
       setEditEmail(fundraiserDetails.email)
       setEditMessage(fundraiserDetails.message ?? "")
+      setEditTargetAmountPence(
+        fundraiserDetails.targetAmountPence != null
+          ? (fundraiserDetails.targetAmountPence / 100).toFixed(2)
+          : ""
+      )
       setEditError(null)
       setIsEditingDetails(true)
     }
@@ -256,6 +262,16 @@ export function FundraisersTable({
       setEditError("Name and email are required.")
       return
     }
+    const targetTrim = editTargetAmountPence.trim()
+    let targetAmountPence: number | null = null
+    if (targetTrim !== "") {
+      const pounds = parseFloat(targetTrim)
+      if (Number.isNaN(pounds) || pounds < 0) {
+        setEditError("Goal must be a valid non-negative number.")
+        return
+      }
+      targetAmountPence = Math.round(pounds * 100)
+    }
     setSavingDetails(true)
     setEditError(null)
     try {
@@ -266,6 +282,7 @@ export function FundraisersTable({
           fundraiserName: name,
           email,
           message: editMessage.trim() || null,
+          targetAmountPence,
         }),
       })
       if (!response.ok) {
@@ -627,7 +644,7 @@ export function FundraisersTable({
                         {!isEditingDetails && (
                           <Button variant="outline" size="sm" onClick={startEditingDetails}>
                             <Pencil className="h-4 w-4 mr-2" />
-                            Edit name, email or summary
+                            Edit name, email, goal or summary
                           </Button>
                         )}
                       </div>
@@ -656,6 +673,21 @@ export function FundraisersTable({
                                 value={editEmail}
                                 onChange={(e) => setEditEmail(e.target.value)}
                                 placeholder="email@example.com"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-fundraiser-goal">Goal (£)</Label>
+                            <div className="flex items-center rounded-md border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                              <span className="pl-3 text-muted-foreground">£</span>
+                              <Input
+                                id="edit-fundraiser-goal"
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="e.g. 1000 (leave empty for no goal)"
+                                value={editTargetAmountPence}
+                                onChange={(e) => setEditTargetAmountPence(e.target.value)}
+                                className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
                               />
                             </div>
                           </div>

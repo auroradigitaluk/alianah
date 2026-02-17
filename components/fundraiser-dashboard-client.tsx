@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrencyWhole, formatDate } from "@/lib/utils"
 import Link from "next/link"
 import { Plus, ExternalLink } from "lucide-react"
 import { FundraiserLogoutButton } from "@/components/fundraiser-logout-button"
@@ -159,14 +159,14 @@ export function FundraiserDashboardClient({
                       <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                         <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Raised</p>
                         <p className="text-xl sm:text-2xl font-bold mt-1 text-primary">
-                          {formatCurrency(fundraiser.totalRaised)}
+                          {formatCurrencyWhole(fundraiser.totalRaised)}
                         </p>
                       </div>
                       {fundraiser.targetAmountPence && (
                         <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
                           <p className="text-xs text-muted-foreground uppercase tracking-wide">Target</p>
                           <p className="text-xl sm:text-2xl font-bold mt-1">
-                            {formatCurrency(fundraiser.targetAmountPence)}
+                            {formatCurrencyWhole(fundraiser.targetAmountPence)}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
                             {fundraiser.progressPercentage.toFixed(1)}% complete
