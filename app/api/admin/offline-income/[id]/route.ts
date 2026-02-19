@@ -246,6 +246,14 @@ export async function DELETE(
           return NextResponse.json({ error: "Forbidden" }, { status: 403 })
         }
       }
+      await prisma.auditLog.create({
+        data: {
+          adminUserId: user.id,
+          action: "DELETE",
+          entityType: "water_project_donation",
+          entityId: donationId,
+        },
+      })
       await prisma.waterProjectDonation.delete({
         where: { id: donationId },
       })
@@ -263,6 +271,14 @@ export async function DELETE(
           return NextResponse.json({ error: "Forbidden" }, { status: 403 })
         }
       }
+      await prisma.auditLog.create({
+        data: {
+          adminUserId: user.id,
+          action: "DELETE",
+          entityType: "sponsorship_donation",
+          entityId: donationId,
+        },
+      })
       await prisma.sponsorshipDonation.delete({
         where: { id: donationId },
       })
@@ -278,6 +294,14 @@ export async function DELETE(
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
     }
+    await prisma.auditLog.create({
+      data: {
+        adminUserId: user.id,
+        action: "DELETE",
+        entityType: "offline_income",
+        entityId: id,
+      },
+    })
     await prisma.offlineIncome.delete({
       where: { id },
     })

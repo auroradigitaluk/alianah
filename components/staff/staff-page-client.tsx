@@ -124,6 +124,10 @@ export function StaffPageClient() {
   const [modalLoading, setModalLoading] = React.useState(false)
   const [dashboardData, setDashboardData] = React.useState<StaffDashboardData | null>(null)
   const [staffDetails, setStaffDetails] = React.useState<StaffDetailsData | null>(null)
+  /** Full activity feed (logins, logouts, added donations, masjids, bookings, etc.) for Activity tab */
+  const [staffActivityFeed, setStaffActivityFeed] = React.useState<
+    Array<{ type: string; message: string; timestamp: string }>
+  >([])
   const [dateRange, setDateRange] = React.useState("30d")
   const [donationDetail, setDonationDetail] = React.useState<{
     type: "offline" | "collection" | "water" | "sponsorship"
@@ -158,12 +162,14 @@ export function StaffPageClient() {
     async (staffId: string, rangeOverride?: string) => {
       setModalLoading(true)
       setStaffDetails(null)
+      setStaffActivityFeed([])
       try {
         const rangeToUse = rangeOverride ?? dateRange
         const params = new URLSearchParams({ staffId, range: rangeToUse })
-        const [dashboardRes, detailsRes] = await Promise.all([
+        const [dashboardRes, detailsRes, activityRes] = await Promise.all([
           fetch(`/api/admin/staff-dashboard?${params}`),
           fetch(`/api/admin/staff-dashboard/details?${params}`),
+          fetch(`/api/admin/staff-dashboard/activity?staffId=${encodeURIComponent(staffId)}`),
         ])
         if (!dashboardRes.ok) throw new Error("Failed to load dashboard")
         if (!detailsRes.ok) throw new Error("Failed to load details")
@@ -173,6 +179,10 @@ export function StaffPageClient() {
         ])
         setDashboardData(dashboardDataRes)
         setStaffDetails(detailsDataRes)
+        if (activityRes.ok) {
+          const activityData = (await activityRes.json()) as { activities: Array<{ type: string; message: string; timestamp: string }> }
+          setStaffActivityFeed(activityData.activities ?? [])
+        }
       } catch {
         toast.error("Failed to load staff data")
       } finally {
@@ -182,40 +192,16 @@ export function StaffPageClient() {
     [dateRange]
   )
 
-  const staffActivities = React.useMemo(() => {
-    if (!staffDetails) return []
-    const activities: Array<{ type: string; message: string; timestamp: Date }> = []
-    staffDetails.offlineIncome.forEach((i) => {
-      activities.push({
-        type: "offline",
-        message: `Offline income added: ${formatCurrency(i.amountPence)} (${formatEnum(i.source)})`,
-        timestamp: new Date(i.receivedAt),
-      })
-    })
-    staffDetails.collections.forEach((c) => {
-      activities.push({
-        type: "collection",
-        message: `Collection logged: ${formatCurrency(c.amountPence)}`,
-        timestamp: new Date(c.collectedAt),
-      })
-    })
-    staffDetails.waterDonations.forEach((d) => {
-      activities.push({
-        type: "water",
-        message: `Water donation logged: ${formatCurrency(d.amountPence)} (${formatEnum(d.projectType ?? "") || "Water"})`,
-        timestamp: new Date(d.createdAt),
-      })
-    })
-    staffDetails.sponsorshipDonations.forEach((d) => {
-      activities.push({
-        type: "sponsor",
-        message: `Sponsor donation logged: ${formatCurrency(d.amountPence)} (${formatEnum(d.projectType ?? "") || "Sponsorship"})`,
-        timestamp: new Date(d.createdAt),
-      })
-    })
-    activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-    return activities
-  }, [staffDetails])
+  /** Activity tab: full feed (logins, logouts, added donations, masjids, bookings, etc.) with timestamps */
+  const staffActivities = React.useMemo(
+    () =>
+      staffActivityFeed.map((a) => ({
+        type: a.type,
+        message: a.message,
+        timestamp: new Date(a.timestamp),
+      })),
+    [staffActivityFeed]
+  )
 
   const handleOpenModal = React.useCallback(
     (user: StaffUser) => {
@@ -725,7 +711,11 @@ export function StaffPageClient() {
                   </TabsContent>
 
                   <TabsContent value="activity" className="mt-4">
-                    <RecentActivity activities={staffActivities} />
+                    <RecentActivity
+                      activities={staffActivities}
+                      subtitle="Logins, logouts, and everything this account has added (donations, collections, masjids, bookings, etc.)"
+                      showExactDateTime
+                    />
                   </TabsContent>
                 </Tabs>
               ) : null}

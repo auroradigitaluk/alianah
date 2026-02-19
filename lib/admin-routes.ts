@@ -1,5 +1,11 @@
 /**
  * Client-safe route permission logic. No Node/bcrypt/Prisma imports.
+ *
+ * Role behaviour:
+ * - ADMIN: Full access. Can access every admin route and sees all data (no staff filtering).
+ * - STAFF: Restricted routes (e.g. no donations, appeals, reports, settings) and only see
+ *   data they added or are assigned to (addedByAdminUserId / assigneeId).
+ * - VIEWER: Some routes hidden (e.g. masjids, donors, settings), no create; where allowed, sees all data.
  */
 
 export function canAccessRoute(role: string, pathname: string): boolean {

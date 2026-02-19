@@ -163,6 +163,14 @@ export async function DELETE(
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
     }
+    await prisma.auditLog.create({
+      data: {
+        adminUserId: user.id,
+        action: "DELETE",
+        entityType: "collection",
+        entityId: id,
+      },
+    })
     await prisma.collection.delete({
       where: { id },
     })
