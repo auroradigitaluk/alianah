@@ -1,9 +1,9 @@
-import type { Prisma } from "@prisma/client"
+import type { DemoOrder, DemoOrderItem } from "@prisma/client"
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { DonationsPageContent } from "@/components/donations-page-content"
 
-type AbandonedCheckoutRow = Prisma.DemoOrderGetPayload<{ include: { items: true } }>
+type AbandonedCheckoutRow = DemoOrder & { items: DemoOrderItem[] }
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -55,10 +55,11 @@ async function getAbandonedCheckouts(): Promise<AbandonedCheckoutRow[]> {
       orderBy: { createdAt: "desc" },
       include: { items: true },
     })
-  } catch {
+  } catch (err) {
     // Fallback when migration not run yet (abandonedEmail1SentAt column missing): query without that column
+    console.error("[getAbandonedCheckouts] primary query failed:", err)
     try {
-      const rows = await prisma.demoOrder.findMany({
+      return (await prisma.demoOrder.findMany({
         where: { status: { in: ["PENDING", "ABANDONED"] } },
         orderBy: { createdAt: "desc" },
         select: {
@@ -79,9 +80,9 @@ async function getAbandonedCheckouts(): Promise<AbandonedCheckoutRow[]> {
             },
           },
         },
-      })
-      return rows as AbandonedCheckoutRow[]
-    } catch {
+      })) as AbandonedCheckoutRow[]
+    } catch (fallbackErr) {
+      console.error("[getAbandonedCheckouts] fallback query failed:", fallbackErr)
       return []
     }
   }

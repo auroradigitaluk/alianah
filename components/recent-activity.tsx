@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatDateTime } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Wallet, Plus, Building2, XCircle, CheckCircle2, LogIn, LogOut, Calendar, Droplets, Users, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Wallet, Plus, Building2, XCircle, CheckCircle2 } from "lucide-react"
 
 interface Activity {
   type: string
@@ -14,56 +14,26 @@ interface Activity {
 
 interface RecentActivityProps {
   activities: Activity[]
-  /** Optional subtitle (e.g. "All time" for staff activity tab) */
-  subtitle?: string
-  /** When true, show exact date and time for every entry (for management/audit) */
-  showExactDateTime?: boolean
 }
 
 const ITEMS_PER_PAGE = 5
 
-export function RecentActivity({ activities, subtitle, showExactDateTime }: RecentActivityProps) {
+export function RecentActivity({ activities }: RecentActivityProps) {
   const [currentPage, setCurrentPage] = useState(0)
   const totalPages = Math.ceil(activities.length / ITEMS_PER_PAGE)
   const startIndex = currentPage * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
   const currentActivities = activities.slice(startIndex, endIndex)
 
-  const getActivityIcon = (activity: Activity) => {
-    const type = activity.type
-    if (type === "session") {
-      return activity.message.toLowerCase().includes("out") ? (
-        <LogOut className="h-4 w-4 text-slate-500" />
-      ) : (
-        <LogIn className="h-4 w-4 text-blue-600" />
-      )
-    }
-    if (type === "offline" || type.includes("donation")) {
+  const getActivityIcon = (type: string) => {
+    if (type.includes("donation")) {
       return <Wallet className="h-4 w-4 text-green-600" />
     }
     if (type.includes("fundraiser")) {
       return <Plus className="h-4 w-4 text-blue-600" />
     }
-    if (type === "collection") {
+    if (type.includes("collection")) {
       return <Building2 className="h-4 w-4 text-purple-600" />
-    }
-    if (type === "masjid") {
-      return <Building2 className="h-4 w-4 text-slate-600" />
-    }
-    if (type === "booking") {
-      return <Calendar className="h-4 w-4 text-amber-600" />
-    }
-    if (type === "water") {
-      return <Droplets className="h-4 w-4 text-cyan-600" />
-    }
-    if (type === "sponsorship") {
-      return <Users className="h-4 w-4 text-indigo-600" />
-    }
-    if (type === "delete") {
-      return <Trash2 className="h-4 w-4 text-red-600" />
-    }
-    if (type === "audit") {
-      return <Wallet className="h-4 w-4 text-muted-foreground" />
     }
     if (type.includes("cancelled")) {
       return <XCircle className="h-4 w-4 text-orange-600" />
@@ -95,9 +65,6 @@ export function RecentActivity({ activities, subtitle, showExactDateTime }: Rece
       <Card>
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>
-          {subtitle && (
-            <p className="text-xs text-muted-foreground font-normal mt-0.5">{subtitle}</p>
-          )}
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
@@ -110,9 +77,6 @@ export function RecentActivity({ activities, subtitle, showExactDateTime }: Rece
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Recent Activity</CardTitle>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground font-normal mt-0.5">{subtitle}</p>
-        )}
       </CardHeader>
       <CardContent className="space-y-0">
         <div className="space-y-0 divide-y divide-border">
@@ -122,19 +86,12 @@ export function RecentActivity({ activities, subtitle, showExactDateTime }: Rece
               className="flex items-start gap-3 px-1 py-3 first:pt-0 last:pb-0 hover:bg-muted/50 transition-colors rounded-md"
             >
               <div className="mt-0.5 flex-shrink-0">
-                {getActivityIcon(activity)}
+                {getActivityIcon(activity.type)}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-foreground leading-snug">{activity.message}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {showExactDateTime
-                    ? formatDateTime(activity.timestamp)
-                    : formatTimeAgo(activity.timestamp)}
-                  {showExactDateTime && (
-                    <span className="text-muted-foreground/80 ml-1">
-                      ({formatTimeAgo(activity.timestamp)})
-                    </span>
-                  )}
+                  {formatTimeAgo(activity.timestamp)}
                 </p>
               </div>
             </div>

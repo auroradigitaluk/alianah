@@ -237,35 +237,14 @@ export async function DELETE(
 
     if (id.startsWith("water-")) {
       const donationId = id.replace("water-", "")
-      const existing = await prisma.waterProjectDonation.findUnique({
-        where: { id: donationId },
-        select: { addedByAdminUserId: true },
-      })
       if (user.role === "STAFF") {
+        const existing = await prisma.waterProjectDonation.findUnique({
+          where: { id: donationId },
+          select: { addedByAdminUserId: true },
+        })
         if (!existing || existing.addedByAdminUserId !== user.id) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 })
         }
-      }
-      if (!existing) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 })
-      }
-      await prisma.auditLog.create({
-        data: {
-          adminUserId: user.id,
-          action: "DELETE",
-          entityType: "water_project_donation",
-          entityId: donationId,
-        },
-      })
-      if (existing.addedByAdminUserId && existing.addedByAdminUserId !== user.id) {
-        await prisma.auditLog.create({
-          data: {
-            adminUserId: existing.addedByAdminUserId,
-            action: "DELETE",
-            entityType: "water_project_donation",
-            entityId: donationId,
-          },
-        })
       }
       await prisma.waterProjectDonation.delete({
         where: { id: donationId },
@@ -275,35 +254,14 @@ export async function DELETE(
 
     if (id.startsWith("sponsorship-")) {
       const donationId = id.replace("sponsorship-", "")
-      const existing = await prisma.sponsorshipDonation.findUnique({
-        where: { id: donationId },
-        select: { addedByAdminUserId: true },
-      })
       if (user.role === "STAFF") {
+        const existing = await prisma.sponsorshipDonation.findUnique({
+          where: { id: donationId },
+          select: { addedByAdminUserId: true },
+        })
         if (!existing || existing.addedByAdminUserId !== user.id) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 })
         }
-      }
-      if (!existing) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 })
-      }
-      await prisma.auditLog.create({
-        data: {
-          adminUserId: user.id,
-          action: "DELETE",
-          entityType: "sponsorship_donation",
-          entityId: donationId,
-        },
-      })
-      if (existing.addedByAdminUserId && existing.addedByAdminUserId !== user.id) {
-        await prisma.auditLog.create({
-          data: {
-            adminUserId: existing.addedByAdminUserId,
-            action: "DELETE",
-            entityType: "sponsorship_donation",
-            entityId: donationId,
-          },
-        })
       }
       await prisma.sponsorshipDonation.delete({
         where: { id: donationId },
@@ -311,35 +269,14 @@ export async function DELETE(
       return NextResponse.json({ success: true })
     }
 
-    const existing = await prisma.offlineIncome.findUnique({
-      where: { id },
-      select: { addedByAdminUserId: true },
-    })
     if (user.role === "STAFF") {
+      const existing = await prisma.offlineIncome.findUnique({
+        where: { id },
+        select: { addedByAdminUserId: true },
+      })
       if (!existing || existing.addedByAdminUserId !== user.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
-    }
-    if (!existing) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 })
-    }
-    await prisma.auditLog.create({
-      data: {
-        adminUserId: user.id,
-        action: "DELETE",
-        entityType: "offline_income",
-        entityId: id,
-      },
-    })
-    if (existing.addedByAdminUserId && existing.addedByAdminUserId !== user.id) {
-      await prisma.auditLog.create({
-        data: {
-          adminUserId: existing.addedByAdminUserId,
-          action: "DELETE",
-          entityType: "offline_income",
-          entityId: id,
-        },
-      })
     }
     await prisma.offlineIncome.delete({
       where: { id },

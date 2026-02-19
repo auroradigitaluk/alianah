@@ -30,9 +30,27 @@ export function AbandonedCheckoutsTable({ orders }: { orders: AbandonedCheckoutO
       ? window.location.origin
       : process.env.NEXT_PUBLIC_APP_URL || ""
 
+  // Normalize dates (server sends serialized ISO strings)
+  const normalizedOrders = orders.map((order) => ({
+    ...order,
+    createdAt: order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt as string),
+  }))
+
+  if (normalizedOrders.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center">
+        <p className="text-sm font-medium text-muted-foreground">No abandoned checkouts</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Checkouts that are left incomplete (e.g. at the payment step) will appear here. Completed
+          donations show under the Donations tab.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <AdminTable
-      data={orders}
+      data={normalizedOrders}
       columns={[
         {
           id: "orderNumber",

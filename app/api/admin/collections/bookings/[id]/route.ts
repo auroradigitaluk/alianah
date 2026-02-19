@@ -71,27 +71,6 @@ export async function DELETE(
     if (!existing) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 })
     }
-    if (user.role === "STAFF" && existing.addedByAdminUserId !== user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-    await prisma.auditLog.create({
-      data: {
-        adminUserId: user.id,
-        action: "DELETE",
-        entityType: "collection_booking",
-        entityId: id,
-      },
-    })
-    if (existing.addedByAdminUserId && existing.addedByAdminUserId !== user.id) {
-      await prisma.auditLog.create({
-        data: {
-          adminUserId: existing.addedByAdminUserId,
-          action: "DELETE",
-          entityType: "collection_booking",
-          entityId: id,
-        },
-      })
-    }
     await prisma.collectionBooking.delete({
       where: { id },
     })
