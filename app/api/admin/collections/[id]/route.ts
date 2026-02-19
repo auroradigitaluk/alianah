@@ -154,14 +154,17 @@ export async function DELETE(
   }
   try {
     const { id } = await params
+    const existing = await prisma.collection.findUnique({
+      where: { id },
+      select: { addedByAdminUserId: true },
+    })
     if (user.role === "STAFF") {
-      const existing = await prisma.collection.findUnique({
-        where: { id },
-        select: { addedByAdminUserId: true },
-      })
       if (!existing || existing.addedByAdminUserId !== user.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
+    }
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
     await prisma.auditLog.create({
       data: {
@@ -171,6 +174,16 @@ export async function DELETE(
         entityId: id,
       },
     })
+    if (existing.addedByAdminUserId && existing.addedByAdminUserId !== user.id) {
+      await prisma.auditLog.create({
+        data: {
+          adminUserId: existing.addedByAdminUserId,
+          action: "DELETE",
+          entityType: "collection",
+          entityId: id,
+        },
+      })
+    }
     await prisma.collection.delete({
       where: { id },
     })

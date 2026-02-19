@@ -82,6 +82,16 @@ export async function DELETE(
         entityId: id,
       },
     })
+    if (existing.addedByAdminUserId && existing.addedByAdminUserId !== user.id) {
+      await prisma.auditLog.create({
+        data: {
+          adminUserId: existing.addedByAdminUserId,
+          action: "DELETE",
+          entityType: "collection_booking",
+          entityId: id,
+        },
+      })
+    }
     await prisma.collectionBooking.delete({
       where: { id },
     })

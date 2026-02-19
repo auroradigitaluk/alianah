@@ -97,18 +97,21 @@ export async function GET(request: NextRequest) {
       sponsorship_donation: "Deleted sponsorship donation",
     }
     auditLogs.forEach((a) => {
+      const ts = a.createdAt.toISOString()
       if (a.action === "LOGIN" || a.action === "LOGOUT") {
         const actionLabel = a.action === "LOGIN" ? "Logged in" : "Logged out"
+        activities.push({ type: "session", message: actionLabel, timestamp: ts })
+      } else if (a.action === "DELETE") {
+        const message =
+          a.entityType && a.entityType in deleteMessageByEntityType
+            ? deleteMessageByEntityType[a.entityType as keyof typeof deleteMessageByEntityType]
+            : "Deleted item"
+        activities.push({ type: "delete", message, timestamp: ts })
+      } else {
         activities.push({
-          type: "session",
-          message: actionLabel,
-          timestamp: a.createdAt.toISOString(),
-        })
-      } else if (a.action === "DELETE" && a.entityType in deleteMessageByEntityType) {
-        activities.push({
-          type: "delete",
-          message: deleteMessageByEntityType[a.entityType as keyof typeof deleteMessageByEntityType],
-          timestamp: a.createdAt.toISOString(),
+          type: "audit",
+          message: a.entityType ? `${a.action} (${a.entityType})` : a.action,
+          timestamp: ts,
         })
       }
     })

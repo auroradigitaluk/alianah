@@ -108,14 +108,17 @@ export async function DELETE(
   if (err) return err
   try {
     const { id } = await params
+    const existing = await prisma.masjid.findUnique({
+      where: { id },
+      select: { addedByAdminUserId: true },
+    })
     if (user.role === "STAFF") {
-      const existing = await prisma.masjid.findUnique({
-        where: { id },
-        select: { addedByAdminUserId: true },
-      })
       if (!existing || existing.addedByAdminUserId !== user.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
+    }
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
     await prisma.auditLog.create({
       data: {
@@ -125,6 +128,16 @@ export async function DELETE(
         entityId: id,
       },
     })
+    if (existing.addedByAdminUserId && existing.addedByAdminUserId !== user.id) {
+      await prisma.auditLog.create({
+        data: {
+          adminUserId: existing.addedByAdminUserId,
+          action: "DELETE",
+          entityType: "masjid",
+          entityId: id,
+        },
+      })
+    }
     await prisma.masjid.delete({
       where: { id },
     })

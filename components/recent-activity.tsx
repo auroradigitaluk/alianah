@@ -62,6 +62,9 @@ export function RecentActivity({ activities, subtitle, showExactDateTime }: Rece
     if (type === "delete") {
       return <Trash2 className="h-4 w-4 text-red-600" />
     }
+    if (type === "audit") {
+      return <Wallet className="h-4 w-4 text-muted-foreground" />
+    }
     if (type.includes("cancelled")) {
       return <XCircle className="h-4 w-4 text-orange-600" />
     }

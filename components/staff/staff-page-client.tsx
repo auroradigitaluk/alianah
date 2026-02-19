@@ -180,8 +180,14 @@ export function StaffPageClient() {
         setDashboardData(dashboardDataRes)
         setStaffDetails(detailsDataRes)
         if (activityRes.ok) {
-          const activityData = (await activityRes.json()) as { activities: Array<{ type: string; message: string; timestamp: string }> }
+          const activityData = (await activityRes.json()) as {
+            activities: Array<{ type: string; message: string; timestamp: string }>
+          }
           setStaffActivityFeed(activityData.activities ?? [])
+        } else {
+          const errText = await activityRes.text()
+          console.error("Staff activity API failed:", activityRes.status, errText)
+          toast.error("Could not load activity")
         }
       } catch {
         toast.error("Failed to load staff data")
