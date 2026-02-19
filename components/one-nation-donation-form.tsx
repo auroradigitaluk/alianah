@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -598,13 +598,7 @@ export function OneNationDonationForm({
     <div className="w-full max-w-4xl mx-auto">
       {/* Donation Form Card */}
       <Card className="!bg-transparent shadow-none hover:shadow-none">
-        <CardHeader className="pb-4">
-          <h2 className="text-xl font-semibold tracking-tight">Make a Donation</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Choose how you&apos;d like to give and where your donation will be used. Secure, fast, and impactful.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-5 pt-6">
           {/* Donation Type Toggle (Appeal vs Water Project) */}
           {!hideDonationTypeToggle && (
           <div className="space-y-2">

@@ -217,10 +217,10 @@ export default async function HomePage({
         {/* Minimal Header */}
         <div className="mb-6 sm:mb-8 text-center">
           <h1 className="text-2xl sm:text-2xl font-bold tracking-tight md:text-3xl mb-2">
-            Give with Purpose
+            Make a Donation
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
-            Support our humanitarian efforts and help those in need. Every donation makes a meaningful impact.
+            Choose how you'd like to give and where your donation will be used. Secure, fast, and impactful.
           </p>
         </div>
 
