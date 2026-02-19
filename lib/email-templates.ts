@@ -363,7 +363,9 @@ export function buildDonationConfirmationEmail(
     ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr><td style="border-radius: 4px; background:${BRAND.primary};"><a href="${escapeHtml(params.manageSubscriptionUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 14px 28px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #ffffff; text-decoration: none;">Manage subscription</a></td></tr></table>`
     : ""
 
-  const manageSubscriptionHtml = ""
+  const manageSubscriptionHtml = params.manageSubscriptionUrl
+    ? `<p style="margin:0; font-size: 13px; color:${BRAND.muted}; line-height: 1.5;">Want to stop this donation? <a href="${escapeHtml(params.manageSubscriptionUrl)}" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; font-weight: 600; text-decoration: none;">Click here</a> to manage or cancel your subscription.</p>`
+    : ""
 
   const firstName = params.donorName.trim().split(/\s+/)[0] || "there"
   const introParagraph = `${escapeHtml(firstName)}, thank you for your generous donation. Below is a summary of your donation.`

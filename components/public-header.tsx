@@ -24,7 +24,7 @@ export function PublicHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+      <div className="container mx-auto flex h-20 items-center justify-between px-4">
         <div className="flex items-center">
           <Button
             variant="ghost"
@@ -54,6 +54,35 @@ export function PublicHeader() {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <nav className="hidden md:flex items-center gap-1 mr-4" aria-label="Main">
+          <Link
+            href="/"
+            className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Appeals
+          </Link>
+          <Link
+            href="/zakat"
+            className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Zakat
+          </Link>
+          <Link
+            href="/water"
+            className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Water
+          </Link>
+          <Link
+            href="/sponsors"
+            className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Sponsor
+          </Link>
+        </nav>
+        <span className="hidden md:inline-flex items-center mr-4" aria-hidden>
+          <span className="w-px h-6 bg-foreground/80" />
+        </span>
         <span className="hidden md:inline-flex">
           <ThemeToggle />
         </span>

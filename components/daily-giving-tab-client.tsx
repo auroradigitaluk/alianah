@@ -111,7 +111,7 @@ export function DailyGivingTabClient({
         </div>
         <div className="flex flex-nowrap items-end gap-2 shrink-0">
           <Button variant="outline" size="default" asChild>
-            <Link href="/ramadhan-daily-giving" target="_blank" rel="noopener noreferrer">
+            <Link href="/daily" target="_blank" rel="noopener noreferrer">
               <ExternalLink className="size-4" />
               Open page
             </Link>
