@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       })
       await prisma.demoOrder.update({
         where: { id: order.id },
-        data: { status: "ABANDONED" },
+        data: { status: "ABANDONED", abandonedEmail1SentAt: new Date() },
       })
       sentFirst += 1
     } catch (error) {

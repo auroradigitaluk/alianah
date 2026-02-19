@@ -1,6 +1,9 @@
+import type { Prisma } from "@prisma/client"
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { DonationsPageContent } from "@/components/donations-page-content"
+
+type AbandonedCheckoutRow = Prisma.DemoOrderGetPayload<{ include: { items: true } }>
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -39,19 +42,48 @@ async function getDonations() {
   }
 }
 
-async function getAbandonedCheckouts() {
+async function getAbandonedCheckouts(): Promise<AbandonedCheckoutRow[]> {
   try {
-    return await prisma.donation.findMany({
-      where: { status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-      include: {
-        donor: { select: { title: true, firstName: true, lastName: true, email: true } },
-        appeal: { select: { title: true } },
-        product: { select: { name: true } },
+    // Include recovered (COMPLETED + abandonedEmail1SentAt) when that column exists
+    return await prisma.demoOrder.findMany({
+      where: {
+        OR: [
+          { status: { in: ["PENDING", "ABANDONED"] } },
+          { status: "COMPLETED", abandonedEmail1SentAt: { not: null } },
+        ],
       },
+      orderBy: { createdAt: "desc" },
+      include: { items: true },
     })
-  } catch (error) {
-    return []
+  } catch {
+    // Fallback when migration not run yet (abandonedEmail1SentAt column missing): query without that column
+    try {
+      const rows = await prisma.demoOrder.findMany({
+        where: { status: { in: ["PENDING", "ABANDONED"] } },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          createdAt: true,
+          donorFirstName: true,
+          donorLastName: true,
+          donorEmail: true,
+          totalPence: true,
+          abandonedEmail2SentAt: true,
+          items: {
+            select: {
+              appealTitle: true,
+              productName: true,
+              amountPence: true,
+            },
+          },
+        },
+      })
+      return rows as AbandonedCheckoutRow[]
+    } catch {
+      return []
+    }
   }
 }
 
@@ -61,7 +93,7 @@ export default async function DonationsPage({
   searchParams: Promise<{ open?: string }>
 }) {
   const params = await searchParams
-  const [donations, abandonedDonations] = await Promise.all([
+  const [donations, abandonedCheckouts] = await Promise.all([
     getDonations(),
     getAbandonedCheckouts(),
   ])
@@ -83,7 +115,7 @@ export default async function DonationsPage({
                 <div>
                   <DonationsPageContent
                     donations={donations}
-                    abandonedDonations={abandonedDonations}
+                    abandonedCheckouts={abandonedCheckouts}
                     openId={params?.open ?? undefined}
                   />
                 </div>

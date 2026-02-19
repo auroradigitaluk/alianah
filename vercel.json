@@ -1,8 +1,6 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/daily-giving-odd-nights",
-      "schedule": "0 20 * * *"
-    }
+    { "path": "/api/cron/daily-giving-odd-nights", "schedule": "0 20 * * *" },
+    { "path": "/api/cron/abandoned-checkout", "schedule": "0 * * * *" }
   ]
 }

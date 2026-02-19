@@ -627,6 +627,7 @@ model DemoOrder {
   stripeCustomerId String? // For daily giving odd-nights-only: Stripe customer ID (no charge at checkout)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  abandonedEmail1SentAt DateTime? // Set when first (1h) abandoned email sent; used to show "Saved" if they later complete
   abandonedEmail2SentAt DateTime? // Set when second (24h) abandoned email sent
 
   items DemoOrderItem[]
@@ -635,6 +636,7 @@ model DemoOrder {
   @@index([status])
   @@index([transactionId])
   @@index([createdAt])
+  @@index([abandonedEmail1SentAt])
   @@index([abandonedEmail2SentAt])
   @@map("demo_orders")
 }

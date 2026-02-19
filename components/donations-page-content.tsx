@@ -2,6 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DonationsTable } from "@/components/donations-table"
+import { AbandonedCheckoutsTable, type AbandonedCheckoutOrder } from "@/components/abandoned-checkouts-table"
 
 export type DonationRow = {
   id: string
@@ -38,11 +39,11 @@ export type DonationRow = {
 
 export function DonationsPageContent({
   donations,
-  abandonedDonations,
+  abandonedCheckouts,
   openId,
 }: {
   donations: DonationRow[]
-  abandonedDonations: DonationRow[]
+  abandonedCheckouts: AbandonedCheckoutOrder[]
   openId?: string | null
 }) {
   return (
@@ -52,14 +53,14 @@ export function DonationsPageContent({
           Donations ({donations.length})
         </TabsTrigger>
         <TabsTrigger value="abandoned">
-          Abandoned checkouts ({abandonedDonations.length})
+          Abandoned checkouts ({abandonedCheckouts.length})
         </TabsTrigger>
       </TabsList>
       <TabsContent value="donations" className="mt-0">
         <DonationsTable donations={donations} initialSelectedId={openId} />
       </TabsContent>
       <TabsContent value="abandoned" className="mt-0">
-        <DonationsTable donations={abandonedDonations} initialSelectedId={openId} />
+        <AbandonedCheckoutsTable orders={abandonedCheckouts} />
       </TabsContent>
     </Tabs>
   )
