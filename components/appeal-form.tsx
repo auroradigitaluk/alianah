@@ -437,7 +437,6 @@ export function AppealForm({ appeal }: AppealFormProps) {
             </Button>
           </div>
         </div>
-
         {allowMonthly && (
           <div className="space-y-2 border rounded-lg p-4">
             <div className="space-y-2 mt-4">

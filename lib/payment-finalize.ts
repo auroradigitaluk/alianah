@@ -37,10 +37,10 @@ export async function finalizeOrderByOrderNumber(params: {
 
   const wasAlreadyCompleted = order.status === "COMPLETED"
   const hasRecurringItems = order.items.some(
-    (item) => item.frequency === "MONTHLY" || item.frequency === "YEARLY"
+    (item) => item.frequency === "MONTHLY" || item.frequency === "YEARLY" || item.frequency === "DAILY"
   )
-  const targetFrequencies: Array<"ONE_OFF" | "MONTHLY" | "YEARLY"> = isSubscription
-    ? ["MONTHLY", "YEARLY"]
+  const targetFrequencies: Array<"ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY"> = isSubscription
+    ? ["MONTHLY", "YEARLY", "DAILY"]
     : ["ONE_OFF"]
   const shouldFinalizeOrder = !hasRecurringItems || isSubscription
   const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
@@ -145,7 +145,7 @@ export async function finalizeOrderByOrderNumber(params: {
   })
 
   const appealItems = order.items.filter(
-    (item) => item.appealId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY")
+    (item) => item.appealId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
   )
   if (appealItems.length > 0) {
     const appealItemsToCreate = appealItems.filter((item) => {
@@ -202,7 +202,7 @@ export async function finalizeOrderByOrderNumber(params: {
     select: { id: true },
   })
   const waterItems = order.items.filter(
-    (item) => item.waterProjectId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY")
+    (item) => item.waterProjectId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
   )
   if (waterItems.length > 0 && existingWaterDonations.length === 0) {
     createdWaterDonations = await Promise.all(
@@ -251,7 +251,7 @@ export async function finalizeOrderByOrderNumber(params: {
   })
   const sponsorshipItems = order.items.filter(
     (item) =>
-      item.sponsorshipProjectId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY")
+      item.sponsorshipProjectId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
   )
   if (sponsorshipItems.length > 0 && existingSponsorshipDonations.length === 0) {
     createdSponsorshipDonations = await Promise.all(
@@ -294,7 +294,7 @@ export async function finalizeOrderByOrderNumber(params: {
     (item) =>
       item.qurbaniCountryId &&
       item.qurbaniSize &&
-      targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY")
+      targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
   )
   if (qurbaniItems.length > 0 && existingQurbaniDonations.length === 0) {
     await Promise.all(
@@ -346,11 +346,15 @@ export async function finalizeOrderByOrderNumber(params: {
       })
     } else {
       const recurringItems = order.items.filter(
-        (item) => item.frequency === "MONTHLY" || item.frequency === "YEARLY"
+        (item) => item.frequency === "MONTHLY" || item.frequency === "YEARLY" || item.frequency === "DAILY"
       )
       await Promise.all(
-        recurringItems.map((item) =>
-          prisma.recurringDonation.create({
+        recurringItems.map((item) => {
+          const scheduleEndDate =
+            item.frequency === "DAILY" && item.dailyGivingEndDate
+              ? new Date(item.dailyGivingEndDate)
+              : null
+          return prisma.recurringDonation.create({
             data: {
               donorId: donor.id,
               appealId: item.appealId || null,
@@ -362,10 +366,11 @@ export async function finalizeOrderByOrderNumber(params: {
               status: "ACTIVE",
               subscriptionId: paymentRef,
               lastPaymentDate: paidAt,
+              scheduleEndDate,
               ...(nextPaymentDate ? { nextPaymentDate } : {}),
             },
           })
-        )
+        })
       )
     }
   }

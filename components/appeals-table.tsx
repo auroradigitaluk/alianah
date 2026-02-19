@@ -41,6 +41,7 @@ interface Appeal {
   allowCustomMonthly: boolean
   monthlyPricePence: number | null
   allowFundraising: boolean
+  allowDailyGiving?: boolean
   appealImageUrls: string
   fundraisingImageUrls: string
   createdAt: Date | string

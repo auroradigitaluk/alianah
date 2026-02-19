@@ -25,6 +25,7 @@ export function Sidecart() {
     ONE_OFF: "One-off",
     MONTHLY: "Monthly",
     YEARLY: "Yearly",
+    DAILY: "Daily",
   }
 
   return (

@@ -96,6 +96,7 @@ async function getFundraiser(slug: string) {
             donationTypesEnabled: true,
             appealImageUrls: true,
             fundraisingImageUrls: true,
+            fundraisingDefaultMessage: true,
             products: {
               include: {
                 product: true,
@@ -115,6 +116,7 @@ async function getFundraiser(slug: string) {
             allowFundraising: true,
             projectImageUrls: true,
             fundraisingImageUrls: true,
+            fundraisingDefaultMessage: true,
           },
         },
         donations: {
@@ -292,11 +294,11 @@ export default async function FundraisePage({
                 </p>
               </div>
 
-              {/* 4. Fundraiser Story */}
-              {fundraiser.message && (
+              {/* 4. Fundraiser Story - always show appeal/project default description when no custom message */}
+              {(fundraiser.message || (isWaterFundraiser ? fundraiser.waterProject?.fundraisingDefaultMessage : fundraiser.appeal?.fundraisingDefaultMessage)) && (
                 <div className="prose prose-sm sm:prose-base max-w-none">
                   <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap text-foreground">
-                    {fundraiser.message}
+                    {fundraiser.message || (isWaterFundraiser ? fundraiser.waterProject?.fundraisingDefaultMessage : fundraiser.appeal?.fundraisingDefaultMessage)}
                   </p>
                 </div>
               )}

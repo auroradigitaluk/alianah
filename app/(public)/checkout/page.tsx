@@ -218,7 +218,7 @@ function PaymentStep(props: {
   validated: z.infer<typeof checkoutSchema>
   totalPence: number
   recurringTotalPence: number
-  recurringFrequency: "MONTHLY" | "YEARLY" | null
+  recurringFrequency: "MONTHLY" | "YEARLY" | "DAILY" | null
   isMixedCheckout: boolean
   onBack: () => void
   onSuccess: (orderId: string) => void
@@ -483,7 +483,7 @@ function PaymentStep(props: {
                 Charged now:{" "}
                 <span className="font-medium">
                   {formatCurrency(totalPence)} one-off + {formatCurrency(recurringTotalPence)}/
-                  {recurringFrequency === "YEARLY" ? "year" : "month"}
+                  {recurringFrequency === "YEARLY" ? "year" : recurringFrequency === "DAILY" ? "day" : "month"}
                 </span>
               </p>
             )}
@@ -491,14 +491,14 @@ function PaymentStep(props: {
               <p>
                 Recurring total:{" "}
                 <span className="font-medium">
-                  {formatCurrency(recurringTotalPence)}/{recurringFrequency === "YEARLY" ? "year" : "month"}
+                  {formatCurrency(recurringTotalPence)}/{recurringFrequency === "YEARLY" ? "year" : recurringFrequency === "DAILY" ? "day" : "month"}
                 </span>
               </p>
             )}
           </div>
           {isMixedCheckout && recurringFrequency && (
             <p className="text-xs text-muted-foreground">
-              Your card will be charged now and your {recurringFrequency === "YEARLY" ? "yearly" : "monthly"} donation
+              Your card will be charged now and your {recurringFrequency === "YEARLY" ? "yearly" : recurringFrequency === "DAILY" ? "daily" : "monthly"} donation
               will start today.
             </p>
           )}
@@ -600,7 +600,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                 : undefined
             return {
               ...rest,
-              frequency: item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY",
+              frequency: item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY",
               donationType: item.donationType as "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH",
               ...(qurbaniSize && { qurbaniSize }),
             }
@@ -688,7 +688,10 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   const recurringFrequency = (() => {
     const frequencies = new Set(recurringItems.map((item) => item.frequency))
     if (frequencies.size === 1) {
-      return recurringItems[0]?.frequency === "YEARLY" ? "YEARLY" : "MONTHLY"
+      const freq = recurringItems[0]?.frequency
+      if (freq === "YEARLY") return "YEARLY"
+      if (freq === "DAILY") return "DAILY"
+      return "MONTHLY"
     }
     return null
   })()
@@ -892,6 +895,8 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                             ? `${formatCurrency(item.amountPence)}/month`
                             : item.frequency === "YEARLY"
                             ? `${formatCurrency(item.amountPence)}/year`
+                            : item.frequency === "DAILY"
+                            ? `${formatCurrency(item.amountPence)}/day`
                             : formatCurrency(item.amountPence)}
                         </p>
                       </div>
@@ -908,7 +913,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">
-                          {recurringFrequency === "YEARLY" ? "Yearly subtotal" : "Monthly subtotal"}
+                          {recurringFrequency === "YEARLY"
+                              ? "Yearly subtotal"
+                              : recurringFrequency === "DAILY"
+                              ? "Daily subtotal"
+                              : "Monthly subtotal"}
                         </span>
                         <span>{formatCurrency(recurringSubtotalPence)}</span>
                       </div>
@@ -921,7 +930,12 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                       {recurringFeesPence > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">
-                            Processing fees ({recurringFrequency === "YEARLY" ? "yearly" : "monthly"})
+                            Processing fees (
+                            {recurringFrequency === "YEARLY"
+                              ? "yearly"
+                              : recurringFrequency === "DAILY"
+                              ? "daily"
+                              : "monthly"})
                           </span>
                           <span>{formatCurrency(recurringFeesPence)}</span>
                         </div>
@@ -1428,6 +1442,8 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                             ? `${formatCurrency(item.amountPence)}/month`
                             : item.frequency === "YEARLY"
                             ? `${formatCurrency(item.amountPence)}/year`
+                            : item.frequency === "DAILY"
+                            ? `${formatCurrency(item.amountPence)}/day`
                             : formatCurrency(item.amountPence)}
                         </p>
                       </div>
@@ -1444,7 +1460,11 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">
-                          {recurringFrequency === "YEARLY" ? "Yearly subtotal" : "Monthly subtotal"}
+                          {recurringFrequency === "YEARLY"
+                              ? "Yearly subtotal"
+                              : recurringFrequency === "DAILY"
+                              ? "Daily subtotal"
+                              : "Monthly subtotal"}
                         </span>
                         <span>{formatCurrency(recurringSubtotalPence)}</span>
                       </div>
@@ -1457,7 +1477,12 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                       {recurringFeesPence > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">
-                            Processing fees ({recurringFrequency === "YEARLY" ? "yearly" : "monthly"})
+                            Processing fees (
+                            {recurringFrequency === "YEARLY"
+                              ? "yearly"
+                              : recurringFrequency === "DAILY"
+                              ? "daily"
+                              : "monthly"})
                           </span>
                           <span>{formatCurrency(recurringFeesPence)}</span>
                         </div>

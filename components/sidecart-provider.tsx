@@ -10,10 +10,12 @@ interface CartItem {
   fundraiserId?: string
   productId?: string
   productName?: string
-  frequency: "ONE_OFF" | "MONTHLY" | "YEARLY"
+  frequency: "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY"
   donationType: "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
   amountPence: number
   isAnonymous?: boolean
+  /** For frequency DAILY: ISO date string when the daily subscription ends (e.g. Eid). */
+  dailyGivingEndDate?: string
   // Water project specific fields
   waterProjectId?: string
   waterProjectCountryId?: string

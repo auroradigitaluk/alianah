@@ -100,12 +100,15 @@ model TaskNote {
 }
 
 model Settings {
-  id            String   @id
-  charityName   String   @default("Alianah Humanity Welfare")
-  supportEmail  String   @default("support@alianah.org")
-  websiteUrl    String   @default("https://www.alianah.org")
-  charityNumber String?
-  updatedAt     DateTime @updatedAt
+  id                 String    @id
+  charityName        String    @default("Alianah Humanity Welfare")
+  supportEmail       String    @default("support@alianah.org")
+  websiteUrl         String    @default("https://www.alianah.org")
+  charityNumber      String?
+  ramadhanStartDate  DateTime? // For daily giving: first day of Ramadhan
+  eidDate            DateTime? // End of Ramadhan: final charge on this day, then subscription stops
+  dailyGivingAppealIds String? // JSON array of appeal ids to show on daily giving page (max 4)
+  updatedAt          DateTime  @updatedAt
 
   @@map("settings")
 }
@@ -160,6 +163,7 @@ model Appeal {
   monthlyPricePence    Int? // Single price for monthly donations in pence
   yearlyPricePence     Int? // Single price for yearly donations in pence
   allowFundraising     Boolean  @default(false)
+  allowDailyGiving     Boolean  @default(false) // Show on Ramadhan daily giving page
   appealImageUrls      String   @default("[]") // JSON string array of Vercel Blob URLs
   fundraisingImageUrls String   @default("[]") // JSON string array of Vercel Blob URLs for fundraising pages
   fundraisingDefaultMessage String?
@@ -500,12 +504,13 @@ model RecurringDonation {
   productId       String?
   amountPence     Int
   donationType    String // GENERAL | SADAQAH | ZAKAT | LILLAH
-  frequency       String // MONTHLY | YEARLY
+  frequency       String // MONTHLY | YEARLY | DAILY (Ramadhan daily giving)
   status          String // ACTIVE | PAUSED | CANCELLED | FAILED
   paymentMethod   String // STRIPE | PAYPAL | OTHER
   subscriptionId  String?
   nextPaymentDate DateTime?
   lastPaymentDate DateTime?
+  scheduleEndDate DateTime? // For DAILY: when the daily subscription ends (Eid or last 10 end)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -516,6 +521,7 @@ model RecurringDonation {
   @@index([donorId])
   @@index([appealId])
   @@index([status])
+  @@index([frequency])
   @@index([nextPaymentDate])
   @@map("recurring_donations")
 }
@@ -651,6 +657,7 @@ model DemoOrderItem {
   qurbaniCountryId      String?
   qurbaniSize           String? // ONE_SEVENTH | SMALL | LARGE
   qurbaniNames          String? // Whose name the qurbani is for (comma-separated for Large)
+  dailyGivingEndDate    String? // For frequency DAILY: ISO date string when subscription ends
   createdAt    DateTime @default(now())
 
   order DemoOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)

@@ -28,9 +28,11 @@ const itemSchema = z.object({
   isAnonymous: z.boolean().optional(),
   productId: z.string().optional(),
   productName: z.string().optional(),
-  frequency: z.enum(["ONE_OFF", "MONTHLY", "YEARLY"]),
+  frequency: z.enum(["ONE_OFF", "MONTHLY", "YEARLY", "DAILY"]),
   donationType: z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"]),
   amountPence: z.number().int().positive(),
+  /** For frequency DAILY: ISO date string (YYYY-MM-DD) when subscription ends. */
+  dailyGivingEndDate: z.string().optional(),
 
   // Water project
   waterProjectId: z.string().optional(),
@@ -193,6 +195,7 @@ export async function POST(request: NextRequest) {
             qurbaniCountryId: item.qurbaniCountryId || null,
             qurbaniSize: item.qurbaniSize || null,
             qurbaniNames: item.qurbaniNames || null,
+            dailyGivingEndDate: item.dailyGivingEndDate || null,
           })),
         },
       },
@@ -204,11 +207,22 @@ export async function POST(request: NextRequest) {
     const recurringFrequencies = new Set(recurringItems.map((item) => item.frequency))
     if (recurringFrequencies.size > 1) {
       return NextResponse.json(
-        { error: "Please checkout monthly and yearly donations separately." },
+        { error: "Please checkout monthly, yearly and daily donations separately." },
         { status: 400 }
       )
     }
     const recurringFrequency = recurringItems[0]?.frequency
+    const isDaily = recurringFrequency === "DAILY"
+    if (isDaily) {
+      for (const item of recurringItems) {
+        if (!item.dailyGivingEndDate) {
+          return NextResponse.json(
+            { error: "Daily giving items require an end date." },
+            { status: 400 }
+          )
+        }
+      }
+    }
 
     // Water project validation (donations created on payment success)
     await Promise.all(
@@ -342,7 +356,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const recurringInterval: "month" | "year" = recurringFrequency === "YEARLY" ? "year" : "month"
+    const recurringInterval: "month" | "year" | "day" =
+      recurringFrequency === "YEARLY" ? "year" : recurringFrequency === "DAILY" ? "day" : "month"
 
     const customer = await getStripe().customers.create({
       email: validated.donor.email,
@@ -394,12 +409,11 @@ export async function POST(request: NextRequest) {
       ]
     )
 
-    const subscription = await getStripe().subscriptions.create({
+    const subscriptionPayload: Stripe.SubscriptionCreateParams = {
       customer: customer.id,
       payment_behavior: "default_incomplete",
       collection_method: "charge_automatically",
       payment_settings: {
-        // Allow card-based wallets on the underlying PaymentIntent.
         save_default_payment_method: "on_subscription",
       },
       metadata: {
@@ -409,7 +423,14 @@ export async function POST(request: NextRequest) {
       },
       items: createdPrices.map((p) => ({ price: p.priceId, quantity: 1 })),
       expand: ["latest_invoice.payment_intent"],
-    })
+    }
+    if (isDaily && recurringItems[0]?.dailyGivingEndDate) {
+      const endDateStr = recurringItems[0].dailyGivingEndDate
+      const endDate = new Date(endDateStr)
+      endDate.setUTCHours(23, 59, 59, 999)
+      subscriptionPayload.cancel_at = Math.floor(endDate.getTime() / 1000)
+    }
+    const subscription = await getStripe().subscriptions.create(subscriptionPayload)
 
     // Stripe TS types vary by version; ensure `payment_intent` is accessible.
     const latestInvoice = subscription.latest_invoice as (Stripe.Invoice & {
