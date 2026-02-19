@@ -88,7 +88,7 @@ function FundraiserLoginForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md !bg-transparent shadow-none hover:shadow-none">
         <CardHeader>
           <CardTitle>Fundraiser Login</CardTitle>
           <CardDescription>
@@ -185,7 +185,7 @@ export default function FundraiserLoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md !bg-transparent shadow-none hover:shadow-none">
           <CardContent className="py-12">
             <div className="flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

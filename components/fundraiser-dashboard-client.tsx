@@ -71,7 +71,7 @@ export function FundraiserDashboardClient({
 
           {/* Create New Fundraiser */}
           {eligibleCampaigns.length > 0 && (
-            <Card className="mb-6 sm:mb-8 border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card shadow-md">
+            <Card className="mb-6 sm:mb-8 !bg-transparent shadow-none hover:shadow-none">
               <CardHeader>
                 <CardTitle className="text-lg">Create New Fundraiser</CardTitle>
                 <CardDescription>
@@ -107,7 +107,7 @@ export function FundraiserDashboardClient({
 
           {/* Fundraisers List */}
           {fundraisers.length === 0 ? (
-            <Card>
+            <Card className="!bg-transparent shadow-none hover:shadow-none">
               <CardContent className="py-12 text-center">
                 <p className="text-muted-foreground mb-4">
                   You haven&apos;t created any fundraisers yet.
@@ -127,7 +127,7 @@ export function FundraiserDashboardClient({
               {fundraisers.map((fundraiser) => (
                 <Card
                   key={fundraiser.id}
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 border-primary/10 hover:border-primary/30 bg-gradient-to-br from-card via-card to-primary/5"
+                  className="cursor-pointer !bg-transparent border border-primary/10 hover:border-primary/30 shadow-none hover:shadow-none"
                   onClick={() => handleFundraiserClick(fundraiser)}
                 >
                   <CardHeader>

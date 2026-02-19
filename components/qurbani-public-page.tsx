@@ -148,7 +148,7 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
           </p>
         </div>
 
-        <Card className="shadow-sm border">
+        <Card className="!bg-transparent shadow-none hover:shadow-none">
           <CardHeader className="pb-4">
             <h2 className="text-xl font-semibold tracking-tight">Make a Qurbani Donation</h2>
             <p className="text-sm text-muted-foreground mt-1">

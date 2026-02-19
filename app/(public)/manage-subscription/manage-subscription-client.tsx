@@ -38,7 +38,7 @@ export function ManageSubscriptionClient() {
   return (
     <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 md:px-6">
       <div className="max-w-lg mx-auto space-y-4">
-        <Card>
+        <Card className="!bg-transparent shadow-none hover:shadow-none">
           <CardHeader>
             <CardTitle>Manage subscription</CardTitle>
           </CardHeader>

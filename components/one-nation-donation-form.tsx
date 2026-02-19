@@ -597,7 +597,7 @@ export function OneNationDonationForm({
   return (
     <div className="w-full max-w-4xl mx-auto">
       {/* Donation Form Card */}
-      <Card className="shadow-sm border">
+      <Card className="!bg-transparent shadow-none hover:shadow-none">
         <CardHeader className="pb-4">
           <h2 className="text-xl font-semibold tracking-tight">Make a Donation</h2>
           <p className="text-sm text-muted-foreground mt-1">

@@ -131,7 +131,7 @@ export function ZakatCalculator({ appeals = [] }: ZakatCalculatorProps) {
       </div>
 
       {/* Today's Nisab value */}
-      <Card className="mb-6 pt-4">
+      <Card className="mb-6 pt-4 !bg-transparent shadow-none hover:shadow-none">
         <CardContent className="pt-3">
           <p className="text-sm font-medium text-muted-foreground mb-1">Today&apos;s Nisab value</p>
           {!prices ? (
@@ -148,7 +148,7 @@ export function ZakatCalculator({ appeals = [] }: ZakatCalculatorProps) {
       </Card>
 
       {/* Zakatable assets */}
-      <Card className="mb-6">
+      <Card className="mb-6 !bg-transparent shadow-none hover:shadow-none">
         <CardHeader>
           <CardTitle>Zakatable assets</CardTitle>
           <CardDescription>
@@ -220,7 +220,7 @@ export function ZakatCalculator({ appeals = [] }: ZakatCalculatorProps) {
       </Card>
 
       {/* Deductible liabilities */}
-      <Card className="mb-6">
+      <Card className="mb-6 !bg-transparent shadow-none hover:shadow-none">
         <CardHeader>
           <CardTitle>Deductible liabilities</CardTitle>
           <CardDescription>
@@ -260,7 +260,7 @@ export function ZakatCalculator({ appeals = [] }: ZakatCalculatorProps) {
       </Card>
 
       {/* Result */}
-      <Card className="mb-8">
+      <Card className="mb-8 !bg-transparent shadow-none hover:shadow-none">
         <CardHeader>
           <CardTitle>Your Zakat</CardTitle>
           <CardDescription>

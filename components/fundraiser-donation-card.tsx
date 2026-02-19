@@ -97,7 +97,7 @@ export function FundraiserDonationCard({
   return (
     <div className="space-y-4">
       {/* Combined Progress Section and Donation Form */}
-      <Card>
+      <Card className="!bg-transparent shadow-none hover:shadow-none">
         <CardContent className="p-6 space-y-6">
           {/* Progress Section */}
           <div className="flex flex-col items-center gap-4 pb-6 border-b">
@@ -170,7 +170,7 @@ export function FundraiserDonationCard({
 
       {/* Recent Donations */}
       {recentDonations.length > 0 && (
-        <Card>
+        <Card className="!bg-transparent shadow-none hover:shadow-none">
           <CardContent className="p-6">
             <h3 className="font-semibold mb-4 text-sm">Recent donations</h3>
             <div className="space-y-3">

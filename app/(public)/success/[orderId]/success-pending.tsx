@@ -39,7 +39,7 @@ export function SuccessPending({ orderId, orderNumber }: { orderId: string; orde
   return (
     <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12 md:px-6">
       <div className="max-w-2xl mx-auto">
-        <Card>
+        <Card className="!bg-transparent shadow-none hover:shadow-none">
           <CardHeader className="text-center">
             <div className="mx-auto mb-3 sm:mb-4 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-muted">
               <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground animate-spin" />

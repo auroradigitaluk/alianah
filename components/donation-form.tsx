@@ -452,7 +452,7 @@ export function DonationForm({
   }
 
   return (
-    <Card>
+    <Card className="!bg-transparent shadow-none hover:shadow-none">
       <CardHeader>
         <CardTitle className="text-xl">Make a Donation</CardTitle>
       </CardHeader>

@@ -95,7 +95,7 @@ export function WaterForLifePage({
   }, [selectedProjectImagesJson])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:px-6 md:py-8 max-w-2xl">
         {selectedProject && selectedProjectImages.length > 0 && (
           <div className="mb-6 sm:mb-8">
@@ -144,7 +144,7 @@ export function WaterForLifePage({
           </div>
         )}
 
-        <Card className="shadow-sm border">
+        <Card className="!bg-transparent shadow-none hover:shadow-none">
           <CardContent className="space-y-5 pt-6">
             {!lockProjectType && (
               <div className="space-y-2">

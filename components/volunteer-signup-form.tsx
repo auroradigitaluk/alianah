@@ -63,7 +63,7 @@ export function VolunteerSignupForm() {
 
   if (status === "success") {
     return (
-      <Card className="max-w-xl mx-auto">
+      <Card className="max-w-xl mx-auto !bg-transparent shadow-none hover:shadow-none">
         <CardHeader>
           <CardTitle>Thank you</CardTitle>
           <CardDescription>
@@ -75,7 +75,7 @@ export function VolunteerSignupForm() {
   }
 
   return (
-    <Card className="max-w-xl mx-auto">
+    <Card className="max-w-xl mx-auto !bg-transparent shadow-none hover:shadow-none">
       <CardHeader>
         <CardTitle>Volunteer with us</CardTitle>
         <CardDescription>

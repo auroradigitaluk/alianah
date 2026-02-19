@@ -438,7 +438,7 @@ function PaymentStep(props: {
 
   return (
     <form onSubmit={handlePay} className="space-y-4">
-      <Card>
+      <Card className="!bg-transparent shadow-none hover:shadow-none">
         <CardHeader>
           <CardTitle>Card details</CardTitle>
         </CardHeader>
@@ -810,7 +810,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 md:px-6">
-        <Card>
+        <Card className="!bg-transparent shadow-none hover:shadow-none">
           <CardContent className="p-6 sm:p-12 text-center">
             <h2 className="text-xl sm:text-2xl font-semibold mb-4">Your basket is empty</h2>
             <Button asChild>
@@ -875,7 +875,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
 
           {/* Order Summary - Right Side (Desktop) - 30% - Sticky */}
           <div className="lg:sticky lg:top-20 lg:h-fit order-2 lg:order-2 lg:col-span-3">
-            <Card>
+            <Card className="!bg-transparent shadow-none hover:shadow-none">
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
@@ -1009,7 +1009,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
         <div className="grid gap-4 sm:gap-6 lg:gap-8 lg:grid-cols-10">
           {/* Checkout form - Left Side (Desktop) */}
           <div className="lg:col-span-7 space-y-4 sm:space-y-6 order-1 lg:order-1">
-            <Card>
+            <Card className="!bg-transparent shadow-none hover:shadow-none">
               <CardHeader>
                 <CardTitle>Billing details</CardTitle>
               </CardHeader>
@@ -1307,7 +1307,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="!bg-transparent shadow-none hover:shadow-none">
               <CardHeader>
                 <CardTitle>Gift Aid</CardTitle>
               </CardHeader>
@@ -1377,7 +1377,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="!bg-transparent shadow-none hover:shadow-none">
               <CardHeader>
                 <CardTitle>Preferences</CardTitle>
               </CardHeader>
@@ -1398,7 +1398,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="!bg-transparent shadow-none hover:shadow-none">
               <CardHeader>
                 <CardTitle>Payment</CardTitle>
               </CardHeader>
@@ -1422,7 +1422,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
 
           {/* Order Summary - Right Side (Desktop) - 30% - Sticky */}
           <div className="lg:sticky lg:top-20 lg:h-fit order-2 lg:order-2 lg:col-span-3">
-            <Card>
+            <Card className="!bg-transparent shadow-none hover:shadow-none">
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
@@ -1556,7 +1556,7 @@ export default function CheckoutPage() {
   if (!publishableKey) {
     return (
       <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 md:px-6">
-        <Card>
+        <Card className="!bg-transparent shadow-none hover:shadow-none">
           <CardContent className="p-6 sm:p-12 text-center">
             <h2 className="text-xl sm:text-2xl font-semibold mb-2">Payments not configured</h2>
             <p className="text-sm text-muted-foreground">
