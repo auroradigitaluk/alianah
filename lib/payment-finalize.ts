@@ -551,3 +551,114 @@ export async function finalizeOrderByOrderNumber(params: {
   }
 }
 
+/** Finalize daily giving "odd nights only" order after SetupIntent succeeded. No charge at checkout; cron charges at 8pm on Ramadan days 20,22,24,26,28. */
+export async function finalizeOddNightsOrderByOrderNumber(params: {
+  orderNumber: string
+  setupIntentId: string
+}) {
+  const { orderNumber, setupIntentId } = params
+
+  const order = await prisma.demoOrder.findUnique({
+    where: { orderNumber },
+    include: { items: true },
+  })
+
+  if (!order || !order.stripeCustomerId) return
+
+  const claimed = await prisma.demoOrder.updateMany({
+    where: { orderNumber, transactionId: null },
+    data: { status: "COMPLETED", transactionId: setupIntentId },
+  })
+  if (claimed.count === 0) return
+
+  const donor =
+    (await prisma.donor.findUnique({ where: { email: order.donorEmail } })) ??
+    (await prisma.donor.create({
+      data: {
+        firstName: order.donorFirstName,
+        lastName: order.donorLastName,
+        email: order.donorEmail,
+        phone: order.donorPhone || null,
+        address: order.donorAddress || null,
+        city: order.donorCity || null,
+        postcode: order.donorPostcode || null,
+        country: order.donorCountry || null,
+      },
+    }))
+
+  const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
+  const oddNightsItems = order.items.filter(
+    (item) =>
+      item.frequency === "DAILY" &&
+      item.dailyGivingOddNightsOnly === true &&
+      item.dailyGivingEndDate
+  )
+
+  await Promise.all(
+    oddNightsItems.map((item) =>
+      prisma.recurringDonation.create({
+        data: {
+          donorId: donor.id,
+          appealId: item.appealId || null,
+          productId: item.productId || null,
+          amountPence: item.amountPence,
+          donationType: item.donationType,
+          frequency: "DAILY",
+          paymentMethod,
+          status: "ACTIVE",
+          subscriptionId: null,
+          stripeCustomerId: order.stripeCustomerId,
+          dailyGivingOddNightsOnly: true,
+          scheduleEndDate: new Date(item.dailyGivingEndDate!),
+        },
+      })
+    )
+  )
+}
+
+/** Record a successful odd-night charge (called from Stripe webhook). Creates Donation and updates RecurringDonation lastPaymentDate. */
+export async function recordOddNightDonation(params: {
+  recurringDonationId: string
+  paymentIntentId: string
+  paidAt: Date
+}) {
+  const { recurringDonationId, paymentIntentId, paidAt } = params
+
+  const recurring = await prisma.recurringDonation.findUnique({
+    where: { id: recurringDonationId },
+    include: { donor: true, appeal: true },
+  })
+  if (!recurring || !recurring.appealId) return
+
+  const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
+  const collectedVia = COLLECTION_SOURCES.WEBSITE
+
+  await prisma.donation.create({
+    data: {
+      donorId: recurring.donorId,
+      appealId: recurring.appealId,
+      productId: recurring.productId || null,
+      fundraiserId: null,
+      amountPence: recurring.amountPence,
+      donationType: recurring.donationType,
+      frequency: "ONE_OFF",
+      paymentMethod,
+      collectedVia,
+      status: "COMPLETED",
+      giftAid: false,
+      isAnonymous: false,
+      billingAddress: recurring.donor.address || null,
+      billingCity: recurring.donor.city || null,
+      billingPostcode: recurring.donor.postcode || null,
+      billingCountry: recurring.donor.country || null,
+      transactionId: paymentIntentId,
+      completedAt: paidAt,
+    },
+  })
+
+  await prisma.recurringDonation.update({
+    where: { id: recurringDonationId },
+    data: { lastPaymentDate: paidAt },
+  })
+}
+

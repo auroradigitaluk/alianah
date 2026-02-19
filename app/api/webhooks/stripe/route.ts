@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import Stripe from "stripe"
-import { finalizeOrderByOrderNumber } from "@/lib/payment-finalize"
+import { finalizeOrderByOrderNumber, recordOddNightDonation } from "@/lib/payment-finalize"
 import { sendSponsorshipCompletionEmail } from "@/lib/email"
 
 // Lazy initialization to avoid errors during build when API key is not available
@@ -141,8 +141,18 @@ export async function POST(request: NextRequest) {
 
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
+        const metadata = (paymentIntent.metadata || {}) as Record<string, string>
 
-        const orderNumber = paymentIntent.metadata?.orderNumber
+        if (metadata.type === "daily_odd_night" && metadata.recurringDonationId) {
+          await recordOddNightDonation({
+            recurringDonationId: metadata.recurringDonationId,
+            paymentIntentId: paymentIntent.id,
+            paidAt: new Date(),
+          })
+          break
+        }
+
+        const orderNumber = metadata.orderNumber
         if (orderNumber) {
           await finalizeOrderByOrderNumber({
             orderNumber,

@@ -508,6 +508,8 @@ model RecurringDonation {
   status          String // ACTIVE | PAUSED | CANCELLED | FAILED
   paymentMethod   String // STRIPE | PAYPAL | OTHER
   subscriptionId  String?
+  stripeCustomerId String? // For DAILY odd-nights-only: Stripe customer ID (no subscription; cron charges at 8pm)
+  dailyGivingOddNightsOnly Boolean @default(false) // Charge at 8pm UK on Ramadan days 20,22,24,26,28 only
   nextPaymentDate DateTime?
   lastPaymentDate DateTime?
   scheduleEndDate DateTime? // For DAILY: when the daily subscription ends (Eid or last 10 end)
@@ -622,6 +624,7 @@ model DemoOrder {
   donorCity      String?
   donorPostcode  String?
   donorCountry   String?
+  stripeCustomerId String? // For daily giving odd-nights-only: Stripe customer ID (no charge at checkout)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   abandonedEmail2SentAt DateTime? // Set when second (24h) abandoned email sent
@@ -658,6 +661,7 @@ model DemoOrderItem {
   qurbaniSize           String? // ONE_SEVENTH | SMALL | LARGE
   qurbaniNames          String? // Whose name the qurbani is for (comma-separated for Large)
   dailyGivingEndDate    String? // For frequency DAILY: ISO date string when subscription ends
+  dailyGivingOddNightsOnly Boolean? // For DAILY + last 10: charge at 8pm on odd nights only (days 20,22,24,26,28 of Ramadan)
   createdAt    DateTime @default(now())
 
   order DemoOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)

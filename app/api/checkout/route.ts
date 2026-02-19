@@ -33,6 +33,8 @@ const itemSchema = z.object({
   amountPence: z.number().int().positive(),
   /** For frequency DAILY: ISO date string (YYYY-MM-DD) when subscription ends. */
   dailyGivingEndDate: z.string().optional(),
+  /** For DAILY + last 10 nights: charge at 8pm UK on odd nights only (days 20,22,24,26,28 of Ramadan). */
+  dailyGivingOddNightsOnly: z.boolean().optional(),
 
   // Water project
   waterProjectId: z.string().optional(),
@@ -196,6 +198,7 @@ export async function POST(request: NextRequest) {
             qurbaniSize: item.qurbaniSize || null,
             qurbaniNames: item.qurbaniNames || null,
             dailyGivingEndDate: item.dailyGivingEndDate || null,
+            dailyGivingOddNightsOnly: item.dailyGivingOddNightsOnly ?? null,
           })),
         },
       },
@@ -353,6 +356,48 @@ export async function POST(request: NextRequest) {
         mode: "payment",
         paymentClientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
+      })
+    }
+
+    const isOddNightsOnly =
+      isDaily &&
+      recurringItems.length === 1 &&
+      Boolean(recurringItems[0].dailyGivingOddNightsOnly)
+
+    if (isOddNightsOnly) {
+      const customer = await getStripe().customers.create({
+        email: validated.donor.email,
+        name: `${validated.donor.firstName} ${validated.donor.lastName}`,
+        phone: validated.donor.phone || undefined,
+        address: billing.address
+          ? {
+              line1: billing.address,
+              city: billing.city || undefined,
+              postal_code: billing.postcode || undefined,
+              country: billing.country || undefined,
+            }
+          : undefined,
+        metadata: { orderNumber },
+      })
+      await prisma.demoOrder.update({
+        where: { id: order.id },
+        data: { stripeCustomerId: customer.id },
+      })
+      const setupIntent = await getStripe().setupIntents.create({
+        customer: customer.id,
+        payment_method_types: ["card"],
+        usage: "off_session",
+        metadata: { orderNumber },
+      })
+      if (!setupIntent.client_secret) {
+        throw new Error("Failed to create SetupIntent client secret")
+      }
+      return NextResponse.json({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        mode: "setup",
+        setupIntentClientSecret: setupIntent.client_secret,
+        setupIntentId: setupIntent.id,
       })
     }
 

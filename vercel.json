@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily-giving-odd-nights",
+      "schedule": "0 20 * * *"
+    }
+  ]
+}

@@ -5,11 +5,15 @@ import { sendAbandonedCheckoutEmail } from "@/lib/email"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+/** Vercel sends CRON_SECRET as Bearer token when invoking crons. Query ?token= also allowed for manual/external triggers. */
 function authorize(request: NextRequest) {
   const secret = process.env.CRON_SECRET
   if (!secret) return true
   const authHeader = request.headers.get("authorization")
-  return authHeader === `Bearer ${secret}`
+  if (authHeader === `Bearer ${secret}`) return true
+  const url = new URL(request.url)
+  if (url.searchParams.get("token") === secret) return true
+  return false
 }
 
 export async function GET(request: NextRequest) {

@@ -138,7 +138,7 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
 
   const effectiveDonationType = countAsZakat && donationTypesEnabled.includes("ZAKAT") ? "ZAKAT" : "SADAQAH"
 
-  /** End date for Stripe daily subscription: last day we charge (inclusive). */
+  /** End date for Stripe daily subscription: last day we charge (inclusive). For odd nights only, last charge is 8pm on day 28 of Ramadan (Eid - 2). */
   const dailySubscriptionEndDate = React.useMemo(() => {
     if (mode === "daily") {
       const end = new Date(endDateForCount)
@@ -149,6 +149,11 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
       const lastNight = new Date(endDateForCount)
       lastNight.setDate(lastNight.getDate() - 1)
       return lastNight.toISOString().slice(0, 10)
+    }
+    if (mode === "last10" && last10Option === "odd") {
+      const lastOddNight = new Date(endDateForCount)
+      lastOddNight.setDate(lastOddNight.getDate() - 2)
+      return lastOddNight.toISOString().slice(0, 10)
     }
     return null
   }, [mode, last10Option, endDateForCount])
@@ -165,6 +170,7 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
           donationType: effectiveDonationType,
           amountPence: amountPerDayPence,
           dailyGivingEndDate: dailySubscriptionEndDate,
+          dailyGivingOddNightsOnly: mode === "last10" && last10Option === "odd",
         },
       ]
     }
@@ -175,7 +181,7 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
       donationType: effectiveDonationType,
       amountPence: amountPerDayPence,
     }))
-  }, [selectedAppeal, dailySubscriptionEndDate, dayCount, amountPerDayPence, effectiveDonationType, calcError])
+  }, [selectedAppeal, dailySubscriptionEndDate, dayCount, amountPerDayPence, effectiveDonationType, calcError, mode, last10Option])
 
   const checkoutSubtotalPence = dailySubscriptionEndDate ? amountPerDayPence : totalPence
   const checkoutFeesPence = 0
@@ -387,13 +393,20 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
             : "Choose every night or odd nights only during the last 10 nights of Ramadhan."}
         </p>
         {mode === "last10" && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Button type="button" variant={last10Option === "every" ? "default" : "outline"} className="h-11 rounded-lg" onClick={() => setLast10Option("every")}>
-              Every night ({LAST_10_NIGHTS_COUNT})
-            </Button>
-            <Button type="button" variant={last10Option === "odd" ? "default" : "outline"} className="h-11 rounded-lg" onClick={() => setLast10Option("odd")}>
-              Odd nights only ({LAST_10_ODD_NIGHTS_COUNT})
-            </Button>
+          <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <Button type="button" variant={last10Option === "every" ? "default" : "outline"} className="h-11 rounded-lg" onClick={() => setLast10Option("every")}>
+                Every night ({LAST_10_NIGHTS_COUNT})
+              </Button>
+              <Button type="button" variant={last10Option === "odd" ? "default" : "outline"} className="h-11 rounded-lg" onClick={() => setLast10Option("odd")}>
+                Odd nights only ({LAST_10_ODD_NIGHTS_COUNT})
+              </Button>
+            </div>
+            {last10Option === "odd" && (
+              <p className="text-xs text-muted-foreground">
+                You’ll be charged at 8pm UK time on the 21st, 23rd, 25th, 27th and 29th nights of Ramadhan (after Maghrib on the even days).
+              </p>
+            )}
           </div>
         )}
       </div>

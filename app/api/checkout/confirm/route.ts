@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import Stripe from "stripe"
-import { finalizeOrderByOrderNumber } from "@/lib/payment-finalize"
+import { finalizeOrderByOrderNumber, finalizeOddNightsOrderByOrderNumber } from "@/lib/payment-finalize"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,14 +22,15 @@ const schema = z.object({
   orderNumber: z.string().min(5),
   paymentIntentId: z.string().optional(),
   subscriptionId: z.string().optional(),
+  setupIntentId: z.string().optional(),
 })
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { orderNumber, paymentIntentId, subscriptionId } = schema.parse(body)
+    const { orderNumber, paymentIntentId, subscriptionId, setupIntentId } = schema.parse(body)
 
-    if (!paymentIntentId && !subscriptionId) {
+    if (!paymentIntentId && !subscriptionId && !setupIntentId) {
       return NextResponse.json({ error: "Missing payment reference" }, { status: 400 })
     }
 
@@ -89,6 +90,14 @@ export async function POST(request: NextRequest) {
         isSubscription: false,
         customerEmail: pi.receipt_email || null,
       })
+    }
+
+    if (setupIntentId) {
+      const si = await getStripe().setupIntents.retrieve(setupIntentId)
+      if (si.status !== "succeeded") {
+        return NextResponse.json({ error: "Setup not completed" }, { status: 400 })
+      }
+      await finalizeOddNightsOrderByOrderNumber({ orderNumber, setupIntentId: si.id })
     }
 
     return NextResponse.json({ success: true })

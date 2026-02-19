@@ -41,16 +41,19 @@ type CheckoutItem = {
   donationType: string
   amountPence: number
   dailyGivingEndDate?: string
+  dailyGivingOddNightsOnly?: boolean
 }
 
 type CheckoutCreateResponse = {
   orderId: string
   orderNumber: string
-  mode: "payment" | "subscription" | "mixed"
+  mode: "payment" | "subscription" | "mixed" | "setup"
   paymentClientSecret?: string
   subscriptionClientSecret?: string
+  setupIntentClientSecret?: string
   paymentIntentId?: string
   subscriptionId?: string
+  setupIntentId?: string
 }
 
 interface DailyGivingPaymentStepProps {
@@ -83,49 +86,78 @@ function PaymentConfirmInner(props: {
   const [submitting, setSubmitting] = React.useState(false)
   const [paymentError, setPaymentError] = React.useState<string | null>(null)
 
-  const handlePay = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setPaymentError(null)
-    if (!stripe || !elements) return
-    setSubmitting(true)
-    try {
-      const { error } = await stripe.confirmPayment({
-        elements,
-        redirect: "if_required",
-        confirmParams: {
-          payment_method_data: {
-            billing_details: {
-              name: `${validated.firstName} ${validated.lastName}`.trim(),
-              email: validated.email,
-              phone: validated.phone || undefined,
-              address: {
-                line1: validated.address || undefined,
-                city: validated.city || undefined,
-                postal_code: validated.postcode || undefined,
-                country: validated.country || undefined,
+  const isSetupMode = order.mode === "setup"
+
+    const handlePay = async (e: React.FormEvent) => {
+      e.preventDefault()
+      setPaymentError(null)
+      if (!stripe || !elements) return
+      setSubmitting(true)
+      try {
+        if (isSetupMode) {
+          const { error } = await stripe.confirmSetup({
+            elements,
+            redirect: "if_required",
+            confirmParams: {
+              payment_method_data: {
+                billing_details: {
+                  name: `${validated.firstName} ${validated.lastName}`.trim(),
+                  email: validated.email,
+                  phone: validated.phone || undefined,
+                  address: {
+                    line1: validated.address || undefined,
+                    city: validated.city || undefined,
+                    postal_code: validated.postcode || undefined,
+                    country: validated.country || undefined,
+                  },
+                },
               },
             },
-          },
-        },
-      })
-      if (error) {
-        setPaymentError(error.message || "Payment failed. Please try again.")
-        return
-      }
-      try {
-        await fetch("/api/checkout/confirm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderNumber: order.orderNumber,
-            ...(order.paymentIntentId ? { paymentIntentId: order.paymentIntentId } : {}),
-            ...(order.subscriptionId ? { subscriptionId: order.subscriptionId } : {}),
-          }),
-        })
-      } catch {
-        // ignore
-      }
-      onSuccess(order.orderId)
+          })
+          if (error) {
+            setPaymentError(error.message || "Failed to save payment method. Please try again.")
+            return
+          }
+        } else {
+          const { error } = await stripe.confirmPayment({
+            elements,
+            redirect: "if_required",
+            confirmParams: {
+              payment_method_data: {
+                billing_details: {
+                  name: `${validated.firstName} ${validated.lastName}`.trim(),
+                  email: validated.email,
+                  phone: validated.phone || undefined,
+                  address: {
+                    line1: validated.address || undefined,
+                    city: validated.city || undefined,
+                    postal_code: validated.postcode || undefined,
+                    country: validated.country || undefined,
+                  },
+                },
+              },
+            },
+          })
+          if (error) {
+            setPaymentError(error.message || "Payment failed. Please try again.")
+            return
+          }
+        }
+        try {
+          await fetch("/api/checkout/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderNumber: order.orderNumber,
+              ...(order.paymentIntentId ? { paymentIntentId: order.paymentIntentId } : {}),
+              ...(order.subscriptionId ? { subscriptionId: order.subscriptionId } : {}),
+              ...(order.setupIntentId ? { setupIntentId: order.setupIntentId } : {}),
+            }),
+          })
+        } catch {
+          // ignore
+        }
+        onSuccess(order.orderId)
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : "Payment failed. Please try again.")
     } finally {
@@ -245,6 +277,7 @@ export function DailyGivingPaymentStep({
             donationType: item.donationType,
             amountPence: item.amountPence,
             dailyGivingEndDate: item.dailyGivingEndDate ?? undefined,
+            dailyGivingOddNightsOnly: item.dailyGivingOddNightsOnly ?? undefined,
           })),
           donor: donorPayload,
           subtotalPence,
@@ -257,7 +290,11 @@ export function DailyGivingPaymentStep({
         throw new Error(err.error || "Failed to create order")
       }
       const data = (await response.json()) as CheckoutCreateResponse
-      const secret = data.subscriptionClientSecret || data.paymentClientSecret || null
+      const secret =
+        data.subscriptionClientSecret ||
+        data.paymentClientSecret ||
+        data.setupIntentClientSecret ||
+        null
       if (!secret) throw new Error("No payment session returned")
       setValidatedSnapshot(donor)
       setOrder(data)
