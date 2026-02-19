@@ -225,7 +225,7 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
   // ——— Step 1: Choose amount ———
   if (step === 1) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-8 pb-40 sm:pb-0">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -247,7 +247,7 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-8">
             Choose your daily sadaqah
           </h2>
-          <div className="flex items-center gap-4 sm:gap-6 mb-6">
+          <div className="flex items-center justify-center gap-6 sm:gap-9 mb-6">
             <Button
               type="button"
               variant="outline"
@@ -261,9 +261,9 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
             >
               <Minus className="size-6" />
             </Button>
-            <div className="flex-1 flex items-center justify-center min-w-0">
+            <div className="flex items-center justify-center min-w-0 shrink-0">
               <label className="flex items-baseline justify-center cursor-text gap-0">
-                <span className="text-2xl sm:text-3xl font-bold text-foreground shrink-0 leading-none">£</span>
+                <span className="text-5xl sm:text-3xl font-bold text-foreground shrink-0 leading-none">£</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -271,7 +271,7 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
                   value={amountInputValue}
                   style={{
                     width: `${Math.max(2, amountInputValue.length + 1)}ch`,
-                    marginLeft: "-0.1em",
+                    marginLeft: "-0.25em",
                   }}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/\D/g, "")
@@ -289,7 +289,7 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
                     setAmountPounds(clamped)
                     setAmountInputValue(String(clamped))
                   }}
-                  className="min-w-[2ch] bg-transparent border-none outline-none text-4xl sm:text-5xl font-bold text-foreground p-0 text-center focus:ring-0 focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="min-w-[2ch] bg-transparent border-none outline-none text-7xl sm:text-5xl font-bold text-foreground p-0 text-center focus:ring-0 focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   aria-label="Amount in pounds"
                 />
               </label>
