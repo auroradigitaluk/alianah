@@ -59,7 +59,14 @@ export function WaterForLifePage({
   headerTitle = "Water for Life",
   headerDescription = "Choose a water project type and select a country to donate.",
 }: WaterForLifePageProps) {
-  const [selectedProjectType, setSelectedProjectType] = useState<string>(initialProjectType || "")
+  const defaultProjectType = useMemo(() => {
+    if (initialProjectType) return initialProjectType
+    const hasWaterPump = projects.some((p) => p.projectType === "WATER_PUMP")
+    if (hasWaterPump) return "WATER_PUMP"
+    return projects[0]?.projectType ?? ""
+  }, [initialProjectType, projects])
+
+  const [selectedProjectType, setSelectedProjectType] = useState<string>(defaultProjectType)
 
   useEffect(() => {
     if (initialProjectType) queueMicrotask(() => setSelectedProjectType(initialProjectType))

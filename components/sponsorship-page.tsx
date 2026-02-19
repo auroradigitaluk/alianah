@@ -56,14 +56,6 @@ export function SponsorshipPage({
   headerDescription = "Choose a sponsorship type and select a country to donate.",
 }: SponsorshipPageProps) {
   const { addItem } = useSidecart()
-  const [selectedProjectType, setSelectedProjectType] = useState<string>(initialProjectType || "")
-  const [selectedCountryId, setSelectedCountryId] = useState<string>("")
-  const [donationType, setDonationType] = useState("GENERAL")
-  const [sponsorshipFrequency, setSponsorshipFrequency] = useState<"MONTHLY" | "YEARLY">("MONTHLY")
-
-  useEffect(() => {
-    if (initialProjectType) queueMicrotask(() => setSelectedProjectType(initialProjectType))
-  }, [initialProjectType])
 
   const availableTypes = useMemo(() => {
     const typesWithProjects = new Set(projects.map((p) => p.projectType))
@@ -72,6 +64,24 @@ export function SponsorshipPage({
       (type) => typesWithProjects.has(type.value) && typesWithCountries.has(type.value)
     )
   }, [projects, countries])
+
+  const defaultProjectType = useMemo(() => {
+    if (initialProjectType) return initialProjectType
+    const hasOrphans =
+      projects.some((p) => p.projectType === "ORPHANS") &&
+      countries.some((c) => c.projectType === "ORPHANS")
+    if (hasOrphans) return "ORPHANS"
+    return availableTypes[0]?.value ?? ""
+  }, [initialProjectType, projects, countries, availableTypes])
+
+  const [selectedProjectType, setSelectedProjectType] = useState<string>(defaultProjectType)
+  const [selectedCountryId, setSelectedCountryId] = useState<string>("")
+  const [donationType, setDonationType] = useState("GENERAL")
+  const [sponsorshipFrequency, setSponsorshipFrequency] = useState<"MONTHLY" | "YEARLY">("MONTHLY")
+
+  useEffect(() => {
+    if (initialProjectType) queueMicrotask(() => setSelectedProjectType(initialProjectType))
+  }, [initialProjectType])
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.projectType === selectedProjectType) || null,
