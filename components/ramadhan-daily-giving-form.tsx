@@ -192,7 +192,7 @@ export function RamadhanDailyGivingForm({ appeals, ramadhanEndDate: ramadhanEndD
           alt="Alianah"
           width={240}
           height={96}
-          className="hidden sm:block h-24 w-auto object-contain mb-8"
+          className="h-[4.8rem] sm:h-24 w-auto object-contain mb-8"
           priority
         />
         <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 text-primary px-3 py-1 text-sm font-medium w-fit mx-auto mb-6">

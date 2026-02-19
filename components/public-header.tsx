@@ -50,7 +50,7 @@ export function PublicHeader() {
             height={24}
             className="hidden h-5 w-5 object-contain dark:block"
           />
-          <span className="text-foreground">Alianah Humanity Welfare</span>
+          <span className="text-foreground font-semibold">Alianah Humanity Welfare</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
