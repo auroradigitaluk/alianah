@@ -59,6 +59,15 @@ const PROJECT_TYPE_LABELS: Record<string, string> = {
   WUDHU_AREA: "Wudhu Area",
 }
 
+function toDatetimeLocal(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  const h = String(d.getHours()).padStart(2, "0")
+  const min = String(d.getMinutes()).padStart(2, "0")
+  return `${y}-${m}-${day}T${h}:${min}`
+}
+
 const SPONSORSHIP_TYPE_LABELS: Record<string, string> = {
   ORPHANS: "Orphans",
   HIFZ: "Hifz",
@@ -84,10 +93,8 @@ export function OfflineIncomeModal({
   const [amount, setAmount] = React.useState("")
   const [donationType, setDonationType] = React.useState("GENERAL")
   const [source, setSource] = React.useState("CASH")
-  const [receivedAt, setReceivedAt] = React.useState(() => {
-    const today = new Date()
-    return today.toISOString().slice(0, 10)
-  })
+  const [receivedAt, setReceivedAt] = React.useState(() => toDatetimeLocal(new Date()))
+  const [userChangedReceivedAt, setUserChangedReceivedAt] = React.useState(false)
   const [notes, setNotes] = React.useState("")
   const [plaqueName, setPlaqueName] = React.useState("")
   const [firstName, setFirstName] = React.useState("")
@@ -130,6 +137,8 @@ export function OfflineIncomeModal({
 
   React.useEffect(() => {
     if (!open) return
+    setReceivedAt(toDatetimeLocal(new Date()))
+    setUserChangedReceivedAt(false)
     if (entryType === "appeal") {
       setProjectType("")
       setCountryId("")
@@ -357,7 +366,7 @@ export function OfflineIncomeModal({
                 donationType,
                 source,
                 collectedVia: "office",
-                receivedAt,
+                receivedAt: userChangedReceivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
                 notes: notes || null,
                 giftAid: giftAidExpanded,
                 sendReceiptEmail,
@@ -373,7 +382,7 @@ export function OfflineIncomeModal({
               donationType,
               source,
               collectedVia: "office",
-              receivedAt,
+              receivedAt: userChangedReceivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
               plaqueName: plaqueName || null,
               notes: notes || null,
               sendReceiptEmail,
@@ -396,7 +405,7 @@ export function OfflineIncomeModal({
               donationType,
               source,
               collectedVia: "office",
-              receivedAt,
+              receivedAt: userChangedReceivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
               notes: notes || null,
               sendReceiptEmail,
               ...(firstName.trim() || lastName.trim() || email.trim() || phone.trim()
@@ -518,12 +527,15 @@ export function OfflineIncomeModal({
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="receivedAt">Received Date</Label>
+                    <Label htmlFor="receivedAt">Received Date & time</Label>
                     <Input
                       id="receivedAt"
-                      type="date"
+                      type="datetime-local"
                       value={receivedAt}
-                      onChange={(e) => setReceivedAt(e.target.value)}
+                      onChange={(e) => {
+                        setReceivedAt(e.target.value)
+                        setUserChangedReceivedAt(true)
+                      }}
                     />
                   </div>
                 </div>
@@ -822,12 +834,15 @@ export function OfflineIncomeModal({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="receivedAtWater">Received Date</Label>
+                    <Label htmlFor="receivedAtWater">Received Date & time</Label>
                     <Input
                       id="receivedAtWater"
-                      type="date"
+                      type="datetime-local"
                       value={receivedAt}
-                      onChange={(e) => setReceivedAt(e.target.value)}
+                      onChange={(e) => {
+                        setReceivedAt(e.target.value)
+                        setUserChangedReceivedAt(true)
+                      }}
                     />
                   </div>
                 </div>
@@ -951,12 +966,15 @@ export function OfflineIncomeModal({
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="receivedAtSponsor">Received Date</Label>
+                    <Label htmlFor="receivedAtSponsor">Received Date & time</Label>
                     <Input
                       id="receivedAtSponsor"
-                      type="date"
+                      type="datetime-local"
                       value={receivedAt}
-                      onChange={(e) => setReceivedAt(e.target.value)}
+                      onChange={(e) => {
+                        setReceivedAt(e.target.value)
+                        setUserChangedReceivedAt(true)
+                      }}
                     />
                   </div>
                 </div>

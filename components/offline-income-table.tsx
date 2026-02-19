@@ -30,6 +30,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Wallet, Target, Calendar, FileText, StickyNote, User, Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
+function toDatetimeLocal(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  const h = String(d.getHours()).padStart(2, "0")
+  const min = String(d.getMinutes()).padStart(2, "0")
+  return `${y}-${m}-${day}T${h}:${min}`
+}
+
 const DONATION_TYPES = [
   { value: "GENERAL", label: "General" },
   { value: "SADAQAH", label: "Sadaqah" },
@@ -573,10 +582,8 @@ function OfflineIncomeEditForm({
   const [appealId, setAppealId] = useState(item.appealId ?? "")
   const [donationType, setDonationType] = useState(item.donationType)
   const [source, setSource] = useState(item.source)
-  const [receivedAt, setReceivedAt] = useState(() => {
-    const d = new Date(item.receivedAt)
-    return d.toISOString().slice(0, 16)
-  })
+  const initialReceivedAt = toDatetimeLocal(new Date(item.receivedAt))
+  const [receivedAt, setReceivedAt] = useState(initialReceivedAt)
   const [notes, setNotes] = useState(item.notes ?? "")
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -585,12 +592,14 @@ function OfflineIncomeEditForm({
     if (isNaN(amount) || amount <= 0) {
       return
     }
+    const receivedAtToSave =
+      receivedAt === initialReceivedAt ? new Date().toISOString() : new Date(receivedAt).toISOString()
     onSave({
       amountPence: amount,
       ...(isAppealType && { appealId: appealId || null }),
       donationType,
       source,
-      receivedAt: new Date(receivedAt).toISOString(),
+      receivedAt: receivedAtToSave,
       notes: notes.trim() || null,
     })
   }
@@ -612,12 +621,15 @@ function OfflineIncomeEditForm({
       {isAppealType && (
         <div className="space-y-2">
           <Label htmlFor="edit-appeal">Appeal</Label>
-          <Select value={appealId} onValueChange={setAppealId}>
+          <Select
+            value={appealId || "__none__"}
+            onValueChange={(v) => setAppealId(v === "__none__" ? "" : v)}
+          >
             <SelectTrigger id="edit-appeal">
               <SelectValue placeholder="Select appeal" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None</SelectItem>
+              <SelectItem value="__none__">None</SelectItem>
               {appeals.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
                   {a.title}
@@ -658,7 +670,7 @@ function OfflineIncomeEditForm({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="edit-date">Date</Label>
+        <Label htmlFor="edit-date">Date & time</Label>
         <Input
           id="edit-date"
           type="datetime-local"
