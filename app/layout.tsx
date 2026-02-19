@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Alianah Humanity Welfare",
   description: "Support our appeals and make a difference with your donation",
+  icons: {
+    icon: "/logo-light.png",
+  },
 };
 
 export default function RootLayout({
