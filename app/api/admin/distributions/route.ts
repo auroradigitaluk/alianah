@@ -6,8 +6,9 @@ import { z } from "zod"
 const createSchema = z.object({
   appealId: z.string().min(1, "Appeal is required"),
   amountPence: z.number().int().positive("Amount must be positive"),
-  description: z.string().min(1, "Description is required"),
-  country: z.string().min(1, "Country is required"),
+  description: z.string().trim().optional().transform((v) => v ?? ""),
+  country: z.string().trim().optional().transform((v) => (v === "" ? null : v ?? null)),
+  itemsDistributed: z.string().trim().optional().transform((v) => (v === "" ? null : v ?? null)),
 })
 
 export async function GET(request: NextRequest) {
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
         amountPence: d.amountPence,
         description: d.description,
         country: d.country,
+        itemsDistributed: d.itemsDistributed,
         createdAt: d.createdAt.toISOString(),
         createdById: d.createdById,
         createdBy: d.createdBy,
@@ -65,7 +67,8 @@ export async function POST(request: NextRequest) {
         appealId: data.appealId,
         amountPence: data.amountPence,
         description: data.description.trim(),
-        country: data.country.trim(),
+        country: data.country ?? null,
+        itemsDistributed: data.itemsDistributed ?? null,
         createdById: user.id,
       },
       include: {
@@ -83,6 +86,7 @@ export async function POST(request: NextRequest) {
       amountPence: distribution.amountPence,
       description: distribution.description,
       country: distribution.country,
+      itemsDistributed: distribution.itemsDistributed,
       createdAt: distribution.createdAt.toISOString(),
       createdById: distribution.createdById,
       createdBy: distribution.createdBy,

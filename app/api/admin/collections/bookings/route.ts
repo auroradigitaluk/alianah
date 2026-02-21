@@ -5,17 +5,17 @@ import { z } from "zod"
 
 const createSchema = z.object({
   locationName: z.string().min(1, "Location name is required").trim(),
-  addressLine1: z.string().min(1, "First line of address is required").trim(),
+  addressLine1: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v == null || (typeof v === "string" && !v.trim()) ? null : String(v).trim())),
   postcode: z
     .string()
     .nullable()
     .optional()
     .transform((v) => (v == null || (typeof v === "string" && !v.trim()) ? null : String(v).trim())),
-  city: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((v) => (v == null || (typeof v === "string" && !v.trim()) ? null : String(v).trim())),
+  city: z.string().min(1, "City is required").trim(),
   country: z
     .string()
     .nullable()
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     const booking = await delegate.create({
       data: {
         locationName: data.locationName,
-        addressLine1: data.addressLine1,
+        addressLine1: data.addressLine1 ?? null,
         postcode: data.postcode ?? null,
         city: data.city ?? null,
         country: data.country ?? null,

@@ -23,7 +23,7 @@ import { toast } from "sonner"
 export type CollectionBookingItem = {
   id: string
   locationName: string
-  addressLine1: string
+  addressLine1: string | null
   postcode: string | null
   city: string | null
   country: string | null
@@ -141,8 +141,8 @@ export function BookingsPageClient({
     if (!locationName.trim()) {
       newErrors.locationName = "Location name is required"
     }
-    if (!addressLine1.trim()) {
-      newErrors.addressLine1 = "First line of address is required"
+    if (!city.trim()) {
+      newErrors.city = "City is required"
     }
     if (!date.trim()) {
       newErrors.date = "Date is required"
@@ -175,7 +175,7 @@ export function BookingsPageClient({
     const isEdit = Boolean(editingBooking?.id)
     const payload = {
       locationName: locationName.trim(),
-      addressLine1: addressLine1.trim(),
+      addressLine1: addressLine1.trim() || null,
       postcode: postcode.trim() || null,
       city: city.trim() || null,
       country: country.trim() || null,
@@ -431,7 +431,7 @@ export function BookingsPageClient({
             <DialogDescription>
               {editingBooking
                 ? "Update the booking details below."
-                : "Enter the booking details: location name, address, date, time and who booked."}
+                : "Location name, city, date and time are required; other fields are optional."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddSubmit} className="space-y-4">
@@ -452,24 +452,17 @@ export function BookingsPageClient({
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="addressLine1">First line of address</Label>
+              <Label htmlFor="addressLine1">First line of address (optional)</Label>
               <Input
                 id="addressLine1"
                 placeholder="Street name and number"
                 value={addressLine1}
-                onChange={(e) => {
-                  setAddressLine1(toTitleCaseLive(e.target.value))
-                  clearError("addressLine1")
-                }}
-                className={cn(errors.addressLine1 && "border-destructive")}
+                onChange={(e) => setAddressLine1(toTitleCaseLive(e.target.value))}
               />
-              {errors.addressLine1 && (
-                <p className="text-xs text-destructive">{errors.addressLine1}</p>
-              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="postcode">Postcode</Label>
+                <Label htmlFor="postcode">Postcode (optional)</Label>
                 <Input
                   id="postcode"
                   placeholder="e.g. SW1A 1AA"
@@ -490,12 +483,19 @@ export function BookingsPageClient({
                   id="city"
                   placeholder="City"
                   value={city}
-                  onChange={(e) => setCity(toTitleCaseLive(e.target.value))}
+                  onChange={(e) => {
+                    setCity(toTitleCaseLive(e.target.value))
+                    clearError("city")
+                  }}
+                  className={cn(errors.city && "border-destructive")}
                 />
+                {errors.city && (
+                  <p className="text-xs text-destructive">{errors.city}</p>
+                )}
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
+              <Label htmlFor="country">Country (optional)</Label>
               <Input
                 id="country"
                 placeholder="Country"
@@ -504,7 +504,7 @@ export function BookingsPageClient({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bookedByName">Booked by</Label>
+              <Label htmlFor="bookedByName">Booked by (optional)</Label>
               <Input
                 id="bookedByName"
                 placeholder="Who booked the collection (e.g. volunteer name)"

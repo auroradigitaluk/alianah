@@ -186,13 +186,14 @@ model Appeal {
 }
 
 model Distribution {
-  id          String   @id @default(cuid())
-  appealId    String
-  amountPence Int
-  description String  // e.g. "Egypt to Gaza convoy", "Water tank in Gaza"
-  country     String  // e.g. "Gaza", "Egypt"
-  createdAt   DateTime @default(now())
-  createdById String?
+  id                String   @id @default(cuid())
+  appealId          String
+  amountPence       Int
+  description       String  // e.g. "Egypt to Gaza convoy", "Water tank in Gaza"
+  country           String? // e.g. "Gaza", "Egypt" (optional)
+  itemsDistributed  String? // e.g. "hot meals 300, water packs 5000 litres" (optional)
+  createdAt         DateTime @default(now())
+  createdById       String?
 
   appeal   Appeal    @relation(fields: [appealId], references: [id], onDelete: Cascade)
   createdBy AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -416,7 +417,7 @@ model Collection {
 model CollectionBooking {
   id                  String    @id @default(cuid())
   locationName        String    // e.g. masjid name, shop name
-  addressLine1        String    // first line of address
+  addressLine1        String?   // first line of address (optional)
   postcode            String?
   city                String?
   country             String?

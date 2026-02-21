@@ -22,25 +22,40 @@ import { Wallet, Globe, Building2, TrendingUp, TrendingDown, Repeat, XCircle } f
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-function getDateRange(range: string | null) {
+function getDateRange(
+  range: string | null,
+  customStart?: string | null,
+  customEnd?: string | null
+) {
   const now = new Date()
   let startDate: Date
   let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
+  if (range === "custom" && customStart && customEnd) {
+    const start = new Date(customStart + "T00:00:00")
+    const end = new Date(customEnd + "T23:59:59.999")
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && start.getTime() <= end.getTime()) {
+      startDate = start
+      endDate = end
+      return { startDate, endDate }
+    }
+  }
+
   switch (range) {
-    case "7d":
-      startDate = new Date(now)
-      startDate.setDate(startDate.getDate() - 7)
-      startDate.setHours(0, 0, 0, 0)
+    case "today":
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
       break
+    case "yesterday": {
+      const yesterday = new Date(now)
+      yesterday.setDate(yesterday.getDate() - 1)
+      startDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0)
+      endDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999)
+      break
+    }
     case "30d":
       startDate = new Date(now)
       startDate.setDate(startDate.getDate() - 30)
-      startDate.setHours(0, 0, 0, 0)
-      break
-    case "90d":
-      startDate = new Date(now)
-      startDate.setDate(startDate.getDate() - 90)
       startDate.setHours(0, 0, 0, 0)
       break
     case "this_month":
@@ -48,22 +63,16 @@ function getDateRange(range: string | null) {
       startDate.setHours(0, 0, 0, 0)
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
       break
-    case "last_month":
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      startDate.setHours(0, 0, 0, 0)
-      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
-      break
     case "this_year":
       startDate = new Date(now.getFullYear(), 0, 1)
       startDate.setHours(0, 0, 0, 0)
       endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
       break
     case "all":
-      startDate = new Date(0) // Beginning of time
+      startDate = new Date(0)
       endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
       break
     default:
-      // Default to 30 days
       startDate = new Date(now)
       startDate.setDate(startDate.getDate() - 30)
       startDate.setHours(0, 0, 0, 0)
@@ -360,7 +369,7 @@ async function getDashboardData() {
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>
+  searchParams: Promise<{ range?: string; start?: string; end?: string }>
 }) {
   try {
     const params = await searchParams
@@ -370,7 +379,11 @@ export default async function AdminDashboardPage({
     const staffId = isStaff ? user!.id : null
 
     // Get global date range (applies to all cards, charts, and tables)
-    const dateRange = getDateRange(params?.range || "30d")
+    const dateRange = getDateRange(
+      params?.range || "30d",
+      params?.start,
+      params?.end
+    )
     const { startDate, endDate } = dateRange
     
     // Calculate previous period for comparison
@@ -1186,6 +1199,25 @@ export default async function AdminDashboardPage({
       })
     })
 
+    // Get recent collection bookings (filtered by staff)
+    const recentBookings = await prisma.collectionBooking.findMany({
+      take: 20,
+      orderBy: { createdAt: "desc" },
+      where: {
+        ...staffFilter,
+        createdAt: { gte: startDate, lte: endDate },
+      },
+    }).catch(() => [])
+
+    recentBookings.forEach((booking) => {
+      const location = [booking.locationName, booking.city].filter(Boolean).join(", ") || booking.locationName
+      recentActivity.push({
+        type: "booking",
+        message: `Booking added: ${location}`,
+        timestamp: booking.createdAt,
+      })
+    })
+
     // Get recent water & sponsor donations (staff only)
     if (isStaff && staffId) {
       const [recentWater, recentSponsor] = await Promise.all([
@@ -1275,21 +1307,35 @@ export default async function AdminDashboardPage({
     // Get context label for the selected period
     const getPeriodLabel = () => {
       const range = params?.range || "30d"
+      if (range === "custom" && params?.start && params?.end) {
+        try {
+          const from = new Date(params.start + "T00:00:00")
+          const to = new Date(params.end + "T00:00:00")
+          if (!Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime())) {
+            const fmt = (d: Date) =>
+              d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+            return `${fmt(from)} – ${fmt(to)}`
+          }
+        } catch {
+          // fall through
+        }
+        return "Custom range"
+      }
       switch (range) {
-        case "7d":
-          return "Last 7 days"
+        case "today":
+          return "Today"
+        case "yesterday":
+          return "Yesterday"
         case "30d":
           return "Last 30 days"
-        case "90d":
-          return "Last 90 days"
         case "this_month":
           return "This month"
-        case "last_month":
-          return "Last month"
         case "this_year":
           return "This year"
         case "all":
           return "All time"
+        case "custom":
+          return "Custom range"
         default:
           return "Selected period"
       }

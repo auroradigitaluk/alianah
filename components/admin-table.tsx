@@ -22,6 +22,8 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import {
+  IconChevronLeft,
+  IconChevronRight,
   IconCircleCheckFilled,
   IconGripVertical,
   IconLoader,
@@ -170,7 +172,7 @@ export function AdminTable<T extends { id: string }>({
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 20,
   })
   const sortableId = React.useId()
 
@@ -342,8 +344,13 @@ export function AdminTable<T extends { id: string }>({
     </Table>
   )
 
+  const pageCount = table.getPageCount()
+  const canPreviousPage = table.getCanPreviousPage()
+  const canNextPage = table.getCanNextPage()
+  const currentPage = table.getState().pagination.pageIndex + 1
+
   return (
-    <div className="w-full">
+    <div className="w-full space-y-3">
       <div className="overflow-x-auto overflow-hidden rounded-lg border shadow-sm bg-card">
         {enableDrag ? (
           <DndContext
@@ -358,6 +365,33 @@ export function AdminTable<T extends { id: string }>({
         ) : (
           tableContent
         )}
+      </div>
+      <div className="flex items-center justify-between px-1">
+        <p className="text-muted-foreground text-sm">
+          Page {currentPage} of {pageCount || 1}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!canPreviousPage}
+            aria-label="Previous page"
+          >
+            <IconChevronLeft className="size-4" />
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!canNextPage}
+            aria-label="Next page"
+          >
+            Next
+            <IconChevronRight className="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
   )

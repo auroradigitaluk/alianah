@@ -5,9 +5,13 @@ import { z } from "zod"
 
 const patchSchema = z.object({
   locationName: z.string().min(1).trim().optional(),
-  addressLine1: z.string().min(1).trim().optional(),
+  addressLine1: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v === "" ? null : v)),
   postcode: z.string().nullable().optional(),
-  city: z.string().nullable().optional(),
+  city: z.string().min(1).trim().optional(),
   country: z.string().nullable().optional(),
   bookedByName: z.string().nullable().optional(),
   scheduledAt: z.string().optional(),
