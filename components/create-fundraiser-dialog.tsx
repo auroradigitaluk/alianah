@@ -91,7 +91,7 @@ export function CreateFundraiserDialog({
       setWaterCountries([])
       return
     }
-    fetch(`/api/admin/water-projects/countries?projectType=${selectedCampaign.projectType}`)
+    fetch(`/api/water-projects/countries?projectType=${selectedCampaign.projectType}`)
       .then((res) => res.json())
       .then((data: unknown) => {
         if (!Array.isArray(data)) {

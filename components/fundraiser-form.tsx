@@ -99,7 +99,7 @@ export function FundraiserForm({
 
   React.useEffect(() => {
     if (!waterProjectType) return
-    fetch(`/api/admin/water-projects/countries?projectType=${waterProjectType}`)
+    fetch(`/api/water-projects/countries?projectType=${waterProjectType}`)
       .then((res) => res.json())
       .then((data: unknown) => {
         if (!Array.isArray(data)) {

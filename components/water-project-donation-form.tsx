@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { useSidecart } from "@/components/sidecart-provider"
+import { formatCurrencyWhole } from "@/lib/utils"
 
 const PRESET_CONTRIBUTION_AMOUNTS_PENCE = [2000, 5000, 10000, 25000] // £20, £50, £100, £250
 
@@ -60,7 +61,7 @@ export function WaterProjectDonationForm({
 
   // Fetch countries for this project type
   React.useEffect(() => {
-    fetch(`/api/admin/water-projects/countries?projectType=${projectType}`)
+    fetch(`/api/water-projects/countries?projectType=${projectType}`)
       .then(res => res.json())
       .then((data: unknown) => {
         if (!Array.isArray(data)) {
@@ -109,7 +110,8 @@ export function WaterProjectDonationForm({
 
     let amountPence: number
     if (isFundraiserContribution) {
-      const customPence = customAmount.trim() ? Math.round(parseFloat(customAmount) * 100) : 0
+      const normalizedAmount = customAmount.trim().replace(",", ".")
+      const customPence = normalizedAmount ? Math.round(parseFloat(normalizedAmount) * 100) : 0
       if (selectedAmountPence != null && selectedAmountPence > 0) {
         amountPence = selectedAmountPence
       } else if (!Number.isNaN(customPence) && customPence > 0) {
@@ -123,87 +125,87 @@ export function WaterProjectDonationForm({
     }
 
     const projectLabel = PROJECT_TYPE_LABELS[projectType] || "Water Project"
-    addItem({
-      id: "",
-      appealTitle: projectLabel,
-      productName: resolvedCountry.country,
-      frequency: "ONE_OFF",
-      donationType: donationType as "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH",
-      amountPence,
-      waterProjectId: projectId,
-      waterProjectCountryId: resolvedCountry.id,
-      ...(plaqueAvailable && presetPlaqueName ? { plaqueName: presetPlaqueName.trim() } : {}),
-      ...(fundraiserId ? { fundraiserId } : {}),
-      ...(fundraiserId ? { isAnonymous } : {}),
-    })
-    toast.success("Added to basket")
+    try {
+      addItem({
+        id: "",
+        appealTitle: projectLabel,
+        productName: resolvedCountry.country,
+        frequency: "ONE_OFF",
+        donationType: donationType as "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH",
+        amountPence,
+        waterProjectId: projectId,
+        waterProjectCountryId: resolvedCountry.id,
+        ...(plaqueAvailable && presetPlaqueName ? { plaqueName: presetPlaqueName.trim() } : {}),
+        ...(fundraiserId ? { fundraiserId } : {}),
+        ...(fundraiserId ? { isAnonymous } : {}),
+      })
+      toast.success("Added to basket")
+    } catch (err) {
+      console.error("Add to basket failed:", err)
+      toast.error("Could not add to basket. Please try again.")
+    }
   }
 
   const resolvedCountry = presetCountry ?? countries.find((c) => c.id === countryId)
+  const normalizedCustom = customAmount.trim().replace(",", ".")
   const hasContributionAmount =
     (selectedAmountPence != null && selectedAmountPence > 0) ||
-    (customAmount.trim() !== "" && !Number.isNaN(parseFloat(customAmount)) && parseFloat(customAmount) > 0)
+    (normalizedCustom !== "" && !Number.isNaN(parseFloat(normalizedCustom)) && parseFloat(normalizedCustom) > 0)
   const canSubmit =
     resolvedCountry &&
     (!isFundraiserContribution || hasContributionAmount)
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 w-full min-w-0">
       <div className="space-y-2">
         {isFundraiserContribution ? (
           <>
-            <div className="space-y-2">
-              <Label className="text-base">Amount</Label>
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                {PRESET_CONTRIBUTION_AMOUNTS_PENCE.map((pence) => {
-                  const isSelected = selectedAmountPence === pence
-                  return (
-                    <Button
-                      key={pence}
-                      type="button"
-                      variant={isSelected ? "default" : "outline"}
-                      onClick={() => {
-                        setSelectedAmountPence(pence)
-                        setCustomAmount("")
-                      }}
-                      className="h-11 text-base"
-                    >
-                      <span className="font-semibold group-hover:text-white">
-                        £{(pence / 100).toFixed(2)}
-                      </span>
-                    </Button>
-                  )
-                })}
-              </div>
-              <div className="space-y-2">
-                <Label className="text-base">Amount £</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium pointer-events-none">
-                    £
-                  </span>
-                  <Input
-                    id="custom-amount-fundraiser"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="Enter amount"
-                    value={customAmount}
-                    onChange={(e) => {
-                      setCustomAmount(e.target.value)
-                      if (e.target.value.trim()) setSelectedAmountPence(null)
+            <Label className="text-base">Amount</Label>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2">
+              {PRESET_CONTRIBUTION_AMOUNTS_PENCE.map((pence) => {
+                const isSelected = selectedAmountPence === pence
+                return (
+                  <Button
+                    key={pence}
+                    type="button"
+                    variant={isSelected ? "default" : "outline"}
+                    onClick={() => {
+                      setSelectedAmountPence(pence)
+                      setCustomAmount("")
                     }}
-                    className="h-11 text-base pl-7"
-                  />
-                </div>
-              </div>
+                    className="h-11 min-h-[44px] text-base w-full min-w-0 touch-manipulation"
+                  >
+                    {formatCurrencyWhole(pence)}
+                  </Button>
+                )
+              })}
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium pointer-events-none">
+                £
+              </span>
+              <Input
+                id="custom-amount-fundraiser"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                placeholder="Enter amount"
+                value={customAmount}
+                onChange={(e) => {
+                  setCustomAmount(e.target.value)
+                  if (e.target.value.trim()) setSelectedAmountPence(null)
+                }}
+                className="h-11 min-h-[44px] text-base pl-7 w-full"
+              />
             </div>
           </>
         ) : presetCountry ? (
           <>
             <Label>Donation amount</Label>
-            <div className="rounded-lg border bg-muted/50 px-4 py-3 flex items-center justify-between">
-              <span className="font-medium">{presetCountry.country}</span>
-              <span className="font-semibold">£{(presetCountry.pricePence / 100).toFixed(2)}</span>
+            <div className="rounded-lg border bg-muted/50 px-4 py-3 flex items-center justify-between gap-3 min-w-0">
+              <span className="font-medium truncate min-w-0">{presetCountry.country}</span>
+              <span className="font-semibold shrink-0">£{(presetCountry.pricePence / 100).toFixed(2)}</span>
             </div>
             <p className="text-sm text-muted-foreground">
               One {PROJECT_TYPE_LABELS[projectType] || "water project"} for this fundraiser.
@@ -212,7 +214,7 @@ export function WaterProjectDonationForm({
         ) : (
           <>
             <Label>Select Country *</Label>
-            <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full place-items-stretch">
               {countries
                 .filter((country) => country.id.trim())
                 .slice()
@@ -228,7 +230,7 @@ export function WaterProjectDonationForm({
                         setCountryId(country.id)
                       }}
                       className={[
-                        "group w-full h-16 flex-col items-center justify-center px-3 py-2.5 text-center hover:!bg-primary hover:!text-primary-foreground hover:!border-primary",
+                        "group w-full h-16 min-h-[44px] flex-col items-center justify-center px-3 py-2.5 text-center hover:!bg-primary hover:!text-primary-foreground hover:!border-primary touch-manipulation",
                         isSelected && "shadow-sm",
                       ].filter(Boolean).join(" ")}
                     >
@@ -259,7 +261,7 @@ export function WaterProjectDonationForm({
       <div className="space-y-2">
         <Label>Donation Type</Label>
         <Select value={donationType} onValueChange={setDonationType}>
-          <SelectTrigger>
+          <SelectTrigger className="h-11 min-h-[44px] w-full touch-manipulation">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -272,18 +274,18 @@ export function WaterProjectDonationForm({
         </Select>
       </div>
       {fundraiserId && (
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 py-2 touch-manipulation">
           <Checkbox
             id="donate-anonymous"
             checked={isAnonymous}
             onCheckedChange={(checked) => setIsAnonymous(checked === true)}
           />
-          <Label htmlFor="donate-anonymous" className="font-normal cursor-pointer">
+          <Label htmlFor="donate-anonymous" className="font-normal cursor-pointer flex-1 min-w-0">
             Donate anonymously
           </Label>
         </div>
       )}
-      <Button type="submit" className="w-full" disabled={!canSubmit}>
+      <Button type="submit" className="w-full h-12 min-h-[48px] text-base touch-manipulation" disabled={!canSubmit}>
         Add to basket
       </Button>
     </form>
