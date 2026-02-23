@@ -31,16 +31,6 @@ async function getFundraisers(email: string) {
             amountPence: true,
           },
         },
-        waterProjectDonations: {
-          where: {
-            status: {
-              in: ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"],
-            },
-          },
-          select: {
-            amountPence: true,
-          },
-        },
         cashDonations: {
           where: { status: "APPROVED" },
           select: { amountPence: true },
@@ -53,9 +43,7 @@ async function getFundraisers(email: string) {
 
     return fundraisers.map((fundraiser) => {
       const totalRaised =
-        fundraiser.donations
-          .concat(fundraiser.waterProjectDonations)
-          .reduce((sum, d) => sum + d.amountPence, 0) +
+        fundraiser.donations.reduce((sum, d) => sum + d.amountPence, 0) +
         fundraiser.cashDonations.reduce((sum, d) => sum + d.amountPence, 0)
       const progressPercentage = fundraiser.targetAmountPence
         ? Math.min((totalRaised / fundraiser.targetAmountPence) * 100, 100)
@@ -87,7 +75,7 @@ async function getFundraisers(email: string) {
         ...fundraiser,
         totalRaised,
         progressPercentage,
-        donationCount: fundraiser.donations.length + fundraiser.waterProjectDonations.length,
+        donationCount: fundraiser.donations.length + fundraiser.cashDonations.length,
         campaign: {
           title: campaignTitle,
           slug: campaignSlug,

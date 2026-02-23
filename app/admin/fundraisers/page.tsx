@@ -44,6 +44,7 @@ async function getFundraisers() {
             },
           },
           select: {
+            id: true,
             amountPence: true,
           },
         },
@@ -55,9 +56,16 @@ async function getFundraisers() {
     })
 
     return fundraisers.map((fundraiser) => {
+      const isWater = Boolean(fundraiser.waterProject)
+      const legacyWaterSum =
+        isWater && fundraiser.waterProjectDonations
+          ? fundraiser.waterProjectDonations
+              .filter((d) => d.id !== fundraiser.consolidatedWaterProjectDonationId)
+              .reduce((sum, d) => sum + d.amountPence, 0)
+          : 0
       const amountRaised =
         sumDonationsDeduplicated(fundraiser.donations) +
-        fundraiser.waterProjectDonations.reduce((sum, d) => sum + d.amountPence, 0) +
+        legacyWaterSum +
         fundraiser.cashDonations.reduce((sum, d) => sum + d.amountPence, 0)
       const campaignTitle = fundraiser.appeal?.title
         ? fundraiser.appeal.title

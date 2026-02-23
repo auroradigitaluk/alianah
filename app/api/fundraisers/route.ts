@@ -8,11 +8,13 @@ const fundraiserSchema = z
   .object({
     appealId: z.string().optional(),
     waterProjectId: z.string().optional(),
+    waterProjectCountryId: z.string().optional(),
     title: z.string().min(1),
     fundraiserName: z.string().min(1),
     email: z.string().email(),
     message: z.string().optional(),
     targetAmountPence: z.number().min(1, "Target amount is required"),
+    plaqueName: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     const hasAppeal = Boolean(data.appealId)
@@ -22,6 +24,13 @@ const fundraiserSchema = z
         code: z.ZodIssueCode.custom,
         path: ["appealId"],
         message: "Provide either appealId or waterProjectId",
+      })
+    }
+    if (data.waterProjectId && !data.waterProjectCountryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["waterProjectCountryId"],
+        message: "Water project fundraiser requires a country selection",
       })
     }
   })
@@ -89,7 +98,7 @@ export async function POST(request: NextRequest) {
     if (data.waterProjectId) {
       const project = await prisma.waterProject.findUnique({
         where: { id: data.waterProjectId },
-        select: { id: true, projectType: true, allowFundraising: true, isActive: true },
+        select: { id: true, projectType: true, allowFundraising: true, isActive: true, plaqueAvailable: true },
       })
 
       if (!project) {
@@ -110,16 +119,40 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      if (data.waterProjectCountryId) {
+        const country = await prisma.waterProjectCountry.findFirst({
+          where: {
+            id: data.waterProjectCountryId,
+            projectType: project.projectType,
+            isActive: true,
+          },
+        })
+        if (!country) {
+          return NextResponse.json(
+            { error: "Invalid country for this water project" },
+            { status: 400 }
+          )
+        }
+      }
+
+      if (project.plaqueAvailable && (!data.plaqueName || !String(data.plaqueName).trim())) {
+        return NextResponse.json(
+          { error: "Name on plaque is required for this water project" },
+          { status: 400 }
+        )
+      }
+
       const waterProjectLabels: Record<string, string> = {
         WATER_PUMP: "Water Pumps",
         WATER_WELL: "Water Wells",
         WATER_TANK: "Water Tanks",
         WUDHU_AREA: "Wudhu Areas",
       }
-      campaignTitle = waterProjectLabels[project.projectType] || "Water Project"
-      appealTitleForEmail = campaignTitle
+      appealTitleForEmail = waterProjectLabels[project.projectType] || "Water Project"
       waterProjectId = project.id
     }
+
+    const title = (data.title && data.title.trim()) ? data.title.trim() : appealTitleForEmail
 
     // Generate unique slug
     let slug = nanoid(12)
@@ -133,7 +166,9 @@ export async function POST(request: NextRequest) {
       data: {
         ...(appealId ? { appealId } : {}),
         ...(waterProjectId ? { waterProjectId } : {}),
-        title: campaignTitle,
+        ...(data.waterProjectCountryId ? { waterProjectCountryId: data.waterProjectCountryId } : {}),
+        ...(data.plaqueName != null && data.plaqueName.trim() !== "" ? { plaqueName: data.plaqueName.trim() } : {}),
+        title,
         slug,
         fundraiserName: data.fundraiserName,
         email: data.email,

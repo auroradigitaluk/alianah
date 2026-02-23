@@ -1,6 +1,7 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { getAdminUser } from "@/lib/admin-auth"
+import { getFundraiserTotalRaisedAndCount } from "@/lib/fundraiser-totals"
 import { WaterProjectDonationsTable } from "@/components/water-project-donations-table"
 import { StaffFilterSelect } from "@/components/staff-filter-select"
 
@@ -15,35 +16,28 @@ async function getDonations(staffId: string | null) {
         donations: {
           where: staffId ? { addedByAdminUserId: staffId } : undefined,
           include: {
-            donor: {
-              select: {
-                title: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-              },
-            },
-            country: {
-              select: {
-                country: true,
-                pricePence: true,
-              },
-            },
+            donor: { select: { title: true, firstName: true, lastName: true, email: true, phone: true } },
+            country: { select: { country: true, pricePence: true } },
+            fundraiser: { select: { id: true, slug: true, title: true, targetAmountPence: true, plaqueName: true } },
           },
           orderBy: { createdAt: "desc" },
         },
       },
     })
-
-    // Explicitly serialize to ensure all fields are included
     const donations = project?.donations || []
+    const fundraiserIds = [...new Set(donations.map((d) => d.fundraiserId).filter(Boolean))] as string[]
+    const totalsByFundraiser: Record<string, number> = {}
+    await Promise.all(fundraiserIds.map(async (fid) => {
+      const { totalRaisedPence } = await getFundraiserTotalRaisedAndCount(fid, true)
+      totalsByFundraiser[fid] = totalRaisedPence
+    }))
     return donations.map((donation) => ({
       id: donation.id,
       amountPence: donation.amountPence,
       donationType: donation.donationType,
       paymentMethod: donation.paymentMethod,
       giftAid: donation.giftAid,
+      plaqueName: donation.plaqueName,
       billingAddress: donation.billingAddress,
       billingCity: donation.billingCity,
       billingPostcode: donation.billingPostcode,
@@ -56,6 +50,9 @@ async function getDonations(staffId: string | null) {
       completedAt: donation.completedAt?.toISOString() || null,
       donor: donation.donor,
       country: donation.country,
+      fundraiser: donation.fundraiser ? { id: donation.fundraiser.id, slug: donation.fundraiser.slug, title: donation.fundraiser.title, targetAmountPence: donation.fundraiser.targetAmountPence, plaqueName: donation.fundraiser.plaqueName } : null,
+      fundraiserTotalRaisedPence: donation.fundraiserId ? totalsByFundraiser[donation.fundraiserId] ?? 0 : null,
+      fundraiserTargetMet: donation.fundraiser != null && donation.fundraiser.targetAmountPence != null && (totalsByFundraiser[donation.fundraiserId!] ?? 0) >= donation.fundraiser.targetAmountPence,
     }))
   } catch (error) {
     console.error("Error fetching donations:", error)

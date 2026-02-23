@@ -113,7 +113,8 @@ export async function POST(request: NextRequest) {
           if (country.projectType !== project.projectType) {
             throw new Error("Water project country does not match project type")
           }
-          if (item.amountPence !== country.pricePence) {
+          // Fundraiser contributions: variable amount. Otherwise: full country price.
+          if (!item.fundraiserId && item.amountPence !== country.pricePence) {
             throw new Error("Water project amount does not match selected country price")
           }
           return null

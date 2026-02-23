@@ -59,6 +59,7 @@ async function getWaterProject(projectType: "WATER_PUMP" | "WATER_WELL" | "WATER
         isActive: true,
         allowFundraising: true,
         fundraisingDefaultMessage: true,
+        plaqueAvailable: true,
       },
     })
 
@@ -119,6 +120,13 @@ async function getFundraiser(slug: string) {
             fundraisingDefaultMessage: true,
           },
         },
+        waterProjectCountry: {
+          select: {
+            id: true,
+            country: true,
+            pricePence: true,
+          },
+        },
         donations: {
           where: {
             status: "COMPLETED",
@@ -133,29 +141,6 @@ async function getFundraiser(slug: string) {
               },
             },
             createdAt: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-          take: 5,
-        },
-        waterProjectDonations: {
-          where: {
-            status: {
-              in: ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"],
-            },
-          },
-          select: {
-            amountPence: true,
-            isAnonymous: true,
-            donor: {
-              select: {
-                firstName: true,
-                lastName: true,
-              },
-            },
-            createdAt: true,
-            status: true,
           },
           orderBy: {
             createdAt: "desc",
@@ -228,9 +213,7 @@ export default async function FundraisePage({
   if (fundraiser) {
     // Render fundraiser page
     const isWaterFundraiser = Boolean(fundraiser.waterProjectId && fundraiser.waterProject)
-    const completedDonations = isWaterFundraiser
-      ? fundraiser.waterProjectDonations
-      : fundraiser.donations
+    const completedDonations = fundraiser.donations
     const { totalRaisedPence, donationCount } = await getFundraiserTotalRaisedAndCount(
       fundraiser.id,
       isWaterFundraiser
@@ -319,6 +302,18 @@ export default async function FundraisePage({
                           projectType: fundraiser.waterProject!.projectType,
                           plaqueAvailable: fundraiser.waterProject!.plaqueAvailable,
                         },
+                        waterProjectPresetCountry: fundraiser.waterProjectCountry
+                          ? {
+                              id: fundraiser.waterProjectCountry.id,
+                              country: fundraiser.waterProjectCountry.country,
+                              pricePence: fundraiser.waterProjectCountry.pricePence,
+                            }
+                          : undefined,
+                        waterProjectPresetAmountPence:
+                          !fundraiser.waterProjectCountry && fundraiser.targetAmountPence != null
+                            ? fundraiser.targetAmountPence
+                            : undefined,
+                        waterProjectPlaqueName: fundraiser.plaqueName ?? undefined,
                       }
                     : {
                         appeal: {
@@ -399,6 +394,7 @@ export default async function FundraisePage({
               waterProjectType={project.projectType}
               campaignTitle={title}
               defaultMessage={project.fundraisingDefaultMessage}
+              plaqueAvailable={project.plaqueAvailable}
             />
           </div>
         </div>

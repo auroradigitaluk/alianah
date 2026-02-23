@@ -206,6 +206,7 @@ export function CreateFundraiserDialog({
       const body: Record<string, unknown> = {
         fundraiserName: name,
         email: emailVal,
+        title: computedFundraiserTitle || undefined,
         message: message.trim() || undefined,
         targetAmountPence: targetPence,
       }

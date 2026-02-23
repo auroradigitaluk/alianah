@@ -46,6 +46,13 @@ type FundraiserDonationCardProps = {
     projectType: string
     plaqueAvailable?: boolean
   }
+  waterProjectPresetCountry?: {
+    id: string
+    country: string
+    pricePence: number
+  }
+  waterProjectPresetAmountPence?: number
+  waterProjectPlaqueName?: string | null
   fundraiserId: string
   recentDonations: Array<{
     amountPence: number
@@ -68,6 +75,9 @@ export function FundraiserDonationCard({
   products,
   donationTypesEnabled,
   waterProject,
+  waterProjectPresetCountry,
+  waterProjectPresetAmountPence,
+  waterProjectPlaqueName,
   fundraiserId,
   recentDonations,
 }: FundraiserDonationCardProps) {
@@ -129,13 +139,15 @@ export function FundraiserDonationCard({
 
           {/* Donation Form */}
           <div className="space-y-6">
-            <h3 className="font-semibold text-sm">Donate</h3>
             {waterProject ? (
               <WaterProjectDonationForm
                 projectId={waterProject.id}
                 projectType={waterProject.projectType}
                 plaqueAvailable={waterProject.plaqueAvailable}
                 fundraiserId={fundraiserId}
+                presetCountry={waterProjectPresetCountry}
+                presetAmountPence={waterProjectPresetAmountPence}
+                presetPlaqueName={waterProjectPlaqueName ?? undefined}
               />
             ) : (
               appeal &&

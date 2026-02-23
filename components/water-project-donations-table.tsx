@@ -35,6 +35,7 @@ interface WaterProjectDonation {
   status: string | null
   createdAt: Date | string
   completedAt: Date | string | null
+  plaqueName?: string | null
   donor: {
     title?: string | null
     firstName: string
@@ -46,6 +47,15 @@ interface WaterProjectDonation {
     country: string
     pricePence: number
   }
+  fundraiser?: {
+    id: string
+    slug: string
+    title: string
+    targetAmountPence: number | null
+    plaqueName: string | null
+  } | null
+  fundraiserTotalRaisedPence?: number | null
+  fundraiserTargetMet?: boolean
 }
 
 const STATUS_OPTIONS = [
@@ -73,6 +83,12 @@ function getOrderNumberFromNotes(notes: string | null): string | null {
   if (!notes) return null
   const match = notes.match(/OrderNumber:([A-Z0-9-]+)/)
   return match?.[1] || null
+}
+
+function getPlaqueNameFromNotes(notes: string | null): string | null {
+  if (!notes) return null
+  const match = notes.match(/Plaque Name:\s*(.+?)(?:\s*\|\s*|$)/)
+  return match?.[1]?.trim() || null
 }
 
 export function WaterProjectDonationsTable({ 
@@ -344,6 +360,7 @@ Thank you for your generous support in making this project possible.`
         "Donor Last Name",
         "Email",
         "Country",
+        "Plaque Name",
         "Amount",
         "Status",
         "Type",
@@ -355,6 +372,7 @@ Thank you for your generous support in making this project possible.`
         d.donor.lastName,
         displayDonorEmail(d.donor.email),
         d.country.country,
+        d.plaqueName ?? d.fundraiser?.plaqueName ?? getPlaqueNameFromNotes(d.notes) ?? "",
         `£${(d.amountPence / 100).toFixed(2)}`,
         d.status || "No Status",
         DONATION_TYPE_LABELS[d.donationType] || d.donationType,
@@ -551,6 +569,18 @@ Thank you for your generous support in making this project possible.`
             ),
           },
           {
+            id: "plaque",
+            header: "Plaque",
+            cell: (donation) => {
+              const plaque = donation.plaqueName ?? donation.fundraiser?.plaqueName ?? getPlaqueNameFromNotes(donation.notes)
+              return (
+                <div className="text-sm max-w-[120px] truncate" title={plaque ?? undefined}>
+                  {plaque || <span className="text-muted-foreground">—</span>}
+                </div>
+              )
+            },
+          },
+          {
             id: "amount",
             header: "Amount",
             cell: (donation) => (
@@ -560,7 +590,16 @@ Thank you for your generous support in making this project possible.`
           {
             id: "status",
             header: "Status",
-            cell: (donation) => getStatusBadge(donation.status),
+            cell: (donation) => (
+              <div className="flex flex-col gap-1">
+                {getStatusBadge(donation.status)}
+                {donation.fundraiserTargetMet && (
+                  <Badge variant="outline" className="text-[10px] px-1 border-green-500 text-green-700 dark:text-green-400 w-fit">
+                    Target met
+                  </Badge>
+                )}
+              </div>
+            ),
           },
           {
             id: "createdAt",
@@ -675,6 +714,14 @@ Thank you for your generous support in making this project possible.`
                     <p className="text-base font-medium mt-1">{selectedDonation.country.country}</p>
                   </div>
                 </div>
+                {(selectedDonation.plaqueName || selectedDonation.fundraiser?.plaqueName || getPlaqueNameFromNotes(selectedDonation.notes)) && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Name on plaque</p>
+                    <p className="text-base font-medium mt-1">
+                      {selectedDonation.plaqueName || selectedDonation.fundraiser?.plaqueName || getPlaqueNameFromNotes(selectedDonation.notes) || "—"}
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Payment Method</p>
@@ -699,6 +746,48 @@ Thank you for your generous support in making this project possible.`
                 )}
               </div>
             </div>
+
+            {/* Fundraiser (when donation is part of a fundraiser) */}
+            {selectedDonation.fundraiser && (
+              <div className="space-y-3 border-t pt-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Fundraiser</h3>
+                <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Campaign</p>
+                    <a
+                      href={`/fundraise/${selectedDonation.fundraiser.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-base font-medium mt-1 text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      {selectedDonation.fundraiser.title}
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Target</p>
+                      <p className="text-base font-medium mt-1">
+                        £{((selectedDonation.fundraiser.targetAmountPence ?? 0) / 100).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Raised</p>
+                      <p className="text-base font-medium mt-1">
+                        £{((selectedDonation.fundraiserTotalRaisedPence ?? 0) / 100).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedDonation.fundraiserTargetMet && (
+                    <div className="pt-2 border-t">
+                      <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30">
+                        Target met — ready to process
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Status Management */}
             <div className="space-y-3 border-t pt-4">

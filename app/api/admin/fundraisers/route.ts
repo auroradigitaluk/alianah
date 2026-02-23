@@ -11,6 +11,7 @@ const createSchema = z
   .object({
     appealId: z.string().optional(),
     waterProjectId: z.string().optional(),
+    title: z.string().min(1).optional(),
     fundraiserName: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email"),
     message: z.string().optional(),
@@ -91,6 +92,11 @@ export async function POST(request: NextRequest) {
       waterProjectId = project.id
     }
 
+    const title =
+      data.title && data.title.trim()
+        ? data.title.trim()
+        : `${data.fundraiserName} is fundraising for ${campaignTitle}`
+
     let slug = nanoid(12)
     let exists = await prisma.fundraiser.findUnique({ where: { slug } })
     while (exists) {
@@ -102,7 +108,7 @@ export async function POST(request: NextRequest) {
       data: {
         ...(appealId ? { appealId } : {}),
         ...(waterProjectId ? { waterProjectId } : {}),
-        title: campaignTitle,
+        title,
         slug,
         fundraiserName: data.fundraiserName,
         email: data.email,

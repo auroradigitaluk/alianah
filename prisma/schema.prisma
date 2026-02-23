@@ -243,26 +243,32 @@ model AppealProduct {
 }
 
 model Fundraiser {
-  id                String   @id @default(cuid())
-  appealId          String?
-  waterProjectId    String?
-  title             String
-  slug              String   @unique
-  fundraiserName    String // Display name of the person creating the fundraiser
-  email             String
-  message           String? // Optional message explaining why they're fundraising
-  targetAmountPence Int? // Optional target amount in pence
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
+  id                            String   @id @default(cuid())
+  appealId                      String?
+  waterProjectId                String?
+  waterProjectCountryId         String?
+  title                         String
+  slug                          String   @unique
+  fundraiserName                String // Display name of the person creating the fundraiser
+  email                         String
+  message                       String? // Optional message explaining why they're fundraising
+  targetAmountPence             Int? // Optional target amount in pence
+  plaqueName                    String? // Name on plaque (water project fundraisers; set by creator)
+  consolidatedWaterProjectDonationId String? @unique // When water fundraiser target met: the one pump added to water table
+  isActive                       Boolean  @default(true)
+  createdAt                     DateTime @default(now())
 
-  appeal      Appeal?      @relation(fields: [appealId], references: [id], onDelete: Cascade)
-  waterProject WaterProject? @relation(fields: [waterProjectId], references: [id], onDelete: Cascade)
-  donations   Donation[]
+  appeal            Appeal?             @relation(fields: [appealId], references: [id], onDelete: Cascade)
+  waterProject      WaterProject?       @relation(fields: [waterProjectId], references: [id], onDelete: Cascade)
+  waterProjectCountry WaterProjectCountry? @relation(fields: [waterProjectCountryId], references: [id], onDelete: SetNull)
+  consolidatedWaterProjectDonation WaterProjectDonation? @relation("ConsolidatedPump", fields: [consolidatedWaterProjectDonationId], references: [id], onDelete: SetNull)
+  donations         Donation[]
   waterProjectDonations WaterProjectDonation[]
-  cashDonations FundraiserCashDonation[]
+  cashDonations     FundraiserCashDonation[]
 
   @@index([appealId])
   @@index([waterProjectId])
+  @@index([waterProjectCountryId])
   @@index([slug])
   @@index([isActive])
   @@index([email])
@@ -465,6 +471,7 @@ model Donation {
   appealId      String?
   fundraiserId  String?
   productId     String?
+  waterProjectId String?  // When set: contribution to water fundraiser (not a full pump)
   amountPence   Int
   donationType  String // GENERAL | SADAQAH | ZAKAT | LILLAH
   frequency     String // ONE_OFF | MONTHLY | YEARLY
@@ -738,7 +745,8 @@ model WaterProjectCountry {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  donations WaterProjectDonation[]
+  donations   WaterProjectDonation[]
+  fundraisers Fundraiser[]
 
   @@index([projectType, isActive])
   @@index([projectType, sortOrder])
@@ -788,6 +796,7 @@ model WaterProjectDonation {
   giftAidClaimed      Boolean   @default(false)
   giftAidClaimedAt    DateTime?
   isAnonymous         Boolean   @default(false)
+  plaqueName          String?   // Name on plaque (from fundraiser creator or donor)
   billingAddress      String? // Billing address for gift aid purposes
   billingCity         String?
   billingPostcode     String?
@@ -806,6 +815,7 @@ model WaterProjectDonation {
   country      WaterProjectCountry @relation(fields: [countryId], references: [id], onDelete: Cascade)
   donor        Donor               @relation(fields: [donorId], references: [id], onDelete: Cascade)
   fundraiser   Fundraiser?         @relation(fields: [fundraiserId], references: [id], onDelete: SetNull)
+  consolidatedForFundraiser Fundraiser? @relation("ConsolidatedPump")
   addedBy      AdminUser?          @relation("AddedByWater", fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
 
   @@index([waterProjectId])

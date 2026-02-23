@@ -8,35 +8,53 @@ const WATER_PROJECT_STATUSES = ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"] as c
 
 /**
  * Total raised and donation count for a fundraiser (same logic as admin).
- * Includes: deduplicated online donations, water project donations (if water), and approved cash donations.
+ * - Appeal fundraisers: Donation table (deduplicated) + cash.
+ * - Water fundraisers: Donation table (contributions) + cash. When target is met, one consolidated
+ *   WaterProjectDonation is created for the pump (excluded from this total).
  */
 export async function getFundraiserTotalRaisedAndCount(
   fundraiserId: string,
   isWaterFundraiser: boolean
 ): Promise<{ totalRaisedPence: number; donationCount: number }> {
-  const [donationSum, donationCount, waterAgg, cashAgg] = await Promise.all([
+  const [donationSum, donationCount, legacyWaterSum, cashAgg] = await Promise.all([
+    getDeduplicatedDonationSum({
+      fundraiserId,
+      status: "COMPLETED",
+    }),
+    getDeduplicatedDonationCount({
+      fundraiserId,
+      status: "COMPLETED",
+    }),
+    // Legacy: water fundraisers used to have per-contribution WaterProjectDonations; exclude consolidated donation
     isWaterFundraiser
-      ? Promise.resolve(0)
-      : getDeduplicatedDonationSum({
-          fundraiserId,
-          status: "COMPLETED",
-        }),
-    isWaterFundraiser
-      ? Promise.resolve(0)
-      : getDeduplicatedDonationCount({
-          fundraiserId,
-          status: "COMPLETED",
-        }),
-    isWaterFundraiser
-      ? prisma.waterProjectDonation.aggregate({
-          where: {
-            fundraiserId,
-            status: { in: [...WATER_PROJECT_STATUSES] },
-          },
-          _sum: { amountPence: true },
-          _count: { id: true },
-        })
-      : Promise.resolve({ _sum: { amountPence: null }, _count: { id: 0 } }),
+      ? (async () => {
+          const f = await prisma.fundraiser.findUnique({
+            where: { id: fundraiserId },
+            select: { consolidatedWaterProjectDonationId: true },
+          })
+          if (!f?.consolidatedWaterProjectDonationId) {
+            const agg = await prisma.waterProjectDonation.aggregate({
+              where: {
+                fundraiserId,
+                status: { in: [...WATER_PROJECT_STATUSES] },
+              },
+              _sum: { amountPence: true },
+              _count: { id: true },
+            })
+            return { sum: agg._sum.amountPence ?? 0, count: agg._count.id }
+          }
+          const agg = await prisma.waterProjectDonation.aggregate({
+            where: {
+              fundraiserId,
+              id: { not: f.consolidatedWaterProjectDonationId },
+              status: { in: [...WATER_PROJECT_STATUSES] },
+            },
+            _sum: { amountPence: true },
+            _count: { id: true },
+          })
+          return { sum: agg._sum.amountPence ?? 0, count: agg._count.id }
+        })()
+      : Promise.resolve({ sum: 0, count: 0 }),
     prisma.fundraiserCashDonation.aggregate({
       where: { fundraiserId, status: "APPROVED" },
       _sum: { amountPence: true },
@@ -45,12 +63,10 @@ export async function getFundraiserTotalRaisedAndCount(
   ])
 
   const totalRaisedPence =
-    donationSum +
-    (waterAgg._sum.amountPence ?? 0) +
-    (cashAgg._sum.amountPence ?? 0)
+    donationSum + legacyWaterSum.sum + (cashAgg._sum.amountPence ?? 0)
 
   const donationCountTotal =
-    donationCount + waterAgg._count.id + cashAgg._count.id
+    donationCount + legacyWaterSum.count + cashAgg._count.id
 
   return { totalRaisedPence, donationCount: donationCountTotal }
 }

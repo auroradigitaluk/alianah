@@ -40,6 +40,7 @@ interface FundraiserFormProps {
   waterProjectType?: string
   campaignTitle: string
   defaultMessage?: string | null
+  plaqueAvailable?: boolean
 }
 
 export function FundraiserForm({
@@ -48,6 +49,7 @@ export function FundraiserForm({
   waterProjectType,
   campaignTitle,
   defaultMessage,
+  plaqueAvailable,
 }: FundraiserFormProps) {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
@@ -56,6 +58,7 @@ export function FundraiserForm({
   const [countries, setCountries] = React.useState<Array<{ id: string; country: string; pricePence: number }>>([])
   const [selectedCountryId, setSelectedCountryId] = React.useState<string>("")
   const [quantity, setQuantity] = React.useState<number>(1)
+  const [plaqueName, setPlaqueName] = React.useState("")
 
   type FormInput = z.input<typeof fundraiserSchema>
   type FormOutput = z.output<typeof fundraiserSchema>
@@ -204,6 +207,9 @@ export function FundraiserForm({
       if (waterProjectId && !selectedCountryId) {
         throw new Error("Please select a country for your fundraiser.")
       }
+      if (waterProjectId && plaqueAvailable && !plaqueName.trim()) {
+        throw new Error("Please enter a name for the plaque.")
+      }
       const response = await fetch("/api/fundraisers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -211,6 +217,8 @@ export function FundraiserForm({
           ...payload,
           ...(appealId ? { appealId } : {}),
           ...(waterProjectId ? { waterProjectId } : {}),
+          ...(waterProjectId && selectedCountryId ? { waterProjectCountryId: selectedCountryId } : {}),
+          ...(waterProjectId && plaqueAvailable && plaqueName.trim() ? { plaqueName: plaqueName.trim() } : {}),
         }),
       })
 
@@ -372,6 +380,22 @@ export function FundraiserForm({
                   Your target is calculated using the selected country price × quantity.
                 </p>
               </div>
+              {plaqueAvailable && (
+                <div className="space-y-2">
+                  <Label htmlFor="plaque-name">Name on Plaque *</Label>
+                  <Input
+                    id="plaque-name"
+                    transform="titleCase"
+                    value={plaqueName}
+                    onChange={(e) => setPlaqueName(e.target.value)}
+                    placeholder="Enter name to appear on plaque"
+                    className="h-11"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This name will be displayed on the project plaque.
+                  </p>
+                </div>
+              )}
             </>
           )}
 

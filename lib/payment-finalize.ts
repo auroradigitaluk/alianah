@@ -123,6 +123,7 @@ export async function finalizeOrderByOrderNumber(params: {
 
   const donationKeyForItem = (item: {
     appealId?: string | null
+    waterProjectId?: string | null
     fundraiserId?: string | null
     productId?: string | null
     frequency: string
@@ -131,6 +132,7 @@ export async function finalizeOrderByOrderNumber(params: {
   }) =>
     [
       item.appealId || "",
+      item.waterProjectId || "",
       item.fundraiserId || "",
       item.productId || "",
       item.frequency,
@@ -140,13 +142,34 @@ export async function finalizeOrderByOrderNumber(params: {
 
   const existingDonationCounts = new Map<string, number>()
   existingDonations.forEach((donation) => {
-    const key = donationKeyForItem(donation)
+    const key = donationKeyForItem({
+      appealId: donation.appealId,
+      waterProjectId: (donation as { waterProjectId?: string | null }).waterProjectId,
+      fundraiserId: donation.fundraiserId,
+      productId: donation.productId,
+      frequency: donation.frequency,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+    })
     existingDonationCounts.set(key, (existingDonationCounts.get(key) ?? 0) + 1)
   })
 
   const appealItems = order.items.filter(
     (item) => item.appealId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
   )
+  const waterFundraiserItems = order.items.filter(
+    (item) =>
+      item.waterProjectId &&
+      item.fundraiserId &&
+      targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
+  )
+  const waterDirectItems = order.items.filter(
+    (item) =>
+      item.waterProjectId &&
+      !item.fundraiserId &&
+      targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
+  )
+
   if (appealItems.length > 0) {
     const appealItemsToCreate = appealItems.filter((item) => {
       const key = donationKeyForItem(item)
@@ -197,22 +220,70 @@ export async function finalizeOrderByOrderNumber(params: {
     }
   }
 
+  // Water fundraiser contributions → Donation (show on donations page; one pump added to water table when target met)
+  const waterFundraiserItemsToCreate = waterFundraiserItems.filter((item) => {
+    const key = donationKeyForItem(item)
+    const count = existingDonationCounts.get(key) ?? 0
+    if (count > 0) {
+      existingDonationCounts.set(key, count - 1)
+      return false
+    }
+    return true
+  })
+
+  if (waterFundraiserItemsToCreate.length > 0) {
+    const createdWaterFundraiserDonations = await Promise.all(
+      waterFundraiserItemsToCreate.map((item) =>
+        prisma.donation.create({
+          data: {
+            donorId: donor.id,
+            appealId: null,
+            fundraiserId: item.fundraiserId!,
+            productId: null,
+            waterProjectId: item.waterProjectId || null,
+            amountPence: item.amountPence,
+            donationType: item.donationType,
+            frequency: item.frequency,
+            paymentMethod,
+            collectedVia,
+            status: "COMPLETED",
+            giftAid: order.giftAid,
+            isAnonymous: item.isAnonymous ?? false,
+            billingAddress,
+            billingCity,
+            billingPostcode,
+            billingCountry,
+            orderNumber,
+            completedAt: paidAt,
+            ...(paymentRef ? { transactionId: paymentRef } : {}),
+          },
+          include: {
+            donor: true,
+            fundraiser: {
+              include: {
+                appeal: { select: { title: true } },
+              },
+            },
+          },
+        })
+      )
+    )
+    createdAppealDonations = [...createdAppealDonations, ...createdWaterFundraiserDonations]
+  }
+
   const existingWaterDonations = await prisma.waterProjectDonation.findMany({
     where: { notes: { contains: `OrderNumber:${orderNumber}` } },
     select: { id: true },
   })
-  const waterItems = order.items.filter(
-    (item) => item.waterProjectId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
-  )
-  if (waterItems.length > 0 && existingWaterDonations.length === 0) {
+  if (waterDirectItems.length > 0 && existingWaterDonations.length === 0) {
     createdWaterDonations = await Promise.all(
-      waterItems.map((item) =>
+      waterDirectItems.map((item) =>
         prisma.waterProjectDonation.create({
           data: {
             waterProjectId: item.waterProjectId!,
             countryId: item.waterProjectCountryId!,
             donorId: donor.id,
-            fundraiserId: item.fundraiserId || null,
+            fundraiserId: null,
             amountPence: item.amountPence,
             donationType: item.donationType,
             paymentMethod,
@@ -220,6 +291,7 @@ export async function finalizeOrderByOrderNumber(params: {
             transactionId: paymentRef,
             giftAid: order.giftAid,
             isAnonymous: item.isAnonymous ?? false,
+            plaqueName: item.plaqueName || null,
             billingAddress,
             billingCity,
             billingPostcode,
@@ -227,12 +299,7 @@ export async function finalizeOrderByOrderNumber(params: {
             emailSent: false,
             reportSent: false,
             status: "WAITING_TO_REVIEW",
-            notes: [
-              item.plaqueName ? `Plaque Name: ${item.plaqueName}` : null,
-              `OrderNumber:${orderNumber}`,
-            ]
-              .filter(Boolean)
-              .join(" | ") || null,
+            notes: [`OrderNumber:${orderNumber}`].filter(Boolean).join(" | ") || null,
           },
           include: {
             waterProject: true,
@@ -243,6 +310,77 @@ export async function finalizeOrderByOrderNumber(params: {
         })
       )
     )
+  }
+
+  // When water fundraiser target is met: create one consolidated water project donation for admin to process (pump/well/tank/wudhu)
+  const fundraiserIdsToCheck = [...new Set(waterFundraiserItemsToCreate.map((i) => i.fundraiserId!).filter(Boolean))]
+  const { getFundraiserTotalRaisedAndCount } = await import("@/lib/fundraiser-totals")
+  for (const fid of fundraiserIdsToCheck) {
+    const fundraiser = await prisma.fundraiser.findUnique({
+      where: { id: fid },
+      include: {
+        waterProjectCountry: true,
+        waterProject: true,
+      },
+    })
+    if (
+      !fundraiser?.waterProjectId ||
+      !fundraiser.waterProjectCountryId ||
+      !fundraiser.waterProject ||
+      !fundraiser.waterProjectCountry ||
+      fundraiser.consolidatedWaterProjectDonationId != null
+    )
+      continue
+    const target = fundraiser.targetAmountPence ?? 0
+    if (target <= 0) continue
+    const { totalRaisedPence } = await getFundraiserTotalRaisedAndCount(fid, true)
+    if (totalRaisedPence < target) continue
+
+    const fundraiserDonor =
+      (await prisma.donor.findUnique({ where: { email: fundraiser.email } })) ??
+      (await prisma.donor.create({
+        data: {
+          firstName: fundraiser.fundraiserName.split(" ")[0] ?? "Fundraiser",
+          lastName: fundraiser.fundraiserName.split(" ").slice(1).join(" ") || fundraiser.fundraiserName,
+          email: fundraiser.email,
+        },
+      }))
+
+    const consolidated = await prisma.waterProjectDonation.create({
+      data: {
+        waterProjectId: fundraiser.waterProjectId,
+        countryId: fundraiser.waterProjectCountryId,
+        donorId: fundraiserDonor.id,
+        fundraiserId: fid,
+        amountPence: fundraiser.waterProjectCountry.pricePence,
+        donationType: "GENERAL",
+        paymentMethod,
+        collectedVia,
+        transactionId: paymentRef,
+        giftAid: false,
+        isAnonymous: false,
+        plaqueName: fundraiser.plaqueName || null,
+        billingAddress: null,
+        billingCity: null,
+        billingPostcode: null,
+        billingCountry: null,
+        emailSent: false,
+        reportSent: false,
+        status: "WAITING_TO_REVIEW",
+        notes: `OrderNumber:${orderNumber} | Consolidated (fundraiser target met)`,
+      },
+      include: {
+        waterProject: true,
+        country: true,
+        donor: true,
+        fundraiser: true,
+      },
+    })
+    await prisma.fundraiser.update({
+      where: { id: fid },
+      data: { consolidatedWaterProjectDonationId: consolidated.id },
+    })
+    createdWaterDonations = [...createdWaterDonations, consolidated]
   }
 
   const existingSponsorshipDonations = await prisma.sponsorshipDonation.findMany({

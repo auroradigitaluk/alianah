@@ -1066,6 +1066,7 @@ export default async function AdminDashboardPage({
         id: true,
         title: true,
         fundraiserName: true,
+        consolidatedWaterProjectDonationId: true,
         appeal: {
           select: {
             title: true,
@@ -1102,6 +1103,7 @@ export default async function AdminDashboardPage({
             },
           },
           select: {
+            id: true,
             amountPence: true,
           },
         },
@@ -1111,9 +1113,16 @@ export default async function AdminDashboardPage({
 
     const fundraisersWithTotals = topFundraisers
       .map((fundraiser) => {
+        const isWater = Boolean(fundraiser.waterProject)
+        const legacyWaterSum =
+          isWater && fundraiser.waterProjectDonations
+            ? fundraiser.waterProjectDonations
+                .filter((d) => d.id !== fundraiser.consolidatedWaterProjectDonationId)
+                .reduce((sum, d) => sum + d.amountPence, 0)
+            : 0
         const totalRaised =
           sumDonationsDeduplicated(fundraiser.donations) +
-          fundraiser.waterProjectDonations.reduce((sum, d) => sum + d.amountPence, 0)
+          legacyWaterSum
         const appealTitle = fundraiser.appeal?.title
           ? fundraiser.appeal.title
           : fundraiser.waterProject?.projectType === "WATER_PUMP"
