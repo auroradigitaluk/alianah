@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import Stripe from "stripe"
-import { finalizeOrderByOrderNumber, recordOddNightDonation } from "@/lib/payment-finalize"
+import { finalizeOrderByOrderNumber, recordOddNightDonation, recordRecurringSubscriptionPayment } from "@/lib/payment-finalize"
 import { sendSponsorshipCompletionEmail } from "@/lib/email"
 
 // Lazy initialization to avoid errors during build when API key is not available
@@ -196,6 +196,16 @@ export async function POST(request: NextRequest) {
               })
             }
 
+            const billingReason = (invoice as { billing_reason?: string }).billing_reason
+            if (billingReason !== "subscription_create" && paymentIntentId) {
+              await recordRecurringSubscriptionPayment({
+                subscriptionId,
+                paymentIntentId,
+                paidAt: new Date(),
+                nextPaymentDate: nextPaymentDate ?? undefined,
+              })
+            }
+
             if (orderNumber && paymentIntentId) {
               await getStripe().paymentIntents.update(paymentIntentId, {
                 description: `Donation ${orderNumber}`,
@@ -204,7 +214,6 @@ export async function POST(request: NextRequest) {
             }
 
             // Auto-send one report from pool only on first payment (when they start sponsoring), not on renewals
-            const billingReason = (invoice as { billing_reason?: string }).billing_reason
             if (orderNumber && billingReason === "subscription_create") {
               const periodEnd = (subscription as unknown as { current_period_end?: number | null }).current_period_end
               const recurringRef = periodEnd ? `sub:${subscriptionId}:${periodEnd}` : `sub:${subscriptionId}:${invoice.id}`

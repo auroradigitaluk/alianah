@@ -800,3 +800,65 @@ export async function recordOddNightDonation(params: {
   })
 }
 
+/** Record a successful recurring subscription payment (2nd, 3rd, ... charge). Creates one Donation per RecurringDonation for this subscription and updates lastPaymentDate and nextPaymentDate. */
+export async function recordRecurringSubscriptionPayment(params: {
+  subscriptionId: string
+  paymentIntentId: string
+  paidAt: Date
+  nextPaymentDate?: Date | null
+}) {
+  const { subscriptionId, paymentIntentId, paidAt, nextPaymentDate } = params
+
+  const existing = await prisma.donation.findFirst({
+    where: { transactionId: paymentIntentId, status: "COMPLETED" },
+    select: { id: true },
+  })
+  if (existing) return
+
+  const recurringList = await prisma.recurringDonation.findMany({
+    where: { subscriptionId, status: "ACTIVE" },
+    include: { donor: true },
+  })
+
+  if (recurringList.length === 0) return
+
+  const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
+  const collectedVia = COLLECTION_SOURCES.WEBSITE
+
+  await prisma.$transaction([
+    ...recurringList.map((recurring) =>
+      prisma.donation.create({
+        data: {
+          donorId: recurring.donorId,
+          appealId: recurring.appealId || null,
+          productId: recurring.productId || null,
+          fundraiserId: null,
+          amountPence: recurring.amountPence,
+          donationType: recurring.donationType,
+          frequency: "ONE_OFF",
+          paymentMethod,
+          collectedVia,
+          status: "COMPLETED",
+          giftAid: false,
+          isAnonymous: false,
+          billingAddress: recurring.donor.address || null,
+          billingCity: recurring.donor.city || null,
+          billingPostcode: recurring.donor.postcode || null,
+          billingCountry: recurring.donor.country || null,
+          transactionId: paymentIntentId,
+          completedAt: paidAt,
+        },
+      })
+    ),
+    ...recurringList.map((recurring) =>
+      prisma.recurringDonation.update({
+        where: { id: recurring.id },
+        data: {
+          lastPaymentDate: paidAt,
+          ...(nextPaymentDate ? { nextPaymentDate } : {}),
+        },
+      })
+    ),
+  ])
+}
+

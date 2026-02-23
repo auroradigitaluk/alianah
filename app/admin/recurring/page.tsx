@@ -9,13 +9,22 @@ export const revalidate = 0
 
 async function getRecurringDonations() {
   try {
-    return await prisma.recurringDonation.findMany({
+    const rows = await prisma.recurringDonation.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         donor: { select: { title: true, firstName: true, lastName: true, email: true } },
         appeal: { select: { title: true } },
+        product: { select: { name: true } },
       },
     })
+    return rows.map((r) => ({
+      ...r,
+      nextPaymentDate: r.nextPaymentDate?.toISOString() ?? null,
+      lastPaymentDate: r.lastPaymentDate?.toISOString() ?? null,
+      scheduleEndDate: r.scheduleEndDate?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }))
   } catch (error) {
     return []
   }

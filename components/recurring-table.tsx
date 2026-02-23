@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { AdminTable, StatusBadge } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,7 +25,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, Mail, Wallet, Target, Calendar, RefreshCw, FileText } from "lucide-react"
+import { User, Mail, Wallet, Target, Calendar, RefreshCw, FileText, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface RecurringDonation {
@@ -35,14 +35,39 @@ interface RecurringDonation {
   frequency: string
   status: string
   subscriptionId?: string | null
-  nextPaymentDate?: Date | null
-  lastPaymentDate?: Date | null
+  nextPaymentDate?: string | Date | null
+  lastPaymentDate?: string | Date | null
   donor: { title?: string | null; firstName: string; lastName: string; email: string }
   appeal?: { title: string } | null
+  product?: { name: string } | null
+}
+
+interface LiveStripeDetails {
+  status: string
+  nextPaymentDate: string | null
+  cancelAtPeriodEnd: boolean
+  cancelAt: string | null
+}
+
+function stripeStatusToDisplay(status: string): string {
+  const map: Record<string, string> = {
+    active: "Active",
+    canceled: "Cancelled",
+    cancelled: "Cancelled",
+    past_due: "Past due",
+    unpaid: "Unpaid",
+    incomplete: "Incomplete",
+    incomplete_expired: "Expired",
+    trialing: "Trialing",
+    paused: "Paused",
+  }
+  return map[status?.toLowerCase()] ?? status
 }
 
 export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }) {
   const [selectedRecurring, setSelectedRecurring] = useState<RecurringDonation | null>(null)
+  const [liveStripeDetails, setLiveStripeDetails] = useState<LiveStripeDetails | null>(null)
+  const [liveDetailsLoading, setLiveDetailsLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [appealQuery, setAppealQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -82,6 +107,43 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
     setFromDate("")
     setToDate("")
   }
+
+  const fetchLiveStripeDetails = useCallback(async (id: string) => {
+    setLiveDetailsLoading(true)
+    setLiveStripeDetails(null)
+    try {
+      const res = await fetch(`/api/admin/recurring/${id}/stripe-details`)
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setLiveStripeDetails({
+          status: data.status ?? "",
+          nextPaymentDate: data.nextPaymentDate ?? null,
+          cancelAtPeriodEnd: Boolean(data.cancelAtPeriodEnd),
+          cancelAt: data.cancelAt ?? null,
+        })
+      }
+    } catch {
+      setLiveStripeDetails(null)
+    } finally {
+      setLiveDetailsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedRecurring?.subscriptionId && selectedRecurring.id) {
+      fetchLiveStripeDetails(selectedRecurring.id)
+    } else {
+      setLiveStripeDetails(null)
+    }
+  }, [selectedRecurring?.id, selectedRecurring?.subscriptionId, fetchLiveStripeDetails])
+
+  const displayStatus = useMemo(() => {
+    if (liveStripeDetails?.status) return stripeStatusToDisplay(liveStripeDetails.status)
+    return selectedRecurring?.status ? formatEnum(selectedRecurring.status) : "-"
+  }, [liveStripeDetails?.status, selectedRecurring?.status])
+
+  const displayNextPaymentDate = liveStripeDetails?.nextPaymentDate ?? selectedRecurring?.nextPaymentDate ?? null
+  const isActiveForCancel = liveStripeDetails?.status === "active" || (!liveStripeDetails && selectedRecurring?.status === "ACTIVE")
 
   const cancelSubscription = async () => {
     if (!selectedRecurring?.id) return
@@ -175,7 +237,7 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
           header: "Campaign / Appeal",
           cell: (item) => (
             <div className="text-sm">
-              {item.appeal?.title || "General"}
+              {item.appeal?.title || item.product?.name || "General"}
             </div>
           ),
         },
@@ -258,15 +320,28 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
                   {selectedRecurring && `${formatCurrency(selectedRecurring.amountPence)} / ${formatEnum(selectedRecurring.frequency).toLowerCase()} from ${formatDonorName(selectedRecurring.donor)}`}
                 </DialogDescription>
               </div>
-              {selectedRecurring?.status === "ACTIVE" && selectedRecurring.subscriptionId && (
-                <Button
-                  variant="destructive"
-                  onClick={cancelSubscription}
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? "Cancelling..." : "Cancel subscription"}
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {selectedRecurring?.subscriptionId && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => selectedRecurring.id && fetchLiveStripeDetails(selectedRecurring.id)}
+                    disabled={liveDetailsLoading}
+                    title="Refresh live data from Stripe"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${liveDetailsLoading ? "animate-spin" : ""}`} />
+                  </Button>
+                )}
+                {isActiveForCancel && selectedRecurring?.subscriptionId && (
+                  <Button
+                    variant="destructive"
+                    onClick={cancelSubscription}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? "Cancelling..." : "Cancel subscription"}
+                  </Button>
+                )}
+              </div>
             </div>
           </DialogHeader>
 
@@ -304,25 +379,37 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
                         <CardHeader className="pb-0 px-6 pt-3 relative z-10">
                           <CardTitle className="text-sm font-medium text-muted-foreground">
                             Status
+                            {liveStripeDetails && (
+                              <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">(live)</span>
+                            )}
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                          {selectedRecurring.status === "ACTIVE" ? (
+                          {liveDetailsLoading ? (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span className="text-sm">Loading…</span>
+                            </div>
+                          ) : displayStatus === "Active" ? (
                             <StatusBadge isActive={true} />
-                          ) : selectedRecurring.status === "PAUSED" ? (
-                            <Badge variant="outline" className="px-1.5 bg-orange-500 text-white border-orange-500">
-                              <IconPlayerPause className="mr-1 size-3" />
-                              {formatEnum(selectedRecurring.status)}
+                          ) : displayStatus === "Past due" || displayStatus === "Unpaid" ? (
+                            <Badge variant="outline" className="px-1.5 bg-amber-500 text-white border-amber-500">
+                              {displayStatus}
                             </Badge>
-                          ) : selectedRecurring.status === "CANCELLED" || selectedRecurring.status === "FAILED" ? (
+                          ) : displayStatus === "Cancelled" || displayStatus === "Expired" ? (
                             <Badge variant="outline" className="px-1.5 bg-red-500 text-white border-red-500">
                               <IconX className="mr-1 size-3" />
-                              {formatEnum(selectedRecurring.status)}
+                              {displayStatus}
+                            </Badge>
+                          ) : displayStatus === "Paused" || displayStatus === "Trialing" ? (
+                            <Badge variant="outline" className="px-1.5 bg-orange-500 text-white border-orange-500">
+                              <IconPlayerPause className="mr-1 size-3" />
+                              {displayStatus}
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="px-1.5 text-muted-foreground bg-muted">
                               <IconLoader className="mr-1 size-3" />
-                              {formatEnum(selectedRecurring.status)}
+                              {displayStatus || "-"}
                             </Badge>
                           )}
                         </CardContent>
@@ -332,12 +419,27 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
                         <CardHeader className="pb-0 px-6 pt-3 relative z-10">
                           <CardTitle className="text-sm font-medium text-muted-foreground">
                             Next Payment
+                            {liveStripeDetails?.nextPaymentDate && (
+                              <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">(live)</span>
+                            )}
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="px-6 pb-3 pt-0 relative z-10">
-                          <div className="text-lg font-bold">
-                            {formatDate(selectedRecurring.nextPaymentDate)}
-                          </div>
+                          {liveDetailsLoading ? (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span className="text-sm">Loading…</span>
+                            </div>
+                          ) : (
+                            <div className="text-lg font-bold">
+                              {formatDate(displayNextPaymentDate)}
+                            </div>
+                          )}
+                          {liveStripeDetails?.cancelAtPeriodEnd && liveStripeDetails?.cancelAt && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                              Cancels at period end: {formatDate(liveStripeDetails.cancelAt)}
+                            </p>
+                          )}
                         </CardContent>
                       </Card>
                     </div>
@@ -390,7 +492,7 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
                                 Campaign / Appeal
                               </p>
                               <p className="text-base font-semibold text-foreground">
-                                {selectedRecurring.appeal?.title || "General"}
+                                {selectedRecurring.appeal?.title || selectedRecurring.product?.name || "General"}
                               </p>
                             </div>
                           </div>
@@ -432,7 +534,7 @@ export function RecurringTable({ recurring }: { recurring: RecurringDonation[] }
                                 Next Payment
                               </p>
                               <p className="text-base font-semibold text-foreground">
-                                {formatDate(selectedRecurring.nextPaymentDate)}
+                                {liveDetailsLoading ? "Loading…" : formatDate(displayNextPaymentDate)}
                               </p>
                             </div>
                           </div>

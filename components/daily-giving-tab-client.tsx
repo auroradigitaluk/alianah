@@ -21,7 +21,7 @@ import {
   formatEnum,
   displayDonorEmail,
 } from "@/lib/utils"
-import { User, Wallet, ExternalLink, Settings } from "lucide-react"
+import { User, Wallet, ExternalLink, Settings, RefreshCw, Loader2 } from "lucide-react"
 import { IconX, IconLoader } from "@tabler/icons-react"
 import { toast } from "sonner"
 
@@ -40,6 +40,28 @@ export type DailyGivingSubscription = {
   appeal?: { title: string } | null
 }
 
+interface LiveStripeDetails {
+  status: string
+  nextPaymentDate: string | null
+  cancelAtPeriodEnd: boolean
+  cancelAt: string | null
+}
+
+function stripeStatusDisplay(status: string): string {
+  const map: Record<string, string> = {
+    active: "Active",
+    canceled: "Cancelled",
+    cancelled: "Cancelled",
+    past_due: "Past due",
+    unpaid: "Unpaid",
+    incomplete: "Incomplete",
+    incomplete_expired: "Expired",
+    trialing: "Trialing",
+    paused: "Paused",
+  }
+  return map[status?.toLowerCase()] ?? status
+}
+
 type DailyGivingTabClientProps = {
   appeals: AppealOption[]
   dailyGivingSubscriptions: DailyGivingSubscription[]
@@ -53,6 +75,8 @@ export function DailyGivingTabClient({
   const [summary, setSummary] = React.useState<{ appealCount?: number } | null>(null)
   const [subscriptions, setSubscriptions] = React.useState<DailyGivingSubscription[]>(initialSubscriptions)
   const [selected, setSelected] = React.useState<DailyGivingSubscription | null>(null)
+  const [liveStripeDetails, setLiveStripeDetails] = React.useState<LiveStripeDetails | null>(null)
+  const [liveDetailsLoading, setLiveDetailsLoading] = React.useState(false)
   const [actionLoading, setActionLoading] = React.useState(false)
   const router = useRouter()
 
@@ -75,6 +99,45 @@ export function DailyGivingTabClient({
   React.useEffect(() => {
     loadSummary()
   }, [loadSummary])
+
+  const fetchLiveStripeDetails = React.useCallback(async (id: string) => {
+    setLiveDetailsLoading(true)
+    setLiveStripeDetails(null)
+    try {
+      const res = await fetch(`/api/admin/recurring/${id}/stripe-details`)
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setLiveStripeDetails({
+          status: data.status ?? "",
+          nextPaymentDate: data.nextPaymentDate ?? null,
+          cancelAtPeriodEnd: Boolean(data.cancelAtPeriodEnd),
+          cancelAt: data.cancelAt ?? null,
+        })
+      }
+    } catch {
+      setLiveStripeDetails(null)
+    } finally {
+      setLiveDetailsLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (selected?.subscriptionId && selected.id) {
+      fetchLiveStripeDetails(selected.id)
+    } else {
+      setLiveStripeDetails(null)
+    }
+  }, [selected?.id, selected?.subscriptionId, fetchLiveStripeDetails])
+
+  const displayStatus = liveStripeDetails?.status
+    ? stripeStatusDisplay(liveStripeDetails.status)
+    : selected?.status
+      ? formatEnum(selected.status)
+      : "-"
+  const displayNextPayment =
+    liveStripeDetails?.nextPaymentDate ?? selected?.nextPaymentDate ?? null
+  const isActiveForCancel =
+    liveStripeDetails?.status === "active" || (!liveStripeDetails && selected?.status === "ACTIVE")
 
   const cancelSubscription = async () => {
     if (!selected?.id) return
@@ -209,15 +272,30 @@ export function DailyGivingTabClient({
                     `${formatCurrency(selected.amountPence)} / day • ${formatDonorName(selected.donor)}`}
                 </DialogDescription>
               </div>
-              {selected?.status === "ACTIVE" && selected.subscriptionId && (
-                <Button
-                  variant="destructive"
-                  onClick={cancelSubscription}
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? "Cancelling…" : "Cancel subscription"}
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {selected?.subscriptionId && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => selected.id && fetchLiveStripeDetails(selected.id)}
+                    disabled={liveDetailsLoading}
+                    title="Refresh live data from Stripe"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${liveDetailsLoading ? "animate-spin" : ""}`}
+                    />
+                  </Button>
+                )}
+                {isActiveForCancel && selected?.subscriptionId && (
+                  <Button
+                    variant="destructive"
+                    onClick={cancelSubscription}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? "Cancelling…" : "Cancel subscription"}
+                  </Button>
+                )}
+              </div>
             </div>
           </DialogHeader>
 
@@ -241,19 +319,47 @@ export function DailyGivingTabClient({
                     <span className="text-muted-foreground">Appeal</span>
                     <span>{selected.appeal?.title || "General"}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Status</span>
+                  <div className="flex justify-between text-sm items-center">
+                    <span className="text-muted-foreground">
+                      Status
+                      {liveStripeDetails && (
+                        <span className="ml-1 text-xs font-normal text-green-600 dark:text-green-400">
+                          (live)
+                        </span>
+                      )}
+                    </span>
                     <span>
-                      {selected.status === "ACTIVE" ? (
+                      {liveDetailsLoading ? (
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Loading…
+                        </span>
+                      ) : displayStatus === "Active" ? (
                         <StatusBadge isActive={true} />
+                      ) : displayStatus === "Cancelled" || displayStatus === "Expired" ? (
+                        <Badge
+                          variant="outline"
+                          className="px-1.5 bg-red-500 text-white border-red-500"
+                        >
+                          {displayStatus}
+                        </Badge>
                       ) : (
-                        formatEnum(selected.status)
+                        displayStatus
                       )}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Next payment</span>
-                    <span>{formatDate(selected.nextPaymentDate)}</span>
+                    <span className="text-muted-foreground">
+                      Next payment
+                      {liveStripeDetails?.nextPaymentDate && (
+                        <span className="ml-1 text-xs font-normal text-green-600 dark:text-green-400">
+                          (live)
+                        </span>
+                      )}
+                    </span>
+                    <span>
+                      {liveDetailsLoading ? "Loading…" : formatDate(displayNextPayment)}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Last payment</span>
@@ -263,6 +369,11 @@ export function DailyGivingTabClient({
                     <span className="text-muted-foreground">Charges until</span>
                     <span>{formatDate(selected.scheduleEndDate)}</span>
                   </div>
+                  {liveStripeDetails?.cancelAtPeriodEnd && liveStripeDetails?.cancelAt && (
+                    <div className="text-xs text-amber-600 dark:text-amber-400 pt-1">
+                      Cancels at period end: {formatDate(liveStripeDetails.cancelAt)}
+                    </div>
+                  )}
                   {selected.subscriptionId && (
                     <div className="text-xs text-muted-foreground pt-2 border-t">
                       Stripe: <span className="font-mono">{selected.subscriptionId}</span>
