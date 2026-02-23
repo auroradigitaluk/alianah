@@ -82,7 +82,36 @@ interface Donation {
   }
   appeal?: { title: string } | null
   product?: { name: string } | null
-  fundraiser?: { fundraiserName: string; title: string; slug: string } | null
+  fundraiser?: {
+    fundraiserName: string
+    title: string
+    slug: string
+    waterProjectId?: string | null
+    waterProject?: { projectType: string } | null
+    waterProjectCountry?: { country: string } | null
+  } | null
+}
+
+const WATER_PROJECT_LABELS: Record<string, string> = {
+  WATER_PUMP: "Water Pumps",
+  WATER_WELL: "Water Wells",
+  WATER_TANK: "Water Tanks",
+  WUDHU_AREA: "Wudhu Areas",
+}
+
+function getCampaignLabel(donation: Donation): string {
+  if (donation.appeal?.title) return donation.appeal.title
+  if (
+    donation.fundraiser?.waterProject &&
+    donation.fundraiser?.waterProjectCountry
+  ) {
+    const typeLabel =
+      WATER_PROJECT_LABELS[donation.fundraiser.waterProject.projectType] ||
+      "Water Project"
+    return `${typeLabel} - ${donation.fundraiser.waterProjectCountry.country}`
+  }
+  if (donation.product?.name) return donation.product.name
+  return "General"
 }
 
 type StripeInfo = {
@@ -246,7 +275,7 @@ export function DonationsTable({
     if (to) to.setHours(23, 59, 59, 999)
 
     return donations.filter((donation) => {
-      const appealName = (donation.appeal?.title || "General").toLowerCase()
+      const appealName = getCampaignLabel(donation).toLowerCase()
       const matchesAppeal = normalizedAppeal
         ? appealName.includes(normalizedAppeal)
         : true
@@ -418,7 +447,7 @@ export function DonationsTable({
           header: "Campaign / Appeal / Product",
           cell: (donation) => (
             <div className="text-sm">
-              {donation.product?.name || donation.appeal?.title || "General"}
+              {getCampaignLabel(donation)}
             </div>
           ),
         },
@@ -589,7 +618,7 @@ export function DonationsTable({
                           <InfoRow label="Amount" value={formatCurrency(donation.amountPence)} />
                           <InfoRow label="Donation Type" value={formatEnum(donation.donationType)} />
                           <InfoRow label="Frequency" value={formatEnum(donation.frequency)} />
-                          <InfoRow label="Campaign / Appeal / Product" value={donation.product?.name || donation.appeal?.title || "General"} />
+                          <InfoRow label="Campaign / Appeal / Product" value={getCampaignLabel(donation)} />
                           <InfoRow label="Fundraiser" value={donation.fundraiser?.fundraiserName || "-"} />
                           <InfoRow label="Gift Aid" value={donation.giftAid ? "Yes" : "No"} />
                           <InfoRow label="Collected Via" value={donation.collectedVia ? formatEnum(donation.collectedVia) : "-"} />

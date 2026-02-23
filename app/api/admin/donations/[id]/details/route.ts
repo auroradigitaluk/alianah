@@ -105,7 +105,16 @@ export async function GET(
         donor: true,
         appeal: { select: { title: true } },
         product: { select: { name: true } },
-        fundraiser: { select: { fundraiserName: true, title: true, slug: true } },
+        fundraiser: {
+          select: {
+            fundraiserName: true,
+            title: true,
+            slug: true,
+            waterProjectId: true,
+            waterProject: { select: { projectType: true } },
+            waterProjectCountry: { select: { country: true } },
+          },
+        },
       },
     })
 

@@ -34,7 +34,14 @@ export type DonationRow = {
   }
   appeal?: { title: string } | null
   product?: { name: string } | null
-  fundraiser?: { fundraiserName: string; title: string; slug: string } | null
+  fundraiser?: {
+    fundraiserName: string
+    title: string
+    slug: string
+    waterProjectId?: string | null
+    waterProject?: { projectType: string } | null
+    waterProjectCountry?: { country: string } | null
+  } | null
 }
 
 export function DonationsPageContent({

@@ -17,6 +17,16 @@ async function getDonations() {
         donor: { select: { title: true, firstName: true, lastName: true, email: true } },
         appeal: { select: { title: true } },
         product: { select: { name: true } },
+        fundraiser: {
+          select: {
+            fundraiserName: true,
+            title: true,
+            slug: true,
+            waterProjectId: true,
+            waterProject: { select: { projectType: true } },
+            waterProjectCountry: { select: { country: true } },
+          },
+        },
       },
     })
     // Show one row per transaction: deduplicate by (orderNumber, transactionId) so the same payment
