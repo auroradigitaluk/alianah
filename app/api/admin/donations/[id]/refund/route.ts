@@ -121,10 +121,17 @@ export async function POST(
       metadata: { reason },
     })
 
-    await prisma.donation.update({
-      where: { id: donation.id },
-      data: { status: "REFUNDED" },
-    })
+    // For full refunds, immediately mark the donation as REFUNDED so it no longer
+    // counts towards any totals. For partial refunds we leave the status as-is
+    // and let the Stripe webhook adjust the remaining amount based on the
+    // payment intent's refunded amount, so the donation continues to count
+    // towards fundraiser totals with a reduced value instead of disappearing.
+    if (type === "full") {
+      await prisma.donation.update({
+        where: { id: donation.id },
+        data: { status: "REFUNDED" },
+      })
+    }
 
     const stripeInfo = await getStripeInfo(donation.transactionId)
 

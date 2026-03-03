@@ -19,15 +19,6 @@ function getStripe(): Stripe {
   return stripe
 }
 
-function isRefunded(paymentIntent: Stripe.PaymentIntent) {
-  const refundedAmount = (paymentIntent as unknown as { amount_refunded?: number | null }).amount_refunded
-  if (refundedAmount && refundedAmount > 0) return true
-  const charge = paymentIntent.latest_charge as Stripe.Charge | null
-  if (charge?.refunded) return true
-  if (charge?.amount_refunded && charge.amount_refunded > 0) return true
-  return false
-}
-
 export async function GET(request: NextRequest) {
   const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
@@ -36,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   const donations = await prisma.donation.findMany({
     where: {
-      status: "COMPLETED",
+      status: { in: ["COMPLETED", "REFUNDED"] },
       transactionId: { startsWith: "pi_" },
     },
     orderBy: { createdAt: "desc" },
@@ -44,6 +35,7 @@ export async function GET(request: NextRequest) {
   })
 
   let updated = 0
+  let partiallyUpdated = 0
   const updatedOrders: string[] = []
 
   for (const donation of donations) {
@@ -51,13 +43,40 @@ export async function GET(request: NextRequest) {
       const paymentIntent = await getStripe().paymentIntents.retrieve(donation.transactionId!, {
         expand: ["latest_charge"],
       })
-      if (!isRefunded(paymentIntent)) continue
 
-      await prisma.donation.update({
-        where: { id: donation.id },
-        data: { status: "REFUNDED" },
-      })
-      updated += 1
+      const totalAmount =
+        (paymentIntent as unknown as { amount?: number | null }).amount ?? 0
+      const refundedFromPi =
+        (paymentIntent as unknown as { amount_refunded?: number | null }).amount_refunded ?? 0
+      const charge = paymentIntent.latest_charge as Stripe.Charge | null
+      const refundedFromCharge =
+        (charge as unknown as { amount_refunded?: number | null })?.amount_refunded ?? 0
+
+      const refundedAmount = Math.max(refundedFromPi, refundedFromCharge)
+
+      if (!totalAmount || refundedAmount <= 0) continue
+
+      if (refundedAmount >= totalAmount) {
+        // Fully refunded: ensure status is REFUNDED so it no longer counts.
+        await prisma.donation.update({
+          where: { id: donation.id },
+          data: { status: "REFUNDED" },
+        })
+        updated += 1
+      } else {
+        // Partially refunded: keep as COMPLETED but reduce amount so totals
+        // reflect the remaining value instead of dropping the donation.
+        const remaining = totalAmount - refundedAmount
+        await prisma.donation.update({
+          where: { id: donation.id },
+          data: {
+            status: "COMPLETED",
+            amountPence: remaining,
+          },
+        })
+        partiallyUpdated += 1
+      }
+
       if (donation.orderNumber) updatedOrders.push(donation.orderNumber)
     } catch (error) {
       console.error(`Refund reconcile failed for ${donation.id}:`, error)
@@ -67,6 +86,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     scanned: donations.length,
     updated,
+    partiallyUpdated,
     updatedOrders,
   })
 }

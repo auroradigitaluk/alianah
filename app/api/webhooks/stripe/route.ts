@@ -90,12 +90,45 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const markDonationRefunded = async (paymentIntentId: string | null | undefined) => {
+    const applyStripeRefundToDonations = async (paymentIntentId: string | null | undefined) => {
       if (!paymentIntentId) return
-      await prisma.donation.updateMany({
-        where: { transactionId: paymentIntentId },
-        data: { status: "REFUNDED" },
+
+      const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId, {
+        expand: ["latest_charge"],
       })
+
+      const totalAmount =
+        (paymentIntent as unknown as { amount?: number | null }).amount ?? 0
+      const refundedFromPi =
+        (paymentIntent as unknown as { amount_refunded?: number | null }).amount_refunded ?? 0
+      const charge = paymentIntent.latest_charge as Stripe.Charge | null
+      const refundedFromCharge =
+        (charge as unknown as { amount_refunded?: number | null })?.amount_refunded ?? 0
+
+      const refundedAmount = Math.max(refundedFromPi, refundedFromCharge)
+      if (!totalAmount || refundedAmount <= 0) {
+        return
+      }
+
+      // If the full amount has been refunded, mark as REFUNDED so it no longer
+      // counts towards fundraiser totals. If only partially refunded, keep the
+      // donation as COMPLETED but reduce the amount so totals reflect the
+      // remaining donation value instead of dropping to zero.
+      if (refundedAmount >= totalAmount) {
+        await prisma.donation.updateMany({
+          where: { transactionId: paymentIntentId },
+          data: { status: "REFUNDED" },
+        })
+      } else {
+        const remaining = totalAmount - refundedAmount
+        await prisma.donation.updateMany({
+          where: { transactionId: paymentIntentId },
+          data: {
+            status: "COMPLETED",
+            amountPence: remaining,
+          },
+        })
+      }
     }
 
     // Handle the event
@@ -310,7 +343,7 @@ export async function POST(request: NextRequest) {
           typeof charge.payment_intent === "string"
             ? charge.payment_intent
             : charge.payment_intent?.id || null
-        await markDonationRefunded(paymentIntentId)
+        await applyStripeRefundToDonations(paymentIntentId)
         break
       }
 
@@ -320,7 +353,7 @@ export async function POST(request: NextRequest) {
           typeof refund.payment_intent === "string"
             ? refund.payment_intent
             : refund.payment_intent?.id || null
-        await markDonationRefunded(paymentIntentId)
+        await applyStripeRefundToDonations(paymentIntentId)
         break
       }
 
