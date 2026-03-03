@@ -46,7 +46,7 @@ interface WaterProject {
     country: {
       country: string
       pricePence: number
-    }
+    } | null
     donor: {
       firstName: string
       lastName: string

@@ -119,12 +119,12 @@ export function FundraiserCashReviewTable() {
           {list.map((d) => (
             <TableRow key={d.id}>
               <TableCell>
-                <div className="font-medium">{d.fundraiser.fundraiserName}</div>
-                <div className="text-xs text-muted-foreground">{d.fundraiser.title}</div>
-                <div className="text-xs text-muted-foreground">{d.fundraiser.email}</div>
+                <div className="font-medium">{d.fundraiser?.fundraiserName ?? "Deleted fundraiser"}</div>
+                <div className="text-xs text-muted-foreground">{d.fundraiser?.title ?? "—"}</div>
+                <div className="text-xs text-muted-foreground">{d.fundraiser?.email ?? "—"}</div>
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">
-                {d.fundraiser.campaignTitle}
+                {d.fundraiser?.campaignTitle ?? "—"}
               </TableCell>
               <TableCell className="text-right font-semibold tabular-nums">
                 {formatCurrency(d.amountPence)}

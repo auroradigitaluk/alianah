@@ -40,6 +40,12 @@ export async function POST(
     if (!donation) {
       return NextResponse.json({ error: "Donation not found" }, { status: 404 })
     }
+    if (!donation.sponsorshipProject || !donation.country) {
+      return NextResponse.json(
+        { error: "Sponsorship project or country was deleted. Donation data is preserved but completion is not available." },
+        { status: 400 }
+      )
+    }
 
     const updatedDonation = await prisma.sponsorshipDonation.update({
       where: { id },
@@ -58,7 +64,7 @@ export async function POST(
       const data = completeWithPoolSchema.parse(body)
       const poolEntry = await prisma.sponsorshipReportPool.findFirst({
         where: {
-          sponsorshipProjectId: donation.sponsorshipProjectId,
+          sponsorshipProjectId: donation.sponsorshipProject.id,
           assignedDonationId: null,
           assignedRecurringRef: null,
         },

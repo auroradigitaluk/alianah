@@ -112,8 +112,10 @@ export default async function OfflineIncomePage({
       WATER_TANK: "Water Tank",
       WUDHU_AREA: "Wudhu Area",
     }
-    const projectLabel = labels[donation.waterProject.projectType] || donation.waterProject.projectType
-    const location = donation.waterProject.location ? ` - ${donation.waterProject.location}` : ""
+    const projectLabel = donation.waterProject
+      ? (labels[donation.waterProject.projectType] || donation.waterProject.projectType)
+      : "Deleted project"
+    const location = donation.waterProject?.location ? ` - ${donation.waterProject.location}` : ""
     const country = donation.country?.country ? ` (${donation.country.country})` : ""
     return {
       id: `water-${donation.id}`,
@@ -134,9 +136,10 @@ export default async function OfflineIncomePage({
       HIFZ: "Hifz",
       FAMILIES: "Families",
     }
-    const projectLabel =
-      labels[donation.sponsorshipProject.projectType] || donation.sponsorshipProject.projectType
-    const location = donation.sponsorshipProject.location
+    const projectLabel = donation.sponsorshipProject
+      ? (labels[donation.sponsorshipProject.projectType] || donation.sponsorshipProject.projectType)
+      : "Deleted project"
+    const location = donation.sponsorshipProject?.location
       ? ` - ${donation.sponsorshipProject.location}`
       : ""
     const country = donation.country?.country ? ` (${donation.country.country})` : ""

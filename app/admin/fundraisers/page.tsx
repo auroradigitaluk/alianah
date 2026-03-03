@@ -205,6 +205,7 @@ async function getFundraisedByCampaign(): Promise<FundraisedByCampaignRow[]> {
     // Water: group by project type + country so we get e.g. "Water Pumps - Sri Lanka"
     const waterByTypeAndCountry = new Map<string, number>()
     for (const d of waterDonations) {
+      if (!d.waterProject) continue
       const type = d.waterProject.projectType
       const country = d.country?.country ?? "Unknown"
       const key = `${type}\t${country}`

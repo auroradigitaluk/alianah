@@ -46,7 +46,7 @@ interface WaterProjectDonation {
   country: {
     country: string
     pricePence: number
-  }
+  } | null
   fundraiser?: {
     id: string
     slug: string
@@ -241,7 +241,7 @@ export function WaterProjectDonationsTable({
       // Generate PDF report (returns blob URL)
       const pdfBlobUrl = await generateCompletionReportPDF({
         projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
-        country: selectedDonation.country.country,
+        country: selectedDonation.country?.country ?? "Unknown",
         donorName: `${selectedDonation.donor.firstName} ${selectedDonation.donor.lastName}`,
         amount: selectedDonation.amountPence,
         completionDate: formatDate(new Date()),
@@ -276,7 +276,7 @@ export function WaterProjectDonationsTable({
       const report = `Water Project Completion Report
 
 Project Type: ${PROJECT_TYPE_LABELS[projectType] || projectType}
-Country: ${selectedDonation.country.country}
+Country: ${selectedDonation.country?.country ?? "Unknown"}
 Donor: ${formatDonorName(selectedDonation.donor)}
 Amount: £${((selectedDonation.amountPence || 0) / 100).toFixed(2)}
 
@@ -371,7 +371,7 @@ Thank you for your generous support in making this project possible.`
         d.donor.firstName,
         d.donor.lastName,
         displayDonorEmail(d.donor.email),
-        d.country.country,
+        d.country?.country ?? "",
         d.plaqueName ?? d.fundraiser?.plaqueName ?? getPlaqueNameFromNotes(d.notes) ?? "",
         `£${(d.amountPence / 100).toFixed(2)}`,
         d.status || "No Status",
@@ -414,7 +414,7 @@ Thank you for your generous support in making this project possible.`
       const query = searchQuery.toLowerCase()
       const donorName = formatDonorName(donation.donor).toLowerCase()
       const email = donation.donor.email.toLowerCase()
-      const country = donation.country.country.toLowerCase()
+      const country = (donation.country?.country ?? "").toLowerCase()
       
       if (!donorName.includes(query) && !email.includes(query) && !country.includes(query)) {
         return false
@@ -444,9 +444,9 @@ Thank you for your generous support in making this project possible.`
         const nameB2 = formatDonorName(b.donor).toLowerCase()
         return nameB2.localeCompare(nameA2)
       case "country-asc":
-        return a.country.country.localeCompare(b.country.country)
+        return (a.country?.country ?? "").localeCompare(b.country?.country ?? "")
       case "country-desc":
-        return b.country.country.localeCompare(a.country.country)
+        return (b.country?.country ?? "").localeCompare(a.country?.country ?? "")
       default:
         return 0
     }
@@ -565,7 +565,7 @@ Thank you for your generous support in making this project possible.`
             id: "country",
             header: "Country",
             cell: (donation) => (
-              <div className="font-medium">{donation.country.country}</div>
+              <div className="font-medium">{donation.country?.country ?? "Deleted country"}</div>
             ),
           },
           {
@@ -711,7 +711,7 @@ Thank you for your generous support in making this project possible.`
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Country</p>
-                    <p className="text-base font-medium mt-1">{selectedDonation.country.country}</p>
+                    <p className="text-base font-medium mt-1">{selectedDonation.country?.country ?? "Deleted country"}</p>
                   </div>
                 </div>
                 {(selectedDonation.plaqueName || selectedDonation.fundraiser?.plaqueName || getPlaqueNameFromNotes(selectedDonation.notes)) && (
@@ -1195,7 +1195,7 @@ Thank you for your generous support in making this project possible.`
                             // Generate PDF on demand for download
                             const pdfUrl = await generateCompletionReportPDF({
                               projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
-                              country: selectedDonation.country.country,
+                              country: selectedDonation.country?.country ?? "Unknown",
                               donorName: formatDonorName(selectedDonation.donor),
                               amount: selectedDonation.amountPence,
                               completionDate: selectedDonation.completedAt 

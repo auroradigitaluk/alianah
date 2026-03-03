@@ -16,12 +16,13 @@ async function getCountries() {
 
 async function getProjects() {
   try {
-    return await prisma.waterProject.findMany({
+    const rows = await prisma.waterProject.findMany({
       where: {
         isActive: true,
       },
       include: {
         donations: {
+          where: { countryId: { not: null } },
           select: {
             amountPence: true,
             country: {
@@ -35,6 +36,7 @@ async function getProjects() {
       },
       orderBy: { createdAt: "desc" },
     })
+    return rows
   } catch {
     return []
   }
@@ -43,5 +45,13 @@ async function getProjects() {
 export default async function WaterForLifePublicPage() {
   const [countries, projects] = await Promise.all([getCountries(), getProjects()])
 
-  return <WaterForLifePage countries={countries} projects={projects} />
+  const safeProjects = projects.map((p) => ({
+    ...p,
+    donations: p.donations.filter(
+      (d): d is typeof d & { country: NonNullable<typeof d.country> } =>
+        d.country != null
+    ),
+  }))
+
+  return <WaterForLifePage countries={countries} projects={safeProjects} />
 }

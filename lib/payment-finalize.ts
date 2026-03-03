@@ -91,27 +91,27 @@ export async function finalizeOrderByOrderNumber(params: {
   let createdAppealDonations: typeof existingDonations = []
   let createdWaterDonations: Array<{
     id: string
-    waterProjectId: string
+    waterProjectId: string | null
     fundraiserId?: string | null
     status?: string | null
     transactionId?: string | null
     emailSent?: boolean | null
     donor: { firstName: string; lastName: string; email: string }
-    country: { country: string }
-    waterProject: { projectType: string; location: string | null; status?: string | null }
+    country: { country: string } | null
+    waterProject: { id: string; projectType: string; location: string | null; status?: string | null } | null
     fundraiser?: { id: string; slug: string; fundraiserName: string; email: string; title: string } | null
     amountPence: number
     donationType: string
   }> = []
   let createdSponsorshipDonations: Array<{
     id: string
-    sponsorshipProjectId: string
+    sponsorshipProjectId: string | null
     status?: string | null
     transactionId?: string | null
     emailSent?: boolean | null
     donor: { firstName: string; lastName: string; email: string }
-    country: { country: string }
-    sponsorshipProject: { projectType: string; location: string | null; status?: string | null }
+    country: { country: string } | null
+    sponsorshipProject: { id: string; projectType: string; location: string | null; status?: string | null } | null
     amountPence: number
     donationType: string
   }> = []
@@ -567,31 +567,33 @@ export async function finalizeOrderByOrderNumber(params: {
       })
     }
 
-    if (!donation.waterProject.status) {
-      await prisma.waterProject.update({
-        where: { id: donation.waterProjectId },
-        data: { status: "WAITING_TO_REVIEW" },
-      })
-    }
+    if (donation.waterProject && donation.country) {
+      if (!donation.waterProject.status) {
+        await prisma.waterProject.update({
+          where: { id: donation.waterProject.id },
+          data: { status: "WAITING_TO_REVIEW" },
+        })
+      }
 
-    if (!donation.emailSent) {
-      try {
-        await sendWaterProjectDonationEmail({
-          donorEmail: donation.donor.email,
-          donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
-          projectType: donation.waterProject.projectType,
-          location: donation.waterProject.location,
-          country: donation.country.country,
-          amount: donation.amountPence,
-          donationType: donation.donationType,
-          donationNumber: (donation as { donationNumber?: string | null }).donationNumber ?? orderNumber,
-        })
-        await prisma.waterProjectDonation.update({
-          where: { id: donation.id },
-          data: { emailSent: true },
-        })
-      } catch (err) {
-        console.error("Error sending water project donation email:", err)
+      if (!donation.emailSent) {
+        try {
+          await sendWaterProjectDonationEmail({
+            donorEmail: donation.donor.email,
+            donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
+            projectType: donation.waterProject.projectType,
+            location: donation.waterProject.location,
+            country: donation.country.country,
+            amount: donation.amountPence,
+            donationType: donation.donationType,
+            donationNumber: (donation as { donationNumber?: string | null }).donationNumber ?? orderNumber,
+          })
+          await prisma.waterProjectDonation.update({
+            where: { id: donation.id },
+            data: { emailSent: true },
+          })
+        } catch (err) {
+          console.error("Error sending water project donation email:", err)
+        }
       }
     }
   }
@@ -615,31 +617,33 @@ export async function finalizeOrderByOrderNumber(params: {
       })
     }
 
-    if (!donation.sponsorshipProject.status) {
-      await prisma.sponsorshipProject.update({
-        where: { id: donation.sponsorshipProjectId },
-        data: { status: "WAITING_TO_REVIEW" },
-      })
-    }
+    if (donation.sponsorshipProject && donation.country) {
+      if (!donation.sponsorshipProject.status) {
+        await prisma.sponsorshipProject.update({
+          where: { id: donation.sponsorshipProject.id },
+          data: { status: "WAITING_TO_REVIEW" },
+        })
+      }
 
-    if (!donation.emailSent) {
-      try {
-        await sendSponsorshipDonationEmail({
-          donorEmail: donation.donor.email,
-          donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
-          projectType: donation.sponsorshipProject.projectType,
-          location: donation.sponsorshipProject.location,
-          country: donation.country.country,
-          amount: donation.amountPence,
-          donationType: donation.donationType,
-          donationNumber: (donation as { donationNumber?: string | null }).donationNumber ?? orderNumber,
-        })
-        await prisma.sponsorshipDonation.update({
-          where: { id: donation.id },
-          data: { emailSent: true },
-        })
-      } catch (err) {
-        console.error("Error sending sponsorship donation email:", err)
+      if (!donation.emailSent) {
+        try {
+          await sendSponsorshipDonationEmail({
+            donorEmail: donation.donor.email,
+            donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
+            projectType: donation.sponsorshipProject.projectType,
+            location: donation.sponsorshipProject.location,
+            country: donation.country.country,
+            amount: donation.amountPence,
+            donationType: donation.donationType,
+            donationNumber: (donation as { donationNumber?: string | null }).donationNumber ?? orderNumber,
+          })
+          await prisma.sponsorshipDonation.update({
+            where: { id: donation.id },
+            data: { emailSent: true },
+          })
+        } catch (err) {
+          console.error("Error sending sponsorship donation email:", err)
+        }
       }
     }
   }

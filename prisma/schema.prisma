@@ -277,7 +277,7 @@ model Fundraiser {
 
 model FundraiserCashDonation {
   id                  String    @id @default(cuid())
-  fundraiserId        String
+  fundraiserId        String?   // SetNull when fundraiser deleted – keep donation data
   amountPence         Int
   donorName           String?   // Optional: who gave the cash (e.g. "Aunt Sarah")
   notes               String?
@@ -287,7 +287,7 @@ model FundraiserCashDonation {
   reviewedByAdminUserId String?
   createdAt           DateTime  @default(now())
 
-  fundraiser Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  fundraiser Fundraiser? @relation(fields: [fundraiserId], references: [id], onDelete: SetNull)
   reviewedBy AdminUser? @relation(fields: [reviewedByAdminUserId], references: [id], onDelete: SetNull)
 
   @@index([fundraiserId])
@@ -783,8 +783,8 @@ model WaterProject {
 
 model WaterProjectDonation {
   id                  String    @id @default(cuid())
-  waterProjectId      String
-  countryId           String    // Country chosen for this donation
+  waterProjectId      String?   // SetNull when water project deleted – keep donation data (e.g. Sri Lanka Wudhu)
+  countryId           String?   // SetNull when country removed – keep donation data
   donorId             String
   fundraiserId        String?
   amountPence          Int
@@ -811,8 +811,8 @@ model WaterProjectDonation {
   updatedAt           DateTime  @updatedAt
   completedAt         DateTime?
 
-  waterProject WaterProject        @relation(fields: [waterProjectId], references: [id], onDelete: Cascade)
-  country      WaterProjectCountry @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  waterProject WaterProject?        @relation(fields: [waterProjectId], references: [id], onDelete: SetNull)
+  country      WaterProjectCountry? @relation(fields: [countryId], references: [id], onDelete: SetNull)
   donor        Donor               @relation(fields: [donorId], references: [id], onDelete: Cascade)
   fundraiser   Fundraiser?         @relation(fields: [fundraiserId], references: [id], onDelete: SetNull)
   consolidatedForFundraiser Fundraiser? @relation("ConsolidatedPump")
@@ -889,8 +889,8 @@ model SponsorshipReportPool {
 
 model SponsorshipDonation {
   id                  String    @id @default(cuid())
-  sponsorshipProjectId String
-  countryId           String
+  sponsorshipProjectId String?   // SetNull when project deleted – keep donation data (e.g. Orphans, Hifz)
+  countryId           String?   // SetNull when country removed – keep donation data
   donorId             String
   amountPence         Int
   donationType        String    // GENERAL | SADAQAH | ZAKAT | LILLAH
@@ -914,8 +914,8 @@ model SponsorshipDonation {
   updatedAt           DateTime  @updatedAt
   completedAt         DateTime?
 
-  sponsorshipProject SponsorshipProject        @relation(fields: [sponsorshipProjectId], references: [id], onDelete: Cascade)
-  country            SponsorshipProjectCountry @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  sponsorshipProject SponsorshipProject?        @relation(fields: [sponsorshipProjectId], references: [id], onDelete: SetNull)
+  country            SponsorshipProjectCountry? @relation(fields: [countryId], references: [id], onDelete: SetNull)
   donor              Donor                     @relation(fields: [donorId], references: [id], onDelete: Cascade)
   addedBy            AdminUser?                @relation("AddedBySponsorship", fields: [addedByAdminUserId], references: [id], onDelete: SetNull)
 

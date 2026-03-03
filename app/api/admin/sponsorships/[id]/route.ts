@@ -107,7 +107,7 @@ export async function PUT(
               donorEmail: donation.donor.email,
               donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
               projectType: project.projectType,
-              country: donation.country.country,
+              country: donation.country?.country ?? "Unknown",
               images: data.completionImages || [],
               report: data.completionReport || "",
             })

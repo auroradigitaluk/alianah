@@ -41,7 +41,7 @@ interface SponsorshipProject {
   donations?: Array<{
     id: string
     status: string | null
-    country: { country: string; pricePence: number }
+    country: { country: string; pricePence: number } | null
     donor: { firstName: string; lastName: string; email: string }
     amountPence: number
   }>

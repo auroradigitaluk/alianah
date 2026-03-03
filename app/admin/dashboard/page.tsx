@@ -396,7 +396,16 @@ export default async function AdminDashboardPage({
 
     // Staff filter: only show data they logged (addedByAdminUserId)
     const staffFilter = staffId ? { addedByAdminUserId: staffId } : {}
-    const OFFLINE_PAYMENT_METHODS = [PAYMENT_METHODS.CARD_SUMUP, "CARD_SUMUP", "CASH", "BANK_TRANSFER"]
+    const STRIPE_PAYMENT_METHODS = [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE", "PAYPAL"]
+    const OFFLINE_PAYMENT_METHODS = [
+      PAYMENT_METHODS.CARD_SUMUP,
+      PAYMENT_METHODS.CASH,
+      PAYMENT_METHODS.BANK_TRANSFER,
+      "CARD_SUMUP",
+      "CARD",
+      "CASH",
+      "BANK_TRANSFER",
+    ]
 
     // Get stat card metrics for the selected period (current + previous for comparison)
     const [
@@ -409,17 +418,46 @@ export default async function AdminDashboardPage({
       totalCollectionsPrev,
       totalWaterSponsorDonationsPrev,
     ] = await Promise.all([
-      // Current period: Total Online = WEBSITE_STRIPE + CARD_SUMUP donations (skip for staff - they don't log these)
+      // Current period: Total Online = all Stripe payments (skip for staff - they don't log these)
       isStaff
         ? Promise.resolve({ _sum: { amountPence: 0 } })
-        : getDeduplicatedDonationSum({
-            status: "COMPLETED",
-            paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, PAYMENT_METHODS.CARD_SUMUP, "STRIPE", "CARD"] },
-            createdAt: { gte: startDate, lte: endDate },
-          }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
+        : Promise.all([
+            getDeduplicatedDonationSum({
+              status: "COMPLETED",
+              paymentMethod: { in: STRIPE_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            })
+              .then((s) => ({ _sum: { amountPence: s } }))
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            prisma.waterProjectDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: STRIPE_PAYMENT_METHODS },
+                  createdAt: { gte: startDate, lte: endDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            prisma.sponsorshipDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: STRIPE_PAYMENT_METHODS },
+                  createdAt: { gte: startDate, lte: endDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+          ]).then(([donationsAgg, waterAgg, sponsorshipAgg]) => ({
+            _sum: {
+              amountPence:
+                (donationsAgg._sum.amountPence ?? 0) +
+                (waterAgg._sum.amountPence ?? 0) +
+                (sponsorshipAgg._sum.amountPence ?? 0),
+            },
+          })),
       // Current period: Total Offline
       // - Staff: OfflineIncome only (water/sponsor are shown separately in staff view)
-      // - Admin: OfflineIncome + offline sponsorship + offline water donations
+      // - Admin: Cash + SumUp card + bank transfer across all donation entry types (incl. fundraiser cash)
       isStaff
         ? prisma.offlineIncome
             .aggregate({
@@ -444,6 +482,13 @@ export default async function AdminDashboardPage({
                 },
                 _sum: { amountPence: true },
               })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            getDeduplicatedDonationSum({
+              status: "COMPLETED",
+              paymentMethod: { in: OFFLINE_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            })
+              .then((s) => ({ _sum: { amountPence: s } }))
               .catch(() => ({ _sum: { amountPence: 0 } })),
             prisma.sponsorshipDonation
               .aggregate({
@@ -472,10 +517,11 @@ export default async function AdminDashboardPage({
                 _sum: { amountPence: true },
               })
               .catch(() => ({ _sum: { amountPence: 0 } })),
-          ]).then(([offlineIncomeAgg, sponsorshipAgg, waterAgg, fundraiserCashAgg]) => ({
+          ]).then(([offlineIncomeAgg, donationAgg, sponsorshipAgg, waterAgg, fundraiserCashAgg]) => ({
             _sum: {
               amountPence:
                 (offlineIncomeAgg._sum.amountPence ?? 0) +
+                (donationAgg._sum.amountPence ?? 0) +
                 (sponsorshipAgg._sum.amountPence ?? 0) +
                 (waterAgg._sum.amountPence ?? 0) +
                 (fundraiserCashAgg._sum.amountPence ?? 0),
@@ -515,14 +561,43 @@ export default async function AdminDashboardPage({
             },
           }))
         : Promise.resolve({ _sum: { amountPence: 0 } }),
-      // Previous period: Total Online (skip for staff)
+      // Previous period: Total Online (Stripe only; skip for staff)
       isStaff
         ? Promise.resolve({ _sum: { amountPence: 0 } })
-        : getDeduplicatedDonationSum({
-            status: "COMPLETED",
-            paymentMethod: { in: ["STRIPE", "CARD"] },
-            createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
-          }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
+        : Promise.all([
+            getDeduplicatedDonationSum({
+              status: "COMPLETED",
+              paymentMethod: { in: STRIPE_PAYMENT_METHODS },
+              createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+            })
+              .then((s) => ({ _sum: { amountPence: s } }))
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            prisma.waterProjectDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: STRIPE_PAYMENT_METHODS },
+                  createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            prisma.sponsorshipDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: STRIPE_PAYMENT_METHODS },
+                  createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+          ]).then(([donationsAgg, waterAgg, sponsorshipAgg]) => ({
+            _sum: {
+              amountPence:
+                (donationsAgg._sum.amountPence ?? 0) +
+                (waterAgg._sum.amountPence ?? 0) +
+                (sponsorshipAgg._sum.amountPence ?? 0),
+            },
+          })),
       // Previous period: Total Offline
       isStaff
         ? prisma.offlineIncome
@@ -548,6 +623,13 @@ export default async function AdminDashboardPage({
                 },
                 _sum: { amountPence: true },
               })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            getDeduplicatedDonationSum({
+              status: "COMPLETED",
+              paymentMethod: { in: OFFLINE_PAYMENT_METHODS },
+              createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+            })
+              .then((s) => ({ _sum: { amountPence: s } }))
               .catch(() => ({ _sum: { amountPence: 0 } })),
             prisma.sponsorshipDonation
               .aggregate({
@@ -576,10 +658,11 @@ export default async function AdminDashboardPage({
                 _sum: { amountPence: true },
               })
               .catch(() => ({ _sum: { amountPence: 0 } })),
-          ]).then(([offlineIncomeAgg, sponsorshipAgg, waterAgg, fundraiserCashAgg]) => ({
+          ]).then(([offlineIncomeAgg, donationAgg, sponsorshipAgg, waterAgg, fundraiserCashAgg]) => ({
             _sum: {
               amountPence:
                 (offlineIncomeAgg._sum.amountPence ?? 0) +
+                (donationAgg._sum.amountPence ?? 0) +
                 (sponsorshipAgg._sum.amountPence ?? 0) +
                 (waterAgg._sum.amountPence ?? 0) +
                 (fundraiserCashAgg._sum.amountPence ?? 0),
@@ -621,23 +704,108 @@ export default async function AdminDashboardPage({
         : Promise.resolve({ _sum: { amountPence: 0 } }),
     ])
 
-    // Calculate Total Amount for current and previous periods
-    // For staff: offline + collections + water + sponsor. For admin: online + offline + collections
-    const totalAmountPence = isStaff
-      ? (totalOfflineIncome._sum.amountPence || 0) +
-        (totalCollections._sum.amountPence || 0) +
-        (totalWaterSponsorDonations._sum.amountPence || 0)
-      : (totalOnlineDonations._sum.amountPence || 0) +
-        (totalOfflineIncome._sum.amountPence || 0) +
-        (totalCollections._sum.amountPence || 0)
+    // Total Amount = ALL donation data (every source, no payment-method split)
+    const [allDonationsTotal, allDonationsTotalPrev] = await Promise.all([
+      Promise.all([
+        getDeduplicatedDonationSum({
+          status: "COMPLETED",
+          createdAt: { gte: startDate, lte: endDate },
+        }).catch(() => 0),
+        prisma.offlineIncome
+          .aggregate({
+            where: { receivedAt: { gte: startDate, lte: endDate } },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+        prisma.collection
+          .aggregate({
+            where: { ...staffFilter, collectedAt: { gte: startDate, lte: endDate } },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+        prisma.waterProjectDonation
+          .aggregate({
+            where: { ...(staffId ? { addedByAdminUserId: staffId } : {}), createdAt: { gte: startDate, lte: endDate } },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+        prisma.sponsorshipDonation
+          .aggregate({
+            where: { ...(staffId ? { addedByAdminUserId: staffId } : {}), createdAt: { gte: startDate, lte: endDate } },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+        prisma.fundraiserCashDonation
+          .aggregate({
+            where: { status: "APPROVED", receivedAt: { gte: startDate, lte: endDate } },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+      ]).then(([donation, offline, collections, water, sponsor, fundraiserCash]) =>
+        donation + offline + collections + water + sponsor + fundraiserCash
+      ),
+      Promise.all([
+        getDeduplicatedDonationSum({
+          status: "COMPLETED",
+          createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+        }).catch(() => 0),
+        prisma.offlineIncome
+          .aggregate({
+            where: { receivedAt: { gte: comparisonStartDate, lte: comparisonEndDate } },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+        prisma.collection
+          .aggregate({
+            where: { ...staffFilter, collectedAt: { gte: comparisonStartDate, lte: comparisonEndDate } },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+        prisma.waterProjectDonation
+          .aggregate({
+            where: {
+              ...(staffId ? { addedByAdminUserId: staffId } : {}),
+              createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+        prisma.sponsorshipDonation
+          .aggregate({
+            where: {
+              ...(staffId ? { addedByAdminUserId: staffId } : {}),
+              createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+        prisma.fundraiserCashDonation
+          .aggregate({
+            where: {
+              status: "APPROVED",
+              receivedAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .then((r) => r._sum.amountPence ?? 0)
+          .catch(() => 0),
+      ]).then(([donation, offline, collections, water, sponsor, fundraiserCash]) =>
+        donation + offline + collections + water + sponsor + fundraiserCash
+      ),
+    ])
 
-    const totalAmountPencePrev = isStaff
-      ? (totalOfflineIncomePrev._sum.amountPence || 0) +
-        (totalCollectionsPrev._sum.amountPence || 0) +
-        (totalWaterSponsorDonationsPrev._sum.amountPence || 0)
-      : (totalOnlineDonationsPrev._sum.amountPence || 0) +
-        (totalOfflineIncomePrev._sum.amountPence || 0) +
-        (totalCollectionsPrev._sum.amountPence || 0)
+    // Calculate Total Amount for current and previous periods (use explicit all-donations sum)
+    const totalAmountPence = allDonationsTotal
+    const totalAmountPencePrev = allDonationsTotalPrev
 
     // Calculate percentage changes
     const calculatePercentageChange = (current: number, previous: number): number => {
@@ -663,47 +831,173 @@ export default async function AdminDashboardPage({
       totalWaterSponsorDonationsPrev._sum.amountPence || 0
     )
 
-    // Get payment method data (online, card, cash) - for staff, only their manual donations
-    const [onlineDonations, cardDonations, cashDonations] = await Promise.all([
-      // Online = WEBSITE_STRIPE donations (skip for staff)
+    // Payment-method breakdown (pie chart)
+    // - Online: Stripe only (across donations + water + sponsorship)
+    // - Offline: SumUp card + cash + bank transfer (including fundraiser cash)
+    const SUMUP_PAYMENT_METHODS = [PAYMENT_METHODS.CARD_SUMUP, "CARD_SUMUP", "CARD"]
+    const CASH_PAYMENT_METHODS = [PAYMENT_METHODS.CASH, "CASH"]
+    const BANK_TRANSFER_PAYMENT_METHODS = [PAYMENT_METHODS.BANK_TRANSFER, "BANK_TRANSFER"]
+
+    const [sumupTotal, cashTotal, bankTransferTotal, fundraiserCashTotal] = await Promise.all([
       isStaff
         ? Promise.resolve({ _sum: { amountPence: 0 } })
-        : getDeduplicatedDonationSum({
-            status: "COMPLETED",
-            paymentMethod: { in: [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE"] },
-            createdAt: { gte: startDate, lte: endDate },
-          }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
-      // Card = CARD_SUMUP donations (skip for staff)
-      isStaff
-        ? Promise.resolve({ _sum: { amountPence: 0 } })
-        : getDeduplicatedDonationSum({
-            status: "COMPLETED",
-            paymentMethod: { in: [PAYMENT_METHODS.CARD_SUMUP, "CARD"] },
-            createdAt: { gte: startDate, lte: endDate },
-          }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
-      // Cash = CASH from offline income and donations (for staff: only their offline)
+        : Promise.all([
+            getDeduplicatedDonationSum({
+              status: "COMPLETED",
+              paymentMethod: { in: SUMUP_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            })
+              .then((s) => ({ _sum: { amountPence: s } }))
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            prisma.waterProjectDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: SUMUP_PAYMENT_METHODS },
+                  createdAt: { gte: startDate, lte: endDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            prisma.sponsorshipDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: SUMUP_PAYMENT_METHODS },
+                  createdAt: { gte: startDate, lte: endDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+            prisma.offlineIncome
+              .aggregate({
+                where: {
+                  source: "CARD_SUMUP",
+                  receivedAt: { gte: startDate, lte: endDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+          ]).then(([donationsAgg, waterAgg, sponsorshipAgg, offlineSumupAgg]) => ({
+            _sum: {
+              amountPence:
+                (donationsAgg._sum.amountPence ?? 0) +
+                (waterAgg._sum.amountPence ?? 0) +
+                (sponsorshipAgg._sum.amountPence ?? 0) +
+                (offlineSumupAgg._sum.amountPence ?? 0),
+            },
+          })),
       Promise.all([
         isStaff
           ? Promise.resolve({ _sum: { amountPence: 0 } })
           : getDeduplicatedDonationSum({
               status: "COMPLETED",
-              paymentMethod: PAYMENT_METHODS.CASH,
+              paymentMethod: { in: CASH_PAYMENT_METHODS },
               createdAt: { gte: startDate, lte: endDate },
-            }).then((s) => ({ _sum: { amountPence: s } })).catch(() => ({ _sum: { amountPence: 0 } })),
-        prisma.offlineIncome.aggregate({
-          where: {
-            ...staffFilter,
-            source: "CASH",
-            receivedAt: {
-              gte: startDate,
-              lte: endDate,
+            })
+              .then((s) => ({ _sum: { amountPence: s } }))
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+        prisma.offlineIncome
+          .aggregate({
+            where: {
+              ...staffFilter,
+              source: "CASH",
+              receivedAt: {
+                gte: startDate,
+                lte: endDate,
+              },
             },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+        prisma.waterProjectDonation
+          .aggregate({
+            where: {
+              ...(isStaff ? { addedByAdminUserId: staffId! } : {}),
+              paymentMethod: { in: CASH_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+        prisma.sponsorshipDonation
+          .aggregate({
+            where: {
+              ...(isStaff ? { addedByAdminUserId: staffId! } : {}),
+              paymentMethod: { in: CASH_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+      ]).then(([donationsAgg, offlineAgg, waterAgg, sponsorshipAgg]) => ({
+        _sum: {
+          amountPence:
+            (donationsAgg._sum.amountPence ?? 0) +
+            (offlineAgg._sum.amountPence ?? 0) +
+            (waterAgg._sum.amountPence ?? 0) +
+            (sponsorshipAgg._sum.amountPence ?? 0),
+        },
+      })),
+      Promise.all([
+        isStaff
+          ? Promise.resolve({ _sum: { amountPence: 0 } })
+          : getDeduplicatedDonationSum({
+              status: "COMPLETED",
+              paymentMethod: { in: BANK_TRANSFER_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            })
+              .then((s) => ({ _sum: { amountPence: s } }))
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+        prisma.offlineIncome
+          .aggregate({
+            where: {
+              ...staffFilter,
+              source: "BANK_TRANSFER",
+              receivedAt: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+        prisma.waterProjectDonation
+          .aggregate({
+            where: {
+              ...(isStaff ? { addedByAdminUserId: staffId! } : {}),
+              paymentMethod: { in: BANK_TRANSFER_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+        prisma.sponsorshipDonation
+          .aggregate({
+            where: {
+              ...(isStaff ? { addedByAdminUserId: staffId! } : {}),
+              paymentMethod: { in: BANK_TRANSFER_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+      ]).then(([donationsAgg, offlineAgg, waterAgg, sponsorshipAgg]) => ({
+        _sum: {
+          amountPence:
+            (donationsAgg._sum.amountPence ?? 0) +
+            (offlineAgg._sum.amountPence ?? 0) +
+            (waterAgg._sum.amountPence ?? 0) +
+            (sponsorshipAgg._sum.amountPence ?? 0),
+        },
+      })),
+      prisma.fundraiserCashDonation
+        .aggregate({
+          where: {
+            status: "APPROVED",
+            receivedAt: { gte: startDate, lte: endDate },
           },
           _sum: { amountPence: true },
-        }).catch(() => ({ _sum: { amountPence: 0 } })),
-      ]).then(([donations, offline]) => ({
-        _sum: { amountPence: (donations._sum.amountPence || 0) + (offline._sum.amountPence || 0) },
-      })),
+        })
+        .catch(() => ({ _sum: { amountPence: 0 } })),
     ])
 
     // Get offline income and collections for the date range (filtered by staff if STAFF)
@@ -752,22 +1046,25 @@ export default async function AdminDashboardPage({
       }).catch(() => ({ _sum: { amountPence: 0 } })),
     ])
     
-    // Calculate real distribution based on actual payment methods
-    const onlineAmount = (onlineDonations._sum.amountPence || 0) / 100
-    const cardAmount = (cardDonations._sum.amountPence || 0) / 100
-    const cashAmount = (cashDonations._sum.amountPence || 0) / 100
-    const totalOfflineAmount = (offlineIncomeTotal._sum.amountPence || 0) / 100
-    const totalCollectionsAmount = (collectionsTotal._sum.amountPence || 0) / 100
-    
     const paymentMethodData = isStaff
       ? [
           {
-            name: "cash",
+            name: "website",
+            value: 0,
+            label: formatPaymentMethod(PAYMENT_METHODS.WEBSITE_STRIPE),
+          },
+          {
+            name: "offline_cash",
             value: offlineCashTotal._sum.amountPence || 0,
             label: formatPaymentMethod(PAYMENT_METHODS.CASH),
           },
           {
-            name: "bank_transfer",
+            name: "card_sumup",
+            value: 0,
+            label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
+          },
+          {
+            name: "offline_bank",
             value: offlineBankTotal._sum.amountPence || 0,
             label: formatPaymentMethod(PAYMENT_METHODS.BANK_TRANSFER),
           },
@@ -784,23 +1081,23 @@ export default async function AdminDashboardPage({
         ]
       : [
           {
-            name: "website_stripe",
-            value: onlineDonations._sum.amountPence || 0,
+            name: "website",
+            value: totalOnlineDonations._sum.amountPence || 0,
             label: formatPaymentMethod(PAYMENT_METHODS.WEBSITE_STRIPE),
           },
           {
             name: "card_sumup",
-            value: cardDonations._sum.amountPence || 0,
+            value: sumupTotal._sum.amountPence || 0,
             label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
           },
           {
-            name: "cash",
-            value: cashDonations._sum.amountPence || 0,
+            name: "offline_cash",
+            value: (cashTotal._sum.amountPence || 0) + (fundraiserCashTotal._sum.amountPence || 0),
             label: formatPaymentMethod(PAYMENT_METHODS.CASH),
           },
           {
-            name: "bank_transfer",
-            value: offlineBankTotal._sum.amountPence || 0,
+            name: "offline_bank",
+            value: bankTransferTotal._sum.amountPence || 0,
             label: formatPaymentMethod(PAYMENT_METHODS.BANK_TRANSFER),
           },
           {
@@ -809,31 +1106,6 @@ export default async function AdminDashboardPage({
             label: "Collections (Masjid)",
           },
         ]
-    
-    // Update distribution data with real payment method data
-    const distributionData = [
-      {
-        name: "website_stripe",
-        value: onlineAmount,
-        label: formatPaymentMethod(PAYMENT_METHODS.WEBSITE_STRIPE),
-      },
-      {
-        name: "card_sumup",
-        value: cardAmount,
-        label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
-      },
-      {
-        name: "cash",
-        value: cashAmount + totalOfflineAmount + totalCollectionsAmount,
-        label: formatPaymentMethod(PAYMENT_METHODS.CASH),
-      },
-    ]
-
-    // Ensure we're using the correct data sources strictly:
-    // Website (Stripe) = WEBSITE_STRIPE donations only
-    // Card (SumUp) = CARD_SUMUP donations only  
-    // Cash = CASH from donations and offline income
-
 
     // Get donations by day for area chart - split by online vs offline (one amount per transaction)
     const daysInRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -863,16 +1135,16 @@ export default async function AdminDashboardPage({
 
       const stripeSum = isStaff ? 0 : chartDonationsDeduped.filter((d) => {
         const t = new Date(d.createdAt).getTime()
-        return t >= dayStart.getTime() && t <= dayEnd.getTime() && [PAYMENT_METHODS.WEBSITE_STRIPE, "STRIPE"].includes(d.paymentMethod)
+        return t >= dayStart.getTime() && t <= dayEnd.getTime() && STRIPE_PAYMENT_METHODS.includes(d.paymentMethod as (typeof STRIPE_PAYMENT_METHODS)[number])
       }).reduce((s, d) => s + d.amountPence, 0)
-      const cardSum = isStaff ? 0 : chartDonationsDeduped.filter((d) => {
+      const offlineDonationSum = isStaff ? 0 : chartDonationsDeduped.filter((d) => {
         const t = new Date(d.createdAt).getTime()
-        return t >= dayStart.getTime() && t <= dayEnd.getTime() && [PAYMENT_METHODS.CARD_SUMUP, "CARD"].includes(d.paymentMethod)
+        return t >= dayStart.getTime() && t <= dayEnd.getTime() && OFFLINE_PAYMENT_METHODS.includes(d.paymentMethod as (typeof OFFLINE_PAYMENT_METHODS)[number])
       }).reduce((s, d) => s + d.amountPence, 0)
 
-      const [stripeDonations, cardDonations, offlineDonations, dayCollections, dayWater, daySponsor] = await Promise.all([
+      const [stripeDonations, offlineDonationAgg, offlineIncomeAgg, dayCollections, dayFundraiserCash, dayWater, daySponsor] = await Promise.all([
         Promise.resolve({ _sum: { amountPence: stripeSum } }),
-        Promise.resolve({ _sum: { amountPence: cardSum } }),
+        Promise.resolve({ _sum: { amountPence: offlineDonationSum } }),
         // Offline income (filtered by staff)
         prisma.offlineIncome.aggregate({
           where: {
@@ -889,6 +1161,16 @@ export default async function AdminDashboardPage({
           },
           _sum: { amountPence: true },
         }).catch(() => ({ _sum: { amountPence: 0 } })),
+        // Fundraiser cash (admin only; approved only)
+        isStaff
+          ? Promise.resolve({ _sum: { amountPence: 0 } })
+          : prisma.fundraiserCashDonation.aggregate({
+              where: {
+                status: "APPROVED",
+                receivedAt: { gte: dayStart, lte: dayEnd },
+              },
+              _sum: { amountPence: true },
+            }).catch(() => ({ _sum: { amountPence: 0 } })),
         // Water donations (staff only)
         isStaff
           ? prisma.waterProjectDonation.aggregate({
@@ -911,19 +1193,21 @@ export default async function AdminDashboardPage({
           : Promise.resolve({ _sum: { amountPence: 0 } }),
       ])
 
-      // For staff: desktop=online (0), mobile=offline+collections+water+sponsor. For admin: desktop=online, mobile=offline
-      const onlineAmount = (stripeDonations._sum.amountPence || 0) + (cardDonations._sum.amountPence || 0)
+      // For staff: desktop=online (0), mobile=offline+collections+water+sponsor. For admin: desktop=stripe, mobile=offline (non-Stripe; excludes collections)
+      const onlineAmount = stripeDonations._sum.amountPence || 0
       const offlineAmount = isStaff
-        ? (offlineDonations._sum.amountPence || 0) +
+        ? (offlineIncomeAgg._sum.amountPence || 0) +
           (dayCollections._sum.amountPence || 0) +
           (dayWater._sum.amountPence || 0) +
           (daySponsor._sum.amountPence || 0)
-        : offlineDonations._sum.amountPence || 0
+        : (offlineDonationAgg._sum.amountPence || 0) +
+          (offlineIncomeAgg._sum.amountPence || 0) +
+          (dayFundraiserCash._sum.amountPence || 0)
       
       lineChartData.push({
         date: date.toISOString().split("T")[0],
-        desktop: onlineAmount, // Online donations (Stripe + Card)
-        mobile: offlineAmount, // Offline donations (Cash)
+        desktop: onlineAmount, // Online donations (Stripe)
+        mobile: offlineAmount, // Offline donations (SumUp/Cash/Bank + fundraiser cash)
       })
     }
 
@@ -1076,10 +1360,10 @@ export default async function AdminDashboardPage({
       }
     })
 
-    // Sort by amount descending and take top 10
+    // Sort by amount descending and take top 5
     const topProjects = allCampaigns
       .sort((a, b) => b.amountPence - a.amountPence)
-      .slice(0, 10)
+      .slice(0, 5)
 
     // Get latest donations (one row per transaction)
     const latestDonationsRaw = await prisma.donation.findMany({
@@ -1355,16 +1639,22 @@ export default async function AdminDashboardPage({
         }).catch(() => []),
       ])
       recentWater.forEach((d) => {
+        const projectLabel = d.waterProject
+          ? (projectTypeLabels[d.waterProject.projectType] || d.waterProject.projectType)
+          : "Deleted project"
         recentActivity.push({
           type: "water",
-          message: `Water donation logged: ${formatCurrency(d.amountPence)} (${projectTypeLabels[d.waterProject.projectType] || d.waterProject.projectType})`,
+          message: `Water donation logged: ${formatCurrency(d.amountPence)} (${projectLabel})`,
           timestamp: d.createdAt,
         })
       })
       recentSponsor.forEach((d) => {
+        const projectLabel = d.sponsorshipProject
+          ? (projectTypeLabels[d.sponsorshipProject.projectType] || d.sponsorshipProject.projectType)
+          : "Deleted project"
         recentActivity.push({
           type: "sponsor",
-          message: `Sponsor donation logged: ${formatCurrency(d.amountPence)} (${projectTypeLabels[d.sponsorshipProject.projectType] || d.sponsorshipProject.projectType})`,
+          message: `Sponsor donation logged: ${formatCurrency(d.amountPence)} (${projectLabel})`,
           timestamp: d.createdAt,
         })
       })

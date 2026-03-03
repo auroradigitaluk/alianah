@@ -27,11 +27,12 @@ export async function GET() {
     return NextResponse.json(
       list.map((d) => {
         const f = d.fundraiser
-        const campaignTitle =
-          f.appeal?.title ??
-          (f.waterProject
-            ? f.waterProject.projectType.replace(/_/g, " ")
-            : "Unknown")
+        const campaignTitle = f
+          ? (f.appeal?.title ??
+            (f.waterProject
+              ? f.waterProject.projectType.replace(/_/g, " ")
+              : "Unknown"))
+          : "Deleted fundraiser"
         return {
           id: d.id,
           fundraiserId: d.fundraiserId,
@@ -41,14 +42,16 @@ export async function GET() {
           receivedAt: d.receivedAt.toISOString(),
           status: d.status,
           createdAt: d.createdAt.toISOString(),
-          fundraiser: {
-            id: f.id,
-            title: f.title,
-            slug: f.slug,
-            fundraiserName: f.fundraiserName,
-            email: f.email,
-            campaignTitle,
-          },
+          fundraiser: f
+            ? {
+                id: f.id,
+                title: f.title,
+                slug: f.slug,
+                fundraiserName: f.fundraiserName,
+                email: f.email,
+                campaignTitle,
+              }
+            : null,
         }
       })
     )

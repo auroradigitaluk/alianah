@@ -27,42 +27,47 @@ interface ChartPieSimpleProps {
   }[]
 }
 
+// Match offline donation table badge colours: Cash = green, Card SumUp = orange-500, Bank = blue-500, etc.
 const chartConfig = {
   amount: {
     label: "Amount",
   },
   website: {
     label: "Website - Stripe",
-    color: "oklch(0.574 0.259 142.38)",
+    color: "#22c55e", // green-500 (online)
   },
   offline_cash: {
     label: "Offline - Cash",
-    color: "oklch(0.65 0.259 142.38)",
+    color: "#16a34a", // green-600 – same as Total Offline card Wallet icon (text-green-600)
+  },
+  card_sumup: {
+    label: "Card (SumUp)",
+    color: "#f97316", // orange-500 – matches CARD_SUMUP badge
   },
   offline_bank: {
     label: "Offline - Bank Transfer",
-    color: "oklch(0.72 0.259 142.38)",
+    color: "#3b82f6", // blue-500 – matches BANK_TRANSFER badge (blue)
   },
   collections: {
     label: "Collections (Masjid)",
-    color: "oklch(0.8 0.259 142.38)",
+    color: "#a855f7", // purple-500 – matches OFFICE_BUCKETS / collections style
   },
   water_sponsor: {
     label: "Water & Sponsor",
-    color: "oklch(0.65 0.2 200)",
+    color: "#06b6d4", // cyan-500
   },
   // Legacy support
   online: {
     label: "Website - Stripe",
-    color: "oklch(0.574 0.259 142.38)",
+    color: "#22c55e",
   },
   card: {
     label: "Card",
-    color: "oklch(0.65 0.259 142.38)",
+    color: "#f97316",
   },
   cash: {
     label: "Offline - Cash",
-    color: "oklch(0.72 0.259 142.38)",
+    color: "#16a34a", // green-600
   },
 } satisfies ChartConfig
 

@@ -36,6 +36,12 @@ export async function POST(
     if (!donation) {
       return NextResponse.json({ error: "Donation not found" }, { status: 404 })
     }
+    if (!donation.waterProject || !donation.country) {
+      return NextResponse.json(
+        { error: "Water project or country was deleted. Donation data is preserved but completion is not available." },
+        { status: 400 }
+      )
+    }
 
     // Update donation status
     const updatedDonation = await prisma.waterProjectDonation.update({
