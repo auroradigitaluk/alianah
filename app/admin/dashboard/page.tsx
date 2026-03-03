@@ -463,12 +463,22 @@ export default async function AdminDashboardPage({
                 _sum: { amountPence: true },
               })
               .catch(() => ({ _sum: { amountPence: 0 } })),
-          ]).then(([offlineIncomeAgg, sponsorshipAgg, waterAgg]) => ({
+            prisma.fundraiserCashDonation
+              .aggregate({
+                where: {
+                  status: "APPROVED",
+                  receivedAt: { gte: startDate, lte: endDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+          ]).then(([offlineIncomeAgg, sponsorshipAgg, waterAgg, fundraiserCashAgg]) => ({
             _sum: {
               amountPence:
                 (offlineIncomeAgg._sum.amountPence ?? 0) +
                 (sponsorshipAgg._sum.amountPence ?? 0) +
-                (waterAgg._sum.amountPence ?? 0),
+                (waterAgg._sum.amountPence ?? 0) +
+                (fundraiserCashAgg._sum.amountPence ?? 0),
             },
           })),
       // Current period: Total Collections (filtered by staff if STAFF)
@@ -557,12 +567,22 @@ export default async function AdminDashboardPage({
                 _sum: { amountPence: true },
               })
               .catch(() => ({ _sum: { amountPence: 0 } })),
-          ]).then(([offlineIncomeAgg, sponsorshipAgg, waterAgg]) => ({
+            prisma.fundraiserCashDonation
+              .aggregate({
+                where: {
+                  status: "APPROVED",
+                  receivedAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+          ]).then(([offlineIncomeAgg, sponsorshipAgg, waterAgg, fundraiserCashAgg]) => ({
             _sum: {
               amountPence:
                 (offlineIncomeAgg._sum.amountPence ?? 0) +
                 (sponsorshipAgg._sum.amountPence ?? 0) +
-                (waterAgg._sum.amountPence ?? 0),
+                (waterAgg._sum.amountPence ?? 0) +
+                (fundraiserCashAgg._sum.amountPence ?? 0),
             },
           })),
       // Previous period: Total Collections
