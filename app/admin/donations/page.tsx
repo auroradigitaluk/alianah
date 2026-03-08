@@ -118,10 +118,7 @@ export default async function DonationsPage({
             <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
               <div className="flex flex-col gap-4 sm:gap-4 sm:gap-6">
                 <div>
-                  <h2 className="text-base sm:text-base sm:text-lg font-semibold">Donations</h2>
-                  <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">
-                    Online donations. Use the &quot;Abandoned checkouts&quot; tab to view incomplete sessions.
-                  </p>
+                  <h2 className="text-base sm:text-base sm:text-lg font-semibold">Website Donations</h2>
                 </div>
                 <div>
                   <DonationsPageContent

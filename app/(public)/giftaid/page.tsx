@@ -84,7 +84,7 @@ export default function GiftAidPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-white">With Gift Aid (25% added)</span>
-              <span className="font-medium text-primary">
+              <span className="font-bold text-primary">
                 {formatCurrency(Math.round(totalPence * 1.25))}
               </span>
             </div>

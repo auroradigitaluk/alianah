@@ -14,6 +14,7 @@ export type AbandonedCheckoutOrder = {
   donorFirstName: string
   donorLastName: string
   donorEmail: string
+  donorPhone?: string | null
   totalPence: number
   abandonedEmail1SentAt?: Date | null
   items: Array<{ appealTitle: string; productName: string | null; amountPence: number }>
@@ -71,6 +72,15 @@ export function AbandonedCheckoutsTable({ orders }: { orders: AbandonedCheckoutO
           header: "Email",
           cell: (order) => (
             <span className="text-sm text-muted-foreground">{order.donorEmail}</span>
+          ),
+        },
+        {
+          id: "phone",
+          header: "Phone",
+          cell: (order) => (
+            <span className="text-sm text-muted-foreground">
+              {order.donorPhone?.trim() || "—"}
+            </span>
           ),
         },
         {

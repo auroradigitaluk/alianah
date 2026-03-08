@@ -57,10 +57,10 @@ export function DonationsPageContent({
     <Tabs defaultValue="donations" className="w-full">
       <TabsList className="mb-4">
         <TabsTrigger value="donations">
-          Donations ({donations.length})
+          Donations
         </TabsTrigger>
         <TabsTrigger value="abandoned">
-          Abandoned checkouts ({abandonedCheckouts.length})
+          Abandoned Checkouts
         </TabsTrigger>
       </TabsList>
       <TabsContent value="donations" className="mt-0">
