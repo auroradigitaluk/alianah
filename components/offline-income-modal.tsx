@@ -97,6 +97,7 @@ export function OfflineIncomeModal({
   const [userChangedReceivedAt, setUserChangedReceivedAt] = React.useState(false)
   const [notes, setNotes] = React.useState("")
   const [plaqueName, setPlaqueName] = React.useState("")
+  const [quantity, setQuantity] = React.useState(1)
   const [firstName, setFirstName] = React.useState("")
   const [lastName, setLastName] = React.useState("")
   const [email, setEmail] = React.useState("")
@@ -167,6 +168,7 @@ export function OfflineIncomeModal({
       setSponsorshipType("")
       setSponsorshipCountryId("")
       setAmount("")
+      setQuantity(1)
       setGiftAidExpanded(false)
     }
     if (entryType === "sponsorship") {
@@ -175,6 +177,7 @@ export function OfflineIncomeModal({
       setCountryId("")
       setPlaqueName("")
       setAmount("")
+      setQuantity(1)
       setGiftAidExpanded(false)
     }
   }, [entryType, open])
@@ -200,6 +203,7 @@ export function OfflineIncomeModal({
     setSponsorshipType("")
     setSponsorshipCountryId("")
     setAmount("")
+    setQuantity(1)
     setDonationType("GENERAL")
     setSource("CASH")
     setNotes("")
@@ -272,6 +276,10 @@ export function OfflineIncomeModal({
       }
       if (!countryId || !selectedCountry) {
         toast.error("Select a country")
+        return
+      }
+      if (!plaqueName.trim()) {
+        toast.error("Plaque name is required for water project donations")
         return
       }
       // Donor details are optional for offline entries
@@ -379,6 +387,7 @@ export function OfflineIncomeModal({
               projectType,
               waterProjectId: selectedWaterProject?.id,
               waterProjectCountryId: selectedCountry?.id,
+              quantity: Math.max(1, Math.min(99, quantity)),
               donationType,
               source,
               collectedVia: "office",
@@ -402,6 +411,7 @@ export function OfflineIncomeModal({
               projectType: sponsorshipType,
               sponsorshipProjectId: selectedSponsorshipProject?.id,
               sponsorshipCountryId: selectedSponsorshipCountry?.id,
+              quantity: Math.max(1, Math.min(99, quantity)),
               donationType,
               source,
               collectedVia: "office",
@@ -766,6 +776,38 @@ export function OfflineIncomeModal({
                   </div>
                 )}
 
+                {projectType && selectedCountry && (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="water-quantity">Quantity</Label>
+                      <Input
+                        id="water-quantity"
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={quantity}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10)
+                          if (Number.isNaN(v) || v < 1) setQuantity(1)
+                          else setQuantity(Math.min(99, v))
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Unit price</Label>
+                      <div className="flex h-9 items-center text-sm font-medium">
+                        £{(selectedCountry.pricePence / 100).toFixed(2)} each
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Total</Label>
+                      <div className="flex h-9 items-center text-sm font-medium">
+                        £{((selectedCountry.pricePence * quantity) / 100).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="space-y-2">
                     <Label htmlFor="donor-first">
@@ -824,13 +866,14 @@ export function OfflineIncomeModal({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="plaqueName">Plaque Name (optional)</Label>
+                    <Label htmlFor="plaqueName">Plaque Name *</Label>
                     <Input
                       id="plaqueName"
                       transform="titleCase"
                       value={plaqueName}
                       onChange={(e) => setPlaqueName(e.target.value)}
                       placeholder="Name for plaque"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -898,6 +941,38 @@ export function OfflineIncomeModal({
                     <p className="text-xs text-muted-foreground">
                       Sponsorship entries are recorded as yearly one-off donations.
                     </p>
+                  </div>
+                )}
+
+                {sponsorshipType && selectedSponsorshipCountry?.yearlyPricePence && (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sponsorship-quantity">Quantity</Label>
+                      <Input
+                        id="sponsorship-quantity"
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={quantity}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10)
+                          if (Number.isNaN(v) || v < 1) setQuantity(1)
+                          else setQuantity(Math.min(99, v))
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Yearly amount per sponsorship</Label>
+                      <div className="flex h-9 items-center text-sm font-medium">
+                        £{(selectedSponsorshipCountry.yearlyPricePence / 100).toFixed(2)} each
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Total</Label>
+                      <div className="flex h-9 items-center text-sm font-medium">
+                        £{((selectedSponsorshipCountry.yearlyPricePence * quantity) / 100).toFixed(2)}
+                      </div>
+                    </div>
                   </div>
                 )}
 

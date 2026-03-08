@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
+import { ensureWaterFundraiserConsolidated } from "@/lib/water-fundraiser-consolidate"
 import { z } from "zod"
 
 export const dynamic = "force-dynamic"
@@ -25,12 +26,17 @@ export async function PATCH(
 
     const existing = await prisma.fundraiserCashDonation.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, fundraiserId: true },
     })
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
-    if (existing.status !== "PENDING_REVIEW") {
+    // Allow: PENDING_REVIEW -> APPROVED/REJECTED; APPROVED -> REJECTED; REJECTED -> APPROVED
+    const canChange =
+      existing.status === "PENDING_REVIEW" ||
+      (existing.status === "APPROVED" && status === "REJECTED") ||
+      (existing.status === "REJECTED" && status === "APPROVED")
+    if (!canChange) {
       return NextResponse.json(
-        { error: "Cash donation has already been reviewed" },
+        { error: "Cannot change status from " + existing.status + " to " + status },
         { status: 400 }
       )
     }
@@ -48,6 +54,15 @@ export async function PATCH(
         },
       },
     })
+
+    // When approving, ensure water fundraiser gets consolidated pump/well/tank on water projects page if target now met
+    if (status === "APPROVED" && updated.fundraiserId) {
+      try {
+        await ensureWaterFundraiserConsolidated(updated.fundraiserId)
+      } catch (err) {
+        console.error("ensureWaterFundraiserConsolidated after cash approve:", err)
+      }
+    }
 
     return NextResponse.json({
       id: updated.id,

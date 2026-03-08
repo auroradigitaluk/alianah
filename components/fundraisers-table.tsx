@@ -47,6 +47,7 @@ interface Fundraiser {
   isActive: boolean
   campaign: { title: string; type: "APPEAL" | "WATER" }
   amountRaised: number
+  targetAmountPence?: number | null
 }
 
 interface FundraiserDetails {
@@ -114,12 +115,15 @@ interface FundraisersTableProps {
   fundraisers: Fundraiser[]
   initialSelectedId?: string | null
   onSelectionClear?: () => void
+  /** When true, row click navigates to /admin/fundraisers/[id] instead of opening the drawer */
+  linkToDetailPage?: boolean
 }
 
 export function FundraisersTable({
   fundraisers,
   initialSelectedId = null,
   onSelectionClear,
+  linkToDetailPage = false,
 }: FundraisersTableProps) {
   const router = useRouter()
   const [selectedFundraiser, setSelectedFundraiser] = useState<Fundraiser | null>(null)
@@ -464,13 +468,17 @@ export function FundraisersTable({
       </div>
       <AdminTable
         data={filteredFundraisers}
-        onRowClick={(fundraiser) => setSelectedFundraiser(fundraiser)}
+        onRowClick={(fundraiser) =>
+          linkToDetailPage
+            ? router.push(`/admin/fundraisers/${fundraiser.id}`)
+            : setSelectedFundraiser(fundraiser)
+        }
         columns={[
           {
-            id: "title",
-            header: "Title",
+            id: "fundraiser",
+            header: "Fundraiser",
             cell: (fundraiser) => (
-              <div className="font-medium">{fundraiser.title}</div>
+              <div className="text-sm">{fundraiser.fundraiserName}</div>
             ),
           },
           {
@@ -481,17 +489,21 @@ export function FundraisersTable({
             ),
           },
           {
-            id: "fundraiser",
-            header: "Fundraiser",
-            cell: (fundraiser) => (
-              <div className="text-sm">{fundraiser.fundraiserName}</div>
-            ),
-          },
-          {
             id: "amountRaised",
             header: "Amount Raised",
             cell: (fundraiser) => (
               <div className="font-medium">{formatCurrency(fundraiser.amountRaised)}</div>
+            ),
+          },
+          {
+            id: "targetAmount",
+            header: "Target amount",
+            cell: (fundraiser) => (
+              <div className="text-sm tabular-nums">
+                {fundraiser.targetAmountPence != null && fundraiser.targetAmountPence > 0
+                  ? formatCurrency(fundraiser.targetAmountPence)
+                  : "—"}
+              </div>
             ),
           },
           {

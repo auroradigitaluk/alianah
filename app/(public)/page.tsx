@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 async function getActiveAppeals() {
   try {
     return await prisma.appeal.findMany({
+      where: { archivedAt: null, showOnDonationForm: true },
       include: {
         donations: {
           where: {

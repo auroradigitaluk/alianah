@@ -39,12 +39,15 @@ async function getDonations(staffId: string | null) {
       billingCountry: d.billingCountry,
       emailSent: d.emailSent,
       reportSent: d.reportSent,
+      donationNumber: d.donationNumber,
       notes: d.notes,
       status: d.status,
       createdAt: d.createdAt.toISOString(),
       completedAt: d.completedAt?.toISOString() ?? null,
       donor: d.donor,
       country: d.country,
+      countryName: d.countryName,
+      projectTypeSnapshot: d.projectTypeSnapshot,
     })) }
   } catch (error) {
     console.error("Error fetching Families donations:", error)

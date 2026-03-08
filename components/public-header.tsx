@@ -10,7 +10,6 @@ import { useSidecart } from "@/components/sidecart-provider"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 export function PublicHeader() {
   const router = useRouter()
@@ -80,12 +79,6 @@ export function PublicHeader() {
             Sponsor
           </Link>
         </nav>
-        <span className="hidden md:inline-flex items-center mr-4" aria-hidden>
-          <span className="w-px h-6 bg-foreground/80" />
-        </span>
-        <span className="hidden md:inline-flex">
-          <ThemeToggle />
-        </span>
         <Button
           variant="ghost"
           size="icon"

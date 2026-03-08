@@ -47,7 +47,8 @@ const waterSchema = baseSchema.extend({
   projectType: z.enum(["WATER_PUMP", "WATER_WELL", "WATER_TANK", "WUDHU_AREA"]),
   waterProjectId: z.string().min(1),
   waterProjectCountryId: z.string().min(1),
-  plaqueName: z.string().nullable().optional(),
+  quantity: z.number().int().min(1).max(99).default(1),
+  plaqueName: z.string().min(1, "Plaque name is required for water project donations"),
   donor: z
     .object({
       firstName: z.string().min(1).optional(),
@@ -63,6 +64,7 @@ const sponsorshipSchema = baseSchema.extend({
   projectType: z.enum(["ORPHANS", "HIFZ", "FAMILIES"]),
   sponsorshipProjectId: z.string().min(1),
   sponsorshipCountryId: z.string().min(1),
+  quantity: z.number().int().min(1).max(99).default(1),
   donor: z
     .object({
       firstName: z.string().min(1).optional(),
@@ -257,28 +259,37 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      const sponsorshipDonationNumber = await generateDonationNumber()
-      const donation = await prisma.sponsorshipDonation.create({
-        data: {
-          sponsorshipProjectId: project.id,
-          countryId: country.id,
-          donorId: donor.id,
-          amountPence: country.yearlyPricePence,
-          donationType: data.donationType,
-          paymentMethod: data.source,
-          collectedVia: data.collectedVia || "office",
-          giftAid: false,
-          emailSent: false,
-          reportSent: false,
-          status: "WAITING_TO_REVIEW",
-          createdAt: receivedAt,
-          notes: ["Yearly sponsorship", data.notes ? `Notes: ${data.notes}` : null]
-            .filter(Boolean)
-            .join(" | ") || null,
-          addedByAdminUserId: adminUser.id,
-          donationNumber: sponsorshipDonationNumber,
-        },
-      })
+      const qty = data.quantity ?? 1
+      const donationNumbers = await Promise.all(
+        Array.from({ length: qty }, () => generateDonationNumber())
+      )
+      const created: { id: string }[] = []
+      for (let i = 0; i < qty; i++) {
+        const donation = await prisma.sponsorshipDonation.create({
+          data: {
+            sponsorshipProjectId: project.id,
+            countryId: country.id,
+            countryName: country.country,
+            projectTypeSnapshot: project.projectType,
+            donorId: donor.id,
+            amountPence: country.yearlyPricePence!,
+            donationType: data.donationType,
+            paymentMethod: data.source,
+            collectedVia: data.collectedVia || "office",
+            giftAid: false,
+            emailSent: false,
+            reportSent: false,
+            status: "WAITING_TO_REVIEW",
+            createdAt: receivedAt,
+            notes: ["Yearly sponsorship", data.notes ? `Notes: ${data.notes}` : null]
+              .filter(Boolean)
+              .join(" | ") || null,
+            addedByAdminUserId: adminUser.id,
+            donationNumber: donationNumbers[i],
+          },
+        })
+        created.push({ id: donation.id })
+      }
 
       if (!project.status) {
         await prisma.sponsorshipProject.update({
@@ -289,18 +300,21 @@ export async function POST(request: NextRequest) {
 
       if (data.sendReceiptEmail && !isPlaceholderDonorEmail(donor.email)) {
         try {
+          const totalPence = country.yearlyPricePence! * qty
           await sendSponsorshipDonationEmail({
             donorEmail: donor.email,
             donorName: [donorFirst, donorLast].filter(Boolean).join(" ") || "Donor",
             projectType: project.projectType,
             location: project.location,
             country: country.country,
-            amount: country.yearlyPricePence,
+            amount: totalPence,
             donationType: data.donationType,
-            donationNumber: donation.donationNumber ?? sponsorshipDonationNumber,
+            donationNumber: donationNumbers[0],
+            quantity: qty > 1 ? qty : undefined,
+            unitAmountPence: qty > 1 ? country.yearlyPricePence! : undefined,
           })
-          await prisma.sponsorshipDonation.update({
-            where: { id: donation.id },
+          await prisma.sponsorshipDonation.updateMany({
+            where: { id: { in: created.map((c) => c.id) } },
             data: { emailSent: true },
           })
         } catch (err) {
@@ -312,7 +326,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return NextResponse.json({ success: true, donationId: donation.id })
+      return NextResponse.json({
+        success: true,
+        donationId: created[0].id,
+        count: created.length,
+      })
     }
 
     const data = waterSchema.parse(body)
@@ -364,31 +382,41 @@ export async function POST(request: NextRequest) {
         },
       })
 
-    const waterDonationNumber = await generateDonationNumber()
-    const donation = await prisma.waterProjectDonation.create({
-      data: {
-        waterProjectId: project.id,
-        countryId: country.id,
-        donorId: donor.id,
-        amountPence: country.pricePence,
-        donationType: data.donationType,
-        paymentMethod: data.source,
-        collectedVia: data.collectedVia || "office",
-        giftAid: false,
-        emailSent: false,
-        reportSent: false,
-        status: "WAITING_TO_REVIEW",
-        createdAt: receivedAt,
-        notes: [
-          data.plaqueName ? `Plaque Name: ${data.plaqueName}` : null,
-          data.notes ? `Notes: ${data.notes}` : null,
-        ]
-          .filter(Boolean)
-          .join(" | ") || null,
-        addedByAdminUserId: adminUser.id,
-        donationNumber: waterDonationNumber,
-      },
-    })
+    const qty = data.quantity ?? 1
+    const waterDonationNumbers = await Promise.all(
+      Array.from({ length: qty }, () => generateDonationNumber())
+    )
+    const created: { id: string }[] = []
+    for (let i = 0; i < qty; i++) {
+      const donation = await prisma.waterProjectDonation.create({
+        data: {
+          waterProjectId: project.id,
+          countryId: country.id,
+          countryName: country.country,
+          projectTypeSnapshot: project.projectType,
+          donorId: donor.id,
+          amountPence: country.pricePence,
+          donationType: data.donationType,
+          paymentMethod: data.source,
+          collectedVia: data.collectedVia || "office",
+          giftAid: false,
+          emailSent: false,
+          reportSent: false,
+          status: "WAITING_TO_REVIEW",
+          createdAt: receivedAt,
+          notes: [
+            data.plaqueName ? `Plaque Name: ${data.plaqueName}` : null,
+            data.notes ? `Notes: ${data.notes}` : null,
+          ]
+            .filter(Boolean)
+            .join(" | ") || null,
+          plaqueName: data.plaqueName || null,
+          addedByAdminUserId: adminUser.id,
+          donationNumber: waterDonationNumbers[i],
+        },
+      })
+      created.push({ id: donation.id })
+    }
 
     if (!project.status) {
       await prisma.waterProject.update({
@@ -399,18 +427,21 @@ export async function POST(request: NextRequest) {
 
     if (data.sendReceiptEmail && !isPlaceholderDonorEmail(donor.email)) {
       try {
+        const totalPence = country.pricePence * qty
         await sendWaterProjectDonationEmail({
           donorEmail: donor.email,
           donorName: [donorFirst, donorLast].filter(Boolean).join(" ") || "Donor",
           projectType: project.projectType,
           location: project.location,
           country: country.country,
-          amount: country.pricePence,
+          amount: totalPence,
           donationType: data.donationType,
-          donationNumber: donation.donationNumber ?? waterDonationNumber,
+          donationNumber: waterDonationNumbers[0],
+          quantity: qty > 1 ? qty : undefined,
+          unitAmountPence: qty > 1 ? country.pricePence : undefined,
         })
-        await prisma.waterProjectDonation.update({
-          where: { id: donation.id },
+        await prisma.waterProjectDonation.updateMany({
+          where: { id: { in: created.map((c) => c.id) } },
           data: { emailSent: true },
         })
       } catch (err) {
@@ -422,7 +453,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, donationId: donation.id })
+    return NextResponse.json({
+      success: true,
+      donationId: created[0].id,
+      count: created.length,
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       const first = error.issues[0]

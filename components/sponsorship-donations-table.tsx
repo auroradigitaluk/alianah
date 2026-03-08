@@ -31,6 +31,7 @@ interface SponsorshipDonation {
   giftAid: boolean
   emailSent: boolean
   reportSent: boolean
+  donationNumber?: string | null
   notes: string | null
   status: string | null
   createdAt: Date | string
@@ -46,6 +47,8 @@ interface SponsorshipDonation {
     country: string
     pricePence: number
   } | null
+  countryName?: string | null
+  projectTypeSnapshot?: string | null
 }
 
 const STATUS_OPTIONS = [
@@ -242,7 +245,7 @@ export function SponsorshipDonationsTable({
       // Generate PDF report (returns blob URL)
       const pdfBlobUrl = await generateCompletionReportPDF({
         projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
-        country: selectedDonation.country?.country ?? "Unknown",
+        country: selectedDonation.country?.country ?? selectedDonation.countryName ?? "Unknown",
         donorName: `${selectedDonation.donor.firstName} ${selectedDonation.donor.lastName}`,
         amount: selectedDonation.amountPence,
         completionDate: formatDate(new Date()),
@@ -278,7 +281,7 @@ export function SponsorshipDonationsTable({
       const report = `Sponsorship Completion Report
 
 Project Type: ${PROJECT_TYPE_LABELS[projectType] || projectType}
-Country: ${selectedDonation.country?.country ?? "Unknown"}
+Country: ${selectedDonation.country?.country ?? selectedDonation.countryName ?? "Unknown"}
 Donor: ${formatDonorName(selectedDonation.donor)}
 Amount: £${((selectedDonation.amountPence || 0) / 100).toFixed(2)}
 
@@ -431,7 +434,7 @@ Thank you for your generous support in making this project possible.`
         d.donor.firstName,
         d.donor.lastName,
         displayDonorEmail(d.donor.email),
-        d.country?.country ?? "",
+        d.country?.country ?? d.countryName ?? "",
         `£${(d.amountPence / 100).toFixed(2)}`,
         d.status || "No Status",
         DONATION_TYPE_LABELS[d.donationType] || d.donationType,
@@ -473,7 +476,7 @@ Thank you for your generous support in making this project possible.`
       const query = searchQuery.toLowerCase()
       const donorName = formatDonorName(donation.donor).toLowerCase()
       const email = donation.donor.email.toLowerCase()
-      const country = donation.country?.country.toLowerCase() ?? ""
+      const country = (donation.country?.country ?? donation.countryName ?? "").toLowerCase()
       
       if (!donorName.includes(query) && !email.includes(query) && !country.includes(query)) {
         return false
@@ -503,9 +506,9 @@ Thank you for your generous support in making this project possible.`
         const nameB2 = formatDonorName(b.donor).toLowerCase()
         return nameB2.localeCompare(nameA2)
       case "country-asc":
-        return (a.country?.country ?? "").localeCompare(b.country?.country ?? "")
+        return (a.country?.country ?? a.countryName ?? "").localeCompare(b.country?.country ?? b.countryName ?? "")
       case "country-desc":
-        return (b.country?.country ?? "").localeCompare(a.country?.country ?? "")
+        return (b.country?.country ?? b.countryName ?? "").localeCompare(a.country?.country ?? a.countryName ?? "")
       default:
         return 0
     }
@@ -616,7 +619,7 @@ Thank you for your generous support in making this project possible.`
             header: "Order No.",
             cell: (donation) => (
               <div className="text-xs font-mono">
-                {getOrderNumberFromNotes(donation.notes) || <span className="text-muted-foreground">-</span>}
+                {(donation.donationNumber ?? getOrderNumberFromNotes(donation.notes)) || <span className="text-muted-foreground">-</span>}
               </div>
             ),
           },
@@ -624,7 +627,7 @@ Thank you for your generous support in making this project possible.`
             id: "country",
             header: "Country",
             cell: (donation) => (
-              <div className="font-medium">{donation.country?.country ?? "Deleted country"}</div>
+              <div className="font-medium">{donation.country?.country ?? donation.countryName ?? "Deleted country"}</div>
             ),
           },
           {
@@ -750,7 +753,7 @@ Thank you for your generous support in making this project possible.`
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Country</p>
-                    <p className="text-base font-medium mt-1">{selectedDonation.country?.country ?? "Deleted country"}</p>
+                    <p className="text-base font-medium mt-1">{selectedDonation.country?.country ?? selectedDonation.countryName ?? "Deleted country"}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t">
@@ -769,10 +772,10 @@ Thank you for your generous support in making this project possible.`
                     <p className="text-sm font-mono mt-1">{selectedDonation.transactionId}</p>
                   </div>
                 )}
-                {getOrderNumberFromNotes(selectedDonation.notes) && (
+                {(selectedDonation.donationNumber ?? getOrderNumberFromNotes(selectedDonation.notes)) && (
                   <div className="pt-2 border-t">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Order Number</p>
-                    <p className="text-sm font-mono mt-1">{getOrderNumberFromNotes(selectedDonation.notes)}</p>
+                    <p className="text-sm font-mono mt-1">{selectedDonation.donationNumber ?? getOrderNumberFromNotes(selectedDonation.notes)}</p>
                   </div>
                 )}
               </div>
@@ -982,7 +985,7 @@ Thank you for your generous support in making this project possible.`
                                   try {
                                     const pdfUrl = await generateCompletionReportPDF({
                                       projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
-                                      country: selectedDonation.country?.country ?? "Unknown",
+                                      country: selectedDonation.country?.country ?? selectedDonation.countryName ?? "Unknown",
                                       donorName: formatDonorName(selectedDonation.donor),
                                       amount: selectedDonation.amountPence,
                                       completionDate: selectedDonation.completedAt 

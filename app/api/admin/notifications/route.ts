@@ -8,6 +8,15 @@ const PAGE_KEYS = [
   "offline-income",
   "collections",
   "tasks",
+  "water-for-life",
+  "sponsorships",
+  "qurbani",
+  "bookings",
+  "fundraisers",
+  "donors",
+  "volunteers",
+  "distributions",
+  "appeals",
 ] as const
 
 export type NotificationCounts = Record<(typeof PAGE_KEYS)[number], number>
@@ -33,6 +42,15 @@ export async function GET() {
     const sinceOffline = getSinceDate(visits, "offline-income")
     const sinceCollections = getSinceDate(visits, "collections")
     const sinceTasks = getSinceDate(visits, "tasks")
+    const sinceWaterForLife = getSinceDate(visits, "water-for-life")
+    const sinceSponsorships = getSinceDate(visits, "sponsorships")
+    const sinceQurbani = getSinceDate(visits, "qurbani")
+    const sinceBookings = getSinceDate(visits, "bookings")
+    const sinceFundraisers = getSinceDate(visits, "fundraisers")
+    const sinceDonors = getSinceDate(visits, "donors")
+    const sinceVolunteers = getSinceDate(visits, "volunteers")
+    const sinceDistributions = getSinceDate(visits, "distributions")
+    const sinceAppeals = getSinceDate(visits, "appeals")
 
     const [
       donationsCount,
@@ -40,6 +58,15 @@ export async function GET() {
       offlineCount,
       collectionsCount,
       tasksCount,
+      waterForLifeCount,
+      sponsorshipsCount,
+      qurbaniCount,
+      bookingsCount,
+      fundraisersCount,
+      donorsCount,
+      volunteersCount,
+      distributionsCount,
+      appealsCount,
     ] = await Promise.all([
       prisma.donation.count({
         where: sinceDonations ? { createdAt: { gt: sinceDonations } } : undefined,
@@ -59,6 +86,33 @@ export async function GET() {
           ...(sinceTasks ? { createdAt: { gt: sinceTasks } } : {}),
         },
       }),
+      prisma.waterProjectDonation.count({
+        where: sinceWaterForLife ? { createdAt: { gt: sinceWaterForLife } } : undefined,
+      }),
+      prisma.sponsorshipDonation.count({
+        where: sinceSponsorships ? { createdAt: { gt: sinceSponsorships } } : undefined,
+      }),
+      prisma.qurbaniDonation.count({
+        where: sinceQurbani ? { createdAt: { gt: sinceQurbani } } : undefined,
+      }),
+      prisma.collectionBooking.count({
+        where: sinceBookings ? { createdAt: { gt: sinceBookings } } : undefined,
+      }),
+      prisma.fundraiser.count({
+        where: sinceFundraisers ? { createdAt: { gt: sinceFundraisers } } : undefined,
+      }),
+      prisma.donor.count({
+        where: sinceDonors ? { createdAt: { gt: sinceDonors } } : undefined,
+      }),
+      prisma.volunteer.count({
+        where: sinceVolunteers ? { createdAt: { gt: sinceVolunteers } } : undefined,
+      }),
+      prisma.distribution.count({
+        where: sinceDistributions ? { createdAt: { gt: sinceDistributions } } : undefined,
+      }),
+      prisma.appeal.count({
+        where: sinceAppeals ? { createdAt: { gt: sinceAppeals } } : undefined,
+      }),
     ])
 
     const counts: NotificationCounts = {
@@ -67,6 +121,15 @@ export async function GET() {
       "offline-income": offlineCount,
       collections: collectionsCount,
       tasks: tasksCount,
+      "water-for-life": waterForLifeCount,
+      sponsorships: sponsorshipsCount,
+      qurbani: qurbaniCount,
+      bookings: bookingsCount,
+      fundraisers: fundraisersCount,
+      donors: donorsCount,
+      volunteers: volunteersCount,
+      distributions: distributionsCount,
+      appeals: appealsCount,
     }
 
     return NextResponse.json(counts)

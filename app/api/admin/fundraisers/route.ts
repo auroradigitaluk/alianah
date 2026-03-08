@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
       console.error("Error sending fundraiser welcome email:", emailError)
       return NextResponse.json(
         {
+          id: fundraiser.id,
           error: "Fundraiser created but email failed to send",
           slug: fundraiser.slug,
           fundraiserUrl,
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ slug: fundraiser.slug, fundraiserUrl })
+    return NextResponse.json({ id: fundraiser.id, slug: fundraiser.slug, fundraiserUrl })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message ?? "Validation failed", issues: error.issues }, { status: 400 })

@@ -23,6 +23,7 @@ function getStripe(): Stripe {
 const donationSchema = z.object({
   waterProjectId: z.string(),
   countryId: z.string(), // Country chosen for this donation
+  plaqueName: z.string().min(1, "Plaque name is required for water project donations"),
   title: z.string().optional(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
@@ -168,6 +169,8 @@ export async function POST(request: NextRequest) {
       data: {
         waterProjectId: data.waterProjectId,
         countryId: data.countryId,
+        countryName: country.country,
+        projectTypeSnapshot: project.projectType,
         donorId: donor.id,
         amountPence: data.amountPence,
         donationType: data.donationType,
@@ -175,6 +178,7 @@ export async function POST(request: NextRequest) {
         collectedVia: COLLECTION_SOURCES.WEBSITE,
         transactionId: null,
         giftAid: data.giftAid,
+        plaqueName: data.plaqueName.trim(),
         billingAddress: data.billingAddress || null,
         billingCity: data.billingCity || null,
         billingPostcode: data.billingPostcode || null,
@@ -182,6 +186,7 @@ export async function POST(request: NextRequest) {
         emailSent: false,
         reportSent: false,
         status: "PENDING",
+        donationNumber: orderNumber,
         notes: `OrderNumber:${orderNumber}`,
       },
       include: {

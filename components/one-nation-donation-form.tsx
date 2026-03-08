@@ -298,8 +298,8 @@ export function OneNationDonationForm({
     return hasProject && hasCountries
   })
   
-  // Check if water project requires plaque name
-  const requiresPlaqueName = !!waterProjectData?.plaqueAvailable
+  // Plaque name is required for all water project donations (pumps, wells, tanks, wudhu areas)
+  const requiresPlaqueName = donationType === "water"
 
   // One-off express checkout (Apple Pay): same validation as Add to Bag, one-off only
   /* eslint-disable react-hooks/preserve-manual-memoization -- complex dependency array with stable object refs */
@@ -323,7 +323,7 @@ export function OneNationDonationForm({
           amountPence: selectedWaterCountryData.pricePence,
           waterProjectId: waterProjectData?.id || "",
           waterProjectCountryId: selectedWaterCountry,
-          ...(requiresPlaqueName && plaqueName.trim() ? { plaqueName: plaqueName.trim() } : {}),
+          ...(donationType === "water" && plaqueName.trim() ? { plaqueName: plaqueName.trim() } : {}),
         },
         amountPence: selectedWaterCountryData.pricePence,
       }
@@ -547,7 +547,7 @@ export function OneNationDonationForm({
         amountPence,
         waterProjectId: waterProjectData?.id || "",
         waterProjectCountryId: selectedWaterCountry,
-        plaqueName: requiresPlaqueName ? plaqueName : undefined,
+        plaqueName: donationType === "water" ? plaqueName.trim() : undefined,
       })
     } else if (donationType === "sponsorship") {
       const labels: Record<string, string> = {
@@ -1028,11 +1028,11 @@ export function OneNationDonationForm({
               </div>
             )}
 
-            {/* Plaque Name Field (for water pumps) */}
+            {/* Plaque Name Field (required for water projects) */}
             {requiresPlaqueName && selectedWaterProject && (
               <div className="space-y-2">
                 <Label htmlFor="plaque-name-input" className="text-sm font-medium text-foreground">
-                  Name on Plaque
+                  Name on Plaque *
                 </Label>
                 <Input
                   id="plaque-name-input"

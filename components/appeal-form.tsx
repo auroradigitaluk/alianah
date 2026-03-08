@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 
 interface AppealFormProps {
@@ -22,6 +23,8 @@ interface AppealFormProps {
     defaultDonationType: string
     allowMonthly: boolean
     allowFundraising?: boolean
+    showOnDonationForm?: boolean
+    showOnZakatPage?: boolean
     appealImageUrls?: string
     fundraisingImageUrls?: string
     fundraisingDefaultMessage?: string | null
@@ -52,6 +55,8 @@ export function AppealForm({ appeal }: AppealFormProps) {
   )
   const [allowMonthly, setAllowMonthly] = useState(appeal?.allowMonthly ?? false)
   const [allowFundraising, setAllowFundraising] = useState(appeal?.allowFundraising ?? false)
+  const [showOnDonationForm, setShowOnDonationForm] = useState(appeal?.showOnDonationForm ?? true)
+  const [showOnZakatPage, setShowOnZakatPage] = useState(appeal?.showOnZakatPage ?? true)
   const [fundraisingDefaultMessage, setFundraisingDefaultMessage] = useState(
     appeal?.fundraisingDefaultMessage || ""
   )
@@ -335,6 +340,8 @@ export function AppealForm({ appeal }: AppealFormProps) {
           allowMonthly,
           allowYearly: false,
           allowFundraising,
+          showOnDonationForm,
+          showOnZakatPage,
           appealImageUrls: JSON.stringify(appealImages),
           fundraisingImageUrls: JSON.stringify(fundraisingImages),
           fundraisingDefaultMessage: fundraisingDefaultMessage || null,
@@ -403,6 +410,28 @@ export function AppealForm({ appeal }: AppealFormProps) {
         <p className="text-sm text-muted-foreground">
           Leave empty to hide the link on the public donation page
         </p>
+      </div>
+      <div className="space-y-3">
+        <Label>Where to show this appeal</Label>
+        <p className="text-sm text-muted-foreground">
+          Handpick where this appeal appears so the main donation form and zakat page are not overwhelming.
+        </p>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={showOnDonationForm}
+              onCheckedChange={(c) => setShowOnDonationForm(c === true)}
+            />
+            <span className="text-sm">Show on main donation form</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={showOnZakatPage}
+              onCheckedChange={(c) => setShowOnZakatPage(c === true)}
+            />
+            <span className="text-sm">Show on zakat calculator page</span>
+          </label>
+        </div>
       </div>
       <div className="space-y-2">
         <Label>Donation Types Enabled</Label>

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"
 async function getAppealsForZakat() {
   try {
     let appeals = await prisma.appeal.findMany({
-      where: { archivedAt: null },
+      where: { archivedAt: null, showOnZakatPage: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
       select: {
         id: true,
@@ -20,7 +20,7 @@ async function getAppealsForZakat() {
     })
     if (appeals.length === 0) {
       const fallback = await prisma.appeal.findFirst({
-        where: { archivedAt: null },
+        where: { archivedAt: null, showOnZakatPage: true },
         orderBy: { createdAt: "desc" },
         select: {
           id: true,

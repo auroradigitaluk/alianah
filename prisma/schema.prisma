@@ -164,6 +164,8 @@ model Appeal {
   yearlyPricePence     Int? // Single price for yearly donations in pence
   allowFundraising     Boolean  @default(false)
   allowDailyGiving     Boolean  @default(false) // Show on Ramadhan daily giving page
+  showOnDonationForm   Boolean  @default(true)  // Handpick: show this appeal on main donation form
+  showOnZakatPage      Boolean  @default(true)  // Handpick: show this appeal on zakat calculator page
   appealImageUrls      String   @default("[]") // JSON string array of Vercel Blob URLs
   fundraisingImageUrls String   @default("[]") // JSON string array of Vercel Blob URLs for fundraising pages
   fundraisingDefaultMessage String?
@@ -782,33 +784,35 @@ model WaterProject {
 }
 
 model WaterProjectDonation {
-  id                  String    @id @default(cuid())
-  waterProjectId      String?   // SetNull when water project deleted – keep donation data (e.g. Sri Lanka Wudhu)
-  countryId           String?   // SetNull when country removed – keep donation data
-  donorId             String
-  fundraiserId        String?
+  id                   String    @id @default(cuid())
+  waterProjectId       String?   // SetNull when water project deleted – keep donation data (e.g. Sri Lanka Wudhu)
+  countryId            String?   // SetNull when country removed – keep donation data
+  countryName          String?   // Snapshot at creation so we can still show e.g. "Syria" after country is deleted
+  projectTypeSnapshot  String?   // e.g. WUDHU_AREA – snapshot when project/country may be deleted
+  donorId              String
+  fundraiserId         String?
   amountPence          Int
-  donationType        String // GENERAL | SADAQAH | ZAKAT | LILLAH
-  paymentMethod       String // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
-  collectedVia        String? // website | office | events | collections | masjid_collections | fundraising
-  transactionId       String?
-  giftAid             Boolean   @default(false)
-  giftAidClaimed      Boolean   @default(false)
-  giftAidClaimedAt    DateTime?
-  isAnonymous         Boolean   @default(false)
-  plaqueName          String?   // Name on plaque (from fundraiser creator or donor)
-  billingAddress      String? // Billing address for gift aid purposes
-  billingCity         String?
-  billingPostcode     String?
-  billingCountry      String?
-  emailSent           Boolean   @default(false)
-  reportSent          Boolean   @default(false)
-  notes               String?   // Internal notes/updates for this donation
-  status              String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (individual donation status)
-  addedByAdminUserId  String?
-  donationNumber      String?   // Reference for receipts (e.g. 786-1xxxxxxxx), same format as online
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  donationType         String // GENERAL | SADAQAH | ZAKAT | LILLAH
+  paymentMethod        String // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER
+  collectedVia         String? // website | office | events | collections | masjid_collections | fundraising
+  transactionId        String?
+  giftAid              Boolean   @default(false)
+  giftAidClaimed       Boolean   @default(false)
+  giftAidClaimedAt     DateTime?
+  isAnonymous          Boolean   @default(false)
+  plaqueName           String?   // Name on plaque (from fundraiser creator or donor)
+  billingAddress       String? // Billing address for gift aid purposes
+  billingCity          String?
+  billingPostcode      String?
+  billingCountry       String?
+  emailSent            Boolean   @default(false)
+  reportSent           Boolean   @default(false)
+  notes                String?   // Internal notes/updates for this donation
+  status               String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (individual donation status)
+  addedByAdminUserId   String?
+  donationNumber       String?   // Reference for receipts (e.g. 786-1xxxxxxxx), same format as online
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
   completedAt         DateTime?
 
   waterProject WaterProject?        @relation(fields: [waterProjectId], references: [id], onDelete: SetNull)
@@ -888,10 +892,12 @@ model SponsorshipReportPool {
 }
 
 model SponsorshipDonation {
-  id                  String    @id @default(cuid())
+  id                   String    @id @default(cuid())
   sponsorshipProjectId String?   // SetNull when project deleted – keep donation data (e.g. Orphans, Hifz)
-  countryId           String?   // SetNull when country removed – keep donation data
-  donorId             String
+  countryId            String?   // SetNull when country removed – keep donation data
+  countryName          String?   // Snapshot at creation so we can still show e.g. "Pakistan" after country is deleted
+  projectTypeSnapshot  String?   // e.g. ORPHANS – snapshot when project/country may be deleted
+  donorId              String
   amountPence         Int
   donationType        String    // GENERAL | SADAQAH | ZAKAT | LILLAH
   paymentMethod       String    // WEBSITE_STRIPE | CARD_SUMUP | CASH | BANK_TRANSFER

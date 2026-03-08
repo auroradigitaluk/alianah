@@ -6,9 +6,9 @@ import { sendWaterProjectCompletionEmail } from "@/lib/email"
 
 const completeDonationSchema = z.object({
   status: z.literal("COMPLETE"),
-  completionImages: z.array(z.string()).length(4, "Exactly 4 images are required"),
+  completionImages: z.array(z.string()).optional().default([]),
   completionReport: z.string().optional(),
-  completionReportPDF: z.string().url().optional().nullable(),
+  completionReportPDF: z.string().url({ message: "Please upload your completion report (PDF)" }),
   googleDriveLink: z.string().url().optional().nullable(),
 })
 
@@ -36,12 +36,6 @@ export async function POST(
     if (!donation) {
       return NextResponse.json({ error: "Donation not found" }, { status: 404 })
     }
-    if (!donation.waterProject || !donation.country) {
-      return NextResponse.json(
-        { error: "Water project or country was deleted. Donation data is preserved but completion is not available." },
-        { status: 400 }
-      )
-    }
 
     // Update donation status
     const updatedDonation = await prisma.waterProjectDonation.update({
@@ -57,16 +51,20 @@ export async function POST(
       },
     })
 
-    // Send completion email
+    // Send completion email (use snapshot fields if project/country were deleted)
+    const projectType = donation.waterProject?.projectType ?? donation.projectTypeSnapshot ?? "WATER_PUMP"
+    const country = donation.country?.country ?? donation.countryName ?? "Unknown"
+    const location = donation.waterProject?.location ?? undefined
     try {
       await sendWaterProjectCompletionEmail({
         donorEmail: donation.donor.email,
         donorName: `${donation.donor.firstName} ${donation.donor.lastName}`,
-        projectType: donation.waterProject.projectType,
-        country: donation.country.country,
-        images: data.completionImages,
+        projectType,
+        country,
+        location,
+        images: data.completionImages ?? [],
         report: data.completionReport || "",
-        completionReportPDF: data.completionReportPDF || undefined,
+        completionReportPDF: data.completionReportPDF,
         googleDriveLink: data.googleDriveLink || undefined,
       })
 

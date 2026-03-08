@@ -44,7 +44,7 @@ export async function POST(
     return NextResponse.json({
       id: cash.id,
       amountPence: cash.amountPence,
-      message: "Cash donation recorded. It will be reviewed and added to the total once confirmed.",
+      message: "Offline donation recorded. It will be reviewed and added to the total once confirmed.",
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

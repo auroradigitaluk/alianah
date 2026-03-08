@@ -59,6 +59,7 @@ interface OfflineIncome {
   donationType: string
   source: string
   receivedAt: Date
+  orderNumber?: string | null
   appeal?: { title: string } | null
   appealId?: string | null
   notes?: string | null
@@ -257,6 +258,15 @@ export function OfflineIncomeTable({
           ),
         },
         {
+          id: "orderNumber",
+          header: "Order No.",
+          cell: (item) => (
+            <div className="text-xs font-mono">
+              {item.orderNumber || <span className="text-muted-foreground">—</span>}
+            </div>
+          ),
+        },
+        {
           id: "amount",
           header: "Amount",
           cell: (item) => (
@@ -424,6 +434,19 @@ export function OfflineIncomeTable({
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-0">
+                          {selectedIncome.orderNumber && (
+                            <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
+                              <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                  Order Number
+                                </p>
+                                <p className="text-base font-mono font-semibold text-foreground">{selectedIncome.orderNumber}</p>
+                              </div>
+                            </div>
+                          )}
                           <div className="flex items-start gap-4 py-4 px-4 rounded-lg hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
                             <div className="p-2 rounded-lg bg-muted/50 mt-0.5 shrink-0">
                               <Target className="h-4 w-4 text-muted-foreground" />

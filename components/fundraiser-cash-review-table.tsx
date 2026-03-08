@@ -79,7 +79,7 @@ export function FundraiserCashReviewTable() {
   if (loading) {
     return (
       <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
-        Loading pending cash donations…
+        Loading pending offline donations…
       </div>
     )
   }
@@ -95,7 +95,7 @@ export function FundraiserCashReviewTable() {
   if (list.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
-        No pending cash donations. Fundraisers’ cash submissions will appear here for review.
+        No pending offline donations. Fundraisers’ submissions will appear here for review.
       </div>
     )
   }

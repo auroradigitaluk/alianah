@@ -52,31 +52,40 @@ const itemSchema = z.object({
   qurbaniNames: z.string().optional(),
 })
 
-const checkoutSchema = z.object({
-  items: z.array(itemSchema).min(1),
-  donor: z.object({
-    title: z.string().optional(),
-    firstName: z.string(),
-    lastName: z.string(),
-    email: z.string().email(),
-    phone: z.string().optional(),
-    address: z.string().optional(),
-    city: z.string().optional(),
-    postcode: z.string().optional(),
-    country: z.string().optional(),
-    billingAddress: z.string().optional(),
-    billingCity: z.string().optional(),
-    billingPostcode: z.string().optional(),
-    billingCountry: z.string().optional(),
-    marketingEmail: z.boolean(),
-    marketingSMS: z.boolean(),
-    giftAid: z.boolean(),
-    coverFees: z.boolean(),
-  }),
-  subtotalPence: z.number().int().nonnegative(),
-  feesPence: z.number().int().nonnegative(),
-  totalPence: z.number().int().nonnegative(),
-})
+const checkoutSchema = z
+  .object({
+    items: z.array(itemSchema).min(1),
+    donor: z.object({
+      title: z.string().optional(),
+      firstName: z.string(),
+      lastName: z.string(),
+      email: z.string().email(),
+      phone: z.string().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      postcode: z.string().optional(),
+      country: z.string().optional(),
+      billingAddress: z.string().optional(),
+      billingCity: z.string().optional(),
+      billingPostcode: z.string().optional(),
+      billingCountry: z.string().optional(),
+      marketingEmail: z.boolean(),
+      marketingSMS: z.boolean(),
+      giftAid: z.boolean(),
+      coverFees: z.boolean(),
+    }),
+    subtotalPence: z.number().int().nonnegative(),
+    feesPence: z.number().int().nonnegative(),
+    totalPence: z.number().int().nonnegative(),
+  })
+  .refine(
+    (data) =>
+      data.items.every(
+        (item) =>
+          !item.waterProjectId || (typeof item.plaqueName === "string" && item.plaqueName.trim().length > 0)
+      ),
+    { message: "Plaque name is required for water project donations", path: ["items"] }
+  )
 
 function isAppealItem(item: z.infer<typeof itemSchema>) {
   return Boolean(item.appealId)

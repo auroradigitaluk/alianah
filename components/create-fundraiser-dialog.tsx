@@ -35,6 +35,8 @@ interface CreateFundraiserDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   eligibleCampaigns: EligibleCampaign[]
+  /** When provided, called on success with the created fundraiser; e.g. to redirect to detail page */
+  onSuccess?: (data: { id: string; slug: string; fundraiserUrl: string }) => void
 }
 
 function getDefaultMessage(fundraiserName: string, campaignTitle: string): string {
@@ -48,6 +50,7 @@ export function CreateFundraiserDialog({
   open,
   onOpenChange,
   eligibleCampaigns,
+  onSuccess,
 }: CreateFundraiserDialogProps) {
   const router = useRouter()
   const [fundraiserName, setFundraiserName] = useState("")
@@ -231,14 +234,18 @@ export function CreateFundraiserDialog({
         process.env.NEXT_PUBLIC_FUNDRAISER_BASE_URL ||
         (typeof window !== "undefined" ? window.location.origin : "")
       const baseTrimmed = (base || "").replace(/\/$/, "")
+      const fundraiserUrl =
+        data.fundraiserUrl ??
+        (baseTrimmed ? `${baseTrimmed}/fundraise/${data.slug}` : "")
       setSuccess({
-        fundraiserUrl:
-          data.fundraiserUrl ??
-          (baseTrimmed ? `${baseTrimmed}/fundraise/${data.slug}` : ""),
+        fundraiserUrl,
         email: emailVal,
         emailFailed: Boolean(data.emailError),
       })
       router.refresh()
+      if (onSuccess && data.id) {
+        onSuccess({ id: data.id, slug: data.slug, fundraiserUrl })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {

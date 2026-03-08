@@ -41,18 +41,27 @@ const itemSchema = z.object({
   qurbaniNames: z.string().optional(),
 })
 
-const expressSchema = z.object({
-  items: z.array(itemSchema).min(1),
-  email: z.string().email(),
-  subtotalPence: z.number().int().nonnegative(),
-  coverFees: z.boolean().optional().default(false),
-  donorFirstName: z.string().min(1).optional(),
-  donorLastName: z.string().min(1).optional(),
-  donorAddress: z.string().min(1).optional(),
-  donorCity: z.string().min(1).optional(),
-  donorPostcode: z.string().min(1).optional(),
-  donorCountry: z.string().min(1).optional(),
-})
+const expressSchema = z
+  .object({
+    items: z.array(itemSchema).min(1),
+    email: z.string().email(),
+    subtotalPence: z.number().int().nonnegative(),
+    coverFees: z.boolean().optional().default(false),
+    donorFirstName: z.string().min(1).optional(),
+    donorLastName: z.string().min(1).optional(),
+    donorAddress: z.string().min(1).optional(),
+    donorCity: z.string().min(1).optional(),
+    donorPostcode: z.string().min(1).optional(),
+    donorCountry: z.string().min(1).optional(),
+  })
+  .refine(
+    (data) =>
+      data.items.every(
+        (item) =>
+          !item.waterProjectId || (typeof item.plaqueName === "string" && item.plaqueName.trim().length > 0)
+      ),
+    { message: "Plaque name is required for water project donations", path: ["items"] }
+  )
 
 function isWaterProjectItem(item: z.infer<typeof itemSchema>) {
   return Boolean(item.waterProjectId)

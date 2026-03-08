@@ -106,7 +106,7 @@ export function Sidecart() {
                 <span>{formatCurrency(totalPence)}</span>
               </div>
               <Button asChild className="w-full" size="lg">
-                <Link href="/checkout" onClick={() => setOpen(false)}>
+                <Link href="/giftaid" onClick={() => setOpen(false)}>
                   Proceed to Checkout
                 </Link>
               </Button>

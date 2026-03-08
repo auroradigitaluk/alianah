@@ -5,6 +5,7 @@ import {
   sendSponsorshipDonationEmail,
   sendWaterProjectDonationEmail,
 } from "@/lib/email"
+import { generateDonationNumber } from "@/lib/donation-number"
 import { createPortalToken } from "@/lib/portal-token"
 import { COLLECTION_SOURCES, PAYMENT_METHODS } from "@/lib/utils"
 
@@ -276,12 +277,31 @@ export async function finalizeOrderByOrderNumber(params: {
     select: { id: true },
   })
   if (waterDirectItems.length > 0 && existingWaterDonations.length === 0) {
+    const waterCountryIds = [...new Set(waterDirectItems.map((i) => i.waterProjectCountryId!))]
+    const waterProjectIds = [...new Set(waterDirectItems.map((i) => i.waterProjectId!))]
+    const [waterCountries, waterProjects] = await Promise.all([
+      prisma.waterProjectCountry.findMany({
+        where: { id: { in: waterCountryIds } },
+        select: { id: true, country: true },
+      }),
+      prisma.waterProject.findMany({
+        where: { id: { in: waterProjectIds } },
+        select: { id: true, projectType: true },
+      }),
+    ])
+    const waterCountryById = new Map(waterCountries.map((c) => [c.id, c]))
+    const waterProjectById = new Map(waterProjects.map((p) => [p.id, p]))
+    const waterDonationNumbers = await Promise.all(waterDirectItems.map(() => generateDonationNumber()))
     createdWaterDonations = await Promise.all(
-      waterDirectItems.map((item) =>
-        prisma.waterProjectDonation.create({
+      waterDirectItems.map((item, i) => {
+        const country = waterCountryById.get(item.waterProjectCountryId!)
+        const project = waterProjectById.get(item.waterProjectId!)
+        return prisma.waterProjectDonation.create({
           data: {
             waterProjectId: item.waterProjectId!,
             countryId: item.waterProjectCountryId!,
+            countryName: country?.country ?? null,
+            projectTypeSnapshot: project?.projectType ?? null,
             donorId: donor.id,
             fundraiserId: null,
             amountPence: item.amountPence,
@@ -299,6 +319,7 @@ export async function finalizeOrderByOrderNumber(params: {
             emailSent: false,
             reportSent: false,
             status: "WAITING_TO_REVIEW",
+            donationNumber: waterDonationNumbers[i],
             notes: [`OrderNumber:${orderNumber}`].filter(Boolean).join(" | ") || null,
           },
           include: {
@@ -308,79 +329,26 @@ export async function finalizeOrderByOrderNumber(params: {
             fundraiser: true,
           },
         })
-      )
+      })
     )
   }
 
   // When water fundraiser target is met: create one consolidated water project donation for admin to process (pump/well/tank/wudhu)
+  const { ensureWaterFundraiserConsolidated } = await import("@/lib/water-fundraiser-consolidate")
   const fundraiserIdsToCheck = [...new Set(waterFundraiserItemsToCreate.map((i) => i.fundraiserId!).filter(Boolean))]
-  const { getFundraiserTotalRaisedAndCount } = await import("@/lib/fundraiser-totals")
   for (const fid of fundraiserIdsToCheck) {
-    const fundraiser = await prisma.fundraiser.findUnique({
-      where: { id: fid },
-      include: {
-        waterProjectCountry: true,
-        waterProject: true,
-      },
+    const consolidated = await ensureWaterFundraiserConsolidated(fid, {
+      paymentMethod,
+      collectedVia,
+      transactionId: paymentRef,
+      donationNumber: orderNumber,
+      notesSuffix: `OrderNumber:${orderNumber}`,
     })
-    if (
-      !fundraiser?.waterProjectId ||
-      !fundraiser.waterProjectCountryId ||
-      !fundraiser.waterProject ||
-      !fundraiser.waterProjectCountry ||
-      fundraiser.consolidatedWaterProjectDonationId != null
-    )
-      continue
-    const target = fundraiser.targetAmountPence ?? 0
-    if (target <= 0) continue
-    const { totalRaisedPence } = await getFundraiserTotalRaisedAndCount(fid, true)
-    if (totalRaisedPence < target) continue
-
-    const fundraiserDonor =
-      (await prisma.donor.findUnique({ where: { email: fundraiser.email } })) ??
-      (await prisma.donor.create({
-        data: {
-          firstName: fundraiser.fundraiserName.split(" ")[0] ?? "Fundraiser",
-          lastName: fundraiser.fundraiserName.split(" ").slice(1).join(" ") || fundraiser.fundraiserName,
-          email: fundraiser.email,
-        },
-      }))
-
-    const consolidated = await prisma.waterProjectDonation.create({
-      data: {
-        waterProjectId: fundraiser.waterProjectId,
-        countryId: fundraiser.waterProjectCountryId,
-        donorId: fundraiserDonor.id,
-        fundraiserId: fid,
-        amountPence: fundraiser.waterProjectCountry.pricePence,
-        donationType: "GENERAL",
-        paymentMethod,
-        collectedVia,
-        transactionId: paymentRef,
-        giftAid: false,
-        isAnonymous: false,
-        plaqueName: fundraiser.plaqueName || null,
-        billingAddress: null,
-        billingCity: null,
-        billingPostcode: null,
-        billingCountry: null,
-        emailSent: false,
-        reportSent: false,
-        status: "WAITING_TO_REVIEW",
-        notes: `OrderNumber:${orderNumber} | Consolidated (fundraiser target met)`,
-      },
-      include: {
-        waterProject: true,
-        country: true,
-        donor: true,
-        fundraiser: true,
-      },
-    })
-    await prisma.fundraiser.update({
-      where: { id: fid },
-      data: { consolidatedWaterProjectDonationId: consolidated.id },
-    })
-    createdWaterDonations = [...createdWaterDonations, consolidated]
+    if (consolidated)
+      createdWaterDonations = [
+        ...createdWaterDonations,
+        consolidated as unknown as (typeof createdWaterDonations)[number],
+      ]
   }
 
   const existingSponsorshipDonations = await prisma.sponsorshipDonation.findMany({
@@ -392,12 +360,31 @@ export async function finalizeOrderByOrderNumber(params: {
       item.sponsorshipProjectId && targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
   )
   if (sponsorshipItems.length > 0 && existingSponsorshipDonations.length === 0) {
+    const sponsorCountryIds = [...new Set(sponsorshipItems.map((i) => i.sponsorshipCountryId!))]
+    const sponsorProjectIds = [...new Set(sponsorshipItems.map((i) => i.sponsorshipProjectId!))]
+    const [sponsorCountries, sponsorProjects] = await Promise.all([
+      prisma.sponsorshipProjectCountry.findMany({
+        where: { id: { in: sponsorCountryIds } },
+        select: { id: true, country: true },
+      }),
+      prisma.sponsorshipProject.findMany({
+        where: { id: { in: sponsorProjectIds } },
+        select: { id: true, projectType: true },
+      }),
+    ])
+    const sponsorCountryById = new Map(sponsorCountries.map((c) => [c.id, c]))
+    const sponsorProjectById = new Map(sponsorProjects.map((p) => [p.id, p]))
+    const sponsorshipDonationNumbers = await Promise.all(sponsorshipItems.map(() => generateDonationNumber()))
     createdSponsorshipDonations = await Promise.all(
-      sponsorshipItems.map((item) =>
-        prisma.sponsorshipDonation.create({
+      sponsorshipItems.map((item, i) => {
+        const country = sponsorCountryById.get(item.sponsorshipCountryId!)
+        const project = sponsorProjectById.get(item.sponsorshipProjectId!)
+        return prisma.sponsorshipDonation.create({
           data: {
             sponsorshipProjectId: item.sponsorshipProjectId!,
             countryId: item.sponsorshipCountryId!,
+            countryName: country?.country ?? null,
+            projectTypeSnapshot: project?.projectType ?? null,
             donorId: donor.id,
             amountPence: item.amountPence,
             donationType: item.donationType,
@@ -412,6 +399,7 @@ export async function finalizeOrderByOrderNumber(params: {
             emailSent: false,
             reportSent: false,
             status: "WAITING_TO_REVIEW",
+            donationNumber: sponsorshipDonationNumbers[i],
             notes: `OrderNumber:${orderNumber}`,
           },
           include: {
@@ -420,7 +408,7 @@ export async function finalizeOrderByOrderNumber(params: {
             donor: true,
           },
         })
-      )
+      })
     )
   }
 

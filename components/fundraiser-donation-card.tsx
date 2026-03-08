@@ -177,7 +177,7 @@ export function FundraiserDonationCard({
         {copied ? "Copied!" : "Share"}
       </Button>
 
-      {/* Add cash donation (no login required) */}
+      {/* Add offline donation (no login required) */}
       <FundraiserPublicCashForm fundraiserId={fundraiserId} />
 
       {/* Recent Donations */}

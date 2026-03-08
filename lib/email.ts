@@ -90,6 +90,8 @@ interface DonationEmailParams {
   amount: number
   donationType: string
   donationNumber: string
+  quantity?: number
+  unitAmountPence?: number
 }
 
 interface CompletionEmailParams {
@@ -225,7 +227,7 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
     return
   }
 
-  const { donorEmail, donorName, projectType, location, country, amount, donationType, donationNumber } = params
+  const { donorEmail, donorName, projectType, location, country, amount, donationType, donationNumber, quantity, unitAmountPence } = params
 
   try {
     const settings = await getOrganizationSettings()
@@ -239,6 +241,7 @@ export async function sendWaterProjectDonationEmail(params: DonationEmailParams)
         donationType,
         donationNumber,
         baseUrl: getEmailBaseUrl(settings),
+        ...(quantity != null && unitAmountPence != null ? { quantity, unitAmountPence } : {}),
       },
       settings
     )
@@ -297,13 +300,15 @@ export async function sendSponsorshipDonationEmail(params: {
   amount: number
   donationType: string
   donationNumber: string
+  quantity?: number
+  unitAmountPence?: number
 }) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set, skipping email")
     return
   }
 
-  const { donorEmail, donorName, projectType, location, country, amount, donationType, donationNumber } = params
+  const { donorEmail, donorName, projectType, location, country, amount, donationType, donationNumber, quantity, unitAmountPence } = params
 
   try {
     const settings = await getOrganizationSettings()
@@ -317,6 +322,7 @@ export async function sendSponsorshipDonationEmail(params: {
         donationType,
         donationNumber,
         baseUrl: getEmailBaseUrl(settings),
+        ...(quantity != null && unitAmountPence != null ? { quantity, unitAmountPence } : {}),
       },
       settings
     )

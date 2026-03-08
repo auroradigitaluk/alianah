@@ -58,6 +58,7 @@ export function WaterProjectDonationForm({
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [selectedAmountPence, setSelectedAmountPence] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState("")
+  const [plaqueName, setPlaqueName] = useState("")
 
   // Fetch countries for this project type
   React.useEffect(() => {
@@ -124,7 +125,12 @@ export function WaterProjectDonationForm({
       amountPence = resolvedCountry.pricePence
     }
 
+    if (requiresPlaque && !plaqueName.trim()) {
+      toast.error("Please enter a name for the plaque")
+      return
+    }
     const projectLabel = PROJECT_TYPE_LABELS[projectType] || "Water Project"
+    const finalPlaqueName = presetPlaqueName?.trim() || plaqueName.trim()
     try {
       addItem({
         id: "",
@@ -135,7 +141,7 @@ export function WaterProjectDonationForm({
         amountPence,
         waterProjectId: projectId,
         waterProjectCountryId: resolvedCountry.id,
-        ...(plaqueAvailable && presetPlaqueName ? { plaqueName: presetPlaqueName.trim() } : {}),
+        ...(finalPlaqueName ? { plaqueName: finalPlaqueName } : {}),
         ...(fundraiserId ? { fundraiserId } : {}),
         ...(fundraiserId ? { isAnonymous } : {}),
       })
@@ -151,9 +157,12 @@ export function WaterProjectDonationForm({
   const hasContributionAmount =
     (selectedAmountPence != null && selectedAmountPence > 0) ||
     (normalizedCustom !== "" && !Number.isNaN(parseFloat(normalizedCustom)) && parseFloat(normalizedCustom) > 0)
+  const requiresPlaque = !presetPlaqueName
+  const hasPlaque = !requiresPlaque || plaqueName.trim().length > 0
   const canSubmit =
     resolvedCountry &&
-    (!isFundraiserContribution || hasContributionAmount)
+    (!isFundraiserContribution || hasContributionAmount) &&
+    hasPlaque
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 w-full min-w-0">
@@ -257,6 +266,23 @@ export function WaterProjectDonationForm({
           </>
         )}
       </div>
+
+      {requiresPlaque && (
+        <div className="space-y-2">
+          <Label htmlFor="water-plaque-name">Name on Plaque *</Label>
+          <Input
+            id="water-plaque-name"
+            transform="titleCase"
+            value={plaqueName}
+            onChange={(e) => setPlaqueName(e.target.value)}
+            placeholder="Enter name to appear on plaque"
+            required
+          />
+          <p className="text-sm text-muted-foreground">
+            This name will be displayed on the project plaque.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label>Donation Type</Label>

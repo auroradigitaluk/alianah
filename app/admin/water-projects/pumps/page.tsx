@@ -69,12 +69,15 @@ async function getDonations(staffId: string | null) {
       billingCountry: donation.billingCountry,
       emailSent: donation.emailSent,
       reportSent: donation.reportSent,
+      donationNumber: donation.donationNumber,
       notes: donation.notes,
       status: donation.status,
       createdAt: donation.createdAt.toISOString(),
       completedAt: donation.completedAt?.toISOString() || null,
       donor: donation.donor,
       country: donation.country,
+      countryName: donation.countryName,
+      projectTypeSnapshot: donation.projectTypeSnapshot,
       fundraiser: donation.fundraiser
         ? {
             id: donation.fundraiser.id,

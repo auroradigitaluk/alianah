@@ -69,7 +69,7 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
             onClick={() => setOpen(true)}
           >
             <Banknote className="h-4 w-4" />
-            Add cash or cheque donation
+            Add offline donation
           </Button>
         </CardContent>
       </Card>
@@ -82,7 +82,7 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
         <div className="flex items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
             <Banknote className="h-4 w-4 text-muted-foreground" />
-            <h3 className="font-semibold text-sm">Add cash or cheque donation</h3>
+            <h3 className="font-semibold text-sm">Add offline donation</h3>
           </div>
           <Button
             type="button"
@@ -96,11 +96,11 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          Want to donate cash? Please give it to the fundraiser organiser—they’ll pass it on to the Alianah team. Record your donation below so it can be added to the total once received.
+          Want to give offline (e.g. cash, bank transfer, cheque)? Please give it to the fundraiser organiser—they’ll pass it on to the Alianah team. Record your donation below so it can be added to the total once received.
         </p>
         {status === "success" ? (
           <p className="text-sm text-green-600 dark:text-green-400 font-medium">
-            Thank you. Your cash donation has been recorded and will be reviewed shortly.
+            Thank you. Your offline donation has been recorded and will be reviewed shortly.
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -154,7 +154,7 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
                 Cancel
               </Button>
               <Button type="submit" className="flex-1" disabled={status === "submitting"}>
-                {status === "submitting" ? "Submitting…" : "Record cash donation"}
+                {status === "submitting" ? "Submitting…" : "Record offline donation"}
               </Button>
             </div>
           </form>

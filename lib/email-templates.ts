@@ -425,6 +425,9 @@ export type WaterProjectDonationEmailParams = {
   donationType: string
   donationNumber: string
   baseUrl?: string
+  /** When set with quantity, amount is total and this is per-unit (pence) */
+  quantity?: number
+  unitAmountPence?: number
 }
 
 export function buildWaterProjectDonationEmail(
@@ -445,13 +448,21 @@ export function buildWaterProjectDonationEmail(
   `
 
   const rowBorder = `border-bottom: 1px solid ${BRAND.border};`
+  const hasQuantity = (params.quantity ?? 0) > 1 && params.unitAmountPence != null
+  const amountRows = hasQuantity
+    ? `
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Quantity</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${params.quantity}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Amount per unit</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.unitAmountPence!)}</td></tr>
+      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Total</td><td align="right" style="padding: 8px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>
+    `
+    : `<tr><td style="padding: 8px 0; color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>`
   const details = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation number</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.donationNumber)}</td></tr>
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType] || params.donationType)}</td></tr>
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Project</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(projectLabel)}</td></tr>
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Location</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</td></tr>
-      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>
+      ${amountRows}
     </table>
   `
 
@@ -491,6 +502,9 @@ export type SponsorshipDonationEmailParams = {
   donationType: string
   donationNumber: string
   baseUrl?: string
+  /** When set with quantity, amount is total and this is per-unit (pence) */
+  quantity?: number
+  unitAmountPence?: number
 }
 
 export function buildSponsorshipDonationEmail(
@@ -511,13 +525,21 @@ export function buildSponsorshipDonationEmail(
   `
 
   const rowBorder = `border-bottom: 1px solid ${BRAND.border};`
+  const hasQuantity = (params.quantity ?? 0) > 1 && params.unitAmountPence != null
+  const amountRows = hasQuantity
+    ? `
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Quantity</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${params.quantity}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Amount per sponsorship (yearly)</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.unitAmountPence!)}</td></tr>
+      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Total</td><td align="right" style="padding: 8px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>
+    `
+    : `<tr><td style="padding: 8px 0; color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>`
   const details = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation number</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.donationNumber)}</td></tr>
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType] || params.donationType)}</td></tr>
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Programme</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(projectLabel)}</td></tr>
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Location</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.location ? `${params.location}, ${params.country}` : params.country)}</td></tr>
-      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; font-weight: 700;">${moneyPence(params.amount)}</td></tr>
+      ${amountRows}
     </table>
   `
 

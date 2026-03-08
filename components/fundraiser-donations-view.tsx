@@ -203,7 +203,7 @@ export function FundraiserDonationsView({
                 <p className="text-2xl font-bold mt-1">{formatCurrency(totalRaised)}</p>
                 {totalCashApproved > 0 && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    incl. {formatCurrency(totalCashApproved)} from cash (approved)
+                    incl. {formatCurrency(totalCashApproved)} from offline (approved)
                   </p>
                 )}
               </div>
@@ -213,11 +213,11 @@ export function FundraiserDonationsView({
               </div>
             </div>
 
-            {/* Cash donations from family & friends */}
+            {/* Offline donations from family & friends */}
             <div className="mb-6">
-              <h3 className="text-sm font-semibold mb-3">Cash donations from family & friends</h3>
+              <h3 className="text-sm font-semibold mb-3">Offline donations from family & friends</h3>
               <p className="text-xs text-muted-foreground mb-3">
-                Add cash you&apos;ve received offline. These will be reviewed by staff before counting towards your total.
+                Add offline contributions you&apos;ve received (e.g. cash, bank transfer). These will be reviewed by staff before counting towards your total.
               </p>
               <form onSubmit={submitCashDonation} className="space-y-3 p-4 border rounded-lg bg-muted/30">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -271,7 +271,7 @@ export function FundraiserDonationsView({
                   />
                 </div>
                 <Button type="submit" disabled={cashSubmitting}>
-                  {cashSubmitting ? "Submitting…" : "Submit cash donation"}
+                  {cashSubmitting ? "Submitting…" : "Submit offline donation"}
                 </Button>
               </form>
               {cashError && (
@@ -285,7 +285,7 @@ export function FundraiserDonationsView({
                 </div>
               ) : cashDonations.length > 0 ? (
                 <div className="mt-4 space-y-3">
-                  <p className="text-xs font-medium text-muted-foreground">Your cash donation submissions</p>
+                  <p className="text-xs font-medium text-muted-foreground">Your offline donation submissions</p>
                   {cashDonations.map((d) => (
                     <div key={d.id} className="p-3 border rounded-lg text-sm">
                       <div className="flex items-center justify-between gap-2 flex-wrap">

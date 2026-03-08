@@ -49,6 +49,15 @@ type NotificationCounts = {
   "offline-income": number
   collections: number
   tasks: number
+  "water-for-life": number
+  sponsorships: number
+  qurbani: number
+  bookings: number
+  fundraisers: number
+  donors: number
+  volunteers: number
+  distributions: number
+  appeals: number
 }
 
 function pathnameToPageKey(pathname: string | null): keyof NotificationCounts | null {
@@ -58,6 +67,15 @@ function pathnameToPageKey(pathname: string | null): keyof NotificationCounts | 
   if (pathname === "/admin/recurring" || pathname.startsWith("/admin/recurring/")) return "recurring"
   if (pathname === "/admin/offline-income" || pathname.startsWith("/admin/offline-income/")) return "offline-income"
   if (pathname === "/admin/collections" || pathname.startsWith("/admin/collections/")) return "collections"
+  if (pathname === "/admin/water-projects" || pathname.startsWith("/admin/water-projects/")) return "water-for-life"
+  if (pathname === "/admin/sponsorships" || pathname.startsWith("/admin/sponsorships/")) return "sponsorships"
+  if (pathname === "/admin/qurbani" || pathname.startsWith("/admin/qurbani/")) return "qurbani"
+  if (pathname === "/admin/bookings" || pathname.startsWith("/admin/bookings/")) return "bookings"
+  if (pathname === "/admin/fundraisers" || pathname.startsWith("/admin/fundraisers/")) return "fundraisers"
+  if (pathname === "/admin/donors" || pathname.startsWith("/admin/donors/")) return "donors"
+  if (pathname === "/admin/volunteers" || pathname.startsWith("/admin/volunteers/")) return "volunteers"
+  if (pathname === "/admin/distributions" || pathname.startsWith("/admin/distributions/")) return "distributions"
+  if (pathname === "/admin/appeals" || pathname.startsWith("/admin/appeals/")) return "appeals"
   return null
 }
 
@@ -68,6 +86,15 @@ function useNotificationCounts(pathname: string | null) {
     "offline-income": 0,
     collections: 0,
     tasks: 0,
+    "water-for-life": 0,
+    sponsorships: 0,
+    qurbani: 0,
+    bookings: 0,
+    fundraisers: 0,
+    donors: 0,
+    volunteers: 0,
+    distributions: 0,
+    appeals: 0,
   })
 
   const refetch = React.useCallback(() => {
@@ -128,6 +155,14 @@ const sponsorshipItems = [
   { title: "Manage Projects", url: "/admin/sponsorships", hideForStaff: true },
 ]
 
+const fundraiserItems = [
+  { title: "Fundraisers", url: "/admin/fundraisers", hideForStaff: false },
+  { title: "Offline to Review", url: "/admin/fundraisers/cash-review", hideForStaff: false },
+  { title: "Create Fundraiser", url: "/admin/fundraisers/new", hideForStaff: false },
+  { title: "Insights", url: "/admin/fundraisers/insights", hideForStaff: false },
+  { title: "Complete", url: "/admin/fundraisers/closed", hideForStaff: false },
+]
+
 function useAdminRole() {
   const [role, setRole] = React.useState<string | null>(null)
   React.useEffect(() => {
@@ -149,9 +184,13 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const [sponsorshipMenuOpen, setSponsorshipMenuOpen] = React.useState(
     pathname?.startsWith("/admin/sponsorships") || false
   )
+  const [fundraiserMenuOpen, setFundraiserMenuOpen] = React.useState(
+    pathname?.startsWith("/admin/fundraisers") || false
+  )
 
   const isWaterProjectActive = pathname?.startsWith("/admin/water-projects")
   const isSponsorshipActive = pathname?.startsWith("/admin/sponsorships")
+  const isFundraiserActive = pathname?.startsWith("/admin/fundraisers")
 
   const showAppeals = role !== "STAFF"
   const showDonations = role !== "STAFF"
@@ -210,9 +249,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     tooltip="Appeals"
                     isActive={pathname === "/admin/appeals" || pathname?.startsWith("/admin/appeals/")}
                   >
-                    <Link href="/admin/appeals">
+                    <Link href="/admin/appeals" className="flex w-full items-center gap-2">
                       <IconHeart />
                       <span>Appeals</span>
+                      <NotificationBadge count={counts.appeals} />
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -225,6 +265,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                 >
                   <IconDroplet />
                   <span>Water for Life</span>
+                  <NotificationBadge count={counts["water-for-life"]} />
                   {waterMenuOpen ? (
                     <IconChevronDown className="ml-auto" />
                   ) : (
@@ -258,6 +299,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                 >
                   <IconUsersGroup />
                   <span>Sponsorships</span>
+                  <NotificationBadge count={counts.sponsorships} />
                   {sponsorshipMenuOpen ? (
                     <IconChevronDown className="ml-auto" />
                   ) : (
@@ -289,9 +331,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   tooltip="Qurbani"
                   isActive={pathname === "/admin/qurbani" || pathname?.startsWith("/admin/qurbani/")}
                 >
-                  <Link href="/admin/qurbani">
+                  <Link href="/admin/qurbani" className="flex w-full items-center gap-2">
                     <Beef className="h-5 w-5" />
                     <span>Qurbani</span>
+                    <NotificationBadge count={counts.qurbani} />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -366,21 +409,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   tooltip="Bookings"
                   isActive={pathname === "/admin/bookings" || pathname?.startsWith("/admin/bookings/")}
                 >
-                  <Link href="/admin/bookings">
+                  <Link href="/admin/bookings" className="flex w-full items-center gap-2">
                     <IconCalendarEvent />
                     <span>Bookings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Fundraisers"
-                  isActive={pathname === "/admin/fundraisers" || pathname?.startsWith("/admin/fundraisers/")}
-                >
-                  <Link href="/admin/fundraisers">
-                    <IconUsers />
-                    <span>Fundraisers</span>
+                    <NotificationBadge count={counts.bookings} />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -402,6 +434,49 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Fundraisers */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Fundraisers</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Fundraisers"
+                  isActive={isFundraiserActive}
+                  onClick={() => setFundraiserMenuOpen(!fundraiserMenuOpen)}
+                >
+                  <IconUsers />
+                  <span>Fundraisers</span>
+                  <NotificationBadge count={counts.fundraisers} />
+                  {fundraiserMenuOpen ? (
+                    <IconChevronDown className="ml-auto" />
+                  ) : (
+                    <IconChevronRight className="ml-auto" />
+                  )}
+                </SidebarMenuButton>
+                {fundraiserMenuOpen && (
+                  <SidebarMenuSub>
+                    {fundraiserItems
+                      .filter((item) => role !== "STAFF" || !item.hideForStaff)
+                      .map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={pathname === item.url}
+                          >
+                            <Link href={item.url}>
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* People & Places */}
         <SidebarGroup>
           <SidebarGroupLabel>People & Places</SidebarGroupLabel>
@@ -414,9 +489,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     tooltip="Donors"
                     isActive={pathname === "/admin/donors" || pathname?.startsWith("/admin/donors/")}
                   >
-                    <Link href="/admin/donors">
+                    <Link href="/admin/donors" className="flex w-full items-center gap-2">
                       <IconUsers />
                       <span>Donors</span>
+                      <NotificationBadge count={counts.donors} />
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -468,6 +544,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                       <Link href="/admin/distributions" className="flex w-full items-center gap-2">
                         <IconReceipt />
                         <span>Distributions</span>
+                        <NotificationBadge count={counts.distributions} />
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -501,9 +578,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     tooltip="Volunteers"
                     isActive={pathname === "/admin/volunteers" || pathname?.startsWith("/admin/volunteers/")}
                   >
-                    <Link href="/admin/volunteers">
+                    <Link href="/admin/volunteers" className="flex w-full items-center gap-2">
                       <IconUserHeart />
                       <span>Volunteers</span>
+                      <NotificationBadge count={counts.volunteers} />
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

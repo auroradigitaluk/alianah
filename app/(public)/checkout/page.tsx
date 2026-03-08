@@ -540,7 +540,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
     postcode: "",
     country: "GB",
     giftAid: false,
-    marketingConsent: false,
+    marketingConsent: true, // Agreed via statement on page
     coverFees: false,
   })
   const [errors, setErrors] = React.useState<Record<string, string>>({})
@@ -718,14 +718,28 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
   React.useEffect(() => {
     if (typeof window === "undefined") return
     const saved = window.sessionStorage.getItem(formStorageKey)
-    if (!saved) return
+    const giftAidParam = searchParams.get("giftAid")
+    const giftAidFromUrl = giftAidParam === "true" || giftAidParam === "false" ? giftAidParam === "true" : undefined
+    if (!saved) {
+      if (giftAidFromUrl !== undefined) {
+        setFormData((prev) => ({ ...prev, giftAid: giftAidFromUrl }))
+      }
+      return
+    }
     try {
       const parsed = JSON.parse(saved) as Partial<typeof formData>
-      setFormData((prev) => ({ ...prev, ...parsed }))
+      setFormData((prev) => ({
+        ...prev,
+        ...parsed,
+        // Prefer Gift Aid from URL (from /giftaid page) when present
+        ...(giftAidFromUrl !== undefined ? { giftAid: giftAidFromUrl } : {}),
+      }))
     } catch {
-      // ignore corrupt storage
+      if (giftAidFromUrl !== undefined) {
+        setFormData((prev) => ({ ...prev, giftAid: giftAidFromUrl }))
+      }
     }
-  }, [])
+  }, [searchParams])
 
   React.useEffect(() => {
     if (typeof window === "undefined") return
@@ -1308,93 +1322,10 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
             </Card>
 
             <Card className="!bg-transparent shadow-none hover:shadow-none">
-              <CardHeader>
-                <CardTitle>Gift Aid</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Restored Gift Aid section (as before) */}
-                <div className="bg-card text-card-foreground rounded-lg p-4 space-y-3 border">
-                  <div>
-                    <p className="font-semibold text-base mb-1 text-foreground">
-                      Boost your donation by 25% at no extra cost to you
-                    </p>
-                    <p className="text-sm text-foreground/80">
-                      If you&apos;re a UK taxpayer, you can claim Gift Aid. The government will add 25% to your donation - you don&apos;t need to pay anything extra!
-                    </p>
-                  </div>
-                  <div className="bg-primary text-primary-foreground rounded-lg p-3 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-primary-foreground/80">Your donation:</span>
-                      <span className="font-medium text-primary-foreground">{formatCurrency(totalPence)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-primary-foreground/80">Government top-up (25%):</span>
-                      <span
-                        className={`font-medium ${
-                          formData.giftAid ? "text-primary-foreground" : "text-primary-foreground/70"
-                        }`}
-                      >
-                        +{formatCurrency(Math.round(totalPence * 0.25))}
-                      </span>
-                    </div>
-                    <div className="pt-2 border-t flex justify-between font-semibold">
-                      <span>Total we receive:</span>
-                      <span className={formData.giftAid ? "text-primary-foreground" : "text-primary-foreground/70"}>
-                        {formatCurrency(Math.round(totalPence * 1.25))}
-                      </span>
-                    </div>
-                    {!formData.giftAid && (
-                      <p className="text-xs text-primary-foreground/80 pt-1">
-                        Check the box below to claim Gift Aid
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="giftAid"
-                    checked={formData.giftAid}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, giftAid: checked === true })
-                    }
-                  />
-                  <Label htmlFor="giftAid" className="font-normal cursor-pointer">
-                    I am a UK taxpayer and would like to claim Gift Aid
-                  </Label>
-                </div>
-                {formData.giftAid && (
-                  <>
-                    <div className="text-sm text-muted-foreground bg-muted p-4 rounded-lg">
-                      <p className="mb-2">
-                        I confirm I am a UK taxpayer and understand that if I pay less Income Tax and/or Capital Gains Tax than the amount of Gift Aid claimed on all my donations in that tax year it is my responsibility to pay any difference.
-                      </p>
-                      <p>
-                        Please notify us if you want to cancel this declaration, change your name or home address, or no longer pay sufficient tax on your income and/or capital gains.
-                      </p>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="!bg-transparent shadow-none hover:shadow-none">
-              <CardHeader>
-                <CardTitle>Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="marketingConsent"
-                    checked={formData.marketingConsent}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, marketingConsent: checked === true })
-                    }
-                    disabled={loading}
-                  />
-                  <Label htmlFor="marketingConsent" className="font-normal cursor-pointer">
-                    I’d like to receive updates about appeals and campaigns
-                  </Label>
-                </div>
+              <CardContent className="pt-0">
+                <p className="text-sm text-muted-foreground">
+                  By completing this donation, you agree that we may send you updates about our appeals and how your support is making a difference.
+                </p>
               </CardContent>
             </Card>
 

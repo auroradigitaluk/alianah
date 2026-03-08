@@ -18,9 +18,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { IconPencil, IconUpload, IconFileText, IconMail, IconCheck, IconEye, IconX, IconSend, IconDownload } from "@tabler/icons-react"
 import { ExternalLink } from "lucide-react"
-import { generateCompletionReportPDF } from "@/lib/pdf-generator"
-import { formatDate, formatDonorName, formatPaymentMethod, displayDonorEmail } from "@/lib/utils"
+import { formatDate, formatDonorName, formatPaymentMethod, displayDonorEmail, formatCurrency } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { IconDroplet, IconClock } from "@tabler/icons-react"
+import { Wallet } from "lucide-react"
 
 interface WaterProjectDonation {
   id: string
@@ -31,6 +33,7 @@ interface WaterProjectDonation {
   giftAid: boolean
   emailSent: boolean
   reportSent: boolean
+  donationNumber?: string | null
   notes: string | null
   status: string | null
   createdAt: Date | string
@@ -47,6 +50,9 @@ interface WaterProjectDonation {
     country: string
     pricePence: number
   } | null
+  countryName?: string | null
+  projectTypeSnapshot?: string | null
+  waterProject?: { projectType: string } | null
   fundraiser?: {
     id: string
     slug: string
@@ -112,9 +118,7 @@ export function WaterProjectDonationsTable({
   const [notes, setNotes] = useState("")
   const [savingNotes, setSavingNotes] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
-  const [uploadingImages, setUploadingImages] = useState(false)
-  const [generatingReport, setGeneratingReport] = useState(false)
-  const [completionImages, setCompletionImages] = useState<string[]>([])
+  const [uploadingPdf, setUploadingPdf] = useState(false)
   const [completionReport, setCompletionReport] = useState("")
   const [completionReportPDF, setCompletionReportPDF] = useState<string | null>(null)
   const [googleDriveLink, setGoogleDriveLink] = useState("")
@@ -195,121 +199,40 @@ export function WaterProjectDonationsTable({
     }
   }
 
-  const handleUploadImages = async (files: FileList | null) => {
-    if (!files || files.length === 0 || !selectedDonation) return
-
-    setUploadingImages(true)
+  const handleUploadPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedDonation) return
+    if (file.type !== "application/pdf") {
+      toast.error("Please upload a PDF file")
+      return
+    }
+    setUploadingPdf(true)
     try {
       const formData = new FormData()
-      Array.from(files).forEach(file => {
-        formData.append("files", file)
-      })
-
-      const response = await fetch("/api/admin/water-projects/upload", {
+      formData.append("file", file)
+      const response = await fetch("/api/admin/water-projects/upload-pdf", {
         method: "POST",
         body: formData,
       })
-
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to upload images")
+        const err = await response.json()
+        throw new Error(err.error || "Failed to upload PDF")
       }
-
-      const { urls } = await response.json()
-      setCompletionImages([...completionImages, ...urls])
-      toast.success("Images uploaded successfully")
+      const { url } = await response.json()
+      setCompletionReportPDF(url)
+      toast.success("Report PDF uploaded")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to upload images")
+      toast.error(error instanceof Error ? error.message : "Failed to upload PDF")
     } finally {
-      setUploadingImages(false)
-    }
-  }
-
-  const handleGenerateReport = async () => {
-    if (completionImages.length !== 4) {
-      toast.error("Please upload exactly 4 images before generating a report")
-      return
-    }
-
-    if (!selectedDonation) {
-      toast.error("No donation selected")
-      return
-    }
-
-    setGeneratingReport(true)
-    try {
-      // Generate PDF report (returns blob URL)
-      const pdfBlobUrl = await generateCompletionReportPDF({
-        projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
-        country: selectedDonation.country?.country ?? "Unknown",
-        donorName: `${selectedDonation.donor.firstName} ${selectedDonation.donor.lastName}`,
-        amount: selectedDonation.amountPence,
-        completionDate: formatDate(new Date()),
-        googleDriveLink: googleDriveLink || undefined,
-        images: completionImages,
-      })
-
-      // Convert blob URL to File and upload to Vercel Blob
-      const response = await fetch(pdfBlobUrl)
-      const blob = await response.blob()
-      const pdfFile = new File([blob], `completion-report-${selectedDonation.id}.pdf`, { type: "application/pdf" })
-      
-      const formData = new FormData()
-      formData.append("file", pdfFile)
-
-      const uploadResponse = await fetch("/api/admin/water-projects/upload-pdf", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload PDF")
-      }
-
-      const { url: pdfUrl } = await uploadResponse.json()
-
-      // Also create text version for email
-      const driveLinkSection = googleDriveLink 
-        ? `\n\nView all project content and additional photos: ${googleDriveLink}`
-        : ""
-      
-      const report = `Water Project Completion Report
-
-Project Type: ${PROJECT_TYPE_LABELS[projectType] || projectType}
-Country: ${selectedDonation.country?.country ?? "Unknown"}
-Donor: ${formatDonorName(selectedDonation.donor)}
-Amount: £${((selectedDonation.amountPence || 0) / 100).toFixed(2)}
-
-Status: Complete
-
-This project has been successfully completed. The images below show the completed work.${driveLinkSection}
-
-Completion Date: ${formatDate(new Date())}
-
-Thank you for your generous support in making this project possible.`
-
-      setCompletionReport(report)
-      setCompletionReportPDF(pdfUrl)
-      
-      // Clean up blob URL
-      URL.revokeObjectURL(pdfBlobUrl)
-      
-      toast.success("PDF report generated and uploaded successfully")
-    } catch (error) {
-      console.error("Error generating PDF:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to generate report")
-    } finally {
-      setGeneratingReport(false)
+      setUploadingPdf(false)
+      e.target.value = ""
     }
   }
 
   const handleReviewReport = () => {
-    if (!selectedDonation || completionImages.length !== 4) {
-      toast.error("Please upload exactly 4 images before reviewing")
-      return
-    }
+    if (!selectedDonation) return
     if (!completionReportPDF) {
-      toast.error("Please generate a PDF report before reviewing")
+      toast.error("Please upload your completion report (PDF) before sending")
       return
     }
     setReviewingReport(true)
@@ -325,8 +248,8 @@ Thank you for your generous support in making this project possible.`
         headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         status: "COMPLETE",
-        completionImages,
-        completionReport,
+        completionImages: [],
+        completionReport: completionReport || "",
         completionReportPDF: completionReportPDF,
         googleDriveLink: googleDriveLink || null,
       }),
@@ -339,6 +262,9 @@ Thank you for your generous support in making this project possible.`
 
       toast.success("Donation marked as complete and email sent to donor")
       setReviewingReport(false)
+      setCompletionReportPDF(null)
+      setCompletionReport("")
+      setGoogleDriveLink("")
       setSelectedDonation(null)
       window.location.reload()
     } catch (error) {
@@ -352,10 +278,20 @@ Thank you for your generous support in making this project possible.`
     setReviewingReport(false)
   }
 
+  // Reset completion state when switching or closing donation
+  useEffect(() => {
+    if (!selectedDonation) {
+      setCompletionReportPDF(null)
+      setCompletionReport("")
+      setGoogleDriveLink("")
+    }
+  }, [selectedDonation])
+
   const handleExportDonations = () => {
     try {
       // Create CSV content
       const headers = [
+        "Order No.",
         "Donor First Name",
         "Donor Last Name",
         "Email",
@@ -368,6 +304,7 @@ Thank you for your generous support in making this project possible.`
         "Gift Aid",
       ]
       const rows = donations.map(d => [
+        d.donationNumber ?? getOrderNumberFromNotes(d.notes) ?? "",
         d.donor.firstName,
         d.donor.lastName,
         displayDonorEmail(d.donor.email),
@@ -454,6 +391,7 @@ Thank you for your generous support in making this project possible.`
 
   const stats = {
     total: donations.length,
+    totalAmountPence: donations.reduce((sum, d) => sum + (d.amountPence ?? 0), 0),
     complete: donations.filter(d => d.status === "COMPLETE").length,
     ongoing: donations.filter(d => {
       const status = d.status
@@ -463,20 +401,60 @@ Thank you for your generous support in making this project possible.`
 
   return (
     <>
-      {/* Quick Stats */}
-      <div className="mb-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="p-3 bg-muted/50 rounded-lg">
-          <p className="text-xs text-muted-foreground">Total Donations</p>
-          <p className="text-lg font-bold">{stats.total}</p>
-        </div>
-        <div className="p-3 bg-muted/50 rounded-lg">
-          <p className="text-xs text-muted-foreground">Ongoing</p>
-          <p className="text-lg font-bold text-orange-600">{stats.ongoing}</p>
-        </div>
-        <div className="p-3 bg-muted/50 rounded-lg">
-          <p className="text-xs text-muted-foreground">Complete</p>
-          <p className="text-lg font-bold text-primary">{stats.complete}</p>
-        </div>
+      {/* Stats cards – same design as dashboard */}
+      <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-primary/5 to-card border-primary/20">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <CardTitle className="text-sm font-medium">Total donations</CardTitle>
+            <div className="rounded-lg bg-primary/10 p-2">
+              <IconDroplet className="h-4 w-4 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground mt-1">Quantity</p>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-card border-blue-500/20">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <CardTitle className="text-sm font-medium">Total amount</CardTitle>
+            <div className="rounded-lg bg-blue-500/10 p-2">
+              <Wallet className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalAmountPence)}</div>
+            <p className="text-xs text-muted-foreground mt-1">£ amount</p>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-card border-orange-500/20">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <CardTitle className="text-sm font-medium">Ongoing</CardTitle>
+            <div className="rounded-lg bg-orange-500/10 p-2">
+              <IconClock className="h-4 w-4 text-orange-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold">{stats.ongoing}</div>
+            <p className="text-xs text-muted-foreground mt-1">Quantity</p>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden bg-gradient-to-br from-green-500/10 via-green-500/5 to-card border-green-500/20">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <CardTitle className="text-sm font-medium">Complete</CardTitle>
+            <div className="rounded-lg bg-green-500/10 p-2">
+              <IconCheck className="h-4 w-4 text-green-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold">{stats.complete}</div>
+            <p className="text-xs text-muted-foreground mt-1">Quantity</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters and Actions */}
@@ -536,7 +514,6 @@ Thank you for your generous support in making this project possible.`
           setSelectedDonation(donation)
           setNotes("")
           setEditingNotes(false)
-          setCompletionImages([])
           setCompletionReport("")
           setCompletionReportPDF(null)
           setGoogleDriveLink("")
@@ -557,7 +534,7 @@ Thank you for your generous support in making this project possible.`
             header: "Order No.",
             cell: (donation) => (
               <div className="text-xs font-mono">
-                {getOrderNumberFromNotes(donation.notes) || <span className="text-muted-foreground">-</span>}
+                {(donation.donationNumber ?? getOrderNumberFromNotes(donation.notes)) || <span className="text-muted-foreground">-</span>}
               </div>
             ),
           },
@@ -565,20 +542,8 @@ Thank you for your generous support in making this project possible.`
             id: "country",
             header: "Country",
             cell: (donation) => (
-              <div className="font-medium">{donation.country?.country ?? "Deleted country"}</div>
+              <div className="font-medium">{donation.country?.country ?? donation.countryName ?? "Deleted country"}</div>
             ),
-          },
-          {
-            id: "plaque",
-            header: "Plaque",
-            cell: (donation) => {
-              const plaque = donation.plaqueName ?? donation.fundraiser?.plaqueName ?? getPlaqueNameFromNotes(donation.notes)
-              return (
-                <div className="text-sm max-w-[120px] truncate" title={plaque ?? undefined}>
-                  {plaque || <span className="text-muted-foreground">—</span>}
-                </div>
-              )
-            },
           },
           {
             id: "amount",
@@ -707,11 +672,11 @@ Thank you for your generous support in making this project possible.`
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Project Type</p>
-                    <p className="text-base font-medium mt-1">{PROJECT_TYPE_LABELS[projectType] || projectType}</p>
+                    <p className="text-base font-medium mt-1">{(PROJECT_TYPE_LABELS[selectedDonation.projectTypeSnapshot ?? projectType]) ?? (selectedDonation.projectTypeSnapshot ?? projectType)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Country</p>
-                    <p className="text-base font-medium mt-1">{selectedDonation.country?.country ?? "Deleted country"}</p>
+                    <p className="text-base font-medium mt-1">{selectedDonation.country?.country ?? selectedDonation.countryName ?? "Deleted country"}</p>
                   </div>
                 </div>
                 {(selectedDonation.plaqueName || selectedDonation.fundraiser?.plaqueName || getPlaqueNameFromNotes(selectedDonation.notes)) && (
@@ -738,10 +703,10 @@ Thank you for your generous support in making this project possible.`
                     <p className="text-sm font-mono mt-1">{selectedDonation.transactionId}</p>
                   </div>
                 )}
-                {getOrderNumberFromNotes(selectedDonation.notes) && (
+                {(selectedDonation.donationNumber ?? getOrderNumberFromNotes(selectedDonation.notes)) && (
                   <div className="pt-2 border-t">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Order Number</p>
-                    <p className="text-sm font-mono mt-1">{getOrderNumberFromNotes(selectedDonation.notes)}</p>
+                    <p className="text-sm font-mono mt-1">{selectedDonation.donationNumber ?? getOrderNumberFromNotes(selectedDonation.notes)}</p>
                   </div>
                 )}
               </div>
@@ -891,55 +856,56 @@ Thank you for your generous support in making this project possible.`
             {selectedDonation.status !== "COMPLETE" && (
               <div className="space-y-3 border-t pt-4">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion Management</h3>
+                <p className="text-xs text-muted-foreground">
+                  Upload your own completion report (PDF) and optionally add a Google Drive link. The report and link will be sent to the donor.
+                </p>
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label>Completion Images (Required: 4 images)</Label>
-                    <div className="flex gap-2 items-center">
+                    <Label>Your Completion Report (PDF) *</Label>
+                    <div className="flex gap-2 items-center flex-wrap">
                       <input
                         type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => handleUploadImages(e.target.files)}
-                        disabled={uploadingImages}
+                        accept="application/pdf"
+                        onChange={handleUploadPdf}
+                        disabled={uploadingPdf}
                         className="hidden"
-                        id="completion-images-input"
+                        id="completion-pdf-input"
                       />
                       <Button
                         type="button"
-                        onClick={() => document.getElementById('completion-images-input')?.click()}
-                        disabled={uploadingImages}
+                        variant="outline"
+                        onClick={() => document.getElementById("completion-pdf-input")?.click()}
+                        disabled={uploadingPdf}
                       >
-                        {uploadingImages ? "Uploading..." : "Choose Files"}
+                        <IconFileText className="h-4 w-4 mr-1" />
+                        {uploadingPdf ? "Uploading..." : "Upload PDF"}
                       </Button>
-                      {uploadingImages && <div className="text-sm text-muted-foreground">Uploading...</div>}
-                    </div>
-                    {completionImages.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-4 gap-2 mt-2">
-                          {completionImages.map((url, idx) => (
-                            <div key={idx} className="relative">
-                              <img
-                                src={url}
-                                alt={`Completion ${idx + 1}`}
-                                className="w-full h-24 object-cover rounded border"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="absolute top-1 right-1 h-6 w-6 bg-destructive/80 hover:bg-destructive text-white"
-                                onClick={() => setCompletionImages(completionImages.filter((_, i) => i !== idx))}
-                              >
-                                <IconX className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
+                      {completionReportPDF && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(completionReportPDF, "_blank")}
+                          >
+                            <IconEye className="h-4 w-4 mr-1" />
+                            Preview
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCompletionReportPDF(null)}
+                            className="text-muted-foreground"
+                          >
+                            Remove
+                          </Button>
                         </div>
-                        <p className={`text-xs ${completionImages.length === 4 ? 'text-primary' : 'text-orange-600'}`}>
-                          {completionImages.length} of 4 images uploaded
-                        </p>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Create the report yourself and upload it here. It will be sent to the donor in the completion email.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>Google Drive Link (Optional)</Label>
@@ -950,79 +916,28 @@ Thank you for your generous support in making this project possible.`
                       onChange={(e) => setGoogleDriveLink(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Add a Google Drive link for the donor to view all project content and additional photos
+                      Add a Google Drive link so the donor can view all project files and additional photos.
                     </p>
                   </div>
-
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>Completion Report (PDF)</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleGenerateReport}
-                        disabled={generatingReport || completionImages.length !== 4}
-                      >
-                        <IconFileText className="h-4 w-4 mr-1" />
-                        {generatingReport ? "Generating..." : "Generate PDF Report"}
-                      </Button>
-                    </div>
-                    {completionReportPDF && (
-                      <div className="p-3 bg-muted rounded-lg border">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium">PDF Report Generated</p>
-                            <p className="text-xs text-muted-foreground">Click to preview or download</p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(completionReportPDF, "_blank")}
-                            >
-                              <IconEye className="h-4 w-4 mr-1" />
-                              Preview
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const link = document.createElement("a")
-                                link.href = completionReportPDF
-                                link.download = `completion-report-${selectedDonation?.id}.pdf`
-                                link.click()
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <Label>Email message (Optional)</Label>
                     <Textarea
-                      transform="titleCase"
                       value={completionReport}
                       onChange={(e) => setCompletionReport(e.target.value)}
-                      placeholder="Text version of report (for email preview)..."
-                      rows={4}
+                      placeholder="Short message to include in the email body..."
+                      rows={3}
                       className="text-sm"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      The PDF report will be automatically generated with Alianah branding. The text above is for email preview.
-                    </p>
                   </div>
 
-                  {completionImages.length === 4 && completionReportPDF && (
+                  {completionReportPDF && (
                     <Button
                       type="button"
                       onClick={handleReviewReport}
                       className="w-full"
                     >
                       <IconEye className="h-4 w-4 mr-2" />
-                      Review & Send Report
+                      Review & Send to Donor
                     </Button>
                   )}
                 </div>
@@ -1049,36 +964,7 @@ Thank you for your generous support in making this project possible.`
 
                     <div className="space-y-4">
                       <div>
-                        <Label className="text-sm font-medium mb-2 block">Completion Images ({completionImages.length}/4)</Label>
-                        <div className="grid grid-cols-4 gap-2">
-                          {completionImages.map((url, idx) => (
-                            <img
-                              key={idx}
-                              src={url}
-                              alt={`Completion ${idx + 1}`}
-                              className="w-full h-32 object-cover rounded border"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      {googleDriveLink && (
-                        <div>
-                          <Label className="text-sm font-medium mb-2 block">Google Drive Link</Label>
-                          <div className="p-3 bg-muted rounded-lg border">
-                            <a
-                              href={googleDriveLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline break-all"
-                            >
-                              {googleDriveLink}
-                            </a>
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">PDF Report</Label>
+                        <Label className="text-sm font-medium mb-2 block">Completion Report (PDF)</Label>
                         <div className="p-4 bg-muted rounded-lg border space-y-2">
                           {completionReportPDF ? (
                             <>
@@ -1108,14 +994,27 @@ Thank you for your generous support in making this project possible.`
                                 </Button>
                               </div>
                               <p className="text-xs text-muted-foreground">
-                                This custom PDF report with Alianah branding will be sent to the donor.
+                                This report will be sent to the donor.
                               </p>
                             </>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">PDF report not generated</p>
-                          )}
+                          ) : null}
                         </div>
                       </div>
+                      {googleDriveLink ? (
+                        <div>
+                          <Label className="text-sm font-medium mb-2 block">Google Drive Link</Label>
+                          <div className="p-3 bg-muted rounded-lg border">
+                            <a
+                              href={googleDriveLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline break-all"
+                            >
+                              {googleDriveLink}
+                            </a>
+                          </div>
+                        </div>
+                      ) : null}
 
                       <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                         <p className="text-sm text-yellow-700 dark:text-yellow-400">
@@ -1185,45 +1084,9 @@ Thank you for your generous support in making this project possible.`
                     </div>
                   )}
                   {selectedDonation.reportSent && (
-                    <div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            // Generate PDF on demand for download
-                            const pdfUrl = await generateCompletionReportPDF({
-                              projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
-                              country: selectedDonation.country?.country ?? "Unknown",
-                              donorName: formatDonorName(selectedDonation.donor),
-                              amount: selectedDonation.amountPence,
-                              completionDate: selectedDonation.completedAt 
-                                ? formatDate(selectedDonation.completedAt)
-                                : formatDate(new Date()),
-                              googleDriveLink: undefined,
-                              images: [], // Images not available for completed donations
-                            })
-                            
-                            // Download the PDF
-                            const link = document.createElement("a")
-                            link.href = pdfUrl
-                            const safeFileName = formatDonorName(selectedDonation.donor).replace(/[^a-z0-9]/gi, '-').toLowerCase()
-                            link.download = `completion-report-${selectedDonation.id}-${safeFileName}.pdf`
-                            link.click()
-                            
-                            // Clean up blob URL after download
-                            setTimeout(() => URL.revokeObjectURL(pdfUrl), 100)
-                          } catch (error) {
-                            toast.error("Failed to generate PDF report")
-                            console.error("Error generating PDF:", error)
-                          }
-                        }}
-                      >
-                        <IconFileText className="h-4 w-4 mr-1" />
-                        Download Report PDF
-                      </Button>
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Completion report was sent to the donor by email.
+                    </p>
                   )}
                 </div>
               </div>
