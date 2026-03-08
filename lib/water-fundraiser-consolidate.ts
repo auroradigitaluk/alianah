@@ -14,6 +14,31 @@ export type ConsolidateOptions = {
 }
 
 /**
+ * Returns why a water fundraiser cannot be consolidated (for user-facing message). Call when ensureWaterFundraiserConsolidated returns null.
+ */
+export async function getWaterFundraiserConsolidateReason(
+  fundraiserId: string
+): Promise<string> {
+  const fundraiser = await prisma.fundraiser.findUnique({
+    where: { id: fundraiserId },
+    include: { waterProjectCountry: true, waterProject: true },
+  })
+  if (!fundraiser) return "Fundraiser not found."
+  if (fundraiser.consolidatedWaterProjectDonationId != null)
+    return "Already added to water projects."
+  if (!fundraiser.waterProjectId || !fundraiser.waterProject)
+    return "Not a water project fundraiser or project was removed."
+  if (!fundraiser.waterProjectCountryId || !fundraiser.waterProjectCountry)
+    return "No country selected for this water fundraiser. Edit the fundraiser and choose a country, then try again."
+  const target = fundraiser.targetAmountPence ?? 0
+  if (target <= 0) return "No target amount set."
+  const { totalRaisedPence } = await getFundraiserTotalRaisedAndCount(fundraiserId, true)
+  if (totalRaisedPence < target)
+    return `Total raised (£${(totalRaisedPence / 100).toFixed(2)}) is below target (£${(target / 100).toFixed(2)}).`
+  return "Unable to consolidate."
+}
+
+/**
  * When a water fundraiser reaches its target (online + approved offline), create one
  * WaterProjectDonation (consolidated) so it appears on the water pumps/wells/tanks/wudhu
  * admin page for processing and ordering. Idempotent: if already consolidated, no-op.
@@ -31,14 +56,12 @@ export async function ensureWaterFundraiserConsolidated(
       waterProject: true,
     },
   })
-  if (
-    !fundraiser?.waterProjectId ||
-    !fundraiser.waterProjectCountryId ||
-    !fundraiser.waterProject ||
-    !fundraiser.waterProjectCountry ||
-    fundraiser.consolidatedWaterProjectDonationId != null
-  )
-    return null
+  if (!fundraiser) return null
+  if (fundraiser.consolidatedWaterProjectDonationId != null) return null
+  if (!fundraiser.waterProjectId || !fundraiser.waterProject)
+    return null // not a water fundraiser or project deleted
+  if (!fundraiser.waterProjectCountryId || !fundraiser.waterProjectCountry)
+    return null // no country selected for this water fundraiser
 
   const target = fundraiser.targetAmountPence ?? 0
   if (target <= 0) return null

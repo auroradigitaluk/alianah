@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
-import { ensureWaterFundraiserConsolidated } from "@/lib/water-fundraiser-consolidate"
+import {
+  ensureWaterFundraiserConsolidated,
+  getWaterFundraiserConsolidateReason,
+} from "@/lib/water-fundraiser-consolidate"
 
 export const dynamic = "force-dynamic"
 
@@ -28,10 +31,10 @@ export async function POST(
         message: "Added to water projects page for processing.",
       })
     }
+    const reason = await getWaterFundraiserConsolidateReason(id)
     return NextResponse.json({
       alreadyDone: true,
-      message:
-        "Either already added to water projects, target not yet met, or fundraiser is not eligible.",
+      message: reason,
     })
   } catch (error) {
     console.error("Consolidate water fundraiser error:", error)

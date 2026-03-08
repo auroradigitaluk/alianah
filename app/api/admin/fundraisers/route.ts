@@ -11,6 +11,7 @@ const createSchema = z
   .object({
     appealId: z.string().optional(),
     waterProjectId: z.string().optional(),
+    waterProjectCountryId: z.string().optional(),
     title: z.string().min(1).optional(),
     fundraiserName: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email"),
@@ -25,6 +26,13 @@ const createSchema = z
         code: z.ZodIssueCode.custom,
         path: ["appealId"],
         message: "Select either an appeal or a water project",
+      })
+    }
+    if (data.waterProjectId && !data.waterProjectCountryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["waterProjectCountryId"],
+        message: "Water project fundraiser requires a country selection",
       })
     }
   })
@@ -81,6 +89,21 @@ export async function POST(request: NextRequest) {
       if (!project.isActive) {
         return NextResponse.json({ error: "This water project is not active" }, { status: 403 })
       }
+      if (data.waterProjectCountryId) {
+        const country = await prisma.waterProjectCountry.findFirst({
+          where: {
+            id: data.waterProjectCountryId,
+            projectType: project.projectType,
+            isActive: true,
+          },
+        })
+        if (!country) {
+          return NextResponse.json(
+            { error: "Invalid country for this water project" },
+            { status: 400 }
+          )
+        }
+      }
       const waterProjectLabels: Record<string, string> = {
         WATER_PUMP: "Water Pumps",
         WATER_WELL: "Water Wells",
@@ -108,6 +131,7 @@ export async function POST(request: NextRequest) {
       data: {
         ...(appealId ? { appealId } : {}),
         ...(waterProjectId ? { waterProjectId } : {}),
+        ...(data.waterProjectCountryId ? { waterProjectCountryId: data.waterProjectCountryId } : {}),
         title,
         slug,
         fundraiserName: data.fundraiserName,

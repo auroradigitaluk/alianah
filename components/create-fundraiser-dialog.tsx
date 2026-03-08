@@ -214,7 +214,10 @@ export function CreateFundraiserDialog({
         targetAmountPence: targetPence,
       }
       if (campaignType === "APPEAL") body.appealId = campaignId
-      else body.waterProjectId = campaignId
+      else {
+        body.waterProjectId = campaignId
+        if (selectedCountryId) body.waterProjectCountryId = selectedCountryId
+      }
 
       const response = await fetch("/api/admin/fundraisers", {
         method: "POST",

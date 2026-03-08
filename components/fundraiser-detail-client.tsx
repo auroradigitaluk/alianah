@@ -21,6 +21,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   formatCurrency,
   formatEnum,
   formatDate,
@@ -47,6 +54,7 @@ import {
   Pencil,
 } from "lucide-react"
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
+import { toast } from "sonner"
 
 interface FundraiserDetails {
   id: string
@@ -59,6 +67,9 @@ interface FundraiserDetails {
   isActive: boolean
   createdAt: string
   consolidatedWaterProjectDonationId?: string | null
+  waterProject?: { id: string; projectType: string } | null
+  waterProjectCountryId?: string | null
+  waterProjectCountry?: { id: string; country: string } | null
   campaign: {
     id: string
     title: string
@@ -119,6 +130,8 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [consolidating, setConsolidating] = useState(false)
+  const [editWaterProjectCountryId, setEditWaterProjectCountryId] = useState("")
+  const [waterCountries, setWaterCountries] = useState<{ id: string; country: string }[]>([])
 
   const fetchDetails = useCallback(async () => {
     setLoading(true)
@@ -189,8 +202,28 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
       setEditTargetAmountPence(
         details.targetAmountPence != null ? (details.targetAmountPence / 100).toFixed(2) : ""
       )
+      setEditWaterProjectCountryId(details.waterProjectCountryId ?? "")
       setEditError(null)
       setIsEditing(true)
+      if (details.campaign.type === "WATER" && details.waterProject?.projectType) {
+        fetch(`/api/admin/water-projects/countries?projectType=${details.waterProject.projectType}`)
+          .then((res) => res.json())
+          .then((list: unknown) => {
+            if (Array.isArray(list)) {
+              setWaterCountries(
+                list
+                  .filter(
+                    (c): c is { id: string; country: string } =>
+                      c && typeof c === "object" && "id" in c && "country" in c
+                  )
+                  .map((c) => ({ id: c.id, country: c.country }))
+              )
+            }
+          })
+          .catch(() => setWaterCountries([]))
+      } else {
+        setWaterCountries([])
+      }
     }
   }
 
@@ -228,6 +261,9 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
           email,
           message: editMessage.trim() || null,
           targetAmountPence,
+          ...(details.campaign.type === "WATER"
+            ? { waterProjectCountryId: editWaterProjectCountryId || null }
+            : {}),
         }),
       })
       if (!res.ok) {
@@ -412,14 +448,20 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                             const res = await fetch(`/api/admin/fundraisers/${fundraiserId}/consolidate-water`, {
                               method: "POST",
                             })
-                            const data = await res.json()
-                            if (!res.ok) throw new Error(data.error ?? "Failed")
-                            if (data.success) {
-                              router.refresh()
-                              setDetails((d) =>
-                                d ? { ...d, consolidatedWaterProjectDonationId: data.donationId } : d
-                              )
+                            const data = await res.json().catch(() => ({}))
+                            if (!res.ok) {
+                              toast.error(data.error ?? "Failed to add to water projects")
+                              return
                             }
+                            if (data.success) {
+                              toast.success("Added to water projects. You can process it under Water Projects.")
+                              await fetchDetails()
+                              router.refresh()
+                            } else {
+                              toast.info(data.message ?? "Already added or not eligible.")
+                            }
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Something went wrong")
                           } finally {
                             setConsolidating(false)
                           }
@@ -475,6 +517,30 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                   onChange={(e) => setEditTargetAmountPence(e.target.value)}
                 />
               </div>
+              {details.campaign.type === "WATER" && waterCountries.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Water project country</Label>
+                  <Select
+                    value={editWaterProjectCountryId || "_none"}
+                    onValueChange={(v) => setEditWaterProjectCountryId(v === "_none" ? "" : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">No country selected</SelectItem>
+                      {waterCountries.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Required for &quot;Move to Active Projects&quot; to work.
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Message</Label>
                 <Textarea
@@ -516,6 +582,17 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                     <p className="font-mono text-sm">{details.slug}</p>
                   </div>
                 </div>
+                {details.campaign.type === "WATER" && (
+                  <div className="flex items-center gap-3">
+                    <Megaphone className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Water project country</p>
+                      <p className="font-medium">
+                        {details.waterProjectCountry?.country ?? "Not set"}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">

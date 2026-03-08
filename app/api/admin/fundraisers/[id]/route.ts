@@ -12,6 +12,7 @@ const updateSchema = z
     email: z.string().email("Invalid email").optional(),
     message: z.string().nullable().optional(),
     targetAmountPence: z.union([z.number().int().min(0), z.null()]).optional(),
+    waterProjectCountryId: z.union([z.string().min(1), z.null()]).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: "At least one field required" })
 
@@ -42,6 +43,12 @@ export async function GET(
             projectType: true,
             description: true,
             isActive: true,
+          },
+        },
+        waterProjectCountry: {
+          select: {
+            id: true,
+            country: true,
           },
         },
         donations: {
@@ -288,12 +295,45 @@ export async function PATCH(
       email?: string
       message?: string | null
       targetAmountPence?: number | null
+      waterProjectCountryId?: string | null
     } = {}
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.fundraiserName !== undefined) updateData.fundraiserName = data.fundraiserName
     if (data.email !== undefined) updateData.email = data.email
     if (data.message !== undefined) updateData.message = data.message
     if (data.targetAmountPence !== undefined) updateData.targetAmountPence = data.targetAmountPence
+    if (data.waterProjectCountryId !== undefined) {
+      if (data.waterProjectCountryId === null) {
+        updateData.waterProjectCountryId = null
+      } else {
+        const existing = await prisma.fundraiser.findUnique({
+          where: { id },
+          select: { waterProjectId: true },
+        })
+        if (existing?.waterProjectId) {
+          const project = await prisma.waterProject.findUnique({
+            where: { id: existing.waterProjectId },
+            select: { projectType: true },
+          })
+          if (project) {
+            const country = await prisma.waterProjectCountry.findFirst({
+              where: {
+                id: data.waterProjectCountryId!,
+                projectType: project.projectType,
+                isActive: true,
+              },
+            })
+            if (!country) {
+              return NextResponse.json(
+                { error: "Invalid country for this water project" },
+                { status: 400 }
+              )
+            }
+          }
+        }
+        updateData.waterProjectCountryId = data.waterProjectCountryId
+      }
+    }
 
     const fundraiser = await prisma.fundraiser.update({
       where: { id },

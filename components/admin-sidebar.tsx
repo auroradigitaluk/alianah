@@ -155,13 +155,6 @@ const sponsorshipItems = [
   { title: "Manage Projects", url: "/admin/sponsorships", hideForStaff: true },
 ]
 
-const fundraiserItems = [
-  { title: "Fundraisers", url: "/admin/fundraisers", hideForStaff: false },
-  { title: "Offline to Review", url: "/admin/fundraisers/cash-review", hideForStaff: false },
-  { title: "Create Fundraiser", url: "/admin/fundraisers/new", hideForStaff: false },
-  { title: "Insights", url: "/admin/fundraisers/insights", hideForStaff: false },
-  { title: "Complete", url: "/admin/fundraisers/closed", hideForStaff: false },
-]
 
 function useAdminRole() {
   const [role, setRole] = React.useState<string | null>(null)
@@ -183,9 +176,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   )
   const [sponsorshipMenuOpen, setSponsorshipMenuOpen] = React.useState(
     pathname?.startsWith("/admin/sponsorships") || false
-  )
-  const [fundraiserMenuOpen, setFundraiserMenuOpen] = React.useState(
-    pathname?.startsWith("/admin/fundraisers") || false
   )
 
   const isWaterProjectActive = pathname?.startsWith("/admin/water-projects")
@@ -440,38 +430,13 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip="Fundraisers"
-                  isActive={isFundraiserActive}
-                  onClick={() => setFundraiserMenuOpen(!fundraiserMenuOpen)}
-                >
-                  <IconUsers />
-                  <span>Fundraisers</span>
-                  <NotificationBadge count={counts.fundraisers} />
-                  {fundraiserMenuOpen ? (
-                    <IconChevronDown className="ml-auto" />
-                  ) : (
-                    <IconChevronRight className="ml-auto" />
-                  )}
+                <SidebarMenuButton asChild tooltip="Fundraisers" isActive={isFundraiserActive}>
+                  <Link href="/admin/fundraisers" className="flex w-full items-center gap-2">
+                    <IconUsers />
+                    <span>Fundraisers</span>
+                    <NotificationBadge count={counts.fundraisers} />
+                  </Link>
                 </SidebarMenuButton>
-                {fundraiserMenuOpen && (
-                  <SidebarMenuSub>
-                    {fundraiserItems
-                      .filter((item) => role !== "STAFF" || !item.hideForStaff)
-                      .map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={pathname === item.url}
-                          >
-                            <Link href={item.url}>
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                  </SidebarMenuSub>
-                )}
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
