@@ -1,12 +1,16 @@
 import { notFound } from "next/navigation"
+import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { getFundraiserTotalRaisedAndCount } from "@/lib/fundraiser-totals"
+import { getFundraiserEmail } from "@/lib/fundraiser-auth"
 import { FundraiserForm } from "@/components/fundraiser-form"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
 import { FundraiserInlineDonation } from "@/components/fundraiser-inline-donation"
 import { FundraiserPublicCashForm } from "@/components/fundraiser-public-cash-form"
 import { FundraiserRecentDonations } from "@/components/fundraiser-recent-donations"
 import { FundraisingSlideshow } from "@/components/fundraising-slideshow"
+import { Button } from "@/components/ui/button"
+import { LayoutDashboard } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
 
@@ -214,12 +218,16 @@ export default async function FundraisePage({
 
   if (fundraiser) {
     // Render fundraiser page
+    const [sessionEmail, { totalRaisedPence, donationCount }] = await Promise.all([
+      getFundraiserEmail(),
+      getFundraiserTotalRaisedAndCount(fundraiser.id, Boolean(fundraiser.waterProjectId && fundraiser.waterProject)),
+    ])
     const isWaterFundraiser = Boolean(fundraiser.waterProjectId && fundraiser.waterProject)
     const completedDonations = fundraiser.donations
-    const { totalRaisedPence, donationCount } = await getFundraiserTotalRaisedAndCount(
-      fundraiser.id,
-      isWaterFundraiser
-    )
+    const isOwner =
+      sessionEmail != null &&
+      fundraiser.email != null &&
+      sessionEmail === fundraiser.email.trim().toLowerCase()
     const totalRaised = totalRaisedPence
 
     const progressPercentage = fundraiser.targetAmountPence
@@ -254,6 +262,17 @@ export default async function FundraisePage({
     return (
       <div className="min-h-screen bg-[#fafafa] dark:bg-background">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-10">
+          {isOwner && (
+            <div className="mb-4 flex flex-wrap items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm">
+              <span className="text-muted-foreground">You&apos;re the owner of this campaign.</span>
+              <Button asChild variant="default" size="sm" className="gap-1.5">
+                <Link href="/fundraise/dashboard">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Manage campaigns
+                </Link>
+              </Button>
+            </div>
+          )}
           {/* Centered header - LaunchGood style */}
           <header className="text-center mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 dark:text-foreground tracking-tight max-w-3xl mx-auto">
@@ -439,15 +458,10 @@ export default async function FundraisePage({
               <p className="text-muted-foreground text-base sm:text-lg">{project.description}</p>
             )}
           </div>
-          <div className="mb-4 sm:mb-6">
-            <FundraiserForm
-              waterProjectId={project.id}
-              waterProjectType={project.projectType}
-              campaignTitle={title}
-              defaultMessage={project.fundraisingDefaultMessage}
-              plaqueAvailable={project.plaqueAvailable}
-            />
-          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            Creating new fundraising pages for water projects is currently unavailable. You can still
+            support our water projects by donating through our main campaigns.
+          </p>
         </div>
       </div>
     )

@@ -2,25 +2,41 @@
 
 import * as React from "react"
 import Image from "next/image"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { FundraiserLogoutButton } from "@/components/fundraiser-logout-button"
 import { Button } from "@/components/ui/button"
 import { Share2 } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
-
-const DONATE_SECTION_ID = "donate-section"
 
 export function FundraiserHeader() {
+  const [loggedIn, setLoggedIn] = React.useState<boolean | null>(null)
   const [copied, setCopied] = React.useState(false)
+  const pathname = usePathname()
+
+  const isFundraisePage = Boolean(pathname?.match(/^\/fundraise\/[^/]+$/))
+
+  React.useEffect(() => {
+    fetch("/api/fundraisers/me")
+      .then((res) => res.json())
+      .then((data: { email?: string | null }) => setLoggedIn(Boolean(data?.email)))
+      .catch(() => setLoggedIn(false))
+  }, [])
 
   const handleShare = () => {
-    const url = typeof window !== "undefined" ? window.location.href : ""
+    if (typeof window === "undefined") return
+    const url = window.location.href
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
   }
 
-  const handleDonate = () => {
-    document.getElementById(DONATE_SECTION_ID)?.scrollIntoView({ behavior: "smooth", block: "start" })
+  const handleDonateClick = () => {
+    if (typeof document === "undefined") return
+    document
+      .getElementById("donate-section")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
   return (
@@ -43,21 +59,48 @@ export function FundraiserHeader() {
           />
           <span className="text-foreground font-semibold">Alianah Humanity Welfare</span>
         </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleShare}
-            className="hidden sm:inline-flex gap-1.5"
-          >
-            <Share2 className="h-4 w-4" />
-            {copied ? "Copied!" : "Share"}
-          </Button>
-          <Button type="button" size="sm" onClick={handleDonate}>
-            Donate
-          </Button>
+        <div className="flex items-center gap-3">
+          {isFundraisePage && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+                className="hidden sm:inline-flex"
+              >
+                <Share2 className="h-4 w-4 mr-1.5" />
+                {copied ? "Copied!" : "Share"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleDonateClick}
+                className="hidden sm:inline-flex bg-primary text-primary-foreground hover:opacity-90"
+              >
+                Donate
+              </Button>
+            </>
+          )}
+          {loggedIn === true && (
+            <>
+              <Link
+                href="/fundraiser/dashboard"
+                className="text-sm font-medium text-foreground hover:text-primary underline-offset-4 hover:underline hidden sm:inline"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/fundraiser/donations"
+                className="text-sm font-medium text-foreground hover:text-primary underline-offset-4 hover:underline hidden sm:inline"
+              >
+                Donations
+              </Link>
+              <FundraiserLogoutButton />
+              <ThemeToggle />
+            </>
+          )}
+          {loggedIn !== true && <ThemeToggle />}
         </div>
       </div>
     </header>

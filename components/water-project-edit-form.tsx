@@ -426,7 +426,6 @@ Thank you for your support in making this project possible.`
       <Tabs defaultValue="details" className="w-full">
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="fundraising">Fundraising</TabsTrigger>
         </TabsList>
         <TabsContent value="details" className="mt-4 space-y-6">
           <div className="space-y-2">
@@ -738,88 +737,6 @@ Thank you for your support in making this project possible.`
         </div>
       )}
 
-        </TabsContent>
-        <TabsContent value="fundraising" className="mt-4 space-y-6">
-          <div className="space-y-2">
-            <Label>Fundraising</Label>
-            <Button
-              type="button"
-              variant={allowFundraising ? "default" : "outline"}
-              onClick={() => setAllowFundraising(!allowFundraising)}
-              className="h-9"
-            >
-              {allowFundraising ? "Fundraising Enabled" : "Fundraising Disabled"}
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              When enabled, supporters can create fundraising pages for this water project.
-            </p>
-          </div>
-
-          {allowFundraising && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="fundraisingDefaultMessage">Fundraising Default Description</Label>
-                <Textarea
-                  id="fundraisingDefaultMessage"
-                  value={fundraisingDefaultMessage}
-                  onChange={(e) => setFundraisingDefaultMessage(e.target.value)}
-                  placeholder="Enter the default message shown on the fundraiser page."
-                  rows={4}
-                />
-                <p className="text-sm text-muted-foreground">
-                  This message is pre-filled for fundraisers and can be edited by them.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>Fundraising Images</Label>
-                <p className="text-sm text-muted-foreground">
-                  Upload at least 1 image to display on fundraising pages for this project.
-                </p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFundraisingImageUpload}
-                  className="hidden"
-                  id="fundraising-image-upload"
-                  disabled={uploading}
-                />
-                <Label htmlFor="fundraising-image-upload">
-                  <Button type="button" variant="outline" asChild disabled={uploading}>
-                    <span>
-                      <IconUpload className="h-4 w-4 mr-2" />
-                      {uploading ? "Uploading..." : "Upload Images"}
-                    </span>
-                  </Button>
-                </Label>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {fundraisingImages.length}/1 minimum uploaded
-              </p>
-              {fundraisingImages.length > 0 && (
-                <div className="grid grid-cols-3 gap-4">
-                  {fundraisingImages.map((url, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={url}
-                        alt={`Fundraising ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100"
-                        onClick={() => removeFundraisingImage(index)}
-                      >
-                        <IconX className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </TabsContent>
       </Tabs>
 

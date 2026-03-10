@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -148,6 +149,11 @@ export function FundraiserDonationCard({
     }
   }
 
+  const fundraiseCampaignId = appeal?.id ?? null
+  const fundraiseHref = fundraiseCampaignId
+    ? `/fundraiser/create?campaignId=${fundraiseCampaignId}`
+    : "/fundraiser/create"
+
   const statsContent = (
     <div className="p-5 sm:p-6 flex flex-col space-y-5">
 <div className="text-center space-y-2">
@@ -166,15 +172,18 @@ export function FundraiserDonationCard({
       </p>
 
       <div className="flex flex-col gap-2">
-        <Button
-          variant="outline"
-          onClick={handleShare}
-          className="w-full h-12 rounded-lg border-neutral-300 dark:border-input text-neutral-700 dark:text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary text-base"
-          size="lg"
-        >
-          <Share2 className="h-4 w-4 mr-2" />
-          {copied ? "Copied!" : "Share"}
-        </Button>
+        {appeal && (
+          <Button
+            asChild
+            variant="outline"
+            className="w-full h-12 rounded-lg border-neutral-300 dark:border-input text-neutral-700 dark:text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary text-base"
+            size="lg"
+          >
+            <Link href={fundraiseHref}>
+              Start Your Own Fundraiser
+            </Link>
+          </Button>
+        )}
         <Button
           onClick={scrollToDonateForm}
           className="w-full h-12 rounded-lg bg-primary text-primary-foreground hover:opacity-90 text-base"

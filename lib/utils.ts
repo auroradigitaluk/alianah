@@ -34,7 +34,7 @@ export function getFundraiserBaseUrl(): string {
   const raw =
     process.env.NEXT_PUBLIC_FUNDRAISER_BASE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000"
+    "https://give.alianah.org"
   return raw.replace(/\/$/, "")
 }
 

@@ -7,13 +7,14 @@ export function PublicGlowBg({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? ""
   const isCheckout = pathname === "/checkout" || pathname.startsWith("/checkout/")
   const isFundraise = pathname === "/fundraise" || pathname.startsWith("/fundraise/")
+  const isFundraiserHub = pathname === "/fundraiser" || pathname.startsWith("/fundraiser/")
 
   if (isCheckout) {
     return <>{children}</>
   }
 
-  // Fundraise: theme-aware background + subtle green tint (works in both light and dark mode)
-  if (isFundraise) {
+  // Fundraiser hub + fundraise: theme-aware background + subtle green tint (works in both light and dark mode)
+  if (isFundraiserHub || isFundraise) {
     return (
       <div className="min-h-screen">
         <div className="fixed inset-0 -z-10 min-h-screen bg-[oklch(0.98_0.01_142)] dark:bg-[oklch(0.12_0.02_142)]" />

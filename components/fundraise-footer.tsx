@@ -8,7 +8,12 @@ import { LogIn } from "lucide-react"
 
 export function FundraiseFooter() {
   const pathname = usePathname()
-  const loginHref = `/fundraise/login?redirect=${encodeURIComponent(pathname || "/")}`
+  // Main fundraiser hub is /fundraiser; from fundraise/fundraiser pages send to dashboard after login
+  const redirectAfterLogin =
+    pathname?.startsWith("/fundraise") || pathname?.startsWith("/fundraiser")
+      ? "/fundraiser/dashboard"
+      : (pathname || "/")
+  const loginHref = `/fundraiser/login?redirect=${encodeURIComponent(redirectAfterLogin)}`
 
   return (
     <footer className="border-t bg-muted/30 py-6 md:py-8">

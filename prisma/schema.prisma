@@ -277,6 +277,18 @@ model Fundraiser {
   @@map("fundraisers")
 }
 
+model FundraiserProfile {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@map("fundraiser_profiles")
+}
+
 model FundraiserCashDonation {
   id                  String    @id @default(cuid())
   fundraiserId        String?   // SetNull when fundraiser deleted – keep donation data

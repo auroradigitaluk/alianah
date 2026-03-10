@@ -229,7 +229,7 @@ export function FundraiserForm({
         if (errorData.requiresLogin) {
           // Get current path to redirect back to the same appeal page
           const currentPath = window.location.pathname
-          const loginUrl = `/fundraise/login?redirect=${encodeURIComponent(currentPath)}&email=${encodeURIComponent(payload.email)}`
+          const loginUrl = `/fundraiser/login?redirect=${encodeURIComponent(currentPath)}&email=${encodeURIComponent(payload.email)}`
           router.push(loginUrl)
           return
         }

@@ -6,7 +6,9 @@ import { FundraiserHeader } from "@/components/fundraiser-header"
 
 export function PublicHeaderWrapper() {
   const pathname = usePathname()
-  const isFundraiserPage = Boolean(pathname?.match(/^\/fundraise\/[^/]+$/))
+  // Fundraiser header: public campaign page (/fundraise/slug) or hub + create/login/dashboard (/fundraiser, /fundraiser/*)
+  const isFundraiserPage =
+    Boolean(pathname?.match(/^\/fundraise\/[^/]+$/)) || pathname?.startsWith("/fundraiser")
 
   if (isFundraiserPage) {
     return <FundraiserHeader />

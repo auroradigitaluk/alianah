@@ -21,23 +21,20 @@ import { getOrganizationSettings } from "@/lib/settings"
 import type { OrganizationSettings } from "@/lib/settings"
 import { createCollectionReceiptToken } from "@/lib/collection-receipt-token"
 
-/** Base URL for email links. */
+/** Base URL for email links. Always use our public domain (give.alianah.org) unless explicitly overridden. */
 function getEmailBaseUrl(settings: OrganizationSettings | null): string {
-  const vercelUrl = process.env.VERCEL_URL
-  if (vercelUrl && !vercelUrl.startsWith("localhost")) {
-    return `https://${vercelUrl.replace(/\/$/, "")}`
+  const candidate =
+    process.env.NEXT_PUBLIC_FUNDRAISER_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    settings?.websiteUrl ||
+    "https://give.alianah.org"
+
+  try {
+    // Normalise and ensure we only keep the origin (protocol + host)
+    return new URL(candidate).origin
+  } catch {
+    return "https://give.alianah.org"
   }
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
-  }
-  if (settings?.websiteUrl) {
-    try {
-      return new URL(settings.websiteUrl).origin
-    } catch {
-      // fall through
-    }
-  }
-  return "https://www.alianah.org"
 }
 
 // Lazy initialization to avoid errors during build when API key is not available

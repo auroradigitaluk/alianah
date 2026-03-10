@@ -15,7 +15,7 @@ export function FundraiserLogoutButton() {
       await fetch("/api/fundraisers/logout", {
         method: "POST",
       })
-      router.push("/fundraise/login")
+      router.push("/fundraiser")
       router.refresh()
     } catch (error) {
       console.error("Logout error:", error)

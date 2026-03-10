@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { nanoid } from "nanoid"
 import { sendFundraiserWelcomeEmail } from "@/lib/email"
+import { getFundraiserEmail } from "@/lib/fundraiser-auth"
 
 const fundraiserSchema = z
   .object({
@@ -40,22 +41,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = fundraiserSchema.parse(body)
 
-    // Check if email already has fundraisers - if so, require login
+    // If email already has fundraisers, allow creation only when session email matches (returning user)
+    const sessionEmail = await getFundraiserEmail()
+    const bodyEmailNormalized = data.email.trim().toLowerCase()
     const existingFundraiser = await prisma.fundraiser.findFirst({
-      where: {
-        email: data.email,
-      },
-      select: {
-        id: true,
-      },
+      where: { email: bodyEmailNormalized },
+      select: { id: true },
     })
 
-    if (existingFundraiser) {
+    if (existingFundraiser && (!sessionEmail || sessionEmail !== bodyEmailNormalized)) {
       return NextResponse.json(
-        { 
+        {
           error: "Email already registered",
           requiresLogin: true,
-          message: "This email is already registered. Please login to create a new fundraiser."
+          message: "This email is already registered. Please login to create a new fundraiser.",
         },
         { status: 403 }
       )
