@@ -81,6 +81,7 @@ async function getFundraisers(email: string) {
                 : ""
 
       const isWater = Boolean(fundraiser.waterProject)
+      const customImages = parseImageArray(fundraiser.customImageUrls)
       const fundraisingImages = isWater
         ? parseImageArray(fundraiser.waterProject?.fundraisingImageUrls)
         : parseImageArray(fundraiser.appeal?.fundraisingImageUrls)
@@ -88,7 +89,7 @@ async function getFundraisers(email: string) {
         ? parseImageArray(fundraiser.waterProject?.projectImageUrls)
         : parseImageArray(fundraiser.appeal?.appealImageUrls)
       const imageUrl =
-        fundraisingImages[0] || fallbackImages[0] || defaultImage
+        customImages[0] || fundraisingImages[0] || fallbackImages[0] || defaultImage
 
       return {
         ...fundraiser,

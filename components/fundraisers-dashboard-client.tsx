@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { FundraisersDashboardKpis, type FundraiserStats } from "@/components/fundraisers-dashboard-kpis"
@@ -55,6 +56,7 @@ export function FundraisersDashboardClient({
   listTitle,
 }: FundraisersDashboardClientProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const router = useRouter()
 
   return (
     <div className="space-y-6">
@@ -70,11 +72,7 @@ export function FundraisersDashboardClient({
         </div>
         {showCreateButton && (
           <Button
-            onClick={() => {
-              if (typeof window !== "undefined") {
-                window.open("https://give.alianah.org/fundraiser", "_blank", "noopener,noreferrer")
-              }
-            }}
+            onClick={() => router.push("/fundraiser")}
             className="shrink-0"
           >
             <Plus className="mr-2 h-4 w-4" />

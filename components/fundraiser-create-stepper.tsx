@@ -69,10 +69,17 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
   const [waterQuantity, setWaterQuantity] = React.useState(1)
   const [plaqueName, setPlaqueName] = React.useState("")
 
+  // Custom cause
+  const [isCustom, setIsCustom] = React.useState(false)
+  const [customImageUrls, setCustomImageUrls] = React.useState<string[]>([])
+  const [customImagesUploading, setCustomImagesUploading] = React.useState(false)
+  const [customImagesError, setCustomImagesError] = React.useState("")
+
   // Step 4: title & details
   const [title, setTitle] = React.useState("")
   const [fundraiserName, setFundraiserName] = React.useState("")
   const [message, setMessage] = React.useState("")
+  const [detailsError, setDetailsError] = React.useState("")
 
   // Step 5: submit
   const [submitting, setSubmitting] = React.useState(false)
@@ -127,12 +134,12 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
 
   // Pre-fill "Why are you fundraising?" from the campaign's fundraising description (admin) when entering step 5
   React.useEffect(() => {
-    if (step !== 5 || !selectedCampaign) return
+    if (step !== 5 || !selectedCampaign || isCustom) return
     const defaultMsg = selectedCampaign.fundraisingDefaultMessage
     if (defaultMsg && typeof defaultMsg === "string" && defaultMsg.trim() && !message.trim()) {
       setMessage(defaultMsg.trim())
     }
-  }, [step, selectedCampaign?.id, selectedCampaign?.fundraisingDefaultMessage, message])
+  }, [step, selectedCampaign?.id, selectedCampaign?.fundraisingDefaultMessage, message, isCustom])
   const campaignTitle = selectedCampaign?.title ?? ""
 
   // Fetch water countries when water campaign selected
@@ -217,13 +224,68 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
     }
     setProfileError("")
     setProfileSaved(true)
-    setFundraiserName(`${firstName.trim()} ${lastName.trim()}`)
     setStep(3)
   }
 
   const handlePreset = (pence: number) => {
     setTargetAmountPence(pence)
     setTargetInputValue((pence / 100).toFixed(2))
+  }
+
+  const handleCustomImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setCustomImagesError("")
+    setCustomImagesUploading(true)
+
+    const maxSize = 5 * 1024 * 1024 // 5MB
+
+    try {
+      // Client-side validation before any upload
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) {
+          setCustomImagesError("Please upload image files only.")
+          setCustomImagesUploading(false)
+          e.target.value = ""
+          return
+        }
+        if (file.size > maxSize) {
+          setCustomImagesError("One or more images are larger than 5MB. Please choose smaller files.")
+          setCustomImagesUploading(false)
+          e.target.value = ""
+          return
+        }
+      }
+
+      const newUrls: string[] = []
+      for (const file of Array.from(files)) {
+        const formData = new FormData()
+        formData.append("file", file)
+        const res = await fetch("/api/fundraisers/upload", {
+          method: "POST",
+          body: formData,
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          const errMsg =
+            data && typeof data.error === "string" && data.error
+              ? data.error
+              : "Failed to upload image"
+          setCustomImagesError(errMsg)
+          continue
+        }
+        const data = (await res.json()) as { url?: string }
+        if (data.url) {
+          newUrls.push(data.url)
+        }
+      }
+      if (newUrls.length > 0) {
+        setCustomImageUrls((prev) => [...prev, ...newUrls])
+      }
+    } finally {
+      setCustomImagesUploading(false)
+      e.target.value = ""
+    }
   }
 
   const handleFinalise = async (e: React.FormEvent) => {
@@ -259,6 +321,14 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
         payload.waterProjectCountryId = waterCountryId
         if (selectedCampaign.plaqueAvailable && plaqueName.trim()) {
           payload.plaqueName = plaqueName.trim()
+        }
+      }
+
+      if (isCustom) {
+        const trimmedImages = customImageUrls.map((u) => u.trim()).filter(Boolean)
+        payload.isCustom = true
+        if (trimmedImages.length > 0) {
+          payload.customImageUrls = trimmedImages
         }
       }
 
@@ -516,7 +586,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
             Choose a campaign
           </h2>
           <p className="text-muted-foreground text-sm mb-6">
-            Select the cause you want to fundraise for.
+            Select the cause you want to fundraise for, or create your own custom cause.
           </p>
         </div>
         <div className="grid gap-3">
@@ -526,7 +596,10 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
               <button
                 key={campaign.id}
                 type="button"
-                onClick={() => setSelectedCampaign(campaign)}
+                onClick={() => {
+                  setSelectedCampaign(campaign)
+                  setIsCustom(false)
+                }}
                 className={`rounded-xl border p-4 text-left transition-all ${
                   isSelected
                     ? "border-primary bg-primary/10 ring-2 ring-primary/30"
@@ -542,6 +615,31 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
               </button>
             )
           })}
+          <button
+            type="button"
+            onClick={() => {
+              // Default to first eligible campaign as the underlying destination
+              const defaultCampaign = eligibleCampaigns[0] ?? null
+              setSelectedCampaign(defaultCampaign)
+              setIsCustom(true)
+            }}
+            className={`rounded-xl border p-4 text-left transition-all flex flex-col gap-1 ${
+              isCustom
+                ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                : "border-dashed border-border bg-muted/10 hover:border-primary/30 hover:bg-primary/5"
+            }`}
+          >
+            <div className="text-xs font-semibold uppercase tracking-wide text-primary">
+              Custom cause
+            </div>
+            <div className="font-medium text-foreground">
+              Create your own campaign
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Perfect for other organisations or individuals raising for their own masjid, project
+              or personal cause. You&apos;ll add your own title, story and images.
+            </p>
+          </button>
         </div>
         <Button
           className="w-full h-11"
@@ -744,10 +842,12 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
             Create fundraiser
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-2">
-            Campaign title & your name
+            {isCustom ? "Your campaign details" : "Campaign title & your name"}
           </h2>
           <p className="text-muted-foreground text-sm mb-6">
-            This will appear on your public fundraiser page.
+            {isCustom
+              ? "Tell people what your custom cause is about. This appears on your public fundraiser page."
+              : "This will appear on your public fundraiser page."}
           </p>
         </div>
 
@@ -755,6 +855,31 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault()
+            setDetailsError("")
+            const nameOk = fundraiserName.trim().length > 0
+            const wordCount = message.trim()
+              ? message
+                  .trim()
+                  .split(/\s+/)
+                  .filter(Boolean).length
+              : 0
+            const messageOk = wordCount >= 100
+            const imageCount = customImageUrls.length
+
+            if (!nameOk) {
+              setDetailsError("Please enter a display name (this can be your name or your organisation’s name).")
+              return
+            }
+            if (!messageOk) {
+              setDetailsError("Please write at least 100 words about why you are fundraising.")
+              return
+            }
+
+            if (isCustom && imageCount < 3) {
+              setDetailsError("Please upload at least 3 images for your custom campaign.")
+              return
+            }
+
             setStep(6)
           }}
         >
@@ -762,36 +887,93 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
             <Label htmlFor="title">Campaign title</Label>
             <Input
               id="title"
-              value={title || defaultTitle}
+              value={isCustom ? title : title || defaultTitle}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={defaultTitle}
+              placeholder={
+                isCustom
+                  ? "e.g. Rebuild our masjid in Mumbai"
+                  : defaultTitle
+              }
               className="h-11"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="name">Your name *</Label>
+            <Label htmlFor="name">Your name or organisation *</Label>
             <Input
               id="name"
               value={fundraiserName}
               onChange={(e) => setFundraiserName(e.target.value)}
-              placeholder="Display name"
-              required
+              placeholder="e.g. Fatima Khan, Al-Noor Masjid Trust"
               transform="titleCase"
               className="h-11"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="message">Why are you fundraising? (optional)</Label>
+            <Label htmlFor="message">Why are you fundraising? (min 100 words)</Label>
             <Textarea
               id="message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Share your story..."
-              rows={3}
+              placeholder="Explain who you are raising for, what the funds will be used for, and why this cause matters. Aim for at least 3–4 short paragraphs (minimum 100 words)."
+              rows={6}
               className="resize-none"
             />
           </div>
-          <Button type="submit" className="w-full h-11" disabled={!fundraiserName.trim()}>
+          {detailsError && <p className="text-sm text-destructive">{detailsError}</p>}
+          {isCustom && (
+            <div className="space-y-2">
+              <Label>Campaign images (upload at least 3 images)</Label>
+              <p className="text-xs text-muted-foreground">
+                These images will be used on your fundraiser page and share card. Max size 5MB per
+                image. Minimum 3 images required.
+              </p>
+              <div className="space-y-3">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleCustomImageUpload}
+                  disabled={customImagesUploading}
+                  className="h-10 cursor-pointer file:cursor-pointer"
+                />
+                {customImageUrls.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {customImageUrls.map((url) => (
+                      <div
+                        key={url}
+                        className="relative w-full aspect-square overflow-hidden rounded-md border bg-muted group"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt="Uploaded campaign image preview"
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCustomImageUrls((prev) => prev.filter((existing) => existing !== url))
+                          }
+                          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                          aria-label="Remove image"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Uploaded images: {customImageUrls.length}
+                </p>
+                {customImagesError && (
+                  <p className="text-xs text-destructive">{customImagesError}</p>
+                )}
+              </div>
+            </div>
+          )}
+          <Button type="submit" className="w-full h-11">
             Continue
             <ArrowRight className="ml-2 size-4" />
           </Button>

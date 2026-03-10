@@ -24,6 +24,7 @@ async function getFundraiserForLive(slug: string) {
         title: true,
         fundraiserName: true,
         targetAmountPence: true,
+        customImageUrls: true,
         appeal: {
           select: {
             fundraisingImageUrls: true,
@@ -40,6 +41,7 @@ async function getFundraiserForLive(slug: string) {
     })
     if (!fundraiser) return null
 
+    const customImages = parseImageArray(fundraiser.customImageUrls)
     const isWater = Boolean(fundraiser.waterProject)
     const fundraisingImages = isWater
       ? parseImageArray(fundraiser.waterProject?.fundraisingImageUrls)
@@ -48,6 +50,7 @@ async function getFundraiserForLive(slug: string) {
       ? parseImageArray(fundraiser.waterProject?.projectImageUrls)
       : parseImageArray(fundraiser.appeal?.appealImageUrls)
     const imageUrl =
+      customImages[0] ||
       fundraisingImages[0] ||
       fallbackImages[0] ||
       "https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_3000/https://alianah.org/wp-content/uploads/2025/05/4-1.webp"
@@ -74,6 +77,7 @@ export default async function FundraiserCreateLivePage({
   const data = await getFundraiserForLive(slug)
   if (!data) notFound()
 
+  // Use the public giving domain (e.g. give.alianah.org) for shareable links
   const baseUrl = getFundraiserBaseUrl()
   const campaignUrl = `${baseUrl}/fundraise/${data.slug}`
 

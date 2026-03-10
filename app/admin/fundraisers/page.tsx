@@ -17,7 +17,7 @@ export const revalidate = 0
 
 export type { EligibleCampaign } from "./get-fundraisers"
 
-const VALID_TABS = ["all", "offline", "insights", "complete"] as const
+const VALID_TABS = ["all", "offline", "insights", "complete", "custom"] as const
 
 export default async function FundraisersPage({
   searchParams,
@@ -48,6 +48,7 @@ export default async function FundraisersPage({
                 {tab === "offline" && <FundraiserCashReviewOverview />}
                 {tab === "insights" && <FundraisersTabInsights />}
                 {tab === "complete" && <FundraisersTabComplete />}
+                {tab === "custom" && <FundraisersTabCustom />}
               </div>
             </div>
           </div>
@@ -111,6 +112,27 @@ async function FundraisersTabComplete() {
       pageTitle="Complete"
       pageDescription="Fundraisers that have reached their target or been closed. Open any row to view details or move water fundraisers to the water projects page for processing."
       listTitle="Complete fundraisers"
+    />
+  )
+}
+
+async function FundraisersTabCustom() {
+  const where = { isCustom: true }
+  const [fundraisers, stats] = await Promise.all([
+    getFundraisers(where),
+    getFundraiserStats(where),
+  ])
+
+  return (
+    <FundraisersDashboardClient
+      fundraisers={fundraisers}
+      stats={stats}
+      byCampaign={[]}
+      eligibleCampaigns={[]}
+      showAppealsTab={false}
+      pageTitle="Custom fundraisers"
+      pageDescription="Fundraisers created by external organisations or individuals for their own projects. Open any row to review details and donations."
+      listTitle="Custom fundraisers"
     />
   )
 }

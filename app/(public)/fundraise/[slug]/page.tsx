@@ -239,6 +239,7 @@ export default async function FundraisePage({
       : ["GENERAL"]
 
     // Parse fundraising images - use fundraising images if available, otherwise fallback to appeal images, then hardcoded
+    const customImages: string[] = parseImageArray(fundraiser.customImageUrls)
     const fundraisingImages: string[] = isWaterFundraiser
       ? parseImageArray(fundraiser.waterProject?.fundraisingImageUrls)
       : parseImageArray(fundraiser.appeal?.fundraisingImageUrls)
@@ -247,13 +248,15 @@ export default async function FundraisePage({
       ? parseImageArray(fundraiser.waterProject?.projectImageUrls)
       : parseImageArray(fundraiser.appeal?.appealImageUrls)
 
-    // Use first fundraising image, or first appeal image, or fallback to hardcoded
+    // Use custom images if set, otherwise first fundraising/appeal image, or fallback to hardcoded
     const slideshowImages =
-      fundraisingImages.length > 0
-        ? fundraisingImages
-        : appealImages.length > 0
-          ? appealImages
-          : ["https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_3000/https://alianah.org/wp-content/uploads/2025/05/4-1.webp"]
+      customImages.length > 0
+        ? customImages
+        : fundraisingImages.length > 0
+          ? fundraisingImages
+          : appealImages.length > 0
+            ? appealImages
+            : ["https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_3000/https://alianah.org/wp-content/uploads/2025/05/4-1.webp"]
 
     const campaignTitle = isWaterFundraiser
       ? WATER_TYPE_LABELS[fundraiser.waterProject?.projectType || ""] || "Water Project"

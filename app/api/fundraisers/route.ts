@@ -10,6 +10,8 @@ const fundraiserSchema = z
     appealId: z.string().optional(),
     waterProjectId: z.string().optional(),
     waterProjectCountryId: z.string().optional(),
+    isCustom: z.boolean().optional().default(false),
+    customImageUrls: z.array(z.string().url()).optional(),
     title: z.string().min(1),
     fundraiserName: z.string().min(1),
     email: z.string().email(),
@@ -33,6 +35,17 @@ const fundraiserSchema = z
         path: ["waterProjectCountryId"],
         message: "Water project fundraiser requires a country selection",
       })
+    }
+
+    if (data.isCustom) {
+      const images = data.customImageUrls ?? []
+      if (!Array.isArray(images) || images.length < 3) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["customImageUrls"],
+          message: "Custom fundraisers must include at least 3 image URLs",
+        })
+      }
     }
   })
 
@@ -163,16 +176,38 @@ export async function POST(request: NextRequest) {
 
     const fundraiser = await prisma.fundraiser.create({
       data: {
-        ...(appealId ? { appealId } : {}),
-        ...(waterProjectId ? { waterProjectId } : {}),
-        ...(data.waterProjectCountryId ? { waterProjectCountryId: data.waterProjectCountryId } : {}),
-        ...(data.plaqueName != null && data.plaqueName.trim() !== "" ? { plaqueName: data.plaqueName.trim() } : {}),
+        ...(appealId
+          ? {
+              appeal: {
+                connect: { id: appealId },
+              },
+            }
+          : {}),
+        ...(waterProjectId
+          ? {
+              waterProject: {
+                connect: { id: waterProjectId },
+              },
+            }
+          : {}),
+        ...(data.waterProjectCountryId
+          ? {
+              waterProjectCountry: {
+                connect: { id: data.waterProjectCountryId },
+              },
+            }
+          : {}),
+        ...(data.plaqueName != null && data.plaqueName.trim() !== ""
+          ? { plaqueName: data.plaqueName.trim() }
+          : {}),
         title,
         slug,
         fundraiserName: data.fundraiserName,
         email: data.email,
         message: data.message || null,
         targetAmountPence: data.targetAmountPence,
+        isCustom: data.isCustom ?? false,
+        customImageUrls: JSON.stringify(data.customImageUrls ?? []),
         isActive: true,
       },
     })

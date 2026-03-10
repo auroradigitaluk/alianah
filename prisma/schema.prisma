@@ -256,6 +256,8 @@ model Fundraiser {
   message                       String? // Optional message explaining why they're fundraising
   targetAmountPence             Int? // Optional target amount in pence
   plaqueName                    String? // Name on plaque (water project fundraisers; set by creator)
+  isCustom                      Boolean  @default(false) // When true, fundraiser was created as a custom cause
+  customImageUrls               String   @default("[]") // JSON string array of image URLs for custom causes
   consolidatedWaterProjectDonationId String? @unique // When water fundraiser target met: the one pump added to water table
   isActive                       Boolean  @default(true)
   createdAt                     DateTime @default(now())
