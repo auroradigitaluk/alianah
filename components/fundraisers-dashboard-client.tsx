@@ -42,6 +42,10 @@ interface FundraisersDashboardClientProps {
   pageDescription?: string
   /** Override list section heading (e.g. "Complete fundraisers") */
   listTitle?: string
+  /** When false, hide the Campaign column in the table */
+  showCampaignColumn?: boolean
+  /** When true, show a Campaign title column in the table */
+  showTitleColumn?: boolean
 }
 
 export function FundraisersDashboardClient({
@@ -54,6 +58,8 @@ export function FundraisersDashboardClient({
   pageTitle,
   pageDescription,
   listTitle,
+  showCampaignColumn = true,
+  showTitleColumn = false,
 }: FundraisersDashboardClientProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const router = useRouter()
@@ -95,6 +101,8 @@ export function FundraisersDashboardClient({
           <FundraisersTable
             fundraisers={fundraisers}
             linkToDetailPage
+            showCampaignColumn={showCampaignColumn}
+            showTitleColumn={showTitleColumn}
           />
         </div>
         {showAppealsTab && (

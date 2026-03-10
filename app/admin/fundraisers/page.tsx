@@ -60,8 +60,8 @@ export default async function FundraisersPage({
 
 async function FundraisersTabAll() {
   const [fundraisers, stats, byCampaign, eligibleCampaigns] = await Promise.all([
-    getFundraisers(),
-    getFundraiserStats(),
+    getFundraisers({ isCustom: false }),
+    getFundraiserStats({ isCustom: false }),
     getFundraisedByCampaign(),
     getEligibleCampaigns(),
   ])
@@ -133,6 +133,8 @@ async function FundraisersTabCustom() {
       pageTitle="Custom fundraisers"
       pageDescription="Fundraisers created by external organisations or individuals for their own projects. Open any row to review details and donations."
       listTitle="Custom fundraisers"
+      showCampaignColumn={false}
+      showTitleColumn
     />
   )
 }

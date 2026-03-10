@@ -126,6 +126,17 @@ async function getAppeals(range: string | null, start: string | null, end: strin
             title: true,
             fundraiserName: true,
             isActive: true,
+            donations: {
+              where: { status: "COMPLETED" },
+              select: { amountPence: true },
+            },
+            cashDonations: {
+              where: { status: "APPROVED" },
+              select: { amountPence: true },
+            },
+            waterProjectDonations: {
+              select: { amountPence: true },
+            },
           },
         },
       },

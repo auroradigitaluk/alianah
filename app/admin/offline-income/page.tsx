@@ -5,6 +5,7 @@ import { formatAdminUserName } from "@/lib/utils"
 import { OfflineIncomeTable } from "@/components/offline-income-table"
 import { OfflineIncomeModal } from "@/components/offline-income-modal"
 import { StaffFilterSelect } from "@/components/staff-filter-select"
+import { ExportCsvButton } from "@/components/export-csv-modal"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -263,6 +264,7 @@ export default async function OfflineIncomePage({
                     {staffUsers.length > 0 && (
                       <StaffFilterSelect staffUsers={staffUsers} />
                     )}
+                    <ExportCsvButton exportType="offline-income" />
                     <OfflineIncomeModal
                       appeals={appeals}
                       waterProjects={waterProjects}

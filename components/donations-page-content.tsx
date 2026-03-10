@@ -3,6 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DonationsTable } from "@/components/donations-table"
 import { AbandonedCheckoutsTable, type AbandonedCheckoutOrder } from "@/components/abandoned-checkouts-table"
+import { ExportCsvButton } from "@/components/export-csv-modal"
 
 export type DonationRow = {
   id: string
@@ -55,14 +56,17 @@ export function DonationsPageContent({
 }) {
   return (
     <Tabs defaultValue="donations" className="w-full">
-      <TabsList className="mb-4">
-        <TabsTrigger value="donations">
-          Donations
-        </TabsTrigger>
-        <TabsTrigger value="abandoned">
-          Abandoned Checkouts
-        </TabsTrigger>
-      </TabsList>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <TabsList>
+          <TabsTrigger value="donations">
+            Donations
+          </TabsTrigger>
+          <TabsTrigger value="abandoned">
+            Abandoned Checkouts
+          </TabsTrigger>
+        </TabsList>
+        <ExportCsvButton exportType="donations" />
+      </div>
       <TabsContent value="donations" className="mt-0">
         <DonationsTable donations={donations} initialSelectedId={openId} />
       </TabsContent>

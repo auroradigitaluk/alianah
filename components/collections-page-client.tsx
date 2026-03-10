@@ -3,6 +3,7 @@
 import { CollectionModal } from "@/components/collection-modal"
 import { CollectionsTable } from "@/components/collections-table"
 import { StaffFilterSelect } from "@/components/staff-filter-select"
+import { ExportCsvButton } from "@/components/export-csv-modal"
 
 type CollectionRow = {
   id: string
@@ -52,6 +53,7 @@ export function CollectionsPageClient({
         </div>
         <div className="flex flex-nowrap items-end gap-2">
           {staffUsers.length > 0 && <StaffFilterSelect staffUsers={staffUsers} />}
+          <ExportCsvButton exportType="collections" />
           {canCreate && <CollectionModal masjids={masjids} appeals={appeals} />}
         </div>
       </div>

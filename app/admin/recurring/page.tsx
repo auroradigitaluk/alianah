@@ -2,6 +2,7 @@ import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { RecurringTable } from "@/components/recurring-table"
 import { DailyGivingTabClient } from "@/components/daily-giving-tab-client"
+import { ExportCsvButton } from "@/components/export-csv-modal"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const dynamic = 'force-dynamic'
@@ -86,9 +87,12 @@ export default async function RecurringPage() {
                     <TabsTrigger value="daily-giving">Daily giving</TabsTrigger>
                   </TabsList>
                   <TabsContent value="recurring" className="mt-4">
-                    <div>
-                      <h2 className="text-base sm:text-lg font-semibold">Recurring Donations</h2>
-                      <p className="text-xs sm:text-sm text-muted-foreground">Recurring donation subscriptions</p>
+                    <div className="flex flex-wrap items-end justify-between gap-2">
+                      <div>
+                        <h2 className="text-base sm:text-lg font-semibold">Recurring Donations</h2>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Recurring donation subscriptions</p>
+                      </div>
+                      <ExportCsvButton exportType="recurring" />
                     </div>
                     <div className="mt-4">
                       <RecurringTable recurring={recurring} />

@@ -1,6 +1,7 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { DonorsTable } from "@/components/donors-table"
+import { ExportCsvButton } from "@/components/export-csv-modal"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -314,9 +315,12 @@ export default async function DonorsPage({
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
             <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
               <div className="flex flex-col gap-4 sm:gap-4 sm:gap-6">
-                <div>
-                  <h2 className="text-base sm:text-base sm:text-lg font-semibold">Donors</h2>
-                  <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">Donor information</p>
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                  <div>
+                    <h2 className="text-base sm:text-base sm:text-lg font-semibold">Donors</h2>
+                    <p className="text-xs sm:text-xs sm:text-sm text-muted-foreground">Donor information</p>
+                  </div>
+                  <ExportCsvButton exportType="donors" />
                 </div>
                 <div>
                   <DonorsTable donors={donors} initialSelectedId={params?.open ?? undefined} />

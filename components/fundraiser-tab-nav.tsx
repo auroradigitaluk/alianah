@@ -9,6 +9,7 @@ const TABS = [
   { value: "offline", label: "Offline to Review" },
   { value: "insights", label: "Insights" },
   { value: "complete", label: "Complete" },
+  { value: "custom", label: "Custom" },
 ] as const
 
 export function FundraiserTabNav() {

@@ -117,6 +117,10 @@ interface FundraisersTableProps {
   onSelectionClear?: () => void
   /** When true, row click navigates to /admin/fundraisers/[id] instead of opening the drawer */
   linkToDetailPage?: boolean
+  /** When false, hide the Campaign column */
+  showCampaignColumn?: boolean
+  /** When true, show a separate Campaign title column (fundraiser.title) */
+  showTitleColumn?: boolean
 }
 
 export function FundraisersTable({
@@ -124,6 +128,8 @@ export function FundraisersTable({
   initialSelectedId = null,
   onSelectionClear,
   linkToDetailPage = false,
+  showCampaignColumn = true,
+  showTitleColumn = false,
 }: FundraisersTableProps) {
   const router = useRouter()
   const [selectedFundraiser, setSelectedFundraiser] = useState<Fundraiser | null>(null)
@@ -481,13 +487,28 @@ export function FundraisersTable({
               <div className="text-sm">{fundraiser.fundraiserName}</div>
             ),
           },
-          {
-            id: "campaign",
-            header: "Campaign",
-            cell: (fundraiser) => (
-              <div className="text-sm">{fundraiser.campaign.title}</div>
-            ),
-          },
+          ...(showCampaignColumn
+            ? [
+                {
+                  id: "campaign" as const,
+                  header: "Campaign",
+                  cell: (fundraiser: Fundraiser) => (
+                    <div className="text-sm">{fundraiser.campaign.title}</div>
+                  ),
+                },
+              ]
+            : []),
+          ...(showTitleColumn
+            ? [
+                {
+                  id: "title" as const,
+                  header: "Campaign title",
+                  cell: (fundraiser: Fundraiser) => (
+                    <div className="text-sm">{fundraiser.title}</div>
+                  ),
+                },
+              ]
+            : []),
           {
             id: "amountRaised",
             header: "Amount Raised",

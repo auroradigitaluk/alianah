@@ -104,37 +104,54 @@ export async function getFundraiserStats(
     const baseWhere = {
       fundraiserId: { not: null },
     } as const
+
+    // When called with where.isCustom, scope donation-based stats accordingly
+    const fundraiserRelationFilter =
+      where && typeof where.isCustom === "boolean"
+        ? ({ fundraiser: { isCustom: where.isCustom } } as const)
+        : ({} as const)
+
     const [donationSum, waterAgg, cashAgg, activeCount, totalCount, donationCountDonation, donationCountWater, cashCount] =
       await Promise.all([
         getDeduplicatedDonationSum({
           ...baseWhere,
+          ...fundraiserRelationFilter,
           status: "COMPLETED",
         }),
         prisma.waterProjectDonation.aggregate({
           where: {
             fundraiserId: { not: null },
             status: { in: [...WATER_PROJECT_STATUSES] },
+            ...fundraiserRelationFilter,
           },
           _sum: { amountPence: true },
         }),
         prisma.fundraiserCashDonation.aggregate({
-          where: { status: "APPROVED" },
+          where: {
+            status: "APPROVED",
+            ...fundraiserRelationFilter,
+          },
           _sum: { amountPence: true },
         }),
         prisma.fundraiser.count({ where: { ...where, isActive: true } }),
         prisma.fundraiser.count({ where }),
         getDeduplicatedDonationCount({
           ...baseWhere,
+          ...fundraiserRelationFilter,
           status: "COMPLETED",
         }),
         prisma.waterProjectDonation.count({
           where: {
             fundraiserId: { not: null },
             status: { in: [...WATER_PROJECT_STATUSES] },
+            ...fundraiserRelationFilter,
           },
         }),
         prisma.fundraiserCashDonation.count({
-          where: { status: "APPROVED" },
+          where: {
+            status: "APPROVED",
+            ...fundraiserRelationFilter,
+          },
         }),
       ])
 

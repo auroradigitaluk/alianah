@@ -69,6 +69,9 @@ interface Appeal {
     title: string
     fundraiserName: string
     isActive: boolean
+    donations: Array<{ amountPence: number }>
+    cashDonations: Array<{ amountPence: number }>
+    waterProjectDonations: Array<{ amountPence: number }>
   }>
   products?: Array<never>
 }
@@ -293,6 +296,29 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
               : <StatusBadge isActive={appeal.isActive} />,
         },
         {
+          id: "totalRaised",
+          header: "Total Raised",
+          cell: (appeal) => {
+            const fromDonations = (appeal.donations || [])
+              .filter((d) => d.status === "COMPLETED")
+              .reduce((sum, d) => sum + d.amountPence, 0)
+            const fromOffline = (appeal.offlineIncome || []).reduce((sum, d) => sum + d.amountPence, 0)
+            const fromCollections = (appeal.collections || []).reduce((sum, d) => sum + d.amountPence, 0)
+            const fromFundraisers = (appeal.fundraisers || []).reduce((sum, f) => {
+              const d = (f.donations || []).reduce((s, x) => s + x.amountPence, 0)
+              const c = (f.cashDonations || []).reduce((s, x) => s + x.amountPence, 0)
+              const w = (f.waterProjectDonations || []).reduce((s, x) => s + x.amountPence, 0)
+              return sum + d + c + w
+            }, 0)
+            const total = fromDonations + fromOffline + fromCollections + fromFundraisers
+            return (
+              <span className="font-medium tabular-nums">
+                {formatCurrency(total)}
+              </span>
+            )
+          },
+        },
+        {
           id: "appealLink",
           header: "View",
           cell: (appeal) => (
@@ -373,13 +399,19 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
             })
             
             const fundraisers = selectedAppeal.fundraisers || []
-            
+            const fromFundraisers = fundraisers.reduce((sum, f) => {
+              const d = (f.donations || []).reduce((s, x) => s + x.amountPence, 0)
+              const c = (f.cashDonations || []).reduce((s, x) => s + x.amountPence, 0)
+              const w = (f.waterProjectDonations || []).reduce((s, x) => s + x.amountPence, 0)
+              return sum + d + c + w
+            }, 0)
+
             const totalDonations = donations
               .filter(d => d.status === "COMPLETED")
               .reduce((sum, d) => sum + d.amountPence, 0)
             const totalOffline = offlineIncome.reduce((sum, d) => sum + d.amountPence, 0)
             const totalCollections = collections.reduce((sum, d) => sum + d.amountPence, 0)
-            const totalRaised = totalDonations + totalOffline + totalCollections
+            const totalRaised = totalDonations + totalOffline + totalCollections + fromFundraisers
             
             // Calculate payment method breakdown
             const completedDonations = donations.filter(d => d.status === "COMPLETED")
@@ -824,6 +856,12 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
                                 <span className="text-sm text-muted-foreground">Collections</span>
                                 <span className="font-semibold">{formatCurrency(totalCollections)}</span>
                               </div>
+                              {fromFundraisers > 0 && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-muted-foreground">From fundraisers</span>
+                                  <span className="font-semibold">{formatCurrency(fromFundraisers)}</span>
+                                </div>
+                              )}
                               <Separator />
                               <div className="flex justify-between items-center">
                                 <span className="text-sm font-semibold">Total Raised</span>
@@ -884,6 +922,12 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
                               <span className="text-sm text-muted-foreground">Collections (Masjid)</span>
                               <span className="font-semibold">{formatCurrency(collectionsTotal)}</span>
                             </div>
+                            {fromFundraisers > 0 && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">From fundraisers (online, cash, bank, water)</span>
+                                <span className="font-semibold">{formatCurrency(fromFundraisers)}</span>
+                              </div>
+                            )}
                             <Separator />
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-semibold">Total</span>
