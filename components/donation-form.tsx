@@ -57,7 +57,7 @@ interface DonationFormProps {
   variant?: "default" | "fundraiser"
   /** For fundraiser variant: campaign title shown as "Support [campaignTitle]" */
   campaignTitle?: string
-  /** For fundraiser variant: "Organized by [organizerName]" */
+  /** For fundraiser variant: "Organised by [organizerName]" */
   organizerName?: string
 }
 
@@ -261,7 +261,7 @@ export function DonationForm({
   const showRecurringOption = appeal.allowMonthly && variant !== "fundraiser"
   const formFields = (
     <>
-      {/* Fundraiser variant: campaign header (Support X / Organized by Y) - match reference */}
+          {/* Fundraiser variant: campaign header (Support X / Organised by Y) - match reference */}
       {variant === "fundraiser" && (campaignTitleProp ?? organizerName) && (
         <div className="space-y-1.5 pb-6">
           <p className="text-neutral-800 text-left">
@@ -275,7 +275,7 @@ export function DonationForm({
             ) : null}
           </p>
           {organizerName && (
-            <p className="text-sm text-neutral-500 font-normal">Organized by {organizerName}</p>
+            <p className="text-sm text-neutral-500 font-normal">Organised by {organizerName}</p>
           )}
         </div>
       )}

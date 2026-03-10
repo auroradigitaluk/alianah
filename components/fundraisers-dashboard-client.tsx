@@ -69,7 +69,14 @@ export function FundraisersDashboardClient({
           </p>
         </div>
         {showCreateButton && (
-          <Button onClick={() => setCreateDialogOpen(true)} className="shrink-0">
+          <Button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.open("https://give.alianah.org/fundraiser", "_blank", "noopener,noreferrer")
+              }
+            }}
+            className="shrink-0"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create fundraiser
           </Button>

@@ -279,7 +279,7 @@ export default async function FundraisePage({
               {fundraiser.title}
             </h1>
             <p className="mt-2 text-sm text-neutral-500 dark:text-muted-foreground">
-              Organized by {fundraiser.fundraiserName}
+              Organised by {fundraiser.fundraiserName}
             </p>
           </header>
 

@@ -60,29 +60,7 @@ export function FundraiserHeader() {
           <span className="text-foreground font-semibold">Alianah Humanity Welfare</span>
         </div>
         <div className="flex items-center gap-3">
-          {isFundraisePage && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleShare}
-                className="hidden sm:inline-flex"
-              >
-                <Share2 className="h-4 w-4 mr-1.5" />
-                {copied ? "Copied!" : "Share"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleDonateClick}
-                className="hidden sm:inline-flex bg-primary text-primary-foreground hover:opacity-90"
-              >
-                Donate
-              </Button>
-            </>
-          )}
-          {loggedIn === true && (
+          {loggedIn === true ? (
             <>
               <Link
                 href="/fundraiser/dashboard"
@@ -96,11 +74,48 @@ export function FundraiserHeader() {
               >
                 Donations
               </Link>
+              {isFundraisePage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShare}
+                  className="hidden sm:inline-flex"
+                >
+                  <Share2 className="h-4 w-4 mr-1.5" />
+                  {copied ? "Copied!" : "Share"}
+                </Button>
+              )}
               <FundraiserLogoutButton />
               <ThemeToggle />
             </>
+          ) : (
+            <>
+              {isFundraisePage && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleShare}
+                    className="hidden sm:inline-flex"
+                  >
+                    <Share2 className="h-4 w-4 mr-1.5" />
+                    {copied ? "Copied!" : "Share"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleDonateClick}
+                    className="hidden sm:inline-flex bg-primary text-primary-foreground hover:opacity-90"
+                  >
+                    Donate
+                  </Button>
+                </>
+              )}
+              <ThemeToggle />
+            </>
           )}
-          {loggedIn !== true && <ThemeToggle />}
         </div>
       </div>
     </header>

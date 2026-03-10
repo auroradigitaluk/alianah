@@ -25,7 +25,7 @@ export function FundraiserLivePageClient({
   const [copied, setCopied] = React.useState(false)
 
   const shareText = encodeURIComponent(
-    `Please support my fundraiser: ${title}`
+    `I'm fundraising for “${title}” with Alianah Humanity Welfare 💙\n\nPlease support this cause by donating via my page 🤲`
   )
   const whatsappUrl = `https://wa.me/?text=${shareText}%20${encodeURIComponent(campaignUrl)}`
   const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(campaignUrl)}`

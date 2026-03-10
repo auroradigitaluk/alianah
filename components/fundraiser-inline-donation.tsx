@@ -241,7 +241,7 @@ export function FundraiserInlineDonation({
                   {campaignTitle}
                 </span>
               </p>
-              <p className="text-sm text-neutral-500 dark:text-muted-foreground">Organized by {organizerName}</p>
+              <p className="text-sm text-neutral-500 dark:text-muted-foreground">Organised by {organizerName}</p>
             </div>
 
             <div className="space-y-2">

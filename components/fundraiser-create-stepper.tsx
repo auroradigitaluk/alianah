@@ -42,7 +42,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
   const router = useRouter()
   const [step, setStep] = React.useState(0)
 
-  // Step 0–1: auth
+  // Step 0: auth (email only)
   const [email, setEmail] = React.useState("")
   const [otp, setOtp] = React.useState("")
   const [authLoading, setAuthLoading] = React.useState(false)
@@ -183,24 +183,8 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
     e?.preventDefault()
     if (!email.trim()) return
     setAuthError("")
-    setAuthLoading(true)
-    try {
-      const res = await fetch("/api/fundraisers/otp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || "Failed to send code")
-      }
-      setOtpSent(true)
-      setStep(1)
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : "Failed to send code")
-    } finally {
-      setAuthLoading(false)
-    }
+    // Skip OTP step – go straight to name/details
+    setStep(2)
   }
 
   const verifyOtp = async (e: React.FormEvent) => {
@@ -232,22 +216,9 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
       return
     }
     setProfileError("")
-    setProfileSaving(true)
-    try {
-      const res = await fetch("/api/fundraisers/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim() }),
-      })
-      if (!res.ok) throw new Error("Failed to save")
-      setProfileSaved(true)
-      setFundraiserName(`${firstName.trim()} ${lastName.trim()}`)
-      setStep(3)
-    } catch {
-      setProfileError("Failed to save. Please try again.")
-    } finally {
-      setProfileSaving(false)
-    }
+    setProfileSaved(true)
+    setFundraiserName(`${firstName.trim()} ${lastName.trim()}`)
+    setStep(3)
   }
 
   const handlePreset = (pence: number) => {
@@ -348,7 +319,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
           Enter your email
         </h1>
         <p className="text-muted-foreground text-sm mb-6">
-          We&apos;ll send you a one-time code to continue.
+          First, enter your email. Next we&apos;ll take your name and details to set up your fundraiser page.
         </p>
         <form onSubmit={sendOtp} className="w-full max-w-sm space-y-4">
           <div className="space-y-2">
@@ -368,10 +339,10 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
             {authLoading ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
-                Sending...
+                Please wait...
               </>
             ) : (
-              "Send code"
+              "Continue to your details"
             )}
           </Button>
         </form>
@@ -446,7 +417,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
       <div className="space-y-8 pb-20">
         <button
           type="button"
-          onClick={() => setStep(1)}
+          onClick={() => setStep(0)}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="size-4" />
