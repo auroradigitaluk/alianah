@@ -16,6 +16,7 @@ interface CashDonation {
   id: string
   amountPence: number
   donorName: string | null
+  donationNumber?: string | null
   notes: string | null
   receivedAt: string
   status: string
@@ -290,6 +291,9 @@ export function FundraiserDonationsView({
                     <div key={d.id} className="p-3 border rounded-lg text-sm">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <span className="font-semibold">{formatCurrency(d.amountPence)}</span>
+                        {d.donationNumber && (
+                          <span className="text-xs font-mono text-muted-foreground">{d.donationNumber}</span>
+                        )}
                         <Badge
                           variant={
                             d.status === "APPROVED"

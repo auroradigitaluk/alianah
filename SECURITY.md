@@ -58,3 +58,12 @@ Enterprise-level security measures implemented in this application.
 4. Enable 2FA for admin accounts (Settings → Security)
 5. Regularly rotate `ADMIN_SESSION_SECRET` (invalidates all sessions)
 6. Optionally set `FUNDRAISER_SESSION_SECRET` for fundraiser portal sessions (otherwise `ADMIN_SESSION_SECRET` is used)
+7. Set `CRON_SECRET` in production so cron endpoints (abandoned-checkout, daily-giving-odd-nights) reject unauthenticated calls.
+
+## Security review notes (hardening)
+
+- **Cron endpoints**: In production, requests are rejected if `CRON_SECRET` is not set. In development, crons can run without the secret for local testing.
+- **Recommendations** (consider; no code change made without approval):
+  - **Analytics drain** (`/api/analytics/ingest`): When receiving Vercel-drain format, auth is only checked if `ANALYTICS_DRAIN_SECRET` is set. In production, set this secret so unauthenticated drain payloads are rejected.
+  - **Donation amount caps**: Public donation endpoints (`donate-inline`, `public-cash-donation`) validate input with Zod but do not cap `amountPence`. Consider a maximum (e.g. 10M GBP) to limit abuse or integer edge cases.
+  - **Fundraiser cookie**: Uses `fundraiser_session` (no `__Host-` prefix). For extra hardening on HTTPS, a `__Host-fundraiser_session` cookie could be used in production (would require config and cookie name change).

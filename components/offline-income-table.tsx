@@ -27,8 +27,10 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Wallet, Target, Calendar, FileText, StickyNote, User, Pencil, Trash2 } from "lucide-react"
+import { Wallet, Target, Calendar, FileText, StickyNote, User, Pencil, Trash2, Gift, Mail } from "lucide-react"
 import { toast } from "sonner"
+import { CHECKOUT_COUNTRIES } from "@/lib/countries"
+import { toTitleCaseLive } from "@/lib/utils"
 
 function toDatetimeLocal(d: Date): string {
   const y = d.getFullYear()
@@ -53,6 +55,23 @@ const PAYMENT_SOURCES = [
   { value: "OFFICE_BUCKETS", label: "Office buckets" },
 ]
 
+const FUNDRAISER_PAYMENT_SOURCES = [
+  { value: "CASH", label: "Cash" },
+  { value: "BANK_TRANSFER", label: "Bank transfer" },
+]
+
+interface OfflineIncomeDonor {
+  title?: string | null
+  firstName?: string | null
+  lastName?: string | null
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  city?: string | null
+  postcode?: string | null
+  country?: string | null
+}
+
 interface OfflineIncome {
   id: string
   amountPence: number
@@ -64,7 +83,12 @@ interface OfflineIncome {
   appealId?: string | null
   notes?: string | null
   addedByName?: string | null
-  itemType?: "appeal" | "water" | "sponsorship"
+  itemType?: "appeal" | "water" | "sponsorship" | "fundraiser_cash"
+  donorName?: string | null
+  donorEmail?: string | null
+  donorPhone?: string | null
+  giftAid?: boolean
+  donor?: OfflineIncomeDonor
 }
 
 type AppealOption = { id: string; title: string }
@@ -92,7 +116,10 @@ export function OfflineIncomeTable({
   const [toDate, setToDate] = useState("")
 
   const sourceOptions = useMemo(
-    () => Array.from(new Set(income.map((item) => item.source))).sort(),
+    () =>
+      Array.from(new Set(income.map((item) => item.source).filter(Boolean)))
+        .filter((s): s is string => s != null && s !== "")
+        .sort(),
     [income]
   )
 
@@ -125,10 +152,12 @@ export function OfflineIncomeTable({
     setToDate("")
   }
 
-  const getItemType = (item: OfflineIncome): "appeal" | "water" | "sponsorship" => {
+  const getItemType = (item: OfflineIncome | null | undefined): "appeal" | "water" | "sponsorship" | "fundraiser_cash" => {
+    if (!item) return "appeal"
     if (item.itemType) return item.itemType
     if (item.id.startsWith("water-")) return "water"
     if (item.id.startsWith("sponsorship-")) return "sponsorship"
+    if (item.id.startsWith("fundraiser_cash-")) return "fundraiser_cash"
     return "appeal"
   }
 
@@ -139,25 +168,88 @@ export function OfflineIncomeTable({
     source: string
     receivedAt: string
     notes: string | null
+    giftAid?: boolean
+    sendReceiptEmail?: boolean
+    donor?: OfflineIncomeDonor
   }) => {
     if (!editingIncome) return
     setSaving(true)
     try {
+      const isAppeal = getItemType(editingIncome) === "appeal"
       const res = await fetch(`/api/admin/offline-income/${editingIncome.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amountPence: data.amountPence,
-          ...(getItemType(editingIncome) === "appeal" && { appealId: data.appealId || null }),
+          ...(isAppeal && { appealId: data.appealId || null }),
           donationType: data.donationType,
           source: data.source,
           receivedAt: data.receivedAt,
           notes: data.notes || null,
+          ...(isAppeal && data.giftAid !== undefined && { giftAid: data.giftAid }),
+          ...(isAppeal && data.sendReceiptEmail !== undefined && { sendReceiptEmail: data.sendReceiptEmail }),
+          ...(isAppeal && data.donor && { donor: data.donor }),
         }),
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || "Failed to update")
+        let errBody: { error?: string; message?: string } = {}
+        try {
+          errBody = await res.json()
+        } catch {
+          // non-JSON response (e.g. HTML error page)
+        }
+        const message = errBody.error ?? errBody.message ?? `Failed to update (${res.status})`
+        throw new Error(message)
+      }
+      toast.success("Updated")
+      setEditingIncome(null)
+      setSelectedIncome(null)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveFundraiserCash = async (data: {
+    amountPence: number
+    donationType: string
+    paymentMethod: string
+    receivedAt: string
+    donorName: string | null
+    donorEmail: string | null
+    donorPhone: string | null
+    notes: string | null
+  }) => {
+    if (!editingIncome || getItemType(editingIncome) !== "fundraiser_cash") return
+    const realId = editingIncome.id.replace(/^fundraiser_cash-/, "")
+    if (!realId) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/admin/fundraisers/cash-donations/${realId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amountPence: data.amountPence,
+          donationType: data.donationType,
+          paymentMethod: data.paymentMethod,
+          receivedAt: data.receivedAt,
+          donorName: data.donorName || null,
+          donorEmail: data.donorEmail && data.donorEmail.trim() ? data.donorEmail.trim() : null,
+          donorPhone: data.donorPhone || null,
+          notes: data.notes || null,
+        }),
+      })
+      if (!res.ok) {
+        let errBody: { error?: string; message?: string } = {}
+        try {
+          errBody = await res.json()
+        } catch {
+          // non-JSON response
+        }
+        const message = errBody.error ?? errBody.message ?? `Failed to update (${res.status})`
+        throw new Error(message)
       }
       toast.success("Updated")
       setEditingIncome(null)
@@ -344,7 +436,7 @@ export function OfflineIncomeTable({
                   {selectedIncome && `${formatCurrency(selectedIncome.amountPence)} from ${formatEnum(selectedIncome.source)}`}
                 </DialogDescription>
               </div>
-              {canEdit && (
+              {canEdit && selectedIncome && (
                 <div className="flex gap-2 shrink-0">
                   <Button
                     variant="outline"
@@ -528,23 +620,58 @@ export function OfflineIncomeTable({
         </DialogContent>
       </Dialog>
 
-      {/* Edit dialog */}
+      {/* Edit dialog - matches Add offline modal layout */}
       <Dialog open={!!editingIncome} onOpenChange={(open) => !open && setEditingIncome(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="p-6 max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit offline income</DialogTitle>
             <DialogDescription>
-              Update the details below. Changes will be saved immediately.
+              {editingIncome &&
+                `${formatCurrency(editingIncome.amountPence)} from ${formatEnum(editingIncome.source)}`}
             </DialogDescription>
           </DialogHeader>
           {editingIncome && (
             <OfflineIncomeEditForm
               item={editingIncome}
               appeals={appeals}
-              onSave={handleSaveEdit}
+              onSave={(data) => {
+                if (getItemType(editingIncome) === "fundraiser_cash") {
+                  handleSaveFundraiserCash({
+                    amountPence: data.amountPence,
+                    donationType: data.donationType,
+                    paymentMethod: data.source,
+                    receivedAt: data.receivedAt,
+                    donorName: data.donorName ?? null,
+                    donorEmail: data.donorEmail ?? null,
+                    donorPhone: data.donorPhone ?? null,
+                    notes: data.notes ?? null,
+                  })
+                } else {
+                  handleSaveEdit(data)
+                }
+              }}
               onCancel={() => setEditingIncome(null)}
               saving={saving}
             />
+          )}
+          {editingIncome && (
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingIncome(null)}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="offline-income-edit-form"
+                disabled={saving}
+              >
+                {saving ? "Saving…" : "Save Entry"}
+              </Button>
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -596,59 +723,124 @@ function OfflineIncomeEditForm({
     source: string
     receivedAt: string
     notes: string | null
+    giftAid?: boolean
+    sendReceiptEmail?: boolean
+    donor?: OfflineIncomeDonor
+    donorName?: string | null
+    donorEmail?: string | null
+    donorPhone?: string | null
   }) => void
   onCancel: () => void
   saving: boolean
 }) {
+  const isFundraiserCash = item.itemType === "fundraiser_cash"
+  const isAppealType = !isFundraiserCash && (item.itemType === "appeal" || (!item.itemType && !item.id.startsWith("water-") && !item.id.startsWith("sponsorship-")))
+
   const [amountPence, setAmountPence] = useState(String((item.amountPence / 100).toFixed(2)))
-  const isAppealType = item.itemType === "appeal" || (!item.itemType && !item.id.startsWith("water-") && !item.id.startsWith("sponsorship-"))
   const [appealId, setAppealId] = useState(item.appealId ?? "")
   const [donationType, setDonationType] = useState(item.donationType)
   const [source, setSource] = useState(item.source)
-  const initialReceivedAt = toDatetimeLocal(new Date(item.receivedAt))
-  const [receivedAt, setReceivedAt] = useState(initialReceivedAt)
+  const [receivedAt, setReceivedAt] = useState(toDatetimeLocal(new Date(item.receivedAt)))
   const [notes, setNotes] = useState(item.notes ?? "")
+
+  const d = item.donor
+  const hasExistingDonor = !isFundraiserCash && (item.giftAid || (d && (d.firstName || d.lastName || d.email || d.phone || d.address || d.city || d.postcode || d.country)))
+  const hasFundraiserDonor = isFundraiserCash && (item.donorName?.trim() || item.donorEmail?.trim() || item.donorPhone?.trim())
+  const [giftAidExpanded, setGiftAidExpanded] = useState(!!(hasExistingDonor || hasFundraiserDonor))
+  const [sendReceiptEmail, setSendReceiptEmail] = useState(false)
+  const [giftaidTitle, setGiftaidTitle] = useState(d?.title ?? "")
+  const [firstName, setFirstName] = useState(isFundraiserCash ? (item.donorName ?? "") : (d?.firstName ?? ""))
+  const [lastName, setLastName] = useState(isFundraiserCash ? "" : (d?.lastName ?? ""))
+  const [email, setEmail] = useState((isFundraiserCash ? item.donorEmail : d?.email) ?? "")
+  const [giftaidPhone, setGiftaidPhone] = useState((isFundraiserCash ? item.donorPhone : d?.phone) ?? "")
+  const [giftaidAddress, setGiftaidAddress] = useState(d?.address ?? "")
+  const [giftaidCity, setGiftaidCity] = useState(d?.city ?? "")
+  const [giftaidPostcode, setGiftaidPostcode] = useState(d?.postcode ?? "")
+  const [giftaidCountry, setGiftaidCountry] = useState(d?.country ?? "GB")
+  const [receiptEmail, setReceiptEmail] = useState((isFundraiserCash ? item.donorEmail : d?.email) ?? "")
+  const [receiptFirstName, setReceiptFirstName] = useState((isFundraiserCash ? item.donorName : d?.firstName) ?? "")
+  const [receiptLastName, setReceiptLastName] = useState(d?.lastName ?? "")
+
+  const countryOptions = useMemo(() => {
+    const display = new Intl.DisplayNames(["en"], { type: "region" })
+    return CHECKOUT_COUNTRIES
+      .map((code) => ({ code, label: display.of(code) || code }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const amount = Math.round(parseFloat(amountPence) * 100)
-    if (isNaN(amount) || amount <= 0) {
-      return
-    }
-    const receivedAtToSave =
-      receivedAt === initialReceivedAt ? new Date().toISOString() : new Date(receivedAt).toISOString()
+    if (isNaN(amount) || amount <= 0) return
+    const hasGiftAidDetails =
+      giftAidExpanded &&
+      (firstName.trim() ||
+        lastName.trim() ||
+        email.trim() ||
+        giftaidPhone.trim() ||
+        giftaidAddress.trim() ||
+        giftaidCity.trim() ||
+        giftaidPostcode.trim() ||
+        giftaidCountry.trim())
+    const donorPayload: OfflineIncomeDonor | undefined =
+      (isAppealType || isFundraiserCash) && (hasGiftAidDetails || (sendReceiptEmail && receiptEmail.trim() && receiptFirstName.trim() && receiptLastName.trim()))
+        ? hasGiftAidDetails
+          ? {
+              title: giftaidTitle.trim() || undefined,
+              firstName: firstName.trim() ? toTitleCaseLive(firstName.trim()) : undefined,
+              lastName: lastName.trim() ? toTitleCaseLive(lastName.trim()) : undefined,
+              email: email.trim() || undefined,
+              phone: giftaidPhone.trim() || undefined,
+              address: giftaidAddress.trim() || undefined,
+              city: giftaidCity.trim() || undefined,
+              postcode: giftaidPostcode.trim() || undefined,
+              country: giftaidCountry.trim() || undefined,
+            }
+          : {
+              firstName: receiptFirstName.trim() ? toTitleCaseLive(receiptFirstName.trim()) : undefined,
+              lastName: receiptLastName.trim() ? toTitleCaseLive(receiptLastName.trim()) : undefined,
+              email: receiptEmail.trim() || undefined,
+            }
+        : undefined
+    const donorNameStr = isFundraiserCash
+      ? (giftAidExpanded ? [firstName, lastName] : [receiptFirstName, receiptLastName]).map((s) => s.trim()).filter(Boolean).join(" ").trim() || null
+      : null
+    const donorEmailStr = isFundraiserCash ? (giftAidExpanded ? email.trim() : receiptEmail.trim()) || null : null
     onSave({
       amountPence: amount,
       ...(isAppealType && { appealId: appealId || null }),
       donationType,
       source,
-      receivedAt: receivedAtToSave,
+      receivedAt: new Date(receivedAt).toISOString(),
       notes: notes.trim() || null,
+      ...(isAppealType && {
+        giftAid: giftAidExpanded,
+        sendReceiptEmail,
+        ...(donorPayload && { donor: donorPayload }),
+      }),
+      ...(isFundraiserCash && {
+        donorName: donorNameStr,
+        donorEmail: donorEmailStr,
+        donorPhone: giftaidPhone.trim() || null,
+      }),
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="edit-amount">Amount (£)</Label>
-        <Input
-          id="edit-amount"
-          type="number"
-          step="0.01"
-          min="0"
-          value={amountPence}
-          onChange={(e) => setAmountPence(e.target.value)}
-          required
-        />
-      </div>
+    <form id="offline-income-edit-form" onSubmit={handleSubmit} className="space-y-5">
+      {isFundraiserCash && item.appeal?.title && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-foreground">Campaign</Label>
+          <div className="rounded-md border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+            {item.appeal.title}
+          </div>
+        </div>
+      )}
       {isAppealType && (
         <div className="space-y-2">
-          <Label htmlFor="edit-appeal">Appeal</Label>
-          <Select
-            value={appealId || "__none__"}
-            onValueChange={(v) => setAppealId(v === "__none__" ? "" : v)}
-          >
-            <SelectTrigger id="edit-appeal">
+          <Label className="text-sm font-medium text-foreground">Appeal</Label>
+          <Select value={appealId || "__none__"} onValueChange={(v) => setAppealId(v === "__none__" ? "" : v)}>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Select appeal" />
             </SelectTrigger>
             <SelectContent>
@@ -662,65 +854,259 @@ function OfflineIncomeEditForm({
           </Select>
         </div>
       )}
-      <div className="space-y-2">
-        <Label htmlFor="edit-type">Donation type</Label>
-        <Select value={donationType} onValueChange={setDonationType}>
-          <SelectTrigger id="edit-type">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DONATION_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-amount">Amount (£)</Label>
+          <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+            <span className="pl-3 text-muted-foreground text-sm">£</span>
+            <Input
+              id="edit-amount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={amountPence}
+              onChange={(e) => setAmountPence(e.target.value)}
+              placeholder="0.00"
+              className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+              required
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="edit-date">Received Date & time</Label>
+          <Input
+            id="edit-date"
+            type="datetime-local"
+            value={receivedAt}
+            onChange={(e) => setReceivedAt(e.target.value)}
+            required
+          />
+        </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-source">Source</Label>
-        <Select value={source} onValueChange={setSource}>
-          <SelectTrigger id="edit-source">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PAYMENT_SOURCES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-foreground">Donation Type</Label>
+          <Select value={donationType} onValueChange={setDonationType}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DONATION_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-foreground">Payment Method</Label>
+          <Select value={source} onValueChange={setSource}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(isFundraiserCash ? FUNDRAISER_PAYMENT_SOURCES : PAYMENT_SOURCES).map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+      {(isAppealType || isFundraiserCash) && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={giftAidExpanded ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setGiftAidExpanded((v) => !v)}
+              className="gap-2"
+            >
+              <Gift className="h-4 w-4" />
+              {giftAidExpanded ? "Gift Aid (details added)" : "Add Gift Aid"}
+            </Button>
+            <Button
+              type="button"
+              variant={sendReceiptEmail ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setSendReceiptEmail((v) => !v)}
+              className="gap-2 w-fit"
+            >
+              <Mail className="h-4 w-4" />
+              {sendReceiptEmail ? "Send Email Receipt (on)" : "Send Email Receipt"}
+            </Button>
+          </div>
+          {giftAidExpanded && (
+            <div className="rounded-lg border p-4 space-y-4 bg-muted/30">
+              <p className="text-sm text-muted-foreground">
+                Donor details for Gift Aid (UK taxpayer). Optional
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-giftaid-title">Title</Label>
+                  <Select value={giftaidTitle || "none"} onValueChange={(v) => setGiftaidTitle(v === "none" ? "" : v)}>
+                    <SelectTrigger id="edit-giftaid-title">
+                      <SelectValue placeholder="Title" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      <SelectItem value="Mr">Mr</SelectItem>
+                      <SelectItem value="Mrs">Mrs</SelectItem>
+                      <SelectItem value="Ms">Ms</SelectItem>
+                      <SelectItem value="Miss">Miss</SelectItem>
+                      <SelectItem value="Dr">Dr</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-giftaid-first">First Name *</Label>
+                  <Input
+                    id="edit-giftaid-first"
+                    transform="titleCase"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="First name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-giftaid-last">Last Name *</Label>
+                  <Input
+                    id="edit-giftaid-last"
+                    transform="titleCase"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-giftaid-email">Email *</Label>
+                  <Input
+                    id="edit-giftaid-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-giftaid-phone">Phone</Label>
+                  <Input
+                    id="edit-giftaid-phone"
+                    value={giftaidPhone}
+                    onChange={(e) => setGiftaidPhone(e.target.value)}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-giftaid-country">Country</Label>
+                  <Select value={giftaidCountry} onValueChange={setGiftaidCountry}>
+                    <SelectTrigger id="edit-giftaid-country">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countryOptions.map(({ code, label }) => (
+                        <SelectItem key={code} value={code}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-giftaid-address">Address</Label>
+                  <Input
+                    id="edit-giftaid-address"
+                    transform="titleCase"
+                    value={giftaidAddress}
+                    onChange={(e) => setGiftaidAddress(e.target.value)}
+                    placeholder="Street address"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-giftaid-city">City</Label>
+                    <Input
+                      id="edit-giftaid-city"
+                      transform="titleCase"
+                      value={giftaidCity}
+                      onChange={(e) => setGiftaidCity(e.target.value)}
+                      placeholder="City"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-giftaid-postcode">Postcode</Label>
+                    <Input
+                      id="edit-giftaid-postcode"
+                      transform="uppercase"
+                      value={giftaidPostcode}
+                      onChange={(e) => setGiftaidPostcode(e.target.value)}
+                      placeholder="Postcode"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {sendReceiptEmail && (
+            <div className="space-y-4">
+              {!giftAidExpanded && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-receipt-first">First name</Label>
+                    <Input
+                      id="edit-receipt-first"
+                      transform="titleCase"
+                      value={receiptFirstName}
+                      onChange={(e) => setReceiptFirstName(e.target.value)}
+                      placeholder="First name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-receipt-last">Last name</Label>
+                    <Input
+                      id="edit-receipt-last"
+                      transform="titleCase"
+                      value={receiptLastName}
+                      onChange={(e) => setReceiptLastName(e.target.value)}
+                      placeholder="Last name"
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="edit-receipt-email">Email for Receipt</Label>
+                <Input
+                  id="edit-receipt-email"
+                  type="email"
+                  value={giftAidExpanded ? email : receiptEmail}
+                  onChange={(e) =>
+                    giftAidExpanded ? setEmail(e.target.value) : setReceiptEmail(e.target.value)
+                  }
+                  placeholder="email@example.com"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className="space-y-2">
-        <Label htmlFor="edit-date">Date & time</Label>
-        <Input
-          id="edit-date"
-          type="datetime-local"
-          value={receivedAt}
-          onChange={(e) => setReceivedAt(e.target.value)}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-notes">Notes</Label>
+        <Label htmlFor="edit-notes">Notes (optional)</Label>
         <Textarea
           id="edit-notes"
           transform="titleCase"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          className="resize-none"
         />
-      </div>
-      <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
-        </Button>
       </div>
     </form>
   )
 }
+

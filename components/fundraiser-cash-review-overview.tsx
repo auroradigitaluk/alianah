@@ -86,6 +86,7 @@ interface CashDonationRow {
   fundraiserId: string | null
   amountPence: number
   donorName: string | null
+  donationNumber?: string | null
   notes: string | null
   receivedAt: string
   status: string
@@ -153,6 +154,15 @@ function DetailModal({
                 <p className="text-xl font-bold">{formatCurrency(donation.amountPence)}</p>
               </div>
             </div>
+            {donation.donationNumber && (
+              <div className="flex items-start gap-3">
+                <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Order number</p>
+                  <p className="font-mono text-sm">{donation.donationNumber}</p>
+                </div>
+              </div>
+            )}
             <div className="flex items-start gap-3">
               <User className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <div>
@@ -434,6 +444,7 @@ export function FundraiserCashReviewOverview() {
                     <TableHead>Fundraiser</TableHead>
                     <TableHead>Campaign</TableHead>
                     <TableHead className="text-right tabular-nums">Amount</TableHead>
+                    <TableHead className="text-left">Order No.</TableHead>
                     <TableHead>Donor name</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead>Received</TableHead>
@@ -461,6 +472,9 @@ export function FundraiserCashReviewOverview() {
                       </TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">
                         {formatCurrency(d.amountPence)}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">
+                        {d.donationNumber ?? "—"}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{d.donorName ?? "—"}</TableCell>
                       <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm" title={d.notes ?? undefined}>
@@ -538,6 +552,7 @@ export function FundraiserCashReviewOverview() {
                     <TableHead>Fundraiser</TableHead>
                     <TableHead>Campaign</TableHead>
                     <TableHead className="text-right tabular-nums">Amount</TableHead>
+                    <TableHead className="text-left">Order No.</TableHead>
                     <TableHead>Donor name</TableHead>
                     <TableHead>Received</TableHead>
                     <TableHead>Approved by</TableHead>
@@ -563,6 +578,9 @@ export function FundraiserCashReviewOverview() {
                       </TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">
                         {formatCurrency(d.amountPence)}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">
+                        {d.donationNumber ?? "—"}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{d.donorName ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">
@@ -606,6 +624,7 @@ export function FundraiserCashReviewOverview() {
                     <TableHead>Fundraiser</TableHead>
                     <TableHead>Campaign</TableHead>
                     <TableHead className="text-right tabular-nums">Amount</TableHead>
+                    <TableHead className="text-left">Order No.</TableHead>
                     <TableHead>Donor name</TableHead>
                     <TableHead>Received</TableHead>
                     <TableHead>Rejected by</TableHead>
@@ -631,6 +650,9 @@ export function FundraiserCashReviewOverview() {
                       </TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">
                         {formatCurrency(d.amountPence)}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">
+                        {d.donationNumber ?? "—"}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{d.donorName ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">

@@ -3,6 +3,8 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { formatAdminUserName } from "@/lib/utils"
+import { isValidPhone, isPlaceholderDonorEmail } from "@/lib/utils"
+import { sendOfflineDonationReceiptEmail } from "@/lib/email"
 
 export async function GET(
   _request: NextRequest,
@@ -118,6 +120,19 @@ export async function GET(
   }
 }
 
+const donorPhoneRefine = (v: string | undefined) => !v || isValidPhone(v)
+const donorSchema = z.object({
+  title: z.string().nullable().optional(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional().refine(donorPhoneRefine, "Invalid phone number"),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  postcode: z.string().optional(),
+  country: z.string().optional(),
+})
+
 const patchSchema = z.object({
   amountPence: z.number().int().positive().optional(),
   appealId: z.string().nullable().optional(),
@@ -125,6 +140,9 @@ const patchSchema = z.object({
   source: z.enum(["CASH", "OFFICE_BUCKETS", "CARD_SUMUP", "BANK_TRANSFER"]).optional(),
   receivedAt: z.string().optional(),
   notes: z.string().nullable().optional(),
+  giftAid: z.boolean().optional(),
+  sendReceiptEmail: z.boolean().optional(),
+  donor: donorSchema.optional(),
 })
 
 export async function PATCH(
@@ -205,10 +223,106 @@ export async function PATCH(
     if (data.source !== undefined) updateData.source = data.source
     if (data.receivedAt !== undefined) updateData.receivedAt = new Date(data.receivedAt)
     if (data.notes !== undefined) updateData.notes = data.notes
-    await prisma.offlineIncome.update({
+    if (data.giftAid !== undefined) updateData.giftAid = data.giftAid
+
+    const giftAid = data.giftAid === true
+    const sendReceiptEmail = data.sendReceiptEmail === true
+    const donorInput = data.donor
+    let donorId: string | null | undefined = undefined
+    let billingAddress: string | null | undefined = undefined
+    let billingCity: string | null | undefined = undefined
+    let billingPostcode: string | null | undefined = undefined
+    let billingCountry: string | null | undefined = undefined
+
+    if ((giftAid || sendReceiptEmail) && donorInput) {
+      const makeFallbackEmail = () =>
+        `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@alianahapp.local`
+      const emailProvided = donorInput.email?.trim()
+      const firstProvided = donorInput.firstName?.trim()
+      const lastProvided = donorInput.lastName?.trim()
+      if (sendReceiptEmail) {
+        if (!emailProvided) {
+          return NextResponse.json(
+            { error: "Email is required to send receipt" },
+            { status: 400 }
+          )
+        }
+        if (!firstProvided || !lastProvided) {
+          return NextResponse.json(
+            { error: "First name and last name are required to send receipt" },
+            { status: 400 }
+          )
+        }
+      }
+      const email = emailProvided || makeFallbackEmail()
+      const firstName = firstProvided || "Anonymous"
+      const lastName = lastProvided || "Donor"
+      const donor = await prisma.donor.upsert({
+        where: { email: email.toLowerCase() },
+        update: {
+          title: donorInput.title || null,
+          firstName,
+          lastName,
+          phone: donorInput.phone?.trim() || null,
+          address: donorInput.address?.trim() || null,
+          city: donorInput.city?.trim() || null,
+          postcode: donorInput.postcode?.trim() || null,
+          country: donorInput.country?.trim() || null,
+        },
+        create: {
+          email: email.toLowerCase(),
+          title: donorInput.title || null,
+          firstName,
+          lastName,
+          phone: donorInput.phone?.trim() || null,
+          address: donorInput.address?.trim() || null,
+          city: donorInput.city?.trim() || null,
+          postcode: donorInput.postcode?.trim() || null,
+          country: donorInput.country?.trim() || null,
+        },
+      })
+      donorId = donor.id
+      billingAddress = donorInput.address?.trim() || donor.address || null
+      billingCity = donorInput.city?.trim() || donor.city || null
+      billingPostcode = donorInput.postcode?.trim() || donor.postcode || null
+      billingCountry = donorInput.country?.trim() || donor.country || null
+    }
+    if (donorId !== undefined) updateData.donorId = donorId
+    if (billingAddress !== undefined) updateData.billingAddress = billingAddress
+    if (billingCity !== undefined) updateData.billingCity = billingCity
+    if (billingPostcode !== undefined) updateData.billingPostcode = billingPostcode
+    if (billingCountry !== undefined) updateData.billingCountry = billingCountry
+
+    const updated = await prisma.offlineIncome.update({
       where: { id },
       data: updateData,
+      include: { donor: true, appeal: { select: { title: true } } },
     })
+
+    if (
+      sendReceiptEmail &&
+      updated.donor &&
+      updated.appeal &&
+      !isPlaceholderDonorEmail(updated.donor.email)
+    ) {
+      try {
+        await sendOfflineDonationReceiptEmail({
+          donorEmail: updated.donor.email,
+          donorName: [updated.donor.firstName, updated.donor.lastName].filter(Boolean).join(" ") || "Donor",
+          appealTitle: updated.appeal.title,
+          amountPence: updated.amountPence,
+          donationType: updated.donationType,
+          receivedAt: updated.receivedAt,
+          donationNumber: updated.donationNumber ?? updated.id,
+        })
+      } catch (err) {
+        console.error("Failed to send offline donation receipt:", err)
+        return NextResponse.json(
+          { error: "Entry saved but receipt email failed to send" },
+          { status: 500 }
+        )
+      }
+    }
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -264,6 +378,23 @@ export async function DELETE(
         }
       }
       await prisma.sponsorshipDonation.delete({
+        where: { id: donationId },
+      })
+      return NextResponse.json({ success: true })
+    }
+
+    if (id.startsWith("fundraiser_cash-")) {
+      const donationId = id.replace("fundraiser_cash-", "")
+      if (user.role === "STAFF") {
+        const existing = await prisma.fundraiserCashDonation.findUnique({
+          where: { id: donationId },
+          select: { reviewedByAdminUserId: true },
+        })
+        if (!existing || existing.reviewedByAdminUserId !== user.id) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+        }
+      }
+      await prisma.fundraiserCashDonation.delete({
         where: { id: donationId },
       })
       return NextResponse.json({ success: true })

@@ -48,10 +48,6 @@ const chartConfig = {
     label: "Offline - Bank Transfer",
     color: "#3b82f6", // blue-500 – matches BANK_TRANSFER badge (blue)
   },
-  collections: {
-    label: "Collections (Masjid)",
-    color: "#a855f7", // purple-500 – matches OFFICE_BUCKETS / collections style
-  },
   water_sponsor: {
     label: "Water & Sponsor",
     color: "#06b6d4", // cyan-500

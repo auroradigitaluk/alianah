@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { useSidecart } from "@/components/sidecart-provider"
 import { DonationExpressCheckout, type DonationExpressItem } from "@/components/donation-express-checkout"
 import { formatCurrency, formatEnum } from "@/lib/utils"
+import { ChevronDown } from "lucide-react"
 
 type DonationType = "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
 type Preset = { amountPence: number; label?: string }
@@ -52,6 +53,12 @@ interface DonationFormProps {
   initialDonationType?: "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
   fundraiserId?: string
   noCard?: boolean
+  /** When set to "fundraiser", uses styling that matches the fundraiser page (labels, spacing, button). */
+  variant?: "default" | "fundraiser"
+  /** For fundraiser variant: campaign title shown as "Support [campaignTitle]" */
+  campaignTitle?: string
+  /** For fundraiser variant: "Organized by [organizerName]" */
+  organizerName?: string
 }
 
 export function DonationForm({
@@ -63,6 +70,9 @@ export function DonationForm({
   initialDonationType,
   fundraiserId,
   noCard = false,
+  variant = "default",
+  campaignTitle: campaignTitleProp,
+  organizerName,
 }: DonationFormProps) {
   const { addItem } = useSidecart()
 
@@ -247,12 +257,33 @@ export function DonationForm({
         }
       : null
 
+  const labelClass = variant === "fundraiser" ? "text-sm font-medium text-neutral-700" : "text-base"
+  const showRecurringOption = appeal.allowMonthly && variant !== "fundraiser"
   const formFields = (
     <>
-      {/* Frequency Selection (only if monthly is enabled) */}
-      {appeal.allowMonthly && (
+      {/* Fundraiser variant: campaign header (Support X / Organized by Y) - match reference */}
+      {variant === "fundraiser" && (campaignTitleProp ?? organizerName) && (
+        <div className="space-y-1.5 pb-6">
+          <p className="text-neutral-800 text-left">
+            {campaignTitleProp ? (
+              <>
+                <span className="font-normal">Support </span>
+                <span className="font-bold text-neutral-900 underline underline-offset-2 decoration-neutral-700">
+                  {campaignTitleProp}
+                </span>
+              </>
+            ) : null}
+          </p>
+          {organizerName && (
+            <p className="text-sm text-neutral-500 font-normal">Organized by {organizerName}</p>
+          )}
+        </div>
+      )}
+
+      {/* Frequency when monthly enabled (fundraiser has no recurring, so nothing shown) */}
+      {showRecurringOption ? (
         <div className="space-y-2">
-          <Label className="text-base">Frequency</Label>
+          <Label className={labelClass}>Frequency</Label>
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
@@ -278,15 +309,15 @@ export function DonationForm({
             </p>
           )}
         </div>
-      )}
+      ) : null}
 
-      {/* Product Selection (if available) */}
-      {availableProducts.length > 0 && (
+      {/* Product Selection (if available) - hidden in fundraiser variant for simpler flow */}
+      {availableProducts.length > 0 && variant !== "fundraiser" && (
         <div className="space-y-2">
-          <Label className="text-base">Product</Label>
+          <Label className={labelClass}>Product</Label>
           <Select value={selectedProduct || "none"} onValueChange={(value) => setSelectedProduct(value === "none" ? null : value)}>
-            <SelectTrigger className="h-11">
-              <SelectValue placeholder="Select a product" />
+<SelectTrigger className="h-11">
+            <SelectValue placeholder="Select a product" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Direct Donation</SelectItem>
@@ -302,8 +333,22 @@ export function DonationForm({
 
       {/* Amount Selection */}
       <div className="space-y-2">
-        <Label className="text-base">Amount</Label>
-        {showAppealPresets && (
+        {variant === "fundraiser" ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-bold text-neutral-900 text-base">Your giving amount</span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
+              aria-label="Currency"
+            >
+              <span>£ GBP</span>
+              <ChevronDown className="h-4 w-4 text-neutral-500 shrink-0" />
+            </button>
+          </div>
+        ) : (
+          <Label className={labelClass}>Amount</Label>
+        )}
+        {showAppealPresets && !(variant === "fundraiser") && (
           <div className="grid grid-cols-2 gap-2 mb-2">
             {appealPresets.map((preset) => {
               const isSelected = presetAmount === preset.amountPence
@@ -340,7 +385,7 @@ export function DonationForm({
             })}
           </div>
         )}
-        {selectedProductData && presetAmounts.length > 0 && (
+        {selectedProductData && presetAmounts.length > 0 && variant !== "fundraiser" && (
           <div className="grid grid-cols-2 gap-2 mb-2">
             {presetAmounts.map((amount) => (
               <Button
@@ -359,36 +404,50 @@ export function DonationForm({
           </div>
         )}
         {((selectedProductData ? canUseCustom : true)) && (
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium pointer-events-none">
-              £
-            </span>
-            <Input
-              type="number"
-              placeholder={selectedProductData ? "Enter custom amount" : "Enter amount"}
-              value={customAmount}
-              onChange={(e) => {
-                setCustomAmount(e.target.value)
-                setPresetAmount(null)
-              }}
-              min="1"
-              step="0.01"
-              className="h-11 text-base pl-7"
-            />
+          <div className={variant === "fundraiser" ? "space-y-3" : "relative"}>
+            {variant === "fundraiser" && (
+              <Label className="text-sm font-normal text-neutral-700">Enter a custom amount</Label>
+            )}
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-900 text-xl font-semibold pointer-events-none select-none">
+                £
+              </span>
+              <Input
+                type="number"
+                placeholder={variant === "fundraiser" ? "20.00" : selectedProductData ? "Enter custom amount" : "Enter amount"}
+                value={customAmount}
+                onChange={(e) => {
+                  setCustomAmount(e.target.value)
+                  setPresetAmount(null)
+                }}
+                min="1"
+                step="0.01"
+                className={
+                  variant === "fundraiser"
+                    ? "h-14 text-xl pl-10 pr-4 rounded-xl border-neutral-200 bg-white text-right font-semibold text-neutral-900 placeholder:text-neutral-400"
+                    : "h-11 text-base pl-7 rounded-lg border-neutral-200"
+                }
+              />
+            </div>
           </div>
         )}
       </div>
 
+      {/* Donation Type, anonymous, button - separate section for fundraiser */}
+      {variant === "fundraiser" && (
+        <div className="pt-5 border-t border-neutral-100" />
+      )}
+      <div className={variant === "fundraiser" ? "space-y-4" : undefined}>
       {/* Donation Type Selection */}
       <div className="space-y-2">
-        <Label className="text-base">Donation Type *</Label>
+        <Label className={labelClass}>Donation Type *</Label>
         <Select
           value={donationType}
           onValueChange={(value) => {
             if (isDonationType(value)) setDonationType(value)
           }}
         >
-          <SelectTrigger className="h-11 w-full">
+          <SelectTrigger className={variant === "fundraiser" ? "h-11 w-full rounded-lg border-neutral-200" : "h-11 w-full"}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -415,7 +474,7 @@ export function DonationForm({
             checked={isAnonymous}
             onCheckedChange={(checked) => setIsAnonymous(checked === true)}
           />
-          <Label htmlFor="donate-anonymous" className="font-normal cursor-pointer">
+          <Label htmlFor="donate-anonymous" className={`cursor-pointer ${variant === "fundraiser" ? "text-sm text-neutral-600 font-normal" : "font-normal"}`}>
             Donate anonymously
           </Label>
         </div>
@@ -424,12 +483,13 @@ export function DonationForm({
       {/* Add to Basket Button */}
       <Button
         onClick={handleAddToBasket}
-        className="w-full h-12 text-base font-semibold"
+        className={variant === "fundraiser" ? "w-full h-12 rounded-xl text-base font-semibold bg-primary text-primary-foreground hover:opacity-90 shadow-sm" : "w-full h-12 text-base font-semibold"}
         size="lg"
         disabled={!donationType || (!presetAmount && !customAmount)}
       >
         Add to Basket
       </Button>
+      </div>
 
       {/* Apple Pay / Google Pay for one-off (no cart, no duplicate orders) */}
       {expressItem && hasValidExpressAmount && (
@@ -448,7 +508,11 @@ export function DonationForm({
   )
 
   if (noCard) {
-    return <div className="space-y-6">{formFields}</div>
+    return (
+      <div className={variant === "fundraiser" ? "space-y-5" : "space-y-6"}>
+        {formFields}
+      </div>
+    )
   }
 
   return (

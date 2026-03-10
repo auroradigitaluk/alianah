@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { getFundraiserTotalRaisedAndCount } from "@/lib/fundraiser-totals"
 import { FundraiserForm } from "@/components/fundraiser-form"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
-import { FundraiserFloatingDonateBar } from "@/components/fundraiser-floating-donate-bar"
+import { FundraiserInlineDonation } from "@/components/fundraiser-inline-donation"
+import { FundraiserPublicCashForm } from "@/components/fundraiser-public-cash-form"
+import { FundraiserRecentDonations } from "@/components/fundraiser-recent-donations"
 import { FundraisingSlideshow } from "@/components/fundraising-slideshow"
 
 export const dynamic = 'force-dynamic'
@@ -250,95 +252,144 @@ export default async function FundraisePage({
       : fundraiser.appeal?.title || "Alianah Humanity Welfare"
 
     return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
-          {/* Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 sm:gap-6 lg:gap-8">
-            {/* Left Column - Primary Content (~65%) */}
-            <div className="space-y-4 sm:space-y-6 order-1 lg:order-1">
-              {/* 1. Fundraiser Title */}
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold tracking-tight">
-                {fundraiser.title}
-              </h1>
+      <div className="min-h-screen bg-[#fafafa] dark:bg-background">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-10">
+          {/* Centered header - LaunchGood style */}
+          <header className="text-center mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 dark:text-foreground tracking-tight max-w-3xl mx-auto">
+              {fundraiser.title}
+            </h1>
+            <p className="mt-2 text-sm text-neutral-500 dark:text-muted-foreground">
+              Organized by {fundraiser.fundraiserName}
+            </p>
+          </header>
 
-              {/* 2. Fundraising Slideshow */}
-              <FundraisingSlideshow images={slideshowImages} alt={campaignTitle} />
+          {/* One split card: image left, stats right */}
+          <div id="fundraiser-hero-card" className="rounded-xl border border-neutral-200/80 dark:border-border bg-white dark:bg-card shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-[1.2fr_420px] items-stretch">
+            <div className="relative min-h-[280px] lg:min-h-[560px]">
+              <FundraisingSlideshow
+                images={slideshowImages}
+                alt={campaignTitle}
+                className="rounded-none h-full min-h-[280px] lg:min-h-[560px] aspect-[4/3] lg:aspect-auto"
+              />
+            </div>
+            <div className="scroll-mt-4 flex flex-col justify-center lg:sticky lg:top-6 lg:self-start lg:min-h-[560px]">
+              <FundraiserDonationCard
+                embedStatsInCard
+                statsOnly
+                campaignTitle={campaignTitle}
+                totalRaised={totalRaised}
+                targetAmountPence={fundraiser.targetAmountPence}
+                progressPercentage={progressPercentage}
+                donationCount={donationCount}
+                {...(isWaterFundraiser
+                  ? {
+                      waterProject: {
+                        id: fundraiser.waterProject!.id,
+                        projectType: fundraiser.waterProject!.projectType,
+                        plaqueAvailable: fundraiser.waterProject!.plaqueAvailable,
+                      },
+                      waterProjectPresetCountry: fundraiser.waterProjectCountry
+                        ? {
+                            id: fundraiser.waterProjectCountry.id,
+                            country: fundraiser.waterProjectCountry.country,
+                            pricePence: fundraiser.waterProjectCountry.pricePence,
+                          }
+                        : undefined,
+                      waterProjectPresetAmountPence:
+                        !fundraiser.waterProjectCountry && fundraiser.targetAmountPence != null
+                          ? fundraiser.targetAmountPence
+                          : undefined,
+                      waterProjectPlaqueName: fundraiser.plaqueName ?? undefined,
+                    }
+                  : {
+                      appeal: {
+                        id: fundraiser.appeal!.id,
+                        title: fundraiser.appeal!.title,
+                        allowMonthly: false,
+                        monthlyPricePence: null,
+                        oneOffPresetAmountsPence: fundraiser.appeal!.oneOffPresetAmountsPence,
+                        monthlyPresetAmountsPence: fundraiser.appeal!.monthlyPresetAmountsPence,
+                        yearlyPresetAmountsPence: fundraiser.appeal!.yearlyPresetAmountsPence,
+                      },
+                      products: fundraiser.appeal!.products.filter((p) => p.frequency === "ONE_OFF"),
+                      donationTypesEnabled,
+                    })}
+                fundraiserId={fundraiser.id}
+              />
+            </div>
+          </div>
 
-              {/* 3. Fundraiser Meta Row */}
-              <div className="space-y-1">
-                <p className="text-sm sm:text-base font-medium">
-                  {fundraiser.fundraiserName}
-                </p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  is fundraising for <span className="font-medium text-foreground">{campaignTitle}</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Donation protected
-                </p>
-              </div>
-
-              {/* 4. Fundraiser Story - always show appeal/project default description when no custom message */}
+          {/* Story + recent supporters side by side on desktop (card same width as split card right column) */}
+          <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 lg:gap-10 items-start">
+            <div id="fundraiser-about" className="min-w-0 scroll-mt-24">
               {(fundraiser.message || (isWaterFundraiser ? fundraiser.waterProject?.fundraisingDefaultMessage : fundraiser.appeal?.fundraisingDefaultMessage)) && (
-                <div className="prose prose-sm sm:prose-base max-w-none">
-                  <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap text-foreground">
+                <div className="prose prose-sm sm:prose-base max-w-none text-neutral-700 dark:text-muted-foreground prose-p:text-neutral-700 dark:prose-p:text-muted-foreground">
+                  <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
                     {fundraiser.message || (isWaterFundraiser ? fundraiser.waterProject?.fundraisingDefaultMessage : fundraiser.appeal?.fundraisingDefaultMessage)}
                   </p>
                 </div>
               )}
             </div>
-
-            {/* Right Column - Donation Card (~35%) - Sticky on Desktop */}
-            <div id="donate-section" className="order-2 lg:order-2 scroll-mt-4">
-              <div className="lg:sticky lg:top-6">
-                <FundraiserDonationCard
-                  totalRaised={totalRaised}
-                  targetAmountPence={fundraiser.targetAmountPence}
-                  progressPercentage={progressPercentage}
-                  donationCount={donationCount}
-                  {...(isWaterFundraiser
-                    ? {
-                        waterProject: {
-                          id: fundraiser.waterProject!.id,
-                          projectType: fundraiser.waterProject!.projectType,
-                          plaqueAvailable: fundraiser.waterProject!.plaqueAvailable,
-                        },
-                        waterProjectPresetCountry: fundraiser.waterProjectCountry
-                          ? {
-                              id: fundraiser.waterProjectCountry.id,
-                              country: fundraiser.waterProjectCountry.country,
-                              pricePence: fundraiser.waterProjectCountry.pricePence,
-                            }
-                          : undefined,
-                        waterProjectPresetAmountPence:
-                          !fundraiser.waterProjectCountry && fundraiser.targetAmountPence != null
-                            ? fundraiser.targetAmountPence
-                            : undefined,
-                        waterProjectPlaqueName: fundraiser.plaqueName ?? undefined,
-                      }
-                    : {
-                        appeal: {
-                          id: fundraiser.appeal!.id,
-                          title: fundraiser.appeal!.title,
-                          allowMonthly: false,
-                          monthlyPricePence: null,
-                          oneOffPresetAmountsPence: fundraiser.appeal!.oneOffPresetAmountsPence,
-                          monthlyPresetAmountsPence: fundraiser.appeal!.monthlyPresetAmountsPence,
-                          yearlyPresetAmountsPence: fundraiser.appeal!.yearlyPresetAmountsPence,
-                        },
-                        products: fundraiser.appeal!.products.filter((p) => p.frequency === "ONE_OFF"),
-                        donationTypesEnabled,
-                      })}
-                  fundraiserId={fundraiser.id}
-                  recentDonations={completedDonations.map((d) => ({
-                    ...d,
-                    timeAgo: formatTimeAgo(d.createdAt),
-                  }))}
-                />
-              </div>
+            <div id="fundraiser-donors" className="w-full lg:w-[420px] lg:max-w-[420px] min-w-0 scroll-mt-24">
+              <FundraiserRecentDonations
+                fundraiserId={fundraiser.id}
+                donations={completedDonations.map((d) => ({
+                  amountPence: d.amountPence,
+                  donor: d.donor,
+                  isAnonymous: d.isAnonymous,
+                  timeAgo: formatTimeAgo(d.createdAt),
+                }))}
+              />
             </div>
           </div>
+
+          {/* Inline donation (appeal: one card, pay on page) or water fundraiser (form + basket) */}
+          <div id="donate-section" className="mt-8 sm:mt-10 scroll-mt-24 space-y-5">
+            {isWaterFundraiser ? (
+              <FundraiserDonationCard
+                formOnly
+                campaignTitle={campaignTitle}
+                organizerName={fundraiser.fundraiserName}
+                totalRaised={totalRaised}
+                targetAmountPence={fundraiser.targetAmountPence}
+                progressPercentage={progressPercentage}
+                donationCount={donationCount}
+                waterProject={{
+                  id: fundraiser.waterProject!.id,
+                  projectType: fundraiser.waterProject!.projectType,
+                  plaqueAvailable: fundraiser.waterProject!.plaqueAvailable,
+                }}
+                waterProjectPresetCountry={fundraiser.waterProjectCountry
+                  ? {
+                      id: fundraiser.waterProjectCountry.id,
+                      country: fundraiser.waterProjectCountry.country,
+                      pricePence: fundraiser.waterProjectCountry.pricePence,
+                    }
+                  : undefined}
+                waterProjectPresetAmountPence={
+                  !fundraiser.waterProjectCountry && fundraiser.targetAmountPence != null
+                    ? fundraiser.targetAmountPence
+                    : undefined
+                }
+                waterProjectPlaqueName={fundraiser.plaqueName ?? undefined}
+                fundraiserId={fundraiser.id}
+              />
+            ) : (
+              <>
+                <FundraiserInlineDonation
+                  fundraiserId={fundraiser.id}
+                  appealId={fundraiser.appeal!.id}
+                  appealTitle={fundraiser.appeal!.title}
+                  campaignTitle={campaignTitle}
+                  organizerName={fundraiser.fundraiserName}
+                  donationTypesEnabled={donationTypesEnabled}
+                />
+                <FundraiserPublicCashForm fundraiserId={fundraiser.id} />
+              </>
+            )}
+          </div>
         </div>
-        <FundraiserFloatingDonateBar />
       </div>
     )
   }

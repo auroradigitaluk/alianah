@@ -282,7 +282,12 @@ model FundraiserCashDonation {
   fundraiserId        String?   // SetNull when fundraiser deleted – keep donation data
   amountPence         Int
   donorName           String?   // Optional: who gave the cash (e.g. "Aunt Sarah")
+  paymentMethod       String    @default("CASH") // CASH | BANK_TRANSFER
+  donationType        String    @default("GENERAL") // GENERAL | SADAQAH | ZAKAT | LILLAH
+  donorEmail          String?
+  donorPhone          String?
   notes               String?
+  donationNumber      String?   // Reference for receipts (e.g. 786-1xxxxxxxx), set when approved
   receivedAt          DateTime  @default(now()) // When fundraiser says they received it
   status              String    @default("PENDING_REVIEW") // PENDING_REVIEW | APPROVED | REJECTED
   reviewedAt          DateTime?
@@ -295,6 +300,7 @@ model FundraiserCashDonation {
   @@index([fundraiserId])
   @@index([status])
   @@index([createdAt])
+  @@index([donationNumber])
   @@map("fundraiser_cash_donations")
 }
 

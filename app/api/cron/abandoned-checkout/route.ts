@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 /** Vercel sends CRON_SECRET as Bearer token when invoking crons. Query ?token= also allowed for manual/external triggers. */
 function authorize(request: NextRequest) {
   const secret = process.env.CRON_SECRET
-  if (!secret) return true
+  if (!secret) return process.env.NODE_ENV !== "production"
   const authHeader = request.headers.get("authorization")
   if (authHeader === `Bearer ${secret}`) return true
   const url = new URL(request.url)

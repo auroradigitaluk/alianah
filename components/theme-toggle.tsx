@@ -13,21 +13,26 @@ export function ThemeToggle() {
     setMounted(true)
   }, [])
 
-  if (!mounted) {
-    return null
-  }
+  const isDark = mounted && resolvedTheme === "dark"
 
-  const isDark = resolvedTheme === "dark"
+  const handleToggle = () => {
+    setTheme(isDark ? "light" : "dark")
+  }
 
   return (
     <Button
+      type="button"
       variant="ghost"
       size="icon"
-      className="text-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      className="text-foreground transition-colors hover:bg-primary hover:text-primary-foreground min-w-[2.25rem]"
+      onClick={handleToggle}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
-      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      {mounted ? (
+        isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />
+      ) : (
+        <Moon className="h-5 w-5 opacity-50" />
+      )}
     </Button>
   )
 }

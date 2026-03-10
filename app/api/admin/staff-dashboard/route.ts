@@ -81,13 +81,20 @@ export async function GET(request: NextRequest) {
 
     const staffFilter = { addedByAdminUserId: query.staffId }
 
+    const collectionWhere = {
+      ...staffFilter,
+      collectedAt: { gte: startDate, lte: endDate },
+    }
+
     const [
       offlineIncome,
       collections,
+      collectionBreakdown,
       waterDonations,
       sponsorshipDonations,
       offlineCash,
       offlineBank,
+      offlineCard,
       offlineCount,
       collectionsCount,
       waterCount,
@@ -102,13 +109,16 @@ export async function GET(request: NextRequest) {
         _count: { _all: true },
       }),
       prisma.collection.aggregate({
-        where: {
-          ...staffFilter,
-          collectedAt: { gte: startDate, lte: endDate },
-        },
+        where: collectionWhere,
         _sum: { amountPence: true },
         _count: { _all: true },
       }),
+      prisma.collection
+        .aggregate({
+          where: collectionWhere,
+          _sum: { cardPence: true, sadaqahPence: true, zakatPence: true, lillahPence: true },
+        })
+        .catch(() => ({ _sum: { cardPence: 0, sadaqahPence: 0, zakatPence: 0, lillahPence: 0 } })),
       prisma.waterProjectDonation.aggregate({
         where: {
           ...staffFilter,
@@ -143,6 +153,14 @@ export async function GET(request: NextRequest) {
         },
         _sum: { amountPence: true },
       }),
+      prisma.offlineIncome.aggregate({
+        where: {
+          ...staffFilter,
+          source: "CARD_SUMUP",
+          receivedAt: { gte: startDate, lte: endDate },
+        },
+        _sum: { amountPence: true },
+      }),
       prisma.offlineIncome.count({
         where: {
           ...staffFilter,
@@ -150,10 +168,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.collection.count({
-        where: {
-          ...staffFilter,
-          collectedAt: { gte: startDate, lte: endDate },
-        },
+        where: collectionWhere,
       }),
       prisma.waterProjectDonation.count({
         where: {
@@ -171,6 +186,13 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
+    const collectionCardPence = collectionBreakdown._sum.cardPence ?? 0
+    const offlineCardPence = offlineCard._sum.amountPence ?? 0
+    const collectionCashPence =
+      (collectionBreakdown._sum.sadaqahPence ?? 0) +
+      (collectionBreakdown._sum.zakatPence ?? 0) +
+      (collectionBreakdown._sum.lillahPence ?? 0)
+
     const totalAmountPence =
       (offlineIncome._sum.amountPence || 0) +
       (collections._sum.amountPence || 0) +
@@ -180,7 +202,7 @@ export async function GET(request: NextRequest) {
     const paymentBreakdown = [
       {
         label: formatPaymentMethod(PAYMENT_METHODS.CASH),
-        amountPence: offlineCash._sum.amountPence || 0,
+        amountPence: (offlineCash._sum.amountPence || 0) + collectionCashPence,
         count: 0,
       },
       {
@@ -189,9 +211,9 @@ export async function GET(request: NextRequest) {
         count: 0,
       },
       {
-        label: "Collections (Masjid)",
-        amountPence: collections._sum.amountPence || 0,
-        count: collectionsCount,
+        label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
+        amountPence: offlineCardPence + collectionCardPence,
+        count: 0,
       },
       {
         label: "Water Projects",

@@ -7,7 +7,7 @@ export async function generateDonationNumber(): Promise<string> {
     const n = randomInt(0, 100_000_000)
     const candidate = `786-1${String(n).padStart(8, "0")}`
 
-    const [demoOrder, offlineIncome, waterDonation, sponsorshipDonation] =
+    const [demoOrder, offlineIncome, waterDonation, sponsorshipDonation, fundraiserCash] =
       await Promise.all([
         prisma.demoOrder.findUnique({
           where: { orderNumber: candidate },
@@ -25,9 +25,13 @@ export async function generateDonationNumber(): Promise<string> {
           where: { donationNumber: candidate },
           select: { id: true },
         }),
+        prisma.fundraiserCashDonation.findFirst({
+          where: { donationNumber: candidate },
+          select: { id: true },
+        }),
       ])
 
-    if (!demoOrder && !offlineIncome && !waterDonation && !sponsorshipDonation) {
+    if (!demoOrder && !offlineIncome && !waterDonation && !sponsorshipDonation && !fundraiserCash) {
       return candidate
     }
   }

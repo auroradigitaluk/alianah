@@ -81,7 +81,8 @@ export function formatCurrencyWhole(amountPence: number): string {
   return `£${pounds.toLocaleString("en-GB", { maximumFractionDigits: 0 })}`
 }
 
-export function formatEnum(value: string): string {
+export function formatEnum(value: string | null | undefined): string {
+  if (value == null || value === "") return "—"
   return value
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())

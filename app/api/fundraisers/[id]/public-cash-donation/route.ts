@@ -4,9 +4,16 @@ import { z } from "zod"
 
 export const dynamic = "force-dynamic"
 
+const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER"] as const
+const DONATION_TYPES = ["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"] as const
+
 const bodySchema = z.object({
   amountPence: z.number().int().positive("Amount must be positive"),
   donorName: z.string().max(200).optional(),
+  paymentMethod: z.enum(PAYMENT_METHODS).default("CASH"),
+  donationType: z.enum(DONATION_TYPES).default("GENERAL"),
+  donorEmail: z.string().email().max(320).optional().or(z.literal("")),
+  donorPhone: z.string().max(50).optional(),
   notes: z.string().max(1000).optional(),
 })
 
@@ -35,6 +42,10 @@ export async function POST(
         fundraiserId: fundraiser.id,
         amountPence: data.amountPence,
         donorName: data.donorName?.trim() || null,
+        paymentMethod: data.paymentMethod,
+        donationType: data.donationType,
+        donorEmail: data.donorEmail?.trim() || null,
+        donorPhone: data.donorPhone?.trim() || null,
         notes: data.notes?.trim() || null,
         receivedAt: new Date(),
         status: "PENDING_REVIEW",

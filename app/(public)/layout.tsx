@@ -1,6 +1,6 @@
 import { FundraiseFooter } from "@/components/fundraise-footer"
 import { PublicGlowBg } from "@/components/public-glow-bg"
-import { PublicHeader } from "@/components/public-header"
+import { PublicHeaderWrapper } from "@/components/public-header-wrapper"
 import { SidecartProvider } from "@/components/sidecart-provider"
 
 export default async function PublicLayout({
@@ -12,7 +12,7 @@ export default async function PublicLayout({
     <SidecartProvider>
       <PublicGlowBg>
         <div className="flex min-h-screen flex-col">
-          <PublicHeader />
+          <PublicHeaderWrapper />
           <main className="flex-1">{children}</main>
           <FundraiseFooter />
         </div>

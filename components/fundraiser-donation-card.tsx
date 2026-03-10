@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ProgressRing } from "@/components/ui/progress-ring"
+import { Progress } from "@/components/ui/progress"
 import { formatCurrencyWhole } from "@/lib/utils"
-import { Share2, Heart, ShieldCheck } from "lucide-react"
+import { Share2, Building2, CheckCircle2 } from "lucide-react"
 import { DonationForm } from "@/components/donation-form"
 import { FundraiserPublicCashForm } from "@/components/fundraiser-public-cash-form"
 import { WaterProjectDonationForm } from "@/components/water-project-donation-form"
@@ -30,6 +31,8 @@ type FundraiserDonationCardProps = {
   targetAmountPence: number | null
   progressPercentage: number
   donationCount: number
+  campaignTitle?: string
+  organizerName?: string
   appeal?: {
     id: string
     title: string
@@ -54,16 +57,12 @@ type FundraiserDonationCardProps = {
   waterProjectPresetAmountPence?: number
   waterProjectPlaqueName?: string | null
   fundraiserId: string
-  recentDonations: Array<{
-    amountPence: number
-    donor: {
-      firstName: string | null
-      lastName?: string | null
-    }
-    isAnonymous?: boolean | null
-    createdAt: Date
-    timeAgo: string
-  }>
+  /** When true, stats render without a Card wrapper (for use inside a shared split card). */
+  embedStatsInCard?: boolean
+  /** When true, only the stats block is rendered (for split card). */
+  statsOnly?: boolean
+  /** When true, only the donation form and cash form are rendered (below split card). */
+  formOnly?: boolean
 }
 
 export function FundraiserDonationCard({
@@ -71,6 +70,8 @@ export function FundraiserDonationCard({
   targetAmountPence,
   progressPercentage,
   donationCount,
+  campaignTitle,
+  organizerName,
   appeal,
   products,
   donationTypesEnabled,
@@ -79,22 +80,57 @@ export function FundraiserDonationCard({
   waterProjectPresetAmountPence,
   waterProjectPlaqueName,
   fundraiserId,
-  recentDonations,
+  embedStatsInCard = false,
+  statsOnly = false,
+  formOnly = false,
 }: FundraiserDonationCardProps) {
   const [copied, setCopied] = React.useState(false)
+  const [displayAmount, setDisplayAmount] = React.useState(0)
+  const donateSectionRef = React.useRef<HTMLDivElement>(null)
+  const totalRaisedRef = React.useRef(totalRaised)
+  const rafRef = React.useRef<number>(0)
 
-  const ringSize = React.useMemo(() => {
-    const raisedStr = formatCurrencyWhole(totalRaised)
-    const targetStr = formatCurrencyWhole(targetAmountPence ?? 0)
-    const maxLen = Math.max(raisedStr.length, targetStr.length)
-    const base = 160
-    const minSize = 160
-    const maxSize = 280
-    if (maxLen <= 7) return minSize
-    return Math.min(maxSize, base + (maxLen - 7) * 30)
-  }, [totalRaised, targetAmountPence])
+  React.useEffect(() => {
+    if (totalRaised === 0) {
+      setDisplayAmount(0)
+      return
+    }
+    totalRaisedRef.current = totalRaised
+    const startValue = displayAmount
+    const startTime = performance.now()
+    const easeOutQuint = (t: number) => 1 - Math.pow(1 - t, 5)
 
-  const innerMaxWidth = Math.round(ringSize * 0.78)
+    const lastTenPoundsPence = 1000
+    const hasSlowFinish = totalRaised > lastTenPoundsPence
+    const phase1End = hasSlowFinish ? totalRaised - lastTenPoundsPence : totalRaised
+    const phase1DurationMs = hasSlowFinish ? 1200 : 2000
+    const phase2DurationMs = hasSlowFinish ? 3200 : 0
+    const totalDurationMs = phase1DurationMs + phase2DurationMs
+
+    const tick = (now: number) => {
+      const elapsed = Math.min(now - startTime, totalDurationMs)
+      let value: number
+      if (!hasSlowFinish || elapsed < phase1DurationMs) {
+        const t = phase1DurationMs > 0 ? Math.min(elapsed / phase1DurationMs, 1) : 1
+        const eased = easeOutQuint(t)
+        value = startValue + (phase1End - startValue) * eased
+      } else {
+        const t2 = (elapsed - phase1DurationMs) / phase2DurationMs
+        const eased = easeOutQuint(Math.min(t2, 1))
+        value = phase1End + (totalRaisedRef.current - phase1End) * eased
+      }
+      setDisplayAmount(Math.round(value))
+      if (elapsed < totalDurationMs) {
+        rafRef.current = requestAnimationFrame(tick)
+      } else {
+        setDisplayAmount(totalRaisedRef.current)
+      }
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [totalRaised])
 
   const handleShare = () => {
     const url = window.location.href
@@ -104,41 +140,151 @@ export function FundraiserDonationCard({
     })
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Combined Progress Section and Donation Form */}
-      <Card className="!bg-transparent shadow-none hover:shadow-none">
-        <CardContent className="p-6 space-y-6">
-          {/* Progress Section */}
-          <div className="flex flex-col items-center gap-4 pb-6 border-b">
-            <ProgressRing
-              value={progressPercentage}
-              size={ringSize}
-              strokeWidth={10}
-            >
-              <div className="text-center min-w-0 overflow-hidden px-1" style={{ maxWidth: innerMaxWidth }}>
-                <p className="font-bold leading-tight break-words text-[clamp(1.09rem,3.2vw,1.31rem)] sm:text-[clamp(0.95rem,2.78vw,1.14rem)]">
-                  {formatCurrencyWhole(totalRaised)}
-                </p>
-                <p className="mt-1 text-[clamp(0.65rem,1.8vw,0.8rem)] font-normal text-muted-foreground">
-                  raised of
-                </p>
-                <p className="text-[clamp(0.9rem,2.64vw,1.08rem)] font-semibold text-muted-foreground break-words sm:text-[clamp(0.75rem,2.2vw,0.9rem)]">
-                  {formatCurrencyWhole(targetAmountPence ?? 0)}
-                </p>
-              </div>
-            </ProgressRing>
-            <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 border w-full justify-center">
-              <ShieldCheck className="h-4 w-4 text-primary flex-shrink-0" />
-              <div className="text-center min-w-0">
-                <p className="text-xs font-semibold text-foreground">100% Donation Policy</p>
-                <p className="text-xs text-muted-foreground">Every penny goes to the cause</p>
-              </div>
-            </div>
+  const scrollToDonateForm = () => {
+    if (statsOnly) {
+      document.getElementById("donate-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+    } else {
+      donateSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }
+
+  const statsContent = (
+    <div className="p-5 sm:p-6 flex flex-col space-y-5">
+<div className="text-center space-y-2">
+            <p className="text-4xl sm:text-5xl font-bold text-primary">
+              {formatCurrencyWhole(displayAmount)}
+            </p>
+            <p className="text-sm text-neutral-600">
+              raised of {formatCurrencyWhole(targetAmountPence ?? 0)} GBP goal
+            </p>
           </div>
 
-          {/* Donation Form */}
-          <div className="space-y-6">
+      <Progress value={progressPercentage} className="h-2 bg-neutral-100 dark:bg-muted" />
+
+      <p className="text-sm text-neutral-600 dark:text-muted-foreground text-center">
+        {donationCount} supporter{donationCount !== 1 ? "s" : ""}
+      </p>
+
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="outline"
+          onClick={handleShare}
+          className="w-full h-12 rounded-lg border-neutral-300 dark:border-input text-neutral-700 dark:text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary text-base"
+          size="lg"
+        >
+          <Share2 className="h-4 w-4 mr-2" />
+          {copied ? "Copied!" : "Share"}
+        </Button>
+        <Button
+          onClick={scrollToDonateForm}
+          className="w-full h-12 rounded-lg bg-primary text-primary-foreground hover:opacity-90 text-base"
+          size="lg"
+        >
+          Donate
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-center gap-2 text-sm text-neutral-500 dark:text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-primary font-medium">
+          <CheckCircle2 className="h-4 w-4" />
+          100% Donation Policy
+        </span>
+      </div>
+
+      <ul className="space-y-4 text-sm text-neutral-500 dark:text-muted-foreground border-t border-neutral-100 dark:border-border pt-6 mt-auto pb-1 text-center list-none pl-0">
+        {campaignTitle && (
+          <li className="flex items-center justify-center gap-2">
+            <span className="text-neutral-400 dark:text-muted-foreground">Impact:</span>
+            <span>{campaignTitle}</span>
+          </li>
+        )}
+        <li className="flex items-center justify-center gap-2">
+          <Image
+            src="/logo-light.png"
+            alt=""
+            width={20}
+            height={20}
+            className="h-5 w-5 object-contain"
+          />
+          Alianah Humanity Welfare
+        </li>
+        <li className="flex items-center justify-center gap-2">
+          <Building2 className="h-4 w-4 shrink-0" />
+          Registered charity no. 1160076
+        </li>
+        <li className="flex items-center justify-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+          Verified for authenticity.
+        </li>
+      </ul>
+    </div>
+  )
+
+  if (statsOnly) {
+    return embedStatsInCard ? statsContent : (
+      <Card className="border border-neutral-200/80 dark:border-border bg-white dark:bg-card shadow-sm rounded-xl overflow-hidden">
+        <CardContent className="p-0">{statsContent}</CardContent>
+      </Card>
+    )
+  }
+
+  if (formOnly) {
+    return (
+      <div className="space-y-5 mt-6 sm:mt-8">
+        <div ref={donateSectionRef}>
+          <Card className="border border-neutral-200/80 dark:border-border bg-white dark:bg-card shadow-sm rounded-xl overflow-hidden">
+            <CardContent className="p-5 sm:p-6">
+              <div className="space-y-5">
+                {waterProject ? (
+                  <WaterProjectDonationForm
+                  projectId={waterProject.id}
+                  projectType={waterProject.projectType}
+                  plaqueAvailable={waterProject.plaqueAvailable}
+                  fundraiserId={fundraiserId}
+                  presetCountry={waterProjectPresetCountry}
+                  presetAmountPence={waterProjectPresetAmountPence}
+                  presetPlaqueName={waterProjectPlaqueName ?? undefined}
+                />
+              ) : (
+                appeal &&
+                products &&
+                donationTypesEnabled && (
+                  <DonationForm
+                    appeal={appeal}
+                    products={products}
+                    donationTypesEnabled={donationTypesEnabled}
+                    fundraiserId={fundraiserId}
+                    noCard={true}
+                    variant="fundraiser"
+                    campaignTitle={campaignTitle}
+                    organizerName={organizerName}
+                  />
+                )
+              )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <FundraiserPublicCashForm fundraiserId={fundraiserId} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Stats: either inside shared card (no wrapper) or own card */}
+      {embedStatsInCard ? (
+        statsContent
+      ) : (
+        <Card className="border border-neutral-200/80 dark:border-border bg-white dark:bg-card shadow-sm rounded-xl overflow-hidden">
+          <CardContent className="p-0">{statsContent}</CardContent>
+        </Card>
+      )}
+
+      {/* Donation form section - scroll target for Donate button */}
+      <div ref={donateSectionRef} className="pt-1">
+        <Card className="border border-neutral-200/80 dark:border-border bg-white dark:bg-card shadow-sm rounded-xl overflow-hidden">
+          <CardContent className="p-5 sm:p-6 space-y-6">
             {waterProject ? (
               <WaterProjectDonationForm
                 projectId={waterProject.id}
@@ -162,56 +308,12 @@ export function FundraiserDonationCard({
                 />
               )
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Secondary CTA */}
-      <Button
-        variant="outline"
-        onClick={handleShare}
-        className="w-full"
-        size="lg"
-      >
-        <Share2 className="h-4 w-4" />
-        {copied ? "Copied!" : "Share"}
-      </Button>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Add offline donation (no login required) */}
       <FundraiserPublicCashForm fundraiserId={fundraiserId} />
-
-      {/* Recent Donations */}
-      {recentDonations.length > 0 && (
-        <Card className="!bg-transparent shadow-none hover:shadow-none">
-          <CardContent className="p-6">
-            <h3 className="font-semibold mb-4 text-sm">Recent donations</h3>
-            <div className="space-y-3">
-              {recentDonations.slice(0, 5).map((donation, index) => (
-                <div key={index} className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                    <Heart className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm truncate">
-                        {donation.isAnonymous
-                          ? "Anonymous"
-                          : [donation.donor.firstName, donation.donor.lastName]
-                              .filter(Boolean)
-                              .join(" ") || "Anonymous"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {donation.timeAgo}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-semibold text-sm">{formatCurrencyWhole(donation.amountPence)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

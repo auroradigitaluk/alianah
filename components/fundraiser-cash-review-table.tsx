@@ -6,11 +6,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Check, X, Loader2 } from "lucide-react"
 
+const PAYMENT_LABELS: Record<string, string> = {
+  CASH: "Cash",
+  BANK_TRANSFER: "Bank transfer",
+}
+const DONATION_TYPE_LABELS: Record<string, string> = {
+  GENERAL: "General",
+  SADAQAH: "Sadaqah",
+  ZAKAT: "Zakat",
+  LILLAH: "Lillah",
+}
+
 interface PendingCashDonation {
   id: string
   fundraiserId: string
   amountPence: number
   donorName: string | null
+  donationNumber?: string | null
+  paymentMethod?: string
+  donationType?: string
+  donorEmail?: string | null
+  donorPhone?: string | null
   notes: string | null
   receivedAt: string
   status: string
@@ -22,7 +38,7 @@ interface PendingCashDonation {
     fundraiserName: string
     email: string
     campaignTitle: string
-  }
+  } | null
 }
 
 export function FundraiserCashReviewTable() {
@@ -108,7 +124,9 @@ export function FundraiserCashReviewTable() {
             <TableHead>Fundraiser</TableHead>
             <TableHead>Campaign</TableHead>
             <TableHead className="text-right tabular-nums">Amount</TableHead>
-            <TableHead>Donor name</TableHead>
+            <TableHead className="text-left">Order No.</TableHead>
+            <TableHead>Donor</TableHead>
+            <TableHead>Payment · Type</TableHead>
             <TableHead>Notes</TableHead>
             <TableHead>Received</TableHead>
             <TableHead>Submitted</TableHead>
@@ -129,8 +147,19 @@ export function FundraiserCashReviewTable() {
               <TableCell className="text-right font-semibold tabular-nums">
                 {formatCurrency(d.amountPence)}
               </TableCell>
-              <TableCell className="text-muted-foreground">
-                {d.donorName ?? "—"}
+              <TableCell className="text-xs font-mono text-muted-foreground">
+                {d.donationNumber ?? "—"}
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                <div>{d.donorName ?? "—"}</div>
+                {(d.donorEmail || d.donorPhone) && (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {[d.donorEmail, d.donorPhone].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                {PAYMENT_LABELS[d.paymentMethod ?? ""] ?? d.paymentMethod ?? "—"} · {DONATION_TYPE_LABELS[d.donationType ?? ""] ?? d.donationType ?? "—"}
               </TableCell>
               <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm" title={d.notes ?? undefined}>
                 {d.notes ?? "—"}

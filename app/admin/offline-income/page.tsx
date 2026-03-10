@@ -17,6 +17,19 @@ async function getOfflineIncome(staffId: string | null) {
       include: {
         appeal: { select: { title: true } },
         addedBy: { select: { email: true, firstName: true, lastName: true } },
+        donor: {
+          select: {
+            title: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            address: true,
+            city: true,
+            postcode: true,
+            country: true,
+          },
+        },
       },
     })
   } catch (error) {
@@ -45,6 +58,7 @@ export default async function OfflineIncomePage({
 
   const [
     income,
+    fundraiserCashDonations,
     waterDonations,
     sponsorshipDonations,
     appeals,
@@ -54,6 +68,24 @@ export default async function OfflineIncomePage({
     sponsorshipProjectCountries,
   ] = await Promise.all([
     getOfflineIncome(staffId),
+    prisma.fundraiserCashDonation.findMany({
+      where: {
+        status: "APPROVED",
+        ...(staffId ? { reviewedByAdminUserId: staffId } : {}),
+      },
+      orderBy: { receivedAt: "desc" },
+      include: {
+        fundraiser: {
+          select: {
+            title: true,
+            fundraiserName: true,
+            appeal: { select: { title: true } },
+            waterProject: { select: { projectType: true } },
+          },
+        },
+        reviewedBy: { select: { email: true, firstName: true, lastName: true } },
+      },
+    }),
     prisma.waterProjectDonation.findMany({
       where: {
         collectedVia: "office",
@@ -170,9 +202,43 @@ export default async function OfflineIncomePage({
     notes: item.notes,
     addedByName: formatAdminUserName(item.addedBy),
     itemType: "appeal" as const,
+    giftAid: item.giftAid,
+    donor: item.donor
+      ? {
+          title: item.donor.title ?? undefined,
+          firstName: item.donor.firstName ?? undefined,
+          lastName: item.donor.lastName ?? undefined,
+          email: item.donor.email ?? undefined,
+          phone: item.donor.phone ?? undefined,
+          address: item.donor.address ?? undefined,
+          city: item.donor.city ?? undefined,
+          postcode: item.donor.postcode ?? undefined,
+          country: item.donor.country ?? undefined,
+        }
+      : undefined,
   }))
 
-  const tableIncome = [...incomeRows, ...waterRows, ...sponsorshipRows].sort((a, b) => {
+  const fundraiserCashRows = fundraiserCashDonations.map((d) => {
+    const f = d.fundraiser
+    const campaignTitle = f?.appeal?.title ?? (f?.waterProject ? f.waterProject.projectType.replace(/_/g, " ") : null) ?? f?.title ?? "Fundraiser"
+    return {
+      id: `fundraiser_cash-${d.id}`,
+      amountPence: d.amountPence,
+      donationType: d.donationType,
+      source: d.paymentMethod,
+      receivedAt: d.receivedAt,
+      orderNumber: d.donationNumber ?? null,
+      appeal: { title: `Fundraiser: ${campaignTitle}` },
+      notes: d.notes,
+      addedByName: formatAdminUserName(d.reviewedBy),
+      itemType: "fundraiser_cash" as const,
+      donorName: d.donorName ?? undefined,
+      donorEmail: d.donorEmail ?? undefined,
+      donorPhone: d.donorPhone ?? undefined,
+    }
+  })
+
+  const tableIncome = [...incomeRows, ...fundraiserCashRows, ...waterRows, ...sponsorshipRows].sort((a, b) => {
     const aDate = new Date(a.receivedAt as unknown as string | Date).getTime()
     const bDate = new Date(b.receivedAt as unknown as string | Date).getTime()
     return bDate - aDate

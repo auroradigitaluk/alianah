@@ -990,7 +990,8 @@ export default async function AdminDashboardPage({
     ])
 
     // Get offline income and collections for the date range (filtered by staff if STAFF)
-    const [offlineIncomeTotal, collectionsTotal, offlineCashTotal, offlineBankTotal] = await Promise.all([
+    // Collection breakdown: cardPence -> Card(SumUp), sadaqah+zakat+lillah -> Cash (no separate Collections bar)
+    const [offlineIncomeTotal, collectionsTotal, offlineCashTotal, offlineBankTotal, collectionBreakdown] = await Promise.all([
       prisma.offlineIncome.aggregate({
         where: {
           ...staffFilter,
@@ -1033,8 +1034,24 @@ export default async function AdminDashboardPage({
         },
         _sum: { amountPence: true },
       }).catch(() => ({ _sum: { amountPence: 0 } })),
+      prisma.collection.aggregate({
+        where: {
+          ...staffFilter,
+          collectedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: { cardPence: true, sadaqahPence: true, zakatPence: true, lillahPence: true },
+      }).catch(() => ({ _sum: { cardPence: 0, sadaqahPence: 0, zakatPence: 0, lillahPence: 0 } })),
     ])
-    
+
+    const collectionCardPence = collectionBreakdown._sum.cardPence ?? 0
+    const collectionCashPence =
+      (collectionBreakdown._sum.sadaqahPence ?? 0) +
+      (collectionBreakdown._sum.zakatPence ?? 0) +
+      (collectionBreakdown._sum.lillahPence ?? 0)
+
     const paymentMethodData = isStaff
       ? [
           {
@@ -1044,23 +1061,18 @@ export default async function AdminDashboardPage({
           },
           {
             name: "offline_cash",
-            value: offlineCashTotal._sum.amountPence || 0,
+            value: (offlineCashTotal._sum.amountPence || 0) + collectionCashPence,
             label: formatPaymentMethod(PAYMENT_METHODS.CASH),
           },
           {
             name: "card_sumup",
-            value: 0,
+            value: collectionCardPence,
             label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
           },
           {
             name: "offline_bank",
             value: offlineBankTotal._sum.amountPence || 0,
             label: formatPaymentMethod(PAYMENT_METHODS.BANK_TRANSFER),
-          },
-          {
-            name: "collections",
-            value: collectionsTotal._sum.amountPence || 0,
-            label: "Collections (Masjid)",
           },
           {
             name: "water_sponsor",
@@ -1076,23 +1088,21 @@ export default async function AdminDashboardPage({
           },
           {
             name: "card_sumup",
-            value: sumupTotal._sum.amountPence || 0,
+            value: (sumupTotal._sum.amountPence || 0) + collectionCardPence,
             label: formatPaymentMethod(PAYMENT_METHODS.CARD_SUMUP),
           },
           {
             name: "offline_cash",
-            value: (cashTotal._sum.amountPence || 0) + (fundraiserCashTotal._sum.amountPence || 0),
+            value:
+              (cashTotal._sum.amountPence || 0) +
+              (fundraiserCashTotal._sum.amountPence || 0) +
+              collectionCashPence,
             label: formatPaymentMethod(PAYMENT_METHODS.CASH),
           },
           {
             name: "offline_bank",
             value: bankTransferTotal._sum.amountPence || 0,
             label: formatPaymentMethod(PAYMENT_METHODS.BANK_TRANSFER),
-          },
-          {
-            name: "collections",
-            value: collectionsTotal._sum.amountPence || 0,
-            label: "Collections (Masjid)",
           },
         ]
 
@@ -2102,11 +2112,6 @@ export default async function AdminDashboardPage({
         name: "bank_transfer",
         value: 0,
         label: formatPaymentMethod(PAYMENT_METHODS.BANK_TRANSFER),
-      },
-      {
-        name: "collections",
-        value: 0,
-        label: "Collections (Masjid)",
       },
     ]
 

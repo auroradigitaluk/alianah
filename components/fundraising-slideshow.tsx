@@ -33,7 +33,7 @@ export function FundraisingSlideshow({
   if (safeImages.length === 0) return null
 
   return (
-    <div className={cn("relative w-full aspect-video rounded-lg overflow-hidden bg-muted border", className)}>
+    <div className={cn("relative w-full aspect-[4/3] overflow-hidden bg-neutral-100", className)}>
       {safeImages.map((src, i) => (
         <Image
           key={`${src}-${i}`}
@@ -44,13 +44,13 @@ export function FundraisingSlideshow({
             "object-cover transition-opacity duration-700",
             i === index ? "opacity-100" : "opacity-0"
           )}
-          sizes="(max-width: 768px) 100vw, 900px"
+          sizes="(max-width: 768px) 100vw, 720px"
           priority={i === index}
         />
       ))}
 
       {safeImages.length > 1 && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/40 px-2.5 py-1.5 rounded-full">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/50 px-2.5 py-1.5 rounded-full">
           {safeImages.map((_, i) => (
             <button
               key={i}

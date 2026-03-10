@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
           fundraiserId: d.fundraiserId,
           amountPence: d.amountPence,
           donorName: d.donorName,
+          donationNumber: d.donationNumber,
           notes: d.notes,
           receivedAt: d.receivedAt.toISOString(),
           status: d.status,
