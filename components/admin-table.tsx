@@ -149,7 +149,10 @@ function DraggableRow<T extends { id: string }>({
       onClick={() => onRowClick?.(row.original)}
     >
       {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
+        <TableCell
+          key={cell.id}
+          className={cell.column.id === "drag" ? "hidden md:table-cell" : undefined}
+        >
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
       ))}
@@ -294,15 +297,17 @@ export function AdminTable<T extends { id: string }>({
       <TableHeader className="bg-muted sticky top-0 z-10">
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => {
-              return (
-                <TableHead key={header.id} colSpan={header.colSpan}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                </TableHead>
-              )
-            })}
+            {headerGroup.headers.map((header) => (
+              <TableHead
+                key={header.id}
+                colSpan={header.colSpan}
+                className={header.column.id === "drag" ? "hidden md:table-cell" : undefined}
+              >
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(header.column.columnDef.header, header.getContext())}
+              </TableHead>
+            ))}
           </TableRow>
         ))}
       </TableHeader>

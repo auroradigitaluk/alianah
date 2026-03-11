@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 const dateRangeOptions = [
   { value: "this_month", label: "This month" },
   { value: "last_month", label: "Last month" },
+  { value: "30d", label: "Last 30 days" },
   { value: "90d", label: "Last 90 days" },
   { value: "this_year", label: "This year" },
   { value: "last_year", label: "Last year" },
@@ -29,6 +30,12 @@ const calculateDateRange = (range: string, start?: string, end?: string) => {
     case "last_month":
       startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+      break
+    case "30d":
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 30)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
       break
     case "90d":
       startDate = new Date(now)
@@ -69,7 +76,7 @@ export function ReportsDateFilter({
 }: {
   onRangeChange: (range: { startDate: Date | null; endDate: Date | null }) => void
 }) {
-  const [currentRange, setCurrentRange] = React.useState("this_month")
+  const [currentRange, setCurrentRange] = React.useState("30d")
   const [customStart, setCustomStart] = React.useState("")
   const [customEnd, setCustomEnd] = React.useState("")
   const lastSentRef = React.useRef<string | null>(null)

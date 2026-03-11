@@ -23,7 +23,14 @@ type AnalyticsResponse = {
     avgPagesPerSession?: number
     checkoutSessions?: number
     completedOrders?: number
-    conversionRate?: number
+    averageDonationPence?: number
+    totalDonationPence?: number
+    directTrafficPercent?: number
+    mobilePercent?: number
+    donationConversionPercent?: number
+    revenuePerVisitorPence?: number
+    topCountryLabel?: string
+    topCountryPercent?: number
   }
   series: {
     date: string
@@ -53,19 +60,25 @@ function SummaryCard({
   title,
   value,
   format = "number",
+  displayValue,
 }: {
   title: string
   value: number
-  format?: "number" | "percent" | "duration" | "decimal"
+  format?: "number" | "percent" | "duration" | "decimal" | "currency"
+  displayValue?: string
 }) {
   const display =
-    format === "percent"
-      ? `${value.toFixed(1)}%`
-      : format === "duration"
-        ? formatDuration(value)
-        : format === "decimal"
-          ? value.toFixed(1)
-          : value.toLocaleString()
+    displayValue !== undefined
+      ? displayValue
+      : format === "percent"
+        ? `${value.toFixed(1)}%`
+        : format === "duration"
+          ? formatDuration(value)
+          : format === "decimal"
+            ? value.toFixed(1)
+            : format === "currency"
+              ? `£${(value / 100).toFixed(2)}`
+              : value.toLocaleString()
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -206,7 +219,14 @@ export function AnalyticsDashboard() {
     avgPagesPerSession: 0,
     checkoutSessions: 0,
     completedOrders: 0,
-    conversionRate: 0,
+    averageDonationPence: 0,
+    totalDonationPence: 0,
+    directTrafficPercent: 0,
+    mobilePercent: 0,
+    donationConversionPercent: 0,
+    revenuePerVisitorPence: 0,
+    topCountryLabel: "—",
+    topCountryPercent: 0,
   }
 
   return (
@@ -246,9 +266,38 @@ export function AnalyticsDashboard() {
         <SummaryCard title="Checkout sessions" value={totals.checkoutSessions ?? 0} />
         <SummaryCard title="Completed donations" value={totals.completedOrders ?? 0} />
         <SummaryCard
-          title="Conversion rate"
-          value={totals.conversionRate ?? 0}
+          title="Average donation value"
+          value={totals.averageDonationPence ?? 0}
+          format="currency"
+        />
+        <SummaryCard
+          title="Donation conversion"
+          value={totals.donationConversionPercent ?? 0}
           format="percent"
+        />
+        <SummaryCard
+          title="Revenue per visitor"
+          value={totals.revenuePerVisitorPence ?? 0}
+          format="currency"
+        />
+        <SummaryCard
+          title="Direct traffic"
+          value={totals.directTrafficPercent ?? 0}
+          format="percent"
+        />
+        <SummaryCard
+          title="Mobile & tablet"
+          value={totals.mobilePercent ?? 0}
+          format="percent"
+        />
+        <SummaryCard
+          title="Top country"
+          value={0}
+          displayValue={
+            (totals.topCountryLabel && totals.topCountryLabel !== "—") || (totals.topCountryPercent ?? 0) > 0
+              ? `${totals.topCountryLabel ?? "—"} (${(totals.topCountryPercent ?? 0).toFixed(1)}%)`
+              : "—"
+          }
         />
       </div>
 

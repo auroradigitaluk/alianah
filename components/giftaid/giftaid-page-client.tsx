@@ -11,6 +11,16 @@ import type { GiftAidScheduleResponse, GiftAidScheduleRow } from "@/lib/giftaid"
 import { DonorDetailsDialog, type DonorDetails } from "@/components/donor-details-dialog"
 import { Loader2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 type RangeState = {
   startDate: Date | null
@@ -145,6 +155,8 @@ export function GiftAidPageClient() {
   const [selectedDonor, setSelectedDonor] = useState<DonorDetails | null>(null)
   const [donorLoadingId, setDonorLoadingId] = useState<string | null>(null)
   const [updating, setUpdating] = useState<Record<string, boolean>>({})
+  const [exportHmrcConfirmOpen, setExportHmrcConfirmOpen] = useState(false)
+  const [exportHmrcConfirmText, setExportHmrcConfirmText] = useState("")
 
   const fetchGiftAid = useCallback(async (nextRange: RangeState) => {
     setLoading(true)
@@ -241,8 +253,30 @@ export function GiftAidPageClient() {
 
   const eligibleRows = useMemo(() => data?.eligible.rows || [], [data])
   const ineligibleRows = useMemo(() => data?.ineligible.rows || [], [data])
-  const eligibleSummaryRows = useMemo(() => buildDonorSummaries(eligibleRows, true), [eligibleRows])
-  const ineligibleSummaryRows = useMemo(() => buildDonorSummaries(ineligibleRows, false), [ineligibleRows])
+
+  // Split eligible rows into still-claimable vs already-claimed for this period
+  const eligibleClaimableRows = useMemo(
+    () => eligibleRows.filter((row) => !row.giftAidClaimed),
+    [eligibleRows]
+  )
+  const eligibleClaimedRows = useMemo(
+    () => eligibleRows.filter((row) => row.giftAidClaimed),
+    [eligibleRows]
+  )
+
+  const eligibleClaimableSummaryRows = useMemo(
+    () => buildDonorSummaries(eligibleClaimableRows, true),
+    [eligibleClaimableRows]
+  )
+  const eligibleClaimedSummaryRows = useMemo(
+    () => buildDonorSummaries(eligibleClaimedRows, true),
+    [eligibleClaimedRows]
+  )
+
+  const ineligibleSummaryRows = useMemo(
+    () => buildDonorSummaries(ineligibleRows, false),
+    [ineligibleRows]
+  )
 
   return (
     <div className="space-y-6">
@@ -289,10 +323,14 @@ export function GiftAidPageClient() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Total claimable</CardTitle>
+                  <CardTitle className="text-sm text-muted-foreground">Claimable now (unclaimed)</CardTitle>
                 </CardHeader>
                 <CardContent className="text-2xl font-semibold">
-                  {formatAmount(calculateClaimable(data.eligible.summary.totalAmountPence))}
+                  {formatAmount(
+                    calculateClaimable(
+                      eligibleClaimableRows.reduce((sum, row) => sum + row.amountPence, 0)
+                    )
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -307,100 +345,130 @@ export function GiftAidPageClient() {
               <Button
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={() => {
-                  const scheduleRows = buildScheduleRows(eligibleRows)
-                  const csvRows = [
-                    [
-                      "Item",
-                      "Title",
-                      "First name or initial",
-                      "Last name",
-                      "House name or number",
-                      "Postcode",
-                      "Aggregated donations",
-                      "Sponsored event",
-                      "Donation date",
-                      "Amount",
-                    ],
-                    ...scheduleRows.map((row) => [
-                      String(row.item),
-                      row.title,
-                      row.firstName,
-                      row.lastName,
-                      row.houseNumber,
-                      row.postcode,
-                      row.aggregated,
-                      row.sponsored,
-                      row.donationDate,
-                      row.amount,
-                    ]),
-                  ]
-                  downloadCsv("giftaid-eligible.csv", csvRows)
-                    handleMarkClaimed()
+                  setExportHmrcConfirmText("")
+                  setExportHmrcConfirmOpen(true)
                 }}
               >
                 Export HMRC CSV
               </Button>
             </div>
 
-              <Card>
-                <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Donor summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Full name</TableHead>
-                        <TableHead className="text-right">Amount £</TableHead>
-                        <TableHead className="text-right">Total donations</TableHead>
-                        <TableHead className="text-right">Gift Aid</TableHead>
-                        <TableHead className="text-right">Claimed</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {eligibleSummaryRows.map((row) => (
-                        <TableRow
-                          key={row.donorId || row.name}
-                          className={`cursor-pointer ${row.donorId === donorLoadingId ? "opacity-60" : ""}`}
-                          onClick={() => handleOpenDonor(row.donorId)}
-                        >
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span>{row.name}</span>
-                              {row.donorId === donorLoadingId ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">{formatAmount(row.amountPence)}</TableCell>
-                          <TableCell className="text-right">{row.count}</TableCell>
-                          <TableCell className="text-right">
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                              ✓
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {row.claimedCount === row.count ? (
+            {/* Donor breakdown: split into "Claimable" vs "Already claimed" for clarity */}
+            <Tabs defaultValue="claimable" className="mt-2">
+              <TabsList>
+                <TabsTrigger value="claimable">Claimable (not yet claimed)</TabsTrigger>
+                <TabsTrigger value="claimed">Already claimed in this period</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="claimable" className="mt-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-muted-foreground">Claimable donor summary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Full name</TableHead>
+                          <TableHead className="text-right">Amount £</TableHead>
+                          <TableHead className="text-right">Total donations</TableHead>
+                          <TableHead className="text-right">Gift Aid</TableHead>
+                          <TableHead className="text-right">Claimed</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {eligibleClaimableSummaryRows.map((row) => (
+                          <TableRow
+                            key={row.donorId || row.name}
+                            className={`cursor-pointer ${row.donorId === donorLoadingId ? "opacity-60" : ""}`}
+                            onClick={() => handleOpenDonor(row.donorId)}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span>{row.name}</span>
+                                {row.donorId === donorLoadingId ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">{formatAmount(row.amountPence)}</TableCell>
+                            <TableCell className="text-right">{row.count}</TableCell>
+                            <TableCell className="text-right">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                ✓
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                ×
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="claimed" className="mt-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-muted-foreground">Already claimed donor summary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Full name</TableHead>
+                          <TableHead className="text-right">Amount £</TableHead>
+                          <TableHead className="text-right">Total donations</TableHead>
+                          <TableHead className="text-right">Gift Aid</TableHead>
+                          <TableHead className="text-right">Claimed</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {eligibleClaimedSummaryRows.map((row) => (
+                          <TableRow
+                            key={row.donorId || row.name}
+                            className={`cursor-pointer ${row.donorId === donorLoadingId ? "opacity-60" : ""}`}
+                            onClick={() => handleOpenDonor(row.donorId)}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span>{row.name}</span>
+                                {row.donorId === donorLoadingId ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">{formatAmount(row.amountPence)}</TableCell>
+                            <TableCell className="text-right">{row.count}</TableCell>
+                            <TableCell className="text-right">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                ✓
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
                                     ✓
                                   </span>
                                 </TooltipTrigger>
-                                <TooltipContent>Claimed {formatClaimedAt(row.latestClaimedAt)}</TooltipContent>
+                                <TooltipContent>
+                                  Claimed {formatClaimedAt(row.latestClaimedAt)}
+                                </TooltipContent>
                               </Tooltip>
-                            ) : (
-                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                                ×
-                              </span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="ineligible" className="space-y-4 mt-4">
@@ -535,6 +603,80 @@ export function GiftAidPageClient() {
         open={!!selectedDonor}
         onOpenChange={(open) => !open && setSelectedDonor(null)}
       />
+
+      <Dialog open={exportHmrcConfirmOpen} onOpenChange={setExportHmrcConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export HMRC CSV</DialogTitle>
+            <DialogDescription>
+              Are you sure? This can only be done once. Exporting will mark these donations as claimed for Gift Aid.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="giftaid-confirm">
+              Type <strong>gift aid</strong> to proceed
+            </Label>
+            <Input
+              id="giftaid-confirm"
+              value={exportHmrcConfirmText}
+              onChange={(e) => setExportHmrcConfirmText(e.target.value)}
+              placeholder="gift aid"
+              className="font-mono"
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setExportHmrcConfirmOpen(false)
+                setExportHmrcConfirmText("")
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={exportHmrcConfirmText.trim().toLowerCase() !== "gift aid"}
+              onClick={() => {
+                const scheduleRows = buildScheduleRows(eligibleClaimableRows)
+                const csvRows = [
+                  [
+                    "Item",
+                    "Title",
+                    "First name or initial",
+                    "Last name",
+                    "House name or number",
+                    "Postcode",
+                    "Aggregated donations",
+                    "Sponsored event",
+                    "Donation date",
+                    "Amount",
+                  ],
+                  ...scheduleRows.map((row) => [
+                    String(row.item),
+                    row.title,
+                    row.firstName,
+                    row.lastName,
+                    row.houseNumber,
+                    row.postcode,
+                    row.aggregated,
+                    row.sponsored,
+                    row.donationDate,
+                    row.amount,
+                  ]),
+                ]
+                downloadCsv("giftaid-eligible.csv", csvRows)
+                handleMarkClaimed()
+                setExportHmrcConfirmOpen(false)
+                setExportHmrcConfirmText("")
+              }}
+            >
+              Proceed
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

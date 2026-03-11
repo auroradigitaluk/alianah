@@ -75,3 +75,16 @@ export function formatBucketLabel(bucketKey: string, interval: AnalyticsInterval
   }
   return bucketKey
 }
+
+/** Exclude development traffic: events whose referrer is localhost or 127.0.0.1. */
+export const excludeLocalhostReferrer = {
+  OR: [
+    { referrer: null },
+    {
+      AND: [
+        { referrer: { not: { contains: "localhost" } } },
+        { referrer: { not: { contains: "127.0.0.1" } } },
+      ],
+    },
+  ],
+}

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import {
   Card,
@@ -12,20 +12,11 @@ import {
 } from "@/components/ui/card"
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatCurrencyWhole, formatDate } from "@/lib/utils"
 
 export const description = "An interactive area chart"
 
@@ -47,69 +38,39 @@ interface ChartAreaInteractiveProps {
   }[]
   title?: string
   description?: string
+  /** Label for the selected period (e.g. "Last 30 days") – data is already filtered by dashboard date range */
+  periodLabel?: string
 }
 
 export function ChartAreaInteractive({
   data,
   title = "Donations Over Time",
-  description = "Showing total donations for the last 3 months",
+  description = "Total donations for each day",
+  periodLabel,
 }: ChartAreaInteractiveProps) {
-  const [timeRange, setTimeRange] = React.useState("90d")
-
-  // Combine desktop (online) + mobile (offline) into single total, remove Website-Stripe as separate series
+  // Data is already for the dashboard's selected date range; combine desktop + mobile into total
   const chartData = data.map((item) => ({
     ...item,
     total: item.desktop + item.mobile,
   }))
 
-  const filteredData = chartData.filter((item) => {
-    const date = new Date(item.date)
-    const now = new Date()
-    let daysToSubtract = 90
-    if (timeRange === "30d") {
-      daysToSubtract = 30
-    } else if (timeRange === "7d") {
-      daysToSubtract = 7
-    }
-    const startDate = new Date(now)
-    startDate.setDate(startDate.getDate() - daysToSubtract)
-    return date >= startDate
-  })
-
   return (
-    <Card className="pt-0">
-      <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
-        <div className="grid flex-1 gap-1">
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+    <Card className="pt-0 overflow-hidden">
+      <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row min-w-0">
+        <div className="grid flex-1 gap-1 min-w-0">
+          <CardTitle className="truncate">{title}</CardTitle>
+          <CardDescription className="truncate">
+            {periodLabel ? `${description} (${periodLabel})` : description}
+          </CardDescription>
         </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger
-            className="hidden w-[160px] rounded-lg sm:ml-auto sm:flex"
-            aria-label="Select a value"
-          >
-            <SelectValue placeholder="Last 3 months" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl">
-            <SelectItem value="90d" className="rounded-lg">
-              Last 3 months
-            </SelectItem>
-            <SelectItem value="30d" className="rounded-lg">
-              Last 30 days
-            </SelectItem>
-            <SelectItem value="7d" className="rounded-lg">
-              Last 7 days
-            </SelectItem>
-          </SelectContent>
-        </Select>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 overflow-hidden min-w-0">
         <ChartContainer
           id="donations-over-time"
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
+          className="aspect-auto h-[250px] w-full min-w-0"
         >
-          <AreaChart data={filteredData}>
+          <AreaChart data={chartData} margin={{ left: 4, right: 12, top: 8, bottom: 8 }}>
             <defs>
               <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
                 <stop
@@ -133,6 +94,14 @@ export function ChartAreaInteractive({
               minTickGap={32}
               tickFormatter={(value) => formatDate(value)}
             />
+            <YAxis
+              domain={[0, "auto"]}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              width={56}
+              tickFormatter={(value) => formatCurrencyWhole(value)}
+            />
             <ChartTooltip
               cursor={false}
               content={
@@ -148,9 +117,8 @@ export function ChartAreaInteractive({
               type="natural"
               fill="url(#fillTotal)"
               stroke="var(--color-total)"
-              stackId="a"
+              isAnimationActive={false}
             />
-            <ChartLegend content={<ChartLegendContent />} />
           </AreaChart>
         </ChartContainer>
       </CardContent>

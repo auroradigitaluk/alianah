@@ -14,7 +14,8 @@ async function getDonations(staffId: string | null) {
       where: { projectType: "WATER_PUMP" },
       include: {
         donations: {
-          where: staffId ? { addedByAdminUserId: staffId } : undefined,
+          // Staff should be able to see all Water Pump donations here,
+          // even if they only see their own data on the dashboard.
           include: {
             donor: {
               select: {
@@ -105,9 +106,9 @@ export default async function WaterPumpsDonationsPage({
   searchParams: Promise<{ staff?: string; open?: string }>
 }) {
   const user = await getAdminUser()
-  const isStaff = user?.role === "STAFF"
   const params = await searchParams
-  const staffId = isStaff ? user!.id : params?.staff || null
+  // On this page, staff can view all donations; staff-scoping only applies to dashboard.
+  const staffId = params?.staff || null
   const initialOpenId = params?.open || null
 
   const staffUsers = user?.role === "ADMIN"

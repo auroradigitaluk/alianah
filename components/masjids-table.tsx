@@ -79,6 +79,8 @@ export function MasjidsTable({
   const [nameQuery, setNameQuery] = useState("")
   const [cityQuery, setCityQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [sortField, setSortField] = useState<"amount" | "collections" | "name">("amount")
+  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc")
 
   useEffect(() => {
     if (initialSelectedId) {
@@ -104,6 +106,35 @@ export function MasjidsTable({
       return matchesName && matchesCity && matchesStatus
     })
   }, [cityQuery, masjids, nameQuery, statusFilter])
+
+  const sortedMasjids = useMemo(() => {
+    const copy = [...filteredMasjids]
+    copy.sort((a, b) => {
+      let aVal: number | string = 0
+      let bVal: number | string = 0
+
+      if (sortField === "amount") {
+        aVal = a.totalAmountRaised
+        bVal = b.totalAmountRaised
+      } else if (sortField === "collections") {
+        aVal = a.collectionCount
+        bVal = b.collectionCount
+      } else {
+        aVal = a.name.toLowerCase()
+        bVal = b.name.toLowerCase()
+      }
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        const cmp = aVal.localeCompare(bVal)
+        return sortDirection === "asc" ? cmp : -cmp
+      }
+
+      const numA = Number(aVal) || 0
+      const numB = Number(bVal) || 0
+      return sortDirection === "asc" ? numA - numB : numB - numA
+    })
+    return copy
+  }, [filteredMasjids, sortField, sortDirection])
 
   const clearFilters = () => {
     setNameQuery("")
@@ -183,14 +214,44 @@ export function MasjidsTable({
             </Select>
           </div>
         </div>
-        <div className="mt-4 flex justify-end">
-          <Button variant="outline" onClick={clearFilters}>
-            Clear filters
-          </Button>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="text-xs font-medium text-muted-foreground">Sort</Label>
+            <Select
+              value={sortField}
+              onValueChange={(value) => setSortField(value as "amount" | "collections" | "name")}
+            >
+              <SelectTrigger className="h-8 w-44">
+                <SelectValue placeholder="Sort field" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="amount">Amount raised</SelectItem>
+                <SelectItem value="collections">Number of collections</SelectItem>
+                <SelectItem value="name">Masjid name</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={sortDirection}
+              onValueChange={(value) => setSortDirection(value as "asc" | "desc")}
+            >
+              <SelectTrigger className="h-8 w-32">
+                <SelectValue placeholder="Order" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">High → Low</SelectItem>
+                <SelectItem value="asc">Low → High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          </div>
         </div>
       </div>
       <AdminTable
-        data={filteredMasjids}
+        data={sortedMasjids}
         onRowClick={(masjid) => setSelectedMasjid(masjid)}
         columns={[
         {

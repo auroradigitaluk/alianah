@@ -8,6 +8,8 @@ export type ReportRow = {
   count?: number
   amountPence?: number
   extra?: string | null
+  /** Fundraiser person name (e.g. "First Last") for by-fundraiser tables */
+  name?: string | null
 }
 
 export type FinancialReport = {
@@ -15,6 +17,12 @@ export type FinancialReport = {
   totalCount: number
   giftAidPence: number
   sources: ReportRow[]
+}
+
+export type LillahByAppealRow = {
+  appealId: string | null
+  label: string
+  amountPence: number
 }
 
 export type DonationsReport = {
@@ -27,6 +35,7 @@ export type DonationsReport = {
   byCountry: ReportRow[]
   byCity: ReportRow[]
   giftAid: ReportRow[]
+  lillahByAppeal: LillahByAppealRow[]
 }
 
 export type DonorSummary = {
@@ -111,6 +120,7 @@ export type AppealsReport = {
     donationCount: number
     offlineAmountPence: number
     collectionAmountPence: number
+    fundraiserAmountPence: number
     totalPence: number
   }>
 }

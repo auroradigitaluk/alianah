@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Users } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -9,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { formatAdminUserName } from "@/lib/utils"
 
@@ -57,23 +60,70 @@ export function StaffFilterSelect({
     return null
   }
 
+  const [mobileOpen, setMobileOpen] = React.useState(false)
+
   return (
     <div className={className}>
-      <Label className="text-xs text-muted-foreground mb-1.5 block">{label}</Label>
-      <Select value={current} onValueChange={handleChange}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="All staff" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All staff</SelectItem>
+      {/* Mobile: icon button that opens popover */}
+      <Popover open={mobileOpen} onOpenChange={setMobileOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="flex h-9 w-9 shrink-0 sm:hidden"
+            aria-label={label}
+          >
+            <Users className="size-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-1" align="end">
+          <Button
+            variant={current === "all" ? "secondary" : "ghost"}
+            size="sm"
+            className="w-full justify-start"
+            onClick={() => {
+              handleChange("all")
+              setMobileOpen(false)
+            }}
+          >
+            All staff
+          </Button>
           {filterableUsers.map((user) => (
-            <SelectItem key={user.id} value={user.id}>
+            <Button
+              key={user.id}
+              variant={current === user.id ? "secondary" : "ghost"}
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                handleChange(user.id)
+                setMobileOpen(false)
+              }}
+            >
               {formatAdminUserName(user) || user.email}
               {user.role !== "ADMIN" ? ` (${user.role})` : ""}
-            </SelectItem>
+            </Button>
           ))}
-        </SelectContent>
-      </Select>
+        </PopoverContent>
+      </Popover>
+
+      {/* Desktop: full select with label */}
+      <div className="hidden sm:block">
+        <Label className="text-xs text-muted-foreground mb-1.5 block">{label}</Label>
+        <Select value={current} onValueChange={handleChange}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="All staff" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All staff</SelectItem>
+            {filterableUsers.map((user) => (
+              <SelectItem key={user.id} value={user.id}>
+                {formatAdminUserName(user) || user.email}
+                {user.role !== "ADMIN" ? ` (${user.role})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   )
 }

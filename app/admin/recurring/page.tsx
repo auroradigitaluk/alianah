@@ -83,8 +83,8 @@ export default async function RecurringPage() {
               <div className="flex flex-col gap-4 sm:gap-6">
                 <Tabs defaultValue="recurring" className="w-full">
                   <TabsList>
-                    <TabsTrigger value="recurring">Recurring donations</TabsTrigger>
-                    <TabsTrigger value="daily-giving">Daily giving</TabsTrigger>
+                    <TabsTrigger value="recurring">Recurring Donations</TabsTrigger>
+                    <TabsTrigger value="daily-giving">Daily Giving</TabsTrigger>
                   </TabsList>
                   <TabsContent value="recurring" className="mt-4">
                     <div className="flex flex-wrap items-end justify-between gap-2">

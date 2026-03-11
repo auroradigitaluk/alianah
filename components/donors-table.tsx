@@ -5,6 +5,13 @@ import { AdminTable } from "@/components/admin-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { formatCurrency, formatDonorName } from "@/lib/utils"
 import { DonorDetailsDialog, type DonorDetails } from "@/components/donor-details-dialog"
 
@@ -26,6 +33,8 @@ export function DonorsTable({
   }, [initialSelectedId, donors])
   const [cityQuery, setCityQuery] = useState("")
   const [countryQuery, setCountryQuery] = useState("")
+  const [sortField, setSortField] = useState<"amount" | "count" | "name">("amount")
+  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc")
 
   const filteredDonors = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -48,6 +57,35 @@ export function DonorsTable({
       return matchesQuery && matchesCity && matchesCountry
     })
   }, [cityQuery, countryQuery, donors, query])
+
+  const sortedDonors = useMemo(() => {
+    const copy = [...filteredDonors]
+    copy.sort((a, b) => {
+      let aVal: number | string = 0
+      let bVal: number | string = 0
+
+      if (sortField === "amount") {
+        aVal = a.totalAmountDonated
+        bVal = b.totalAmountDonated
+      } else if (sortField === "count") {
+        aVal = a.donationCount
+        bVal = b.donationCount
+      } else {
+        aVal = formatDonorName(a).toLowerCase()
+        bVal = formatDonorName(b).toLowerCase()
+      }
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        const cmp = aVal.localeCompare(bVal)
+        return sortDirection === "asc" ? cmp : -cmp
+      }
+
+      const numA = Number(aVal) || 0
+      const numB = Number(bVal) || 0
+      return sortDirection === "asc" ? numA - numB : numB - numA
+    })
+    return copy
+  }, [filteredDonors, sortField, sortDirection])
 
   const clearFilters = () => {
     setQuery("")
@@ -90,43 +128,93 @@ export function DonorsTable({
             />
           </div>
         </div>
-        <div className="mt-4 flex justify-end">
-          <Button variant="outline" onClick={clearFilters}>
-            Clear filters
-          </Button>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="text-xs font-medium text-muted-foreground">Sort</Label>
+            <Select
+              value={sortField}
+              onValueChange={(value) => setSortField(value as "amount" | "count" | "name")}
+            >
+              <SelectTrigger className="h-8 w-40">
+                <SelectValue placeholder="Sort field" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="amount">Amount donated</SelectItem>
+                <SelectItem value="count">Number of donations</SelectItem>
+                <SelectItem value="name">Donor name</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={sortDirection}
+              onValueChange={(value) => setSortDirection(value as "asc" | "desc")}
+            >
+              <SelectTrigger className="h-8 w-32">
+                <SelectValue placeholder="Order" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">High → Low</SelectItem>
+                <SelectItem value="asc">Low → High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          </div>
         </div>
       </div>
       <AdminTable
-        data={filteredDonors}
+        data={sortedDonors}
         onRowClick={(donor) => setSelectedDonor(donor)}
         columns={[
-        {
-          id: "name",
-          header: "Donor Name",
-          cell: (donor) => (
-            <div className="font-medium">
-              {formatDonorName(donor)}
-            </div>
-          ),
-        },
-        {
-          id: "donationCount",
-          header: "Number of Donations",
-          cell: (donor) => (
-            <div className="text-sm">{donor.donationCount}</div>
-          ),
-        },
-        {
-          id: "amount",
-          header: "Amount Donated",
-          cell: (donor) => (
-            <div className="font-medium">
-              {formatCurrency(donor.totalAmountDonated)}
-            </div>
-          ),
-        },
-      ]}
-      enableSelection={false}
+          {
+            id: "name",
+            header: "Donor Name",
+            cell: (donor) => (
+              <div className="font-medium">
+                {formatDonorName(donor)}
+              </div>
+            ),
+          },
+          {
+            id: "email",
+            header: "Email",
+            cell: (donor) => (
+              <div className="text-sm text-muted-foreground">
+                {donor.email || "—"}
+              </div>
+            ),
+          },
+          {
+            id: "phone",
+            header: "Phone",
+            cell: (donor) => (
+              <div className="text-sm text-muted-foreground">
+                {donor.phone || "—"}
+              </div>
+            ),
+          },
+          {
+            id: "donationCount",
+            header: "Number of Donations",
+            accessorKey: "donationCount",
+            cell: (donor) => (
+              <div className="text-sm">{donor.donationCount}</div>
+            ),
+          },
+          {
+            id: "amount",
+            header: "Amount Donated",
+             accessorKey: "totalAmountDonated",
+            cell: (donor) => (
+              <div className="font-medium">
+                {formatCurrency(donor.totalAmountDonated)}
+              </div>
+            ),
+          },
+        ]}
+        enableSelection={false}
       />
       <DonorDetailsDialog
         donor={selectedDonor}

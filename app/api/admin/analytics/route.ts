@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRoleSafe } from "@/lib/admin-auth"
-import { formatBucketLabel, getBucketKey, resolveDateRange, type AnalyticsInterval, type AnalyticsRange } from "@/lib/analytics"
+import { excludeLocalhostReferrer, formatBucketLabel, getBucketKey, resolveDateRange, type AnalyticsInterval, type AnalyticsRange } from "@/lib/analytics"
 
 type BreakdownItem = { label: string; value: number }
 
@@ -44,6 +44,7 @@ export async function GET(request: Request) {
           gte: from,
           lte: to,
         },
+        ...excludeLocalhostReferrer,
       },
       select: {
         timestamp: true,
@@ -163,15 +164,39 @@ export async function GET(request: Request) {
   }
   const checkoutSessions = checkoutSessionIds.size
 
-  const completedOrders = await prisma.demoOrder.count({
+  const completedOrdersAgg = await prisma.demoOrder.aggregate({
     where: {
       status: "COMPLETED",
       createdAt: { gte: from, lte: to },
     },
+    _sum: { totalPence: true },
+    _count: { _all: true },
   })
+  const completedOrders = completedOrdersAgg._count._all
+  const totalDonationPence = completedOrdersAgg._sum.totalPence ?? 0
+  const averageDonationPence =
+    completedOrders > 0 ? Math.round(totalDonationPence / completedOrders) : 0
 
-  const conversionRate =
-    checkoutSessions > 0 ? (completedOrders / checkoutSessions) * 100 : 0
+  const visitorsCount = visitorsSet.size
+  const directCount = referrerMap.get("Direct") ?? 0
+  const directTrafficPercent =
+    events.length > 0 ? Math.round((directCount / events.length) * 1000) / 10 : 0
+  const mobileCount =
+    (deviceMap.get("mobile") ?? 0) + (deviceMap.get("tablet") ?? 0)
+  const mobilePercent =
+    events.length > 0 ? Math.round((mobileCount / events.length) * 1000) / 10 : 0
+  const donationConversionPercent =
+    visitorsCount > 0
+      ? Math.min(100, Math.round((completedOrders / visitorsCount) * 1000) / 10)
+      : 0
+  const revenuePerVisitorPence =
+    visitorsCount > 0 ? Math.round(totalDonationPence / visitorsCount) : 0
+  const topCountries = toSortedBreakdown(countryMap, 1)
+  const topCountryLabel = topCountries[0]?.label ?? "—"
+  const topCountryPercent =
+    events.length > 0 && topCountries[0]
+      ? Math.round((topCountries[0].value / events.length) * 1000) / 10
+      : 0
 
   const series = Array.from(seriesMap.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -193,7 +218,14 @@ export async function GET(request: Request) {
         avgPagesPerSession,
         checkoutSessions,
         completedOrders,
-        conversionRate,
+        averageDonationPence,
+        totalDonationPence,
+        directTrafficPercent,
+        mobilePercent,
+        donationConversionPercent,
+        revenuePerVisitorPence,
+        topCountryLabel,
+        topCountryPercent,
       },
       series,
       topPages: toSortedBreakdown(pageMap, 10),
@@ -220,7 +252,14 @@ export async function GET(request: Request) {
           avgPagesPerSession: 0,
           checkoutSessions: 0,
           completedOrders: 0,
-          conversionRate: 0,
+          averageDonationPence: 0,
+          totalDonationPence: 0,
+          directTrafficPercent: 0,
+          mobilePercent: 0,
+          donationConversionPercent: 0,
+          revenuePerVisitorPence: 0,
+          topCountryLabel: "—",
+          topCountryPercent: 0,
         },
         series: [],
         topPages: [],

@@ -4,7 +4,8 @@ import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 /**
  * GET /api/admin/distributions/available
- * Returns per-appeal: total received (donations + offline income + collections) and total distributed, so available = received - distributed.
+ * Returns per-appeal: total received (online donations + offline income + collections + approved
+ * fundraiser offline cash) and total distributed, so available = received - distributed.
  * Admin only.
  */
 export async function GET() {
@@ -34,7 +35,7 @@ export async function GET() {
         return [] as { appealId: string; _sum: { amountPence: number | null } }[]
       })
 
-    const [donationsSum, offlineSum, collectionsSum, distributedSum] = await Promise.all([
+    const [donationsSum, offlineSum, collectionsSum, distributedSum, fundraiserCashRows] = await Promise.all([
       prisma.donation.groupBy({
         by: ["appealId"],
         where: {
@@ -58,6 +59,21 @@ export async function GET() {
         _sum: { amountPence: true },
       }),
       distributedPromise,
+      // Approved fundraiser offline cash, mapped via fundraiser.appealId
+      prisma.fundraiserCashDonation.findMany({
+        where: {
+          status: "APPROVED",
+          fundraiser: {
+            appealId: { in: appealIds },
+          },
+        },
+        select: {
+          amountPence: true,
+          fundraiser: {
+            select: { appealId: true },
+          },
+        },
+      }),
     ])
 
     const toMap = (
@@ -77,11 +93,20 @@ export async function GET() {
     const collectionsByAppeal = toMap(collectionsSum, "appealId")
     const distributedByAppeal = toMap(distributedSum, "appealId")
 
+    const fundraiserCashByAppeal = new Map<string, number>()
+    for (const row of fundraiserCashRows) {
+      const appealId = row.fundraiser?.appealId
+      if (!appealId) continue
+      const prev = fundraiserCashByAppeal.get(appealId) ?? 0
+      fundraiserCashByAppeal.set(appealId, prev + (row.amountPence ?? 0))
+    }
+
     const result = appeals.map((appeal) => {
       const received =
         (donationsByAppeal.get(appeal.id) ?? 0) +
         (offlineByAppeal.get(appeal.id) ?? 0) +
-        (collectionsByAppeal.get(appeal.id) ?? 0)
+        (collectionsByAppeal.get(appeal.id) ?? 0) +
+        (fundraiserCashByAppeal.get(appeal.id) ?? 0)
       const distributed = distributedByAppeal.get(appeal.id) ?? 0
       const availablePence = Math.max(0, received - distributed)
       return {

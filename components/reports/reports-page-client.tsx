@@ -1,36 +1,29 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Separator } from "@/components/ui/separator"
-import { formatCurrency, formatDate, formatEnum } from "@/lib/utils"
-import type {
-  ReportsResponse,
-  ReportRow,
-  DonationDetailRow,
-  OfflineIncomeDetailRow,
-  CollectionDetailRow,
-  WaterDonationDetailRow,
-  SponsorshipDonationDetailRow,
-  QurbaniDonationDetailRow,
-} from "@/lib/reports"
+import { formatCurrency, formatDate, formatEnum, formatPaymentMethod } from "@/lib/utils"
+import type { ReportsResponse, ReportRow } from "@/lib/reports"
 import { ReportExportButton } from "@/components/reports/report-export-button"
 import { ReportTable } from "@/components/reports/report-table"
 import { ReportsDateFilter } from "@/components/reports/reports-date-filter"
 import { StaffFilterSelect } from "@/components/staff-filter-select"
 
-type RangeState = {
-  startDate: Date | null
-  endDate: Date | null
+type RangeState = { startDate: Date | null; endDate: Date | null }
+
+function getLast30DaysRange(): RangeState {
+  const now = new Date()
+  const start = new Date(now)
+  start.setDate(start.getDate() - 30)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  return { startDate: start, endDate: end }
 }
 
-const defaultRange: RangeState = { startDate: null, endDate: null }
-
+const defaultRange: RangeState = getLast30DaysRange()
 const formatAmount = (value?: number | null) => (value ? formatCurrency(value) : "£0.00")
 
-/** Summary rows for CSV with all info: raw amount (pence) and formatted amount */
 const toCsvRows = (rows: ReportRow[]) =>
   rows.map((row) => ({
     label: row.label,
@@ -44,198 +37,106 @@ export function ReportsPageClient() {
   const [data, setData] = useState<ReportsResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
   const searchParams = useSearchParams()
   const staffParam = searchParams.get("staff")
 
-  const fetchReports = useCallback(async (nextRange: RangeState) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      if (nextRange.startDate && nextRange.endDate) {
-        params.set("start", nextRange.startDate.toISOString())
-        params.set("end", nextRange.endDate.toISOString())
+  const fetchReports = useCallback(
+    async (nextRange: RangeState) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const params = new URLSearchParams()
+        if (nextRange.startDate && nextRange.endDate) {
+          params.set("start", nextRange.startDate.toISOString())
+          params.set("end", nextRange.endDate.toISOString())
+        }
+        if (staffParam) params.set("staff", staffParam)
+        const res = await fetch(`/api/admin/reports?${params.toString()}`)
+        if (!res.ok) throw new Error("Failed to load reports")
+        const payload = (await res.json()) as ReportsResponse
+        setData(payload)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load reports")
+      } finally {
+        setLoading(false)
       }
-      if (staffParam) params.set("staff", staffParam)
-      const response = await fetch(`/api/admin/reports?${params.toString()}`)
-      if (!response.ok) {
-        throw new Error("Failed to load reports")
-      }
-      const payload = (await response.json()) as ReportsResponse
-      setData(payload)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load reports")
-    } finally {
-      setLoading(false)
-    }
-  }, [staffParam])
+    },
+    [staffParam]
+  )
 
   useEffect(() => {
     fetchReports(range)
-  }, [fetchReports, range, staffParam])
+  }, [fetchReports, range])
 
   const handleRangeChange = useCallback((nextRange: RangeState) => {
     setRange(nextRange)
   }, [])
 
-  const financialRows = useMemo(() => (data ? data.financial.sources : []), [data])
-  const donationRows = useMemo(() => (data ? data.donations.byType : []), [data])
-  const paymentRows = useMemo(() => (data ? data.donations.byPaymentMethod : []), [data])
-  const appealRows = useMemo(() => (data ? data.donations.byAppeal : []), [data])
-  const fundraiserRows = useMemo(() => (data ? data.donations.byFundraiser : []), [data])
-  const donationStatusRows = useMemo(() => (data ? data.donations.byStatus : []), [data])
-  const donationChannelRows = useMemo(() => (data ? data.donations.byChannel : []), [data])
-  const donationCountryRows = useMemo(() => (data ? data.donations.byCountry : []), [data])
-  const donationCityRows = useMemo(() => (data ? data.donations.byCity : []), [data])
-  const donationGiftAidRows = useMemo(() => (data ? data.donations.giftAid : []), [data])
-  const collectionTypeRows = useMemo(() => (data ? data.collections.byType : []), [data])
-  const masjidRows = useMemo(() => (data ? data.collections.byMasjid : []), [data])
-  const collectionAppealRows = useMemo(() => (data ? data.collections.byAppeal : []), [data])
-  const fundraisingRows = useMemo(() => (data ? data.fundraising.byFundraiser : []), [data])
-  const fundraisingTargetRows = useMemo(() => (data ? data.fundraising.byFundraiserTarget : []), [data])
-  const waterProjectRows = useMemo(() => (data ? data.projects.water.byProjectType : []), [data])
-  const sponsorshipProjectRows = useMemo(() => (data ? data.projects.sponsorship.byProjectType : []), [data])
-  const waterStatusRows = useMemo(() => (data ? data.projects.water.byStatus : []), [data])
-  const sponsorshipStatusRows = useMemo(() => (data ? data.projects.sponsorship.byStatus : []), [data])
-  const donorCountryRows = useMemo(() => (data ? data.donors.byCountry : []), [data])
-  const donorCityRows = useMemo(() => (data ? data.donors.byCity : []), [data])
-  const recurringStatusRows = useMemo(() => (data ? data.recurring.byStatus : []), [data])
-  const recurringFrequencyRows = useMemo(() => (data ? data.recurring.byFrequency : []), [data])
-  const recurringNextPaymentRows = useMemo(() => (data ? data.recurring.nextPaymentMonth : []), [data])
-  const appealsReportRows = useMemo(() => (data ? data.appeals.byAppeal : []), [data])
-  const refundRows = useMemo(() => (data ? data.operations.refunds : []), [data])
-  const failedRows = useMemo(() => (data ? data.operations.failed : []), [data])
-  const byStaffRows = useMemo(() => (data ? data.staff.byStaff : []), [data])
-  const donationsDetail = useMemo(() => data?.donationsDetail ?? [], [data])
-  const collectionsDetail = useMemo(() => data?.collectionsDetail ?? [], [data])
-  const offlineIncomeDetail = useMemo(() => data?.offlineIncomeDetail ?? [], [data])
-  const waterDonationsDetail = useMemo(() => data?.waterDonationsDetail ?? [], [data])
-  const sponsorshipDonationsDetail = useMemo(
-    () => data?.sponsorshipDonationsDetail ?? [],
-    [data]
-  )
-  const qurbaniDonationsDetail = useMemo(() => data?.qurbaniDonationsDetail ?? [], [data])
-  const qurbaniCountryRows = useMemo(() => (data ? data.projects.qurbani.byCountry : []), [data])
-  const qurbaniSizeRows = useMemo(() => (data ? data.projects.qurbani.bySize : []), [data])
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base sm:text-lg font-semibold">Reports</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Charity-wide overview for the selected period.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <StaffFilterSelect paramName="staff" label="Filter by staff" />
+            <ReportsDateFilter onRangeChange={handleRangeChange} />
+          </div>
+        </div>
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent>
+        </Card>
+      </div>
+    )
+  }
 
-  /** Combined view: online, offline, collections, water, sponsorship, qurbani — one row per donation/income, sorted by date */
-  const allDonationsRows = useMemo(() => {
-    type Row = {
-      label: string
-      source: string
-      date: string
-      amountPence: number
-      donorOrLocation: string
-      paymentMethodOrType: string
-      donationType: string
-      appealTitle: string | null
-      donorEmail?: string
-      notes?: string
-      addedByName?: string
-    }
-    const rows: Row[] = []
-    donationsDetail.forEach((r: DonationDetailRow) => {
-      rows.push({
-        label: `${r.createdAt}-${r.donorName}-${r.amountPence}`,
-        source: "Online",
-        date: r.createdAt,
-        amountPence: r.amountPence,
-        donorOrLocation: r.donorName,
-        paymentMethodOrType: r.paymentMethod,
-        donationType: r.donationType,
-        appealTitle: r.appealTitle,
-        donorEmail: r.donorEmail,
-      })
-    })
-    offlineIncomeDetail.forEach((r: OfflineIncomeDetailRow) => {
-      rows.push({
-        label: `${r.receivedAt}-${r.donorName ?? ""}-${r.amountPence}`,
-        source: "Offline",
-        date: r.receivedAt,
-        amountPence: r.amountPence,
-        donorOrLocation: r.donorName ?? "—",
-        paymentMethodOrType: r.source,
-        donationType: r.donationType,
-        appealTitle: r.appealTitle,
-        notes: r.notes ?? undefined,
-        addedByName: r.addedByName ?? undefined,
-      })
-    })
-    collectionsDetail.forEach((r: CollectionDetailRow) => {
-      const location = r.masjidName ?? r.otherLocationName ?? "—"
-      rows.push({
-        label: `${r.collectedAt}-${location}-${r.amountPence}`,
-        source: "Collection",
-        date: r.collectedAt,
-        amountPence: r.amountPence,
-        donorOrLocation: location,
-        paymentMethodOrType: r.type,
-        donationType: r.donationType,
-        appealTitle: r.appealTitle,
-        notes: r.notes ?? undefined,
-        addedByName: r.addedByName ?? undefined,
-      })
-    })
-    waterDonationsDetail.forEach((r: WaterDonationDetailRow) => {
-      rows.push({
-        label: `${r.createdAt}-${r.donorName}-${r.amountPence}`,
-        source: "Water",
-        date: r.createdAt,
-        amountPence: r.amountPence,
-        donorOrLocation: r.donorName,
-        paymentMethodOrType: r.paymentMethod,
-        donationType: r.donationType,
-        appealTitle: null,
-        donorEmail: r.donorEmail,
-        addedByName: r.addedByName ?? undefined,
-      })
-    })
-    sponsorshipDonationsDetail.forEach((r: SponsorshipDonationDetailRow) => {
-      rows.push({
-        label: `${r.createdAt}-${r.donorName}-${r.amountPence}`,
-        source: "Sponsorship",
-        date: r.createdAt,
-        amountPence: r.amountPence,
-        donorOrLocation: r.donorName,
-        paymentMethodOrType: r.paymentMethod,
-        donationType: r.donationType,
-        appealTitle: null,
-        donorEmail: r.donorEmail,
-        addedByName: r.addedByName ?? undefined,
-      })
-    })
-    qurbaniDonationsDetail.forEach((r: QurbaniDonationDetailRow) => {
-      rows.push({
-        label: `${r.createdAt}-${r.donorName}-${r.amountPence}`,
-        source: "Qurbani",
-        date: r.createdAt,
-        amountPence: r.amountPence,
-        donorOrLocation: r.qurbaniNames ? `${r.donorName} (${r.qurbaniNames})` : r.donorName,
-        paymentMethodOrType: r.paymentMethod,
-        donationType: r.donationType,
-        appealTitle: null,
-        donorEmail: r.donorEmail,
-      })
-    })
-    rows.sort((a, b) => (b.date < a.date ? -1 : b.date > a.date ? 1 : 0))
-    return rows
-  }, [
-    donationsDetail,
-    offlineIncomeDetail,
-    collectionsDetail,
-    waterDonationsDetail,
-    sponsorshipDonationsDetail,
-    qurbaniDonationsDetail,
-  ])
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base sm:text-lg font-semibold">Reports</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Charity-wide overview for the selected period.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <StaffFilterSelect paramName="staff" label="Filter by staff" />
+            <ReportsDateFilter onRangeChange={handleRangeChange} />
+          </div>
+        </div>
+        <Card>
+          <CardContent className="py-8 text-center text-destructive">{error}</CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!data) return null
+
+  const { financial, donations, donors, collections, fundraising, projects, recurring, appeals } = data
+  const sourceRows = financial.sources
+  const paymentRows = donations.byPaymentMethod
+  const appealRows = appeals.byAppeal
+  const collectionTypeRows = collections.byType
+  const collectionLocationRows = collections.byMasjid ?? []
+  const fundraiserRows = fundraising.byFundraiser
+  const recurringStatusRows = recurring.byStatus
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-base sm:text-lg font-semibold">Reports</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Comprehensive reporting across all charity activity.
+            Charity-wide overview · {data.range?.start && data.range?.end
+              ? `${formatDate(data.range.start)} – ${formatDate(data.range.end)}`
+              : "All time"}
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-4">
@@ -244,1355 +145,493 @@ export function ReportsPageClient() {
         </div>
       </div>
 
-      {loading ? (
-        <Card>
-          <CardContent className="py-8 text-sm text-muted-foreground">Loading reports…</CardContent>
-        </Card>
-      ) : error ? (
-        <Card>
-          <CardContent className="py-8 text-sm text-destructive">{error}</CardContent>
-        </Card>
-      ) : data ? (
-        <div className="space-y-6">
-          <Tabs defaultValue="financial">
-            <TabsList className="flex flex-wrap">
-              <TabsTrigger value="financial">Financial</TabsTrigger>
-              <TabsTrigger value="donations">Donations</TabsTrigger>
-              <TabsTrigger value="donors">Donors</TabsTrigger>
-              <TabsTrigger value="collections">Collections</TabsTrigger>
-              <TabsTrigger value="fundraising">Fundraising</TabsTrigger>
-              <TabsTrigger value="projects">Projects</TabsTrigger>
-              <TabsTrigger value="recurring">Recurring</TabsTrigger>
-              <TabsTrigger value="appeals">Appeals</TabsTrigger>
-              <TabsTrigger value="operations">Operations</TabsTrigger>
-              <TabsTrigger value="staff">Staff</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="financial" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Financial Summary
-                </h3>
-              <div className="flex flex-wrap items-center gap-2">
-                <ReportExportButton
-                  label="Payment summary"
-                  filename="financial-by-payment-method.csv"
-                  columns={[
-                    { key: "label", label: "Payment method", getValue: (row) => row.label },
-                    { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                    { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                    { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                  ]}
-                  data={toCsvRows(paymentRows)}
-                />
-                <ReportExportButton
-                  label="All donations"
-                  filename="donations-full-detail.csv"
-                  columns={[
-                    { key: "id", label: "ID", getValue: (r) => r.id },
-                    { key: "createdAt", label: "Date", getValue: (r) => r.createdAt },
-                    { key: "completedAt", label: "Completed at", getValue: (r) => r.completedAt ?? "" },
-                    { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
-                    { key: "donationType", label: "Type", getValue: (r) => r.donationType },
-                    { key: "paymentMethod", label: "Payment method", getValue: (r) => r.paymentMethod },
-                    { key: "status", label: "Status", getValue: (r) => r.status },
-                    { key: "frequency", label: "Frequency", getValue: (r) => r.frequency },
-                    { key: "giftAid", label: "Gift Aid", getValue: (r) => (r.giftAid ? "Yes" : "No") },
-                    { key: "giftAidClaimed", label: "Gift Aid claimed", getValue: (r) => (r.giftAidClaimed ? "Yes" : "No") },
-                    { key: "giftAidClaimedAt", label: "Gift Aid claimed at", getValue: (r) => r.giftAidClaimedAt ?? "" },
-                    { key: "isAnonymous", label: "Anonymous", getValue: (r) => (r.isAnonymous ? "Yes" : "No") },
-                    { key: "orderNumber", label: "Order number", getValue: (r) => r.orderNumber ?? "" },
-                    { key: "transactionId", label: "Transaction ID", getValue: (r) => r.transactionId ?? "" },
-                    { key: "collectedVia", label: "Channel", getValue: (r) => r.collectedVia ?? "" },
-                    { key: "donorTitle", label: "Donor title", getValue: (r) => r.donorTitle ?? "" },
-                    { key: "donorFirstName", label: "Donor first name", getValue: (r) => r.donorFirstName },
-                    { key: "donorLastName", label: "Donor last name", getValue: (r) => r.donorLastName },
-                    { key: "donorName", label: "Donor name", getValue: (r) => r.donorName },
-                    { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail },
-                    { key: "donorPhone", label: "Donor phone", getValue: (r) => r.donorPhone ?? "" },
-                    { key: "donorAddress", label: "Donor address", getValue: (r) => r.donorAddress ?? "" },
-                    { key: "donorCity", label: "Donor city", getValue: (r) => r.donorCity ?? "" },
-                    { key: "donorPostcode", label: "Donor postcode", getValue: (r) => r.donorPostcode ?? "" },
-                    { key: "donorCountry", label: "Donor country", getValue: (r) => r.donorCountry ?? "" },
-                    { key: "billingAddress", label: "Billing address", getValue: (r) => r.billingAddress ?? "" },
-                    { key: "billingCity", label: "Billing city", getValue: (r) => r.billingCity ?? "" },
-                    { key: "billingPostcode", label: "Billing postcode", getValue: (r) => r.billingPostcode ?? "" },
-                    { key: "billingCountry", label: "Billing country", getValue: (r) => r.billingCountry ?? "" },
-                    { key: "appealTitle", label: "Appeal", getValue: (r) => r.appealTitle ?? "" },
-                    { key: "fundraiserName", label: "Fundraiser", getValue: (r) => r.fundraiserName ?? "" },
-                    { key: "productName", label: "Product", getValue: (r) => r.productName ?? "" },
-                  ]}
-                  data={donationsDetail}
-                />
-                <ReportExportButton
-                  label="Offline income"
-                  filename="offline-income-full-detail.csv"
-                  columns={[
-                    { key: "id", label: "ID", getValue: (r) => r.id },
-                    { key: "receivedAt", label: "Date", getValue: (r) => r.receivedAt },
-                    { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
-                    { key: "donationType", label: "Type", getValue: (r) => r.donationType },
-                    { key: "source", label: "Source", getValue: (r) => r.source },
-                    { key: "giftAid", label: "Gift Aid", getValue: (r) => (r.giftAid ? "Yes" : "No") },
-                    { key: "appealTitle", label: "Appeal", getValue: (r) => r.appealTitle ?? "" },
-                    { key: "donorName", label: "Donor name", getValue: (r) => r.donorName ?? "" },
-                    { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail ?? "" },
-                    { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
-                    { key: "collectedVia", label: "Channel", getValue: (r) => r.collectedVia ?? "" },
-                    { key: "notes", label: "Notes", getValue: (r) => r.notes ?? "" },
-                  ]}
-                  data={offlineIncomeDetail}
-                />
-                <ReportExportButton
-                  label="Collections"
-                  filename="collections-full-detail.csv"
-                  columns={[
-                    { key: "id", label: "ID", getValue: (r) => r.id },
-                    { key: "collectedAt", label: "Date", getValue: (r) => r.collectedAt },
-                    { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
-                    { key: "type", label: "Type", getValue: (r) => r.type },
-                    { key: "donationType", label: "Donation type", getValue: (r) => r.donationType },
-                    { key: "sadaqahPence", label: "Sadaqah (pence)", getValue: (r) => r.sadaqahPence },
-                    { key: "zakatPence", label: "Zakat (pence)", getValue: (r) => r.zakatPence },
-                    { key: "lillahPence", label: "Lillah (pence)", getValue: (r) => r.lillahPence },
-                    { key: "cardPence", label: "Card (pence)", getValue: (r) => r.cardPence },
-                    { key: "masjidName", label: "Masjid", getValue: (r) => r.masjidName ?? "" },
-                    { key: "otherLocationName", label: "Other location", getValue: (r) => r.otherLocationName ?? "" },
-                    { key: "appealTitle", label: "Appeal", getValue: (r) => r.appealTitle ?? "" },
-                    { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
-                    { key: "notes", label: "Notes", getValue: (r) => r.notes ?? "" },
-                  ]}
-                  data={collectionsDetail}
-                />
-              </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Total income</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(data.financial.totalIncomePence)}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Total items</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">{data.financial.totalCount}</CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Gift Aid total</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(data.financial.giftAidPence)}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Recurring (active)</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(
-                      financialRows.find((row) => row.label === "Recurring (active)")?.amountPence || 0
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-              <ReportTable
-                columns={[
-                  { key: "label", header: "Payment method", render: (row) => formatEnum(row.label) },
-                  { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                  {
-                    key: "amountPence",
-                    header: "Amount",
-                    align: "right",
-                    render: (row) => formatAmount(row.amountPence),
-                  },
-                ]}
-                data={paymentRows}
-              />
-            </TabsContent>
-
-            <TabsContent value="donations" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Donations Breakdown
-                </h3>
-              </div>
-              <Tabs defaultValue="all">
-                <TabsList className="flex flex-wrap">
-                  <TabsTrigger value="all">All donations</TabsTrigger>
-                  <TabsTrigger value="types">Types</TabsTrigger>
-                  <TabsTrigger value="payment">Payment</TabsTrigger>
-                  <TabsTrigger value="status">Status</TabsTrigger>
-                  <TabsTrigger value="appeals">Appeals</TabsTrigger>
-                  <TabsTrigger value="fundraisers">Fundraisers</TabsTrigger>
-                  <TabsTrigger value="channels">Channels</TabsTrigger>
-                  <TabsTrigger value="geo">Geography</TabsTrigger>
-                  <TabsTrigger value="giftaid">Gift Aid</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="all" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">All donations</h4>
-                    <ReportExportButton
-                      filename="all-donations.csv"
-                      columns={[
-                        { key: "source", label: "Source", getValue: (r) => r.source },
-                        { key: "date", label: "Date", getValue: (r) => r.date },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
-                        { key: "donorOrLocation", label: "Donor / Location", getValue: (r) => r.donorOrLocation },
-                        { key: "paymentMethodOrType", label: "Payment / Type", getValue: (r) => r.paymentMethodOrType },
-                        { key: "donationType", label: "Donation type", getValue: (r) => r.donationType },
-                        { key: "appealTitle", label: "Appeal", getValue: (r) => r.appealTitle ?? "" },
-                        { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail ?? "" },
-                        { key: "notes", label: "Notes", getValue: (r) => r.notes ?? "" },
-                        { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
-                      ]}
-                      data={allDonationsRows}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "date", header: "Date", render: (row) => formatDate(row.date) },
-                      { key: "source", header: "Source", render: (row) => row.source },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                      { key: "donorOrLocation", header: "Donor / Location", render: (row) => row.donorOrLocation },
-                      { key: "paymentMethodOrType", header: "Payment / Type", render: (row) => formatEnum(row.paymentMethodOrType) },
-                      { key: "donationType", header: "Type", render: (row) => formatEnum(row.donationType) },
-                      { key: "appealTitle", header: "Appeal", render: (row) => row.appealTitle ?? "—" },
-                    ]}
-                    data={allDonationsRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="types" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By donation type</h4>
-                    <ReportExportButton
-                      filename="donations-by-type.csv"
-                      columns={[
-                        { key: "label", label: "Donation type", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(donationRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Donation type", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={donationRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="payment" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By payment method</h4>
-                    <ReportExportButton
-                      filename="donations-by-payment-method.csv"
-                      columns={[
-                        { key: "label", label: "Payment method", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(paymentRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Payment method", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={paymentRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="status" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By status</h4>
-                    <ReportExportButton
-                      filename="donations-by-status.csv"
-                      columns={[
-                        { key: "label", label: "Status", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(donationStatusRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Status", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={donationStatusRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="appeals" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By appeal</h4>
-                    <ReportExportButton
-                      filename="donations-by-appeal.csv"
-                      columns={[
-                        { key: "label", label: "Appeal", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(appealRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Appeal" },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={appealRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="fundraisers" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By fundraiser</h4>
-                    <ReportExportButton
-                      filename="donations-by-fundraiser.csv"
-                      columns={[
-                        { key: "label", label: "Fundraiser", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(fundraiserRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Fundraiser" },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={fundraiserRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="channels" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By channel/source</h4>
-                    <ReportExportButton
-                      filename="donations-by-channel.csv"
-                      columns={[
-                        { key: "label", label: "Channel", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(donationChannelRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Channel", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={donationChannelRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="geo" className="space-y-4 mt-4">
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold">By country</h4>
-                        <ReportExportButton
-                          filename="donations-by-country.csv"
-                          columns={[
-                            { key: "label", label: "Country", getValue: (row) => row.label },
-                            { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                            { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                          ]}
-                          data={toCsvRows(donationCountryRows)}
-                        />
-                      </div>
-                      <ReportTable
-                        columns={[
-                          { key: "label", header: "Country" },
-                          { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                          {
-                            key: "amountPence",
-                            header: "Amount",
-                            align: "right",
-                            render: (row) => formatAmount(row.amountPence),
-                          },
-                        ]}
-                        data={donationCountryRows}
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold">By city</h4>
-                        <ReportExportButton
-                          filename="donations-by-city.csv"
-                          columns={[
-                            { key: "label", label: "City", getValue: (row) => row.label },
-                            { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                            { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                          ]}
-                          data={toCsvRows(donationCityRows)}
-                        />
-                      </div>
-                      <ReportTable
-                        columns={[
-                          { key: "label", header: "City" },
-                          { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                          {
-                            key: "amountPence",
-                            header: "Amount",
-                            align: "right",
-                            render: (row) => formatAmount(row.amountPence),
-                          },
-                        ]}
-                        data={donationCityRows}
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="giftaid" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">Gift Aid eligible</h4>
-                    <ReportExportButton
-                      filename="donations-giftaid.csv"
-                      columns={[
-                        { key: "label", label: "Donation type", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(donationGiftAidRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Donation type", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={donationGiftAidRows}
-                  />
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            <TabsContent value="donors" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Donor Analytics
-                </h3>
-              </div>
-              <Tabs defaultValue="summary">
-                <TabsList className="flex flex-wrap">
-                  <TabsTrigger value="summary">Summary</TabsTrigger>
-                  <TabsTrigger value="geo">Geography</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="summary" className="space-y-4 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">Top donors</h4>
-                    <ReportExportButton
-                      filename="top-donors.csv"
-                      columns={[
-                        { key: "name", label: "Donor", getValue: (row) => row.name },
-                        { key: "email", label: "Email", getValue: (row) => row.email },
-                        { key: "donationCount", label: "Donations", getValue: (row) => row.donationCount },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence },
-                      ]}
-                      data={data.donors.topDonors}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-muted-foreground">Total donors</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-semibold">
-                        {data.donors.summary.totalDonors}
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-muted-foreground">New donors</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-semibold">{data.donors.summary.newDonors}</CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-muted-foreground">Returning donors</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-semibold">
-                        {data.donors.summary.returningDonors}
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-muted-foreground">Gift Aid rate</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-semibold">{data.donors.summary.giftAidRate}%</CardContent>
-                    </Card>
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "name", header: "Donor" },
-                      { key: "email", header: "Email" },
-                      { key: "donationCount", header: "Donations", align: "right" },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={data.donors.topDonors.map((row) => ({
-                      label: row.donorId,
-                      ...row,
-                    }))}
-                  />
-                </TabsContent>
-
-                <TabsContent value="geo" className="space-y-4 mt-4">
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold">By country</h4>
-                        <ReportExportButton
-                          filename="donors-by-country.csv"
-                          columns={[
-                            { key: "label", label: "Country", getValue: (row) => row.label },
-                            { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                            { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                          ]}
-                          data={toCsvRows(donorCountryRows)}
-                        />
-                      </div>
-                      <ReportTable
-                        columns={[
-                          { key: "label", header: "Country" },
-                          { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                          {
-                            key: "amountPence",
-                            header: "Amount",
-                            align: "right",
-                            render: (row) => formatAmount(row.amountPence),
-                          },
-                        ]}
-                        data={donorCountryRows}
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold">By city</h4>
-                        <ReportExportButton
-                          filename="donors-by-city.csv"
-                          columns={[
-                            { key: "label", label: "City", getValue: (row) => row.label },
-                            { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                            { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                            { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                          ]}
-                          data={toCsvRows(donorCityRows)}
-                        />
-                      </div>
-                      <ReportTable
-                        columns={[
-                          { key: "label", header: "City" },
-                          { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                          {
-                            key: "amountPence",
-                            header: "Amount",
-                            align: "right",
-                            render: (row) => formatAmount(row.amountPence),
-                          },
-                        ]}
-                        data={donorCityRows}
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            <TabsContent value="collections" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Collections & Masjids
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Total collected</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(data.collections.totalCollectedPence)}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Collections count</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">{data.collections.collectionCount}</CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Avg collection</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {data.collections.collectionCount
-                      ? formatAmount(Math.round(data.collections.totalCollectedPence / data.collections.collectionCount))
-                      : "£0.00"}
-                  </CardContent>
-                </Card>
-              </div>
-              <Tabs defaultValue="type">
-                <TabsList className="flex flex-wrap">
-                  <TabsTrigger value="type">Type</TabsTrigger>
-                  <TabsTrigger value="masjid">Masjid</TabsTrigger>
-                  <TabsTrigger value="appeal">Appeal</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="type" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By collection type</h4>
-                    <ReportExportButton
-                      filename="collections-by-type.csv"
-                      columns={[
-                        { key: "label", label: "Type", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(collectionTypeRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Type", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={collectionTypeRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="masjid" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By masjid</h4>
-                    <ReportExportButton
-                      filename="collections-by-masjid.csv"
-                      columns={[
-                        { key: "label", label: "Masjid", getValue: (row) => row.label },
-                        { key: "count", label: "Collections", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(masjidRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Masjid" },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={masjidRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="appeal" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By appeal</h4>
-                    <ReportExportButton
-                      filename="collections-by-appeal.csv"
-                      columns={[
-                        { key: "label", label: "Appeal", getValue: (row) => row.label },
-                        { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(collectionAppealRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Appeal" },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={collectionAppealRows}
-                  />
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            <TabsContent value="fundraising" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Fundraising Performance
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Total raised</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(data.fundraising.totalRaisedPence)}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Active fundraisers</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">{data.fundraising.activeFundraisers}</CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Total fundraisers</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">{data.fundraising.fundraiserCount}</CardContent>
-                </Card>
-              </div>
-              <Tabs defaultValue="performance">
-                <TabsList className="flex flex-wrap">
-                  <TabsTrigger value="performance">Performance</TabsTrigger>
-                  <TabsTrigger value="targets">Targets</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="performance" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">By fundraiser</h4>
-                    <ReportExportButton
-                      filename="fundraising-performance.csv"
-                      columns={[
-                        { key: "label", label: "Fundraiser", getValue: (row) => row.label },
-                        { key: "count", label: "Donations", getValue: (row) => row.count ?? 0 },
-                        { key: "amountPence", label: "Amount", getValue: (row) => row.amountPence ?? 0 },
-                        { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                      ]}
-                      data={toCsvRows(fundraisingRows)}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Fundraiser" },
-                      { key: "count", header: "Donations", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={fundraisingRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="targets" className="space-y-3 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">Target progress</h4>
-                    <ReportExportButton
-                      filename="fundraising-targets.csv"
-                      columns={[
-                        { key: "label", label: "Fundraiser", getValue: (row) => row.label },
-                        { key: "amountPence", label: "Raised", getValue: (row) => formatAmount(row.amountPence) },
-                        {
-                          key: "targetPence",
-                          label: "Target",
-                          getValue: (row) => (row.targetPence ? formatAmount(row.targetPence) : "-"),
-                        },
-                        { key: "percent", label: "Percent", getValue: (row) => row.percent ?? "" },
-                      ]}
-                      data={fundraisingTargetRows}
-                    />
-                  </div>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Fundraiser" },
-                      {
-                        key: "amountPence",
-                        header: "Raised",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                      {
-                        key: "targetPence",
-                        header: "Target",
-                        align: "right",
-                        render: (row) => (row.targetPence ? formatAmount(row.targetPence) : "-"),
-                      },
-                      {
-                        key: "percent",
-                        header: "Percent",
-                        align: "right",
-                        render: (row) => (row.percent !== null ? `${row.percent}%` : "-"),
-                      },
-                    ]}
-                    data={fundraisingTargetRows.map((row) => ({ id: row.fundraiserId, ...row }))}
-                  />
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            <TabsContent value="projects" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Project Reports
-                </h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  <ReportExportButton
-                    label="Project summary"
-                    filename="project-report-summary.csv"
-                    columns={[
-                      { key: "label", label: "Project type", getValue: (row) => row.label },
-                      { key: "count", label: "Donations", getValue: (row) => row.count ?? 0 },
-                      { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                      { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                    ]}
-                    data={toCsvRows([...waterProjectRows, ...sponsorshipProjectRows])}
-                  />
-                  <ReportExportButton
-                    label="Water donations (full)"
-                    filename="water-donations-full-detail.csv"
-                    columns={[
-                      { key: "id", label: "ID", getValue: (r) => r.id },
-                      { key: "createdAt", label: "Date", getValue: (r) => r.createdAt },
-                      { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
-                      { key: "donationType", label: "Type", getValue: (r) => r.donationType },
-                      { key: "paymentMethod", label: "Payment method", getValue: (r) => r.paymentMethod },
-                      { key: "status", label: "Status", getValue: (r) => r.status ?? "" },
-                      { key: "giftAid", label: "Gift Aid", getValue: (r) => (r.giftAid ? "Yes" : "No") },
-                      { key: "projectType", label: "Project type", getValue: (r) => r.projectType },
-                      { key: "country", label: "Country", getValue: (r) => r.country },
-                      { key: "donorName", label: "Donor name", getValue: (r) => r.donorName },
-                      { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail },
-                      { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
-                    ]}
-                    data={waterDonationsDetail}
-                  />
-                  <ReportExportButton
-                    label="Sponsorship donations (full)"
-                    filename="sponsorship-donations-full-detail.csv"
-                    columns={[
-                      { key: "id", label: "ID", getValue: (r) => r.id },
-                      { key: "createdAt", label: "Date", getValue: (r) => r.createdAt },
-                      { key: "amountPence", label: "Amount (pence)", getValue: (r) => r.amountPence },
-                      { key: "donationType", label: "Type", getValue: (r) => r.donationType },
-                      { key: "paymentMethod", label: "Payment method", getValue: (r) => r.paymentMethod },
-                      { key: "status", label: "Status", getValue: (r) => r.status ?? "" },
-                      { key: "giftAid", label: "Gift Aid", getValue: (r) => (r.giftAid ? "Yes" : "No") },
-                      { key: "projectType", label: "Project type", getValue: (r) => r.projectType },
-                      { key: "country", label: "Country", getValue: (r) => r.country },
-                      { key: "donorName", label: "Donor name", getValue: (r) => r.donorName },
-                      { key: "donorEmail", label: "Donor email", getValue: (r) => r.donorEmail },
-                      { key: "addedByName", label: "Logged by", getValue: (r) => r.addedByName ?? "" },
-                    ]}
-                    data={sponsorshipDonationsDetail}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Water projects total</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(data.projects.water.totalPence)}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Sponsorship total</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(data.projects.sponsorship.totalPence)}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Qurbani total</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(data.projects.qurbani.totalPence)}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Reports sent</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {data.projects.water.completedReports + data.projects.sponsorship.completedReports}
-                  </CardContent>
-                </Card>
-              </div>
-              <Tabs defaultValue="water">
-                <TabsList className="flex flex-wrap">
-                  <TabsTrigger value="water">Water</TabsTrigger>
-                  <TabsTrigger value="sponsorship">Sponsorship</TabsTrigger>
-                  <TabsTrigger value="qurbani">Qurbani</TabsTrigger>
-                  <TabsTrigger value="status">Status</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="water" className="space-y-3 mt-4">
-                  <h4 className="text-sm font-semibold">Water projects</h4>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Project type", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Donations", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={waterProjectRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="sponsorship" className="space-y-3 mt-4">
-                  <h4 className="text-sm font-semibold">Sponsorship projects</h4>
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Project type", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Donations", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={sponsorshipProjectRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="qurbani" className="space-y-4 mt-4">
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold">Qurbani by country</h4>
-                      <ReportTable
-                        columns={[
-                          { key: "label", header: "Country", render: (row) => row.label },
-                          { key: "count", header: "Donations", align: "right", render: (row) => row.count ?? 0 },
-                          {
-                            key: "amountPence",
-                            header: "Amount",
-                            align: "right",
-                            render: (row) => formatAmount(row.amountPence),
-                          },
-                        ]}
-                        data={qurbaniCountryRows}
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold">Qurbani by size</h4>
-                      <ReportTable
-                        columns={[
-                          { key: "label", header: "Size", render: (row) => row.label },
-                          { key: "count", header: "Donations", align: "right", render: (row) => row.count ?? 0 },
-                          {
-                            key: "amountPence",
-                            header: "Amount",
-                            align: "right",
-                            render: (row) => formatAmount(row.amountPence),
-                          },
-                        ]}
-                        data={qurbaniSizeRows}
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="status" className="space-y-4 mt-4">
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold">Water status</h4>
-                      <ReportTable
-                        columns={[
-                          { key: "label", header: "Status", render: (row) => formatEnum(row.label) },
-                          { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                          {
-                            key: "amountPence",
-                            header: "Amount",
-                            align: "right",
-                            render: (row) => formatAmount(row.amountPence),
-                          },
-                        ]}
-                        data={waterStatusRows}
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold">Sponsorship status</h4>
-                      <ReportTable
-                        columns={[
-                          { key: "label", header: "Status", render: (row) => formatEnum(row.label) },
-                          { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                          {
-                            key: "amountPence",
-                            header: "Amount",
-                            align: "right",
-                            render: (row) => formatAmount(row.amountPence),
-                          },
-                        ]}
-                        data={sponsorshipStatusRows}
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            <TabsContent value="recurring" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Recurring Donations
-                </h3>
-                <ReportExportButton
-                  filename="recurring-summary.csv"
-                  columns={[
-                    { key: "label", label: "Segment", getValue: (row) => row.label },
-                    { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
-                    { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
-                    { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
-                  ]}
-                  data={toCsvRows(recurringStatusRows)}
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Active total</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">
-                    {formatAmount(data.recurring.activeTotalPence)}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Active count</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">{data.recurring.activeCount}</CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-muted-foreground">Next payments</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-semibold">{recurringNextPaymentRows.length}</CardContent>
-                </Card>
-              </div>
-              <Tabs defaultValue="status">
-                <TabsList className="flex flex-wrap">
-                  <TabsTrigger value="status">Status</TabsTrigger>
-                  <TabsTrigger value="frequency">Frequency</TabsTrigger>
-                  <TabsTrigger value="next">Next payments</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="status" className="space-y-3 mt-4">
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Status", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={recurringStatusRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="frequency" className="space-y-3 mt-4">
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Frequency", render: (row) => formatEnum(row.label) },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={recurringFrequencyRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="next" className="space-y-3 mt-4">
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Month" },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={recurringNextPaymentRows}
-                  />
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            <TabsContent value="appeals" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Appeals Performance
-                </h3>
-                <ReportExportButton
-                  filename="appeals-performance.csv"
-                  columns={[
-                    { key: "label", label: "Appeal", getValue: (row) => row.label },
-                    {
-                      key: "donationAmountPence",
-                      label: "Donations",
-                      getValue: (row) => formatAmount(row.donationAmountPence),
-                    },
-                    {
-                      key: "offlineAmountPence",
-                      label: "Offline",
-                      getValue: (row) => formatAmount(row.offlineAmountPence),
-                    },
-                    {
-                      key: "collectionAmountPence",
-                      label: "Collections",
-                      getValue: (row) => formatAmount(row.collectionAmountPence),
-                    },
-                    { key: "totalPence", label: "Total", getValue: (row) => formatAmount(row.totalPence) },
-                  ]}
-                  data={appealsReportRows}
-                />
-              </div>
-              <ReportTable
-                columns={[
-                  { key: "label", header: "Appeal" },
-                  {
-                    key: "donationAmountPence",
-                    header: "Donations",
-                    align: "right",
-                    render: (row) => formatAmount(row.donationAmountPence),
-                  },
-                  {
-                    key: "offlineAmountPence",
-                    header: "Offline",
-                    align: "right",
-                    render: (row) => formatAmount(row.offlineAmountPence),
-                  },
-                  {
-                    key: "collectionAmountPence",
-                    header: "Collections",
-                    align: "right",
-                    render: (row) => formatAmount(row.collectionAmountPence),
-                  },
-                  {
-                    key: "totalPence",
-                    header: "Total",
-                    align: "right",
-                    render: (row) => formatAmount(row.totalPence),
-                  },
-                ]}
-                data={appealsReportRows.map((row) => ({ id: row.appealId || "unassigned", ...row }))}
-              />
-            </TabsContent>
-
-            <TabsContent value="operations" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Operations (Refunds & Failures)
-                </h3>
-              </div>
-              <Tabs defaultValue="refunds">
-                <TabsList className="flex flex-wrap">
-                  <TabsTrigger value="refunds">Refunds</TabsTrigger>
-                  <TabsTrigger value="failed">Failed</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="refunds" className="space-y-3 mt-4">
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Status" },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={refundRows}
-                  />
-                </TabsContent>
-
-                <TabsContent value="failed" className="space-y-3 mt-4">
-                  <ReportTable
-                    columns={[
-                      { key: "label", header: "Status" },
-                      { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
-                      {
-                        key: "amountPence",
-                        header: "Amount",
-                        align: "right",
-                        render: (row) => formatAmount(row.amountPence),
-                      },
-                    ]}
-                    data={failedRows}
-                  />
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            <TabsContent value="staff" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Staff Performance
-                </h3>
-                <ReportExportButton
-                  filename="staff-report.csv"
-                  columns={[
-                    { key: "label", label: "Staff", getValue: (row) => row.label },
-                    { key: "offlineIncomePence", label: "Offline income", getValue: (row) => formatAmount(row.offlineIncomePence) },
-                    { key: "offlineIncomeCount", label: "Offline count", getValue: (row) => row.offlineIncomeCount },
-                    { key: "collectionsPence", label: "Collections", getValue: (row) => formatAmount(row.collectionsPence) },
-                    { key: "collectionsCount", label: "Collections count", getValue: (row) => row.collectionsCount },
-                    { key: "waterDonationsPence", label: "Water donations", getValue: (row) => formatAmount(row.waterDonationsPence) },
-                    { key: "waterDonationsCount", label: "Water count", getValue: (row) => row.waterDonationsCount },
-                    { key: "sponsorshipDonationsPence", label: "Sponsorship", getValue: (row) => formatAmount(row.sponsorshipDonationsPence) },
-                    { key: "sponsorshipDonationsCount", label: "Sponsorship count", getValue: (row) => row.sponsorshipDonationsCount },
-                    { key: "totalPence", label: "Total", getValue: (row) => formatAmount(row.totalPence) },
-                    { key: "totalCount", label: "Total count", getValue: (row) => row.totalCount },
-                  ]}
-                  data={byStaffRows}
-                />
-              </div>
-              <ReportTable
-                columns={[
-                  { key: "label", header: "Staff" },
-                  {
-                    key: "offlineIncomePence",
-                    header: "Offline income",
-                    align: "right",
-                    render: (row) => formatAmount(row.offlineIncomePence),
-                  },
-                  { key: "offlineIncomeCount", header: "Offline #", align: "right", render: (row) => row.offlineIncomeCount },
-                  {
-                    key: "collectionsPence",
-                    header: "Collections",
-                    align: "right",
-                    render: (row) => formatAmount(row.collectionsPence),
-                  },
-                  { key: "collectionsCount", header: "Coll. #", align: "right", render: (row) => row.collectionsCount },
-                  {
-                    key: "waterDonationsPence",
-                    header: "Water",
-                    align: "right",
-                    render: (row) => formatAmount(row.waterDonationsPence),
-                  },
-                  { key: "waterDonationsCount", header: "Water #", align: "right", render: (row) => row.waterDonationsCount },
-                  {
-                    key: "sponsorshipDonationsPence",
-                    header: "Sponsorship",
-                    align: "right",
-                    render: (row) => formatAmount(row.sponsorshipDonationsPence),
-                  },
-                  { key: "sponsorshipDonationsCount", header: "Spons. #", align: "right", render: (row) => row.sponsorshipDonationsCount },
-                  {
-                    key: "totalPence",
-                    header: "Total",
-                    align: "right",
-                    render: (row) => formatAmount(row.totalPence),
-                  },
-                  { key: "totalCount", header: "Total #", align: "right", render: (row) => row.totalCount },
-                ]}
-                data={byStaffRows.map((row) => ({ id: row.staffId, ...row }))}
-              />
-            </TabsContent>
-          </Tabs>
+      {/* 1. Overview – headline numbers + income by source */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Overview
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total income</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(financial.totalIncomePence)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Transactions</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{financial.totalCount}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Gift Aid</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(financial.giftAidPence)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Recurring (active)</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(sourceRows.find((r) => r.label === "Recurring (active)")?.amountPence ?? 0)}
+            </CardContent>
+          </Card>
         </div>
-      ) : null}
+        <div>
+          <p className="text-xs text-muted-foreground mb-2">Income by source</p>
+          <ReportTable
+            columns={[
+              { key: "label", header: "Source", render: (row) => row.label },
+              { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
+              {
+                key: "amountPence",
+                header: "Amount",
+                align: "right",
+                render: (row) => formatAmount(row.amountPence),
+              },
+            ]}
+            data={sourceRows}
+          />
+        </div>
+      </section>
+
+      {/* 2. Campaigns & appeals */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Campaigns & appeals
+          </h3>
+          <ReportExportButton
+            label="Export appeals"
+            filename="appeals-performance.csv"
+            columns={[
+              { key: "label", label: "Appeal", getValue: (row) => row.label },
+              { key: "donationAmountPence", label: "Online", getValue: (row) => formatAmount(row.donationAmountPence) },
+              { key: "offlineAmountPence", label: "Offline", getValue: (row) => formatAmount(row.offlineAmountPence) },
+              { key: "collectionAmountPence", label: "Collections", getValue: (row) => formatAmount(row.collectionAmountPence) },
+              { key: "fundraiserAmountPence", label: "Fundraisers", getValue: (row) => formatAmount(row.fundraiserAmountPence ?? 0) },
+              { key: "totalPence", label: "Total", getValue: (row) => formatAmount(row.totalPence) },
+            ]}
+            data={appealRows}
+          />
+        </div>
+        <ReportTable
+          columns={[
+            { key: "label", header: "Appeal" },
+            {
+              key: "donationAmountPence",
+              header: "Online",
+              align: "right",
+              render: (row) => formatAmount(row.donationAmountPence),
+            },
+            {
+              key: "offlineAmountPence",
+              header: "Offline",
+              align: "right",
+              render: (row) => formatAmount(row.offlineAmountPence),
+            },
+            {
+              key: "collectionAmountPence",
+              header: "Collections",
+              align: "right",
+              render: (row) => formatAmount(row.collectionAmountPence),
+            },
+            {
+              key: "fundraiserAmountPence",
+              header: "Fundraisers",
+              align: "right",
+              render: (row) => formatAmount(row.fundraiserAmountPence ?? 0),
+            },
+            {
+              key: "totalPence",
+              header: "Total",
+              align: "right",
+              render: (row) => formatAmount(row.totalPence),
+            },
+          ]}
+          data={appealRows.map((row) => ({ ...row, label: row.label || "Unassigned" }))}
+        />
+      </section>
+
+      {/* 3. Donors */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Donors
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total donors</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{donors.summary.totalDonors}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">New (this period)</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{donors.summary.newDonors}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Returning</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{donors.summary.returningDonors}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Gift Aid rate</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{donors.summary.giftAidRate}%</CardContent>
+          </Card>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground mb-2">Top donors (by amount)</p>
+          <ReportTable
+            columns={[
+              { key: "name", header: "Donor" },
+              { key: "email", header: "Email" },
+              { key: "donationCount", header: "Donations", align: "right" },
+              {
+                key: "amountPence",
+                header: "Amount",
+                align: "right",
+                render: (row) => formatAmount(row.amountPence),
+              },
+            ]}
+            data={donors.topDonors.map((row) => ({ ...row, label: row.donorId }))}
+          />
+        </div>
+      </section>
+
+      {/* 4. All donations by type & payment */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          All donations (by type & payment)
+        </h3>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">By donation type (all sources)</p>
+              <ReportTable
+                columns={[
+                  { key: "label", header: "Type", render: (row) => formatEnum(row.label) },
+                  { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
+                  { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+                ]}
+                data={donations.byType}
+              />
+            </div>
+            {(donations.lillahByAppeal?.length ?? 0) > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Lillah by appeal</p>
+                <ReportTable
+                  columns={[
+                    { key: "label", header: "Appeal", render: (row) => row.label },
+                    { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+                  ]}
+                  data={donations.lillahByAppeal ?? []}
+                />
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">By payment method (all sources)</p>
+            <ReportTable
+              columns={[
+                { key: "label", header: "Method", render: (row) => formatPaymentMethod(row.label) },
+                { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
+                { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+              ]}
+              data={paymentRows}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Collections */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Collections
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total collected</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(collections.totalCollectedPence)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Collections</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{collections.collectionCount}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Avg per collection</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {collections.collectionCount
+                ? formatAmount(Math.round(collections.totalCollectedPence / collections.collectionCount))
+                : "£0.00"}
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Top 5 by collection type</p>
+            <ReportTable
+              columns={[
+                { key: "label", header: "Type", render: (row) => formatEnum(row.label) },
+                { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
+                { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+              ]}
+              data={collectionTypeRows.slice(0, 5)}
+            />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Top 5 by location</p>
+            <ReportTable
+              columns={[
+                { key: "label", header: "Location" },
+                { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
+                { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+              ]}
+              data={collectionLocationRows.slice(0, 5)}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Fundraising */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Fundraising
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total raised</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(fundraising.totalRaisedPence)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Active</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{fundraising.activeFundraisers}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total fundraisers</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{fundraising.fundraiserCount}</CardContent>
+          </Card>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground mb-2">By fundraiser</p>
+          <ReportTable
+            columns={[
+              { key: "label", header: "Fundraiser" },
+              { key: "name", header: "Name", render: (row) => row.name ?? "—" },
+              { key: "count", header: "Donations", align: "right", render: (row) => row.count ?? 0 },
+              { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+            ]}
+            data={fundraiserRows}
+          />
+        </div>
+      </section>
+
+      {/* 7. Projects (water, sponsorship, qurbani) */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Projects
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Water</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(projects.water.totalPence)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Sponsorship</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(projects.sponsorship.totalPence)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Qurbani</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(projects.qurbani.totalPence)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Reports sent</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {projects.water.completedReports + projects.sponsorship.completedReports}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* 8. Recurring */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Recurring giving
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Active total</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">
+              {formatAmount(recurring.activeTotalPence)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Active count</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold">{recurring.activeCount}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">By status</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              {recurringStatusRows.length} segments
+            </CardContent>
+          </Card>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground mb-2">Recurring by status</p>
+          <ReportTable
+            columns={[
+              { key: "label", header: "Status", render: (row) => formatEnum(row.label) },
+              { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
+              { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+            ]}
+            data={recurringStatusRows}
+          />
+        </div>
+      </section>
+
+      {/* 9. Operations (refunds / failed) – compact */}
+      {(data.operations.refunds.length > 0 || data.operations.failed.length > 0) && (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Operations
+          </h3>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Refunds</p>
+              <ReportTable
+                columns={[
+                  { key: "label", header: "Status" },
+                  { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
+                  { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+                ]}
+                data={data.operations.refunds}
+              />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Failed</p>
+              <ReportTable
+                columns={[
+                  { key: "label", header: "Status" },
+                  { key: "count", header: "Count", align: "right", render: (row) => row.count ?? 0 },
+                  { key: "amountPence", header: "Amount", align: "right", render: (row) => formatAmount(row.amountPence) },
+                ]}
+                data={data.operations.failed}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 10. Staff (if any) */}
+      {data.staff.byStaff.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Staff (logged income)
+            </h3>
+            <ReportExportButton
+              label="Export staff"
+              filename="staff-report.csv"
+              columns={[
+                { key: "label", label: "Staff", getValue: (row) => row.label },
+                { key: "offlineIncomePence", label: "Offline", getValue: (row) => formatAmount(row.offlineIncomePence) },
+                { key: "collectionsPence", label: "Collections", getValue: (row) => formatAmount(row.collectionsPence) },
+                { key: "waterDonationsPence", label: "Water", getValue: (row) => formatAmount(row.waterDonationsPence) },
+                { key: "sponsorshipDonationsPence", label: "Sponsorship", getValue: (row) => formatAmount(row.sponsorshipDonationsPence) },
+                { key: "totalPence", label: "Total", getValue: (row) => formatAmount(row.totalPence) },
+              ]}
+              data={data.staff.byStaff}
+            />
+          </div>
+          <ReportTable
+            columns={[
+              { key: "label", header: "Staff" },
+              { key: "offlineIncomePence", header: "Offline", align: "right", render: (row) => formatAmount(row.offlineIncomePence) },
+              { key: "collectionsPence", header: "Collections", align: "right", render: (row) => formatAmount(row.collectionsPence) },
+              { key: "waterDonationsPence", header: "Water", align: "right", render: (row) => formatAmount(row.waterDonationsPence) },
+              { key: "sponsorshipDonationsPence", header: "Sponsorship", align: "right", render: (row) => formatAmount(row.sponsorshipDonationsPence) },
+              { key: "totalPence", header: "Total", align: "right", render: (row) => formatAmount(row.totalPence) },
+            ]}
+            data={data.staff.byStaff.map((row) => ({ ...row, label: row.label }))}
+          />
+        </section>
+      )}
+
+      {/* Exports */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Export
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          <ReportExportButton
+            label="Payment summary (CSV)"
+            filename="financial-by-payment-method.csv"
+            columns={[
+              { key: "label", label: "Payment method", getValue: (row) => row.label },
+              { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
+              { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+              { key: "amountFormatted", label: "Amount", getValue: (row) => row.amountFormatted ?? "" },
+            ]}
+            data={toCsvRows(paymentRows)}
+          />
+          <ReportExportButton
+            label="Income by source (CSV)"
+            filename="income-by-source.csv"
+            columns={[
+              { key: "label", label: "Source", getValue: (row) => row.label },
+              { key: "count", label: "Count", getValue: (row) => row.count ?? 0 },
+              { key: "amountPence", label: "Amount (pence)", getValue: (row) => row.amountPence ?? 0 },
+              { key: "amountFormatted", label: "Amount", getValue: (row) => formatAmount(row.amountPence) },
+            ]}
+            data={toCsvRows(sourceRows)}
+          />
+        </div>
+      </section>
     </div>
   )
 }

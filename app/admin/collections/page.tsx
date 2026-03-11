@@ -10,7 +10,8 @@ export const revalidate = 0
 async function getCollections(staffId: string | null) {
   try {
     return await prisma.collection.findMany({
-      where: staffId ? { addedByAdminUserId: staffId } : undefined,
+      // Collections page should show all masjid collections to staff;
+      // staff-only scoping is handled on the dashboard.
       orderBy: { collectedAt: "desc" },
       include: {
         masjid: { select: { name: true } },
@@ -29,9 +30,8 @@ export default async function CollectionsPage({
   searchParams: Promise<{ staff?: string }>
 }) {
   const user = await getAdminUser()
-  const isStaff = user?.role === "STAFF"
   const params = await searchParams
-  const staffId = isStaff ? user!.id : params?.staff || null
+  const staffId = params?.staff || null
 
   const staffUsers = user?.role === "ADMIN"
     ? await prisma.adminUser.findMany({

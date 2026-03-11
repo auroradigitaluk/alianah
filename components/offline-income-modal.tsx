@@ -474,7 +474,7 @@ export function OfflineIncomeModal({
           <div className="space-y-5">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">Entry Type</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <Button
                   type="button"
                   variant={entryType === "appeal" ? "default" : "outline"}
@@ -507,7 +507,7 @@ export function OfflineIncomeModal({
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-foreground">Appeal</Label>
                   <Select value={appealId} onValueChange={setAppealId}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-11 w-full">
                       <SelectValue placeholder="Select appeal" />
                     </SelectTrigger>
                     <SelectContent>
@@ -519,7 +519,7 @@ export function OfflineIncomeModal({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="appeal-amount">Amount (£)</Label>
                     <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
@@ -1056,7 +1056,7 @@ export function OfflineIncomeModal({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Donation Type</Label>
                 <Select value={donationType} onValueChange={setDonationType}>

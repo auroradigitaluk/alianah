@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Calendar } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -105,54 +106,107 @@ export function DashboardDateFilter() {
       ? formatCustomLabel(startParam, endParam)
       : null
 
+  const [mobilePopoverOpen, setMobilePopoverOpen] = React.useState(false)
+
+  const renderCustomForm = (onAfterApply?: () => void) => (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="custom-start">From</Label>
+        <Input
+          id="custom-start"
+          type="date"
+          value={customStart || startParam || ""}
+          onChange={(e) => setCustomStart(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="custom-end">To</Label>
+        <Input
+          id="custom-end"
+          type="date"
+          value={customEnd || endParam || ""}
+          onChange={(e) => setCustomEnd(e.target.value)}
+        />
+      </div>
+      <Button
+        className="w-full"
+        onClick={() => {
+          applyCustomRange()
+          onAfterApply?.()
+        }}
+      >
+        Apply
+      </Button>
+    </div>
+  )
+
   return (
     <div className="flex items-center gap-2">
-      <Select value={currentRange} onValueChange={handleRangeChange}>
-        <SelectTrigger className="w-[180px]" suppressHydrationWarning>
-          <SelectValue placeholder="Select date range" />
-        </SelectTrigger>
-        <SelectContent>
-          {dateRangeOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {currentRange === "custom" && (
-        <Popover open={customPopoverOpen} onOpenChange={setCustomPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="shrink-0 min-w-0">
-              {customRangeLabel ?? "Pick dates"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72" align="end">
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="custom-start">From</Label>
-                <Input
-                  id="custom-start"
-                  type="date"
-                  value={customStart || startParam || ""}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="custom-end">To</Label>
-                <Input
-                  id="custom-end"
-                  type="date"
-                  value={customEnd || endParam || ""}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                />
-              </div>
-              <Button className="w-full" onClick={applyCustomRange}>
-                Apply
+      {/* Mobile: icon button that opens popover with date options */}
+      <Popover open={mobilePopoverOpen} onOpenChange={setMobilePopoverOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-primary hover:text-primary-foreground sm:hidden"
+            aria-label="Date range"
+          >
+            <Calendar className="size-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-0" align="end">
+          <div className="p-1">
+            {dateRangeOptions.map((option) => (
+              <Button
+                key={option.value}
+                variant={currentRange === option.value ? "secondary" : "ghost"}
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => {
+                  handleRangeChange(option.value)
+                  if (option.value !== "custom") setMobilePopoverOpen(false)
+                }}
+              >
+                {option.label}
               </Button>
+            ))}
+          </div>
+          {currentRange === "custom" && (
+            <div className="border-t p-3">
+              {renderCustomForm(() => setMobilePopoverOpen(false))}
             </div>
-          </PopoverContent>
-        </Popover>
-      )}
+          )}
+        </PopoverContent>
+      </Popover>
+
+      {/* Desktop: full select */}
+      <div className="hidden sm:flex items-center gap-2">
+        <Select value={currentRange} onValueChange={handleRangeChange}>
+          <SelectTrigger className="w-[180px]" suppressHydrationWarning>
+            <SelectValue placeholder="Select date range" />
+          </SelectTrigger>
+          <SelectContent>
+            {dateRangeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {currentRange === "custom" && (
+          <Popover open={customPopoverOpen} onOpenChange={setCustomPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="shrink-0 min-w-0">
+                {customRangeLabel ?? "Pick dates"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72" align="end">
+              {renderCustomForm()}
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 type ExportColumn<T> = {
@@ -51,8 +52,14 @@ export function ReportExportButton<T>({
   }
 
   return (
-    <Button variant="outline" onClick={handleExport}>
-      {label}
+    <Button
+      variant="outline"
+      onClick={handleExport}
+      className="h-9 w-9 p-0 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+      aria-label={label}
+    >
+      <Download className="size-4 sm:mr-2 shrink-0" />
+      <span className="hidden sm:inline">{label}</span>
     </Button>
   )
 }

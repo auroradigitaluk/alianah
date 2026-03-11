@@ -106,6 +106,12 @@ export async function POST(request: Request) {
     const referrer = clientEvent.referrer || null
     const path = clientEvent.path.startsWith("/") ? clientEvent.path : `/${clientEvent.path}`
 
+    // Exclude localhost so development traffic doesn't inflate analytics
+    const ref = (referrer ?? "").toLowerCase()
+    if (ref.includes("localhost") || ref.includes("127.0.0.1")) {
+      return NextResponse.json({ ok: true })
+    }
+
     await prisma.analyticsEvent.create({
       data: {
         eventType: "pageview",
@@ -149,6 +155,10 @@ export async function POST(request: Request) {
     .filter((event) => event?.schema === "vercel.analytics.v1")
     .filter((event) => event.eventType === "pageview")
     .filter((event) => (projectId ? event.projectId === projectId : true))
+    .filter((event) => {
+      const ref = (event.referrer ?? "").toLowerCase()
+      return !ref.includes("localhost") && !ref.includes("127.0.0.1")
+    })
     .map((event) => {
       const timestampMs = typeof event.timestamp === "number" ? event.timestamp : Date.now()
       return {

@@ -8,7 +8,6 @@ import {
   getEligibleCampaigns,
 } from "./get-fundraisers"
 import { FundraisersDashboardClient } from "@/components/fundraisers-dashboard-client"
-import { FundraisersInsightsClient } from "@/components/fundraisers-insights-client"
 import { FundraiserCashReviewOverview } from "@/components/fundraiser-cash-review-overview"
 import { FundraiserTabNav } from "@/components/fundraiser-tab-nav"
 
@@ -17,7 +16,7 @@ export const revalidate = 0
 
 export type { EligibleCampaign } from "./get-fundraisers"
 
-const VALID_TABS = ["all", "offline", "insights", "complete", "custom"] as const
+const VALID_TABS = ["all", "offline", "complete", "custom"] as const
 
 export default async function FundraisersPage({
   searchParams,
@@ -46,7 +45,6 @@ export default async function FundraisersPage({
                 </Suspense>
                 {tab === "all" && <FundraisersTabAll />}
                 {tab === "offline" && <FundraiserCashReviewOverview />}
-                {tab === "insights" && <FundraisersTabInsights />}
                 {tab === "complete" && <FundraisersTabComplete />}
                 {tab === "custom" && <FundraisersTabCustom />}
               </div>
@@ -73,14 +71,6 @@ async function FundraisersTabAll() {
       eligibleCampaigns={eligibleCampaigns}
     />
   )
-}
-
-async function FundraisersTabInsights() {
-  const [stats, byCampaign] = await Promise.all([
-    getFundraiserStats(),
-    getFundraisedByCampaign(),
-  ])
-  return <FundraisersInsightsClient stats={stats} byCampaign={byCampaign} />
 }
 
 async function FundraisersTabComplete() {

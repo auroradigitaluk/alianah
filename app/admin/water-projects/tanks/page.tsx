@@ -14,7 +14,7 @@ async function getDonations(staffId: string | null) {
       where: { projectType: "WATER_TANK" },
       include: {
         donations: {
-          where: staffId ? { addedByAdminUserId: staffId } : undefined,
+          // Staff should be able to see all Water Tank donations here.
           include: {
             donor: { select: { title: true, firstName: true, lastName: true, email: true, phone: true } },
             country: { select: { country: true, pricePence: true } },
@@ -69,9 +69,9 @@ export default async function WaterTanksDonationsPage({
   searchParams: Promise<{ staff?: string; open?: string }>
 }) {
   const user = await getAdminUser()
-  const isStaff = user?.role === "STAFF"
   const params = await searchParams
-  const staffId = isStaff ? user!.id : params?.staff || null
+  // Staff dashboard is scoped, but this management page can show all donations.
+  const staffId = params?.staff || null
   const initialOpenId = params?.open || null
 
   const staffUsers = user?.role === "ADMIN"

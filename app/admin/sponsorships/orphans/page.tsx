@@ -13,7 +13,7 @@ async function getDonations(staffId: string | null) {
       where: { projectType: "ORPHANS" },
       include: {
         donations: {
-          where: staffId ? { addedByAdminUserId: staffId } : undefined,
+          // Staff should be able to see all Orphans sponsorship donations here.
           include: {
             donor: {
               select: { title: true, firstName: true, lastName: true, email: true, phone: true },
@@ -61,9 +61,8 @@ export default async function OrphansDonationsPage({
   searchParams: Promise<{ staff?: string; open?: string }>
 }) {
   const user = await getAdminUser()
-  const isStaff = user?.role === "STAFF"
   const params = await searchParams
-  const staffId = isStaff ? user!.id : params?.staff || null
+  const staffId = params?.staff || null
   const initialOpenId = params?.open || null
 
   const staffUsers = user?.role === "ADMIN"
