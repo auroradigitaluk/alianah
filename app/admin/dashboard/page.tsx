@@ -2,7 +2,7 @@ import { AdminHeader } from "@/components/admin-header"
 import { ChartPieSimple } from "@/components/chart-pie-simple"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive-shadcn"
 import { TopCampaignsTable } from "@/components/top-campaigns-table"
-import { DashboardDateFilter } from "@/components/dashboard-date-filter"
+import { DashboardDateFilter, DashboardDateWrapper } from "@/components/dashboard-date-filter"
 import { RecentActivity } from "@/components/recent-activity"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -1919,11 +1919,12 @@ export default async function AdminDashboardPage({
     const periodLabel = getPeriodLabel()
 
     return (
-      <>
-        <AdminHeader title="Dashboard" dateFilter={<DashboardDateFilter />} />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            {lowReportPools.length > 0 && (
+      <DashboardDateWrapper>
+        <>
+          <AdminHeader title="Dashboard" dateFilter={<DashboardDateFilter />} />
+          <div className="flex flex-1 flex-col">
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              {lowReportPools.length > 0 && (
               <div className="mx-2 mt-2 sm:mx-4 lg:mx-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
                 <p className="font-medium">
                   Low report pool: fewer than 10 reports available for{" "}
@@ -2269,7 +2270,8 @@ export default async function AdminDashboardPage({
             </div>
           </div>
         </div>
-      </>
+        </>
+      </DashboardDateWrapper>
     )
   } catch (error) {
     console.error("Dashboard error:", error)
@@ -2309,18 +2311,19 @@ export default async function AdminDashboardPage({
     const periodLabel = "Selected period"
 
     return (
-      <>
-        <AdminHeader title="Dashboard" dateFilter={<DashboardDateFilter />} />
-        <div className="flex flex-1 flex-col bg-gradient-to-b from-background via-background to-muted/20">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
-              {/* Top Row: 4 Metric Cards in 2x2 Grid */}
-              <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                  {/* Total Amount */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+      <DashboardDateWrapper>
+        <>
+          <AdminHeader title="Dashboard" dateFilter={<DashboardDateFilter />} />
+          <div className="flex flex-1 flex-col bg-gradient-to-b from-background via-background to-muted/20">
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
+                {/* Top Row: 4 Metric Cards in 2x2 Grid */}
+                <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
+                  <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                    {/* Total Amount */}
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{formatCurrency(0)}</div>
@@ -2429,7 +2432,8 @@ export default async function AdminDashboardPage({
             </div>
           </div>
         </div>
-      </>
+        </>
+      </DashboardDateWrapper>
     )
   }
 }

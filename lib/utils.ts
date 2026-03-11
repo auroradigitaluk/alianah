@@ -109,6 +109,21 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
+/** Date and time in GMT/UTC (e.g. "11/03/2025, 14:30 GMT"). */
+export function formatDateTimeGMT(date: Date | string | null | undefined): string {
+  if (!date) return "-"
+  const d = typeof date === "string" ? new Date(date) : date
+  return d.toLocaleString("en-GB", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }) + " GMT"
+}
+
 export function formatDonorName(
   donor?: { title?: string | null; firstName: string; lastName: string } | null
 ): string {

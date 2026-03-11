@@ -25,17 +25,32 @@ export async function GET(request: NextRequest) {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "")
 
-  // 1) First email: 1 hour after abandon (PENDING order created ≥1h ago)
+  // 1) First email: 1 hour after abandon. Only send ONCE per (email, amount, day) so we don't spam if they clicked back.
   const pendingOrders = await prisma.demoOrder.findMany({
     where: {
       status: "PENDING",
       createdAt: { lte: oneHourAgo },
     },
     include: { items: true },
+    orderBy: { createdAt: "asc" },
   })
 
-  let sentFirst = 0
+  const dedupeKey = (order: (typeof pendingOrders)[0]) => {
+    const email = (order.donorEmail ?? "").trim().toLowerCase()
+    const d = order.createdAt
+    const dateKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
+    return `${email}|${order.totalPence}|${dateKey}`
+  }
+  const firstEmailGroupByKey = new Map<string, (typeof pendingOrders)[0]>()
   for (const order of pendingOrders) {
+    const key = dedupeKey(order)
+    if (!firstEmailGroupByKey.has(key)) firstEmailGroupByKey.set(key, order)
+  }
+  const ordersToSendFirstEmail = Array.from(firstEmailGroupByKey.values())
+  const orderIdsToMarkOnly = new Set(pendingOrders.filter((o) => !ordersToSendFirstEmail.includes(o)).map((o) => o.id))
+
+  let sentFirst = 0
+  for (const order of ordersToSendFirstEmail) {
     try {
       const resumeUrl = `${baseUrl}/checkout?resume=${encodeURIComponent(order.orderNumber)}`
       await sendAbandonedCheckoutEmail({
@@ -59,19 +74,42 @@ export async function GET(request: NextRequest) {
       console.error(`Failed to send first abandonment email for order ${order.orderNumber}:`, error)
     }
   }
+  // Mark duplicate PENDING orders (same email/amount/day) as ABANDONED + abandonedEmail1SentAt so we never send first email again for them
+  for (const id of orderIdsToMarkOnly) {
+    await prisma.demoOrder.update({
+      where: { id },
+      data: { status: "ABANDONED", abandonedEmail1SentAt: new Date() },
+    })
+  }
 
-  // 2) Second email: 24 hours after abandon, only if not recovered yet (ABANDONED, no second email sent)
-  const ordersForSecondEmail = await prisma.demoOrder.findMany({
+  // 2) Second email: 24 hours after abandon, only if not recovered yet. One per (email, amount, day).
+  const ordersForSecondEmailRaw = await prisma.demoOrder.findMany({
     where: {
       status: "ABANDONED",
       abandonedEmail2SentAt: null,
       createdAt: { lte: twentyFourHoursAgo },
     },
     include: { items: true },
+    orderBy: { createdAt: "asc" },
   })
+  const secondEmailKey = (order: (typeof ordersForSecondEmailRaw)[0]) => {
+    const email = (order.donorEmail ?? "").trim().toLowerCase()
+    const d = order.createdAt
+    const dateKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
+    return `${email}|${order.totalPence}|${dateKey}`
+  }
+  const secondEmailGroupByKey = new Map<string, (typeof ordersForSecondEmailRaw)[0]>()
+  for (const order of ordersForSecondEmailRaw) {
+    const key = secondEmailKey(order)
+    if (!secondEmailGroupByKey.has(key)) secondEmailGroupByKey.set(key, order)
+  }
+  const ordersToSendSecondEmail = Array.from(secondEmailGroupByKey.values())
+  const orderIdsToMarkSecondOnly = new Set(
+    ordersForSecondEmailRaw.filter((o) => !ordersToSendSecondEmail.includes(o)).map((o) => o.id)
+  )
 
   let sentSecond = 0
-  for (const order of ordersForSecondEmail) {
+  for (const order of ordersToSendSecondEmail) {
     try {
       const resumeUrl = `${baseUrl}/checkout?resume=${encodeURIComponent(order.orderNumber)}`
       await sendAbandonedCheckoutEmail({
@@ -95,11 +133,17 @@ export async function GET(request: NextRequest) {
       console.error(`Failed to send second abandonment email for order ${order.orderNumber}:`, error)
     }
   }
+  for (const id of orderIdsToMarkSecondOnly) {
+    await prisma.demoOrder.update({
+      where: { id },
+      data: { abandonedEmail2SentAt: new Date() },
+    })
+  }
 
   return NextResponse.json({
     sentFirst,
     sentSecond,
     processedFirst: pendingOrders.length,
-    processedSecond: ordersForSecondEmail.length,
+    processedSecond: ordersForSecondEmailRaw.length,
   })
 }

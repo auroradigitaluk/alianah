@@ -9,6 +9,7 @@ import { ReportExportButton } from "@/components/reports/report-export-button"
 import { ReportTable } from "@/components/reports/report-table"
 import { ReportsDateFilter } from "@/components/reports/reports-date-filter"
 import { StaffFilterSelect } from "@/components/staff-filter-select"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type RangeState = { startDate: Date | null; endDate: Date | null }
 
@@ -74,7 +75,7 @@ export function ReportsPageClient() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-base sm:text-lg font-semibold">Reports</h2>
@@ -87,9 +88,35 @@ export function ReportsPageClient() {
             <ReportsDateFilter onRangeChange={handleRangeChange} />
           </div>
         </div>
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent>
-        </Card>
+        <section className="space-y-4">
+          <Skeleton className="h-4 w-24" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="pb-1">
+                  <Skeleton className="h-3 w-24" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-20" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Skeleton className="h-48 w-full" />
+        </section>
+        <section className="space-y-4">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-64 w-full" />
+        </section>
+        <section className="space-y-4">
+          <Skeleton className="h-4 w-28" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24" />
+            ))}
+          </div>
+          <Skeleton className="h-40 w-full" />
+        </section>
       </div>
     )
   }

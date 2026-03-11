@@ -11,6 +11,7 @@ import type { GiftAidScheduleResponse, GiftAidScheduleRow } from "@/lib/giftaid"
 import { DonorDetailsDialog, type DonorDetails } from "@/components/donor-details-dialog"
 import { Loader2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -291,9 +292,31 @@ export function GiftAidPageClient() {
       </div>
 
       {loading ? (
-        <Card>
-          <CardContent className="py-8 text-sm text-muted-foreground">Loading Gift Aid export…</CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full max-w-xs" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-4 w-28" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-20" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : error ? (
         <Card>
           <CardContent className="py-8 text-sm text-destructive">{error}</CardContent>

@@ -52,6 +52,43 @@ async function getDonations() {
   }
 }
 
+/** Set of "email|totalPence" for completed donation order totals (same email + same amount = recovered). */
+async function getCompletedDonorEmailAmounts(): Promise<Set<string>> {
+  try {
+    const donations = await prisma.donation.findMany({
+      where: { status: "COMPLETED" },
+      select: {
+        id: true,
+        orderNumber: true,
+        transactionId: true,
+        amountPence: true,
+        donor: { select: { email: true } },
+      },
+    })
+    const byOrder = new Map<string, { email: string; totalPence: number }>()
+    for (const d of donations) {
+      const key = d.orderNumber && d.transactionId
+        ? `${d.orderNumber}:${d.transactionId}`
+        : d.orderNumber ?? d.id
+      const email = d.donor?.email?.trim().toLowerCase()
+      if (!email) continue
+      const existing = byOrder.get(key)
+      if (existing) {
+        existing.totalPence += d.amountPence
+      } else {
+        byOrder.set(key, { email, totalPence: d.amountPence })
+      }
+    }
+    const set = new Set<string>()
+    for (const { email, totalPence } of byOrder.values()) {
+      set.add(`${email}|${totalPence}`)
+    }
+    return set
+  } catch {
+    return new Set()
+  }
+}
+
 async function getAbandonedCheckouts(): Promise<AbandonedCheckoutRow[]> {
   try {
     // Include recovered (COMPLETED + abandonedEmail1SentAt) when that column exists
@@ -104,10 +141,45 @@ export default async function DonationsPage({
   searchParams: Promise<{ open?: string }>
 }) {
   const params = await searchParams
-  const [donations, abandonedCheckouts] = await Promise.all([
+  const [donations, abandonedCheckoutsRaw, completedDonorEmailAmounts] = await Promise.all([
     getDonations(),
     getAbandonedCheckouts(),
+    getCompletedDonorEmailAmounts(),
   ])
+
+  // Mark as recovered only when same email has a completed donation with the same total amount
+  const withRecovered = abandonedCheckoutsRaw.map((order) => {
+    const email = order.donorEmail?.trim().toLowerCase()
+    const recoveredBySameEmail =
+      !!email &&
+      completedDonorEmailAmounts.has(`${email}|${order.totalPence}`) &&
+      order.status !== "COMPLETED"
+    return { ...order, recoveredBySameEmail }
+  })
+
+  // Dedupe: same name, email, amount and date (day) → keep only the earliest
+  const dedupeKey = (order: (typeof withRecovered)[0]) => {
+    const name = `${(order.donorFirstName ?? "").trim()} ${(order.donorLastName ?? "").trim()}`.trim().toLowerCase()
+    const email = (order.donorEmail ?? "").trim().toLowerCase()
+    const date = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt as string)
+    const dateKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`
+    return `${name}|${email}|${order.totalPence}|${dateKey}`
+  }
+  const byKey = new Map<string, (typeof withRecovered)[0]>()
+  const sortedByCreatedAsc = [...withRecovered].sort(
+    (a, b) =>
+      (a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt as string).getTime()) -
+      (b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt as string).getTime())
+  )
+  for (const order of sortedByCreatedAsc) {
+    const key = dedupeKey(order)
+    if (!byKey.has(key)) byKey.set(key, order)
+  }
+  const abandonedCheckouts = Array.from(byKey.values()).sort(
+    (a, b) =>
+      (b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt as string).getTime()) -
+      (a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt as string).getTime())
+  )
 
   return (
     <>

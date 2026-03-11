@@ -2,7 +2,7 @@
 
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDateTimeGMT } from "@/lib/utils"
 import { IconCheck, IconExternalLink, IconX } from "@tabler/icons-react"
 import Link from "next/link"
 
@@ -17,6 +17,8 @@ export type AbandonedCheckoutOrder = {
   donorPhone?: string | null
   totalPence: number
   abandonedEmail1SentAt?: Date | null
+  /** True when this checkout was abandoned but the same email completed a donation later */
+  recoveredBySameEmail?: boolean
   items: Array<{ appealTitle: string; productName: string | null; amountPence: number }>
 }
 
@@ -95,19 +97,27 @@ export function AbandonedCheckoutsTable({ orders }: { orders: AbandonedCheckoutO
           header: "Status",
           cell: (order) => {
             const isSaved = order.status === "COMPLETED" && order.abandonedEmail1SentAt
+            const isRecovered = order.recoveredBySameEmail && !isSaved
             return (
               <Badge
                 variant="outline"
                 className={
                   isSaved
                     ? "px-1.5 border-green-600 bg-green-600/10 text-green-700 dark:text-green-400"
-                    : "px-1.5 border-red-600 bg-red-600/10 text-red-700 dark:text-red-400"
+                    : isRecovered
+                      ? "px-1.5 border-green-600 bg-green-600/10 text-green-700 dark:text-green-400"
+                      : "px-1.5 border-red-600 bg-red-600/10 text-red-700 dark:text-red-400"
                 }
               >
                 {isSaved ? (
                   <>
                     <IconCheck className="mr-1 size-3" />
                     Saved
+                  </>
+                ) : isRecovered ? (
+                  <>
+                    <IconCheck className="mr-1 size-3" />
+                    Recovered
                   </>
                 ) : (
                   <>
@@ -123,7 +133,7 @@ export function AbandonedCheckoutsTable({ orders }: { orders: AbandonedCheckoutO
           id: "date",
           header: "Created",
           cell: (order) => (
-            <div className="text-sm">{formatDate(order.createdAt)}</div>
+            <div className="text-sm">{formatDateTimeGMT(order.createdAt)}</div>
           ),
         },
         {
@@ -131,7 +141,8 @@ export function AbandonedCheckoutsTable({ orders }: { orders: AbandonedCheckoutO
           header: "",
           cell: (order) => {
             const isSaved = order.status === "COMPLETED" && order.abandonedEmail1SentAt
-            if (isSaved) {
+            const isRecovered = order.recoveredBySameEmail && !isSaved
+            if (isSaved || isRecovered) {
               return <span className="text-sm text-muted-foreground">Completed</span>
             }
             return (

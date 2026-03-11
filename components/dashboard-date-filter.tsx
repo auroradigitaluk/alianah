@@ -3,6 +3,8 @@
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Calendar } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -38,9 +40,75 @@ function formatCustomLabel(start: string, end: string): string {
   }
 }
 
+const DashboardDateContext = React.createContext<{ onBeforeNavigate?: () => void }>({})
+
+export function useDashboardDateContext() {
+  return React.useContext(DashboardDateContext)
+}
+
+export function DashboardDateWrapper({ children }: { children: React.ReactNode }) {
+  const searchParams = useSearchParams()
+  const [isChanging, setIsChanging] = React.useState(false)
+
+  React.useEffect(() => {
+    setIsChanging(false)
+  }, [searchParams])
+
+  const value = React.useMemo(
+    () => ({ onBeforeNavigate: () => setIsChanging(true) }),
+    []
+  )
+
+  if (isChanging) {
+    return (
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="px-2 sm:px-4 lg:px-6">
+              <div className="flex flex-col gap-4 sm:gap-6">
+                <div className="space-y-2">
+                  <Skeleton className="h-9 w-48" />
+                  <Skeleton className="h-9 w-28" />
+                </div>
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Card key={i}>
+                      <CardHeader className="pb-2">
+                        <Skeleton className="h-4 w-24" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-8 w-20" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  <Skeleton className="h-9 w-32" />
+                  <Skeleton className="h-80 w-full" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Skeleton className="h-64" />
+                  <Skeleton className="h-64" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <DashboardDateContext.Provider value={value}>
+      {children}
+    </DashboardDateContext.Provider>
+  )
+}
+
 export function DashboardDateFilter() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const dateContext = useDashboardDateContext()
   const [mounted, setMounted] = React.useState(false)
   const [currentRange, setCurrentRange] = React.useState("30d")
   const [customPopoverOpen, setCustomPopoverOpen] = React.useState(false)
@@ -85,6 +153,9 @@ export function DashboardDateFilter() {
         setCustomPopoverOpen(true)
       }
     }
+    if (value !== "custom") {
+      dateContext.onBeforeNavigate?.()
+    }
     router.push(`?${params.toString()}`, { scroll: false })
   }
 
@@ -93,6 +164,7 @@ export function DashboardDateFilter() {
     const start = new Date(customStart + "T00:00:00")
     const end = new Date(customEnd + "T23:59:59.999")
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return
+    dateContext.onBeforeNavigate?.()
     const params = new URLSearchParams(searchParams.toString())
     params.set("range", "custom")
     params.set("start", customStart)
