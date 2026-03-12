@@ -1,44 +1,27 @@
-import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { prisma } from "@/lib/prisma"
 import { formatCurrency } from "@/lib/utils"
 import { ShareButton } from "@/components/share-button"
-import { SuccessPending } from "./success-pending"
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-static"
 
-async function getOrder(orderId: string) {
-  try {
-    const order = await prisma.demoOrder.findUnique({
-      where: { id: orderId },
-      include: {
-        items: true,
-      },
-    })
-    return order
-  } catch {
-    return null
-  }
+const mockOrder = {
+  orderNumber: "786-12345678",
+  totalPence: 4000,
+  giftAid: true,
+  items: [
+    {
+      id: "demo-item-1",
+      appealTitle: "Gaza Refugee Programme",
+      productName: "Emergency Support",
+      amountPence: 4000,
+    },
+  ],
 }
 
-export default async function SuccessPage({
-  params,
-}: {
-  params: Promise<{ orderId: string }>
-}) {
-  const { orderId } = await params
-  const order = await getOrder(orderId)
-
-  if (!order) {
-    notFound()
-  }
-
-  // Only show thank you once donation is complete; otherwise show loading and poll until complete
-  if (order.status !== "COMPLETED") {
-    return <SuccessPending orderId={orderId} orderNumber={order.orderNumber} />
-  }
+export default function SuccessDemoPage() {
+  const order = mockOrder
 
   return (
     <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12 md:px-6">
@@ -105,6 +88,7 @@ export default async function SuccessPage({
                 variant="outline"
                 className="flex-1"
               >
+                {/* Demo link only; real downloads happen on the live success page */}
                 <a href={`/api/certificates/donation/${order.orderNumber}`} target="_blank" rel="noopener noreferrer">
                   Download Donation Certificate
                 </a>
@@ -120,3 +104,4 @@ export default async function SuccessPage({
     </div>
   )
 }
+

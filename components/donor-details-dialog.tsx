@@ -259,39 +259,64 @@ export function DonorDetailsDialog({ donor, open, onOpenChange }: Props) {
                           <TableHead>Status</TableHead>
                           <TableHead>Payment</TableHead>
                           <TableHead>Gift Aid</TableHead>
+                          <TableHead>Certificate</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {selectedDonorDonations.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                            <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                               No donations linked to this donor yet.
                             </TableCell>
                           </TableRow>
                         ) : (
-                          selectedDonorDonations.map((donation) => (
-                            <TableRow key={donation.id}>
-                              <TableCell className="text-sm">{formatDate(donation.createdAt)}</TableCell>
-                              <TableCell className="text-sm">
-                                <div className="font-medium">{donation.category}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {donation.donationType ? formatEnum(donation.donationType) : "-"}
-                                  {donation.frequency ? ` • ${formatEnum(donation.frequency)}` : ""}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-sm">{donation.reference || "-"}</TableCell>
-                              <TableCell className="text-sm font-medium">
-                                {formatCurrency(donation.amountPence)}
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {donation.status ? <Badge variant="outline">{formatEnum(donation.status)}</Badge> : "-"}
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {donation.paymentMethod ? formatPaymentMethod(donation.paymentMethod) : "-"}
-                              </TableCell>
-                              <TableCell className="text-sm">{donation.giftAid ? "Yes" : "No"}</TableCell>
-                            </TableRow>
-                          ))
+                          selectedDonorDonations.map((donation) => {
+                            const hasOrderRef =
+                              donation.reference && donation.reference.startsWith("786-1")
+                            const isCompleted =
+                              donation.status?.toUpperCase() === "COMPLETED"
+                            const canDownloadCertificate = hasOrderRef && isCompleted
+
+                            return (
+                              <TableRow key={donation.id}>
+                                <TableCell className="text-sm">{formatDate(donation.createdAt)}</TableCell>
+                                <TableCell className="text-sm">
+                                  <div className="font-medium">{donation.category}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {donation.donationType ? formatEnum(donation.donationType) : "-"}
+                                    {donation.frequency ? ` • ${formatEnum(donation.frequency)}` : ""}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm">{donation.reference || "-"}</TableCell>
+                                <TableCell className="text-sm font-medium">
+                                  {formatCurrency(donation.amountPence)}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {donation.status ? <Badge variant="outline">{formatEnum(donation.status)}</Badge> : "-"}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {donation.paymentMethod ? formatPaymentMethod(donation.paymentMethod) : "-"}
+                                </TableCell>
+                                <TableCell className="text-sm">{donation.giftAid ? "Yes" : "No"}</TableCell>
+                                <TableCell className="text-sm">
+                                  {canDownloadCertificate ? (
+                                    <a
+                                      href={`/api/certificates/donation/${encodeURIComponent(
+                                        donation.reference!
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-primary hover:underline"
+                                    >
+                                      Download
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">–</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
                         )}
                       </TableBody>
                     </Table>

@@ -359,9 +359,26 @@ export function buildDonationConfirmationEmail(
     ? `<span style="color:${BRAND.primary}; font-weight: 600;">Gift Aid claimed</span> — your donation is worth 25% more at no extra cost to you.`
     : `Gift Aid not claimed.`
 
-  const ctaHtml = params.manageSubscriptionUrl
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr><td style="border-radius: 4px; background:${BRAND.primary};"><a href="${escapeHtml(params.manageSubscriptionUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 14px 28px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #ffffff; text-decoration: none;">Manage subscription</a></td></tr></table>`
-    : ""
+  const baseForCert = params.baseUrl ?? DEFAULT_WEBSITE_URL
+  const donateCertificateUrl = `${escapeHtml(baseForCert)}/success/${encodeURIComponent(
+    params.orderNumber
+  )}`
+
+  const ctaHtmlParts: string[] = []
+
+  if (params.manageSubscriptionUrl) {
+    ctaHtmlParts.push(
+      `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:8px;"><tr><td style="border-radius: 4px; background:${BRAND.primary};"><a href="${escapeHtml(
+        params.manageSubscriptionUrl
+      )}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 14px 28px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #ffffff; text-decoration: none;">Manage subscription</a></td></tr></table>`
+    )
+  }
+
+  ctaHtmlParts.push(
+    `<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr><td style="border-radius: 9999px; border:1px solid ${BRAND.primary};"><a href="${donateCertificateUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 10px 22px; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: ${BRAND.primary}; text-decoration: none; background:#ffffff;">Download donation certificate</a></td></tr></table>`
+  )
+
+  const ctaHtml = ctaHtmlParts.join("")
 
   const manageSubscriptionHtml = params.manageSubscriptionUrl
     ? `<p style="margin:0; font-size: 13px; color:${BRAND.muted}; line-height: 1.5;">Want to stop this donation? <a href="${escapeHtml(params.manageSubscriptionUrl)}" target="_blank" rel="noopener noreferrer" style="color:${BRAND.primary}; font-weight: 600; text-decoration: none;">Click here</a> to manage or cancel your subscription.</p>`
