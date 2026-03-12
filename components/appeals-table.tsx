@@ -69,6 +69,7 @@ interface Appeal {
     title: string
     fundraiserName: string
     isActive: boolean
+    targetAmountPence?: number | null
     donations: Array<{ amountPence: number }>
     cashDonations: Array<{ amountPence: number }>
     waterProjectDonations: Array<{ amountPence: number }>
@@ -471,6 +472,7 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
                       <TabsTrigger value="content">Content</TabsTrigger>
                       <TabsTrigger value="settings">Settings</TabsTrigger>
                       <TabsTrigger value="statistics">Statistics</TabsTrigger>
+                      <TabsTrigger value="fundraisers">Fundraisers</TabsTrigger>
                     </TabsList>
                     <AppealsDateFilter onDateRangeChange={setModalDateRange} />
                   </div>
@@ -959,6 +961,63 @@ export function AppealsTable({ appeals }: { appeals: Appeal[] }) {
                               </div>
                             </div>
                           </>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="fundraisers" className="space-y-6 mt-0">
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 pb-2">
+                          <div className="p-2 rounded-lg bg-muted/50">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Fundraisers for this appeal</h3>
+                        </div>
+                        {fundraisers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No fundraisers for this appeal.</p>
+                        ) : (
+                          <div className="rounded-md border overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/50">
+                                  <th className="text-left font-semibold p-3">Name</th>
+                                  <th className="text-left font-semibold p-3">Title</th>
+                                  <th className="text-right font-semibold p-3">Amount</th>
+                                  <th className="text-right font-semibold p-3">Target</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {fundraisers.map((f) => {
+                                  const amountPence =
+                                    (f.donations?.reduce((s, d) => s + d.amountPence, 0) ?? 0) +
+                                    (f.cashDonations?.reduce((s, d) => s + d.amountPence, 0) ?? 0) +
+                                    (f.waterProjectDonations?.reduce((s, d) => s + d.amountPence, 0) ?? 0)
+                                  return (
+                                    <tr
+                                      key={f.id}
+                                      role="button"
+                                      tabIndex={0}
+                                      className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                                      onClick={() => router.push(`/admin/fundraisers/${f.id}`)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                          e.preventDefault()
+                                          router.push(`/admin/fundraisers/${f.id}`)
+                                        }
+                                      }}
+                                    >
+                                      <td className="p-3 text-foreground">{f.fundraiserName}</td>
+                                      <td className="p-3 text-foreground">{f.title}</td>
+                                      <td className="p-3 text-right font-medium">{formatCurrency(amountPence)}</td>
+                                      <td className="p-3 text-right text-muted-foreground">
+                                        {f.targetAmountPence != null ? formatCurrency(f.targetAmountPence) : "—"}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
                         )}
                       </div>
                     </TabsContent>
