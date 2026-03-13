@@ -260,6 +260,8 @@ export function QuickDonatePage({ appeals, stripePublishableKey }: QuickDonatePa
   const [creatingPayment, setCreatingPayment] = React.useState(false)
   const [orderInfo, setOrderInfo] = React.useState<QuickOrderInfo | null>(null)
   const [clientSecret, setClientSecret] = React.useState<string | null>(null)
+  const [autoStarted, setAutoStarted] = React.useState(false)
+  const [lastAmountPence, setLastAmountPence] = React.useState<number | null>(null)
 
   const mostNeedyAppeal = appeals[0] ?? null
 
@@ -317,6 +319,7 @@ export function QuickDonatePage({ appeals, stripePublishableKey }: QuickDonatePa
       const data = (await response.json()) as QuickOrderInfo
       setOrderInfo(data)
       setClientSecret(data.paymentClientSecret)
+      setLastAmountPence(baseAmountPence)
     } catch (error) {
       setEmailError(
         error instanceof Error ? error.message : "Something went wrong. Please try again.",
@@ -325,6 +328,25 @@ export function QuickDonatePage({ appeals, stripePublishableKey }: QuickDonatePa
       setCreatingPayment(false)
     }
   }
+
+  React.useEffect(() => {
+    if (!autoStarted && !clientSecret && canSubmit) {
+      const trimmedEmail = email.trim()
+      if (trimmedEmail && trimmedEmail.includes("@")) {
+        setAutoStarted(true)
+        void handleCreatePayment()
+      }
+    }
+  }, [autoStarted, clientSecret, canSubmit, email])
+
+  React.useEffect(() => {
+    if (clientSecret && lastAmountPence !== null && baseAmountPence !== lastAmountPence) {
+      setClientSecret(null)
+      setOrderInfo(null)
+      setLastAmountPence(null)
+      setAutoStarted(false)
+    }
+  }, [baseAmountPence, clientSecret, lastAmountPence])
 
   const handlePresetClick = (amountPence: number) => {
     setSelectedAmountPence(amountPence)
