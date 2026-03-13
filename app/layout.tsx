@@ -20,7 +20,32 @@ export const metadata: Metadata = {
   title: "Alianah Humanity Welfare",
   description: "Support our appeals and make a difference with your donation",
   icons: {
-    icon: "/logo-light.png",
+    icon: [
+      { url: "/logo-light.png", media: "(prefers-color-scheme: light)" },
+      { url: "/logo-dark.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    shortcut: "/logo-light.png",
+    apple: "/logo-light.png",
+  },
+  openGraph: {
+    title: "Alianah Humanity Welfare",
+    description: "Support our appeals and make a difference with your donation",
+    url: "https://give.alianah.org",
+    siteName: "Alianah Humanity Welfare",
+    images: [
+      {
+        url: "/preview.png",
+        width: 1200,
+        height: 630,
+        alt: "Alianah Humanity Welfare",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Alianah Humanity Welfare",
+    description: "Support our appeals and make a difference with your donation",
+    images: ["/preview.png"],
   },
 };
 
