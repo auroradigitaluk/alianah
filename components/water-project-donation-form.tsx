@@ -190,7 +190,7 @@ export function WaterProjectDonationForm({
               })}
             </div>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-medium pointer-events-none text-muted-foreground dark:text-foreground">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-medium pointer-events-none text-black dark:text-white">
                 £
               </span>
               <Input
@@ -205,7 +205,7 @@ export function WaterProjectDonationForm({
                   setCustomAmount(e.target.value)
                   if (e.target.value.trim()) setSelectedAmountPence(null)
                 }}
-                className="h-11 min-h-[44px] text-base pl-7 w-full rounded-lg border border-input bg-background/95 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-11 min-h-[44px] text-base pl-7 w-full rounded-lg border border-neutral-200 bg-background text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-white/25 dark:bg-black/40"
               />
             </div>
           </>
