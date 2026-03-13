@@ -532,7 +532,7 @@ export function QuickDonatePage({ appeals, stripePublishableKey }: QuickDonatePa
                   <input
                     id="quick-email"
                     type="email"
-                    className="h-10 w-full rounded-xl border border-muted bg-muted/50 px-3 text-sm outline-none ring-0 transition focus:border-primary focus:bg-background"
+                    className="h-10 w-full rounded-xl border border-muted bg-muted/50 px-3 text-base outline-none ring-0 transition focus:border-primary focus:bg-background"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
