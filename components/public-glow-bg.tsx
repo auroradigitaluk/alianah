@@ -30,8 +30,8 @@ export function PublicGlowBg({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="dark">
-      <div className="fixed inset-0 -z-10 min-h-screen bg-[oklch(0.08_0.02_142.38)]" />
+    <div className="min-h-screen">
+      <div className="fixed inset-0 -z-10 min-h-screen bg-[oklch(0.98_0.01_142)] dark:bg-[oklch(0.08_0.02_142.38)]" />
       <div
         className="fixed bottom-0 left-0 right-0 -z-10 h-[60vh] min-h-[400px]"
         style={{

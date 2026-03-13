@@ -56,74 +56,74 @@ export function StaffFilterSelect({
     (u) => u.role === "STAFF" || u.role === "ADMIN"
   )
 
-  if (filterableUsers.length === 0) {
-    return null
-  }
-
   const [mobileOpen, setMobileOpen] = React.useState(false)
 
   return (
     <div className={className}>
       {/* Mobile: icon button that opens popover */}
-      <Popover open={mobileOpen} onOpenChange={setMobileOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="flex h-9 w-9 shrink-0 sm:hidden"
-            aria-label={label}
-          >
-            <Users className="size-4" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-56 p-1" align="end">
-          <Button
-            variant={current === "all" ? "secondary" : "ghost"}
-            size="sm"
-            className="w-full justify-start"
-            onClick={() => {
-              handleChange("all")
-              setMobileOpen(false)
-            }}
-          >
-            All staff
-          </Button>
-          {filterableUsers.map((user) => (
+      {filterableUsers.length > 0 && (
+        <Popover open={mobileOpen} onOpenChange={setMobileOpen}>
+          <PopoverTrigger asChild>
             <Button
-              key={user.id}
-              variant={current === user.id ? "secondary" : "ghost"}
+              variant="outline"
+              size="icon"
+              className="flex h-9 w-9 shrink-0 sm:hidden"
+              aria-label={label}
+            >
+              <Users className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-1" align="end">
+            <Button
+              variant={current === "all" ? "secondary" : "ghost"}
               size="sm"
               className="w-full justify-start"
               onClick={() => {
-                handleChange(user.id)
+                handleChange("all")
                 setMobileOpen(false)
               }}
             >
-              {formatAdminUserName(user) || user.email}
-              {user.role !== "ADMIN" ? ` (${user.role})` : ""}
+              All staff
             </Button>
-          ))}
-        </PopoverContent>
-      </Popover>
-
-      {/* Desktop: full select with label */}
-      <div className="hidden sm:block">
-        <Label className="text-xs text-muted-foreground mb-1.5 block">{label}</Label>
-        <Select value={current} onValueChange={handleChange}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All staff" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All staff</SelectItem>
             {filterableUsers.map((user) => (
-              <SelectItem key={user.id} value={user.id}>
+              <Button
+                key={user.id}
+                variant={current === user.id ? "secondary" : "ghost"}
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => {
+                  handleChange(user.id)
+                  setMobileOpen(false)
+                }}
+              >
                 {formatAdminUserName(user) || user.email}
                 {user.role !== "ADMIN" ? ` (${user.role})` : ""}
-              </SelectItem>
+              </Button>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
+          </PopoverContent>
+        </Popover>
+      )}
+
+      {/* Desktop: full select with label */}
+      {filterableUsers.length > 0 && (
+        <div className="hidden sm:block">
+          <Label className="text-xs text-muted-foreground mb-1.5 block">{label}</Label>
+          <Select value={current} onValueChange={handleChange}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All staff" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All staff</SelectItem>
+              {filterableUsers.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {formatAdminUserName(user) || user.email}
+                  {user.role !== "ADMIN" ? ` (${user.role})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </div>
   )
 }

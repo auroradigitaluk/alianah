@@ -190,7 +190,7 @@ export function WaterProjectDonationForm({
               })}
             </div>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium pointer-events-none">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-medium pointer-events-none text-muted-foreground dark:text-foreground">
                 £
               </span>
               <Input
@@ -205,7 +205,7 @@ export function WaterProjectDonationForm({
                   setCustomAmount(e.target.value)
                   if (e.target.value.trim()) setSelectedAmountPence(null)
                 }}
-                className="h-11 min-h-[44px] text-base pl-7 w-full"
+                className="h-11 min-h-[44px] text-base pl-7 w-full rounded-lg border border-input bg-background/95 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </>
@@ -311,7 +311,11 @@ export function WaterProjectDonationForm({
           </Label>
         </div>
       )}
-      <Button type="submit" className="w-full h-12 min-h-[48px] text-base touch-manipulation" disabled={!canSubmit}>
+      <Button
+        type="submit"
+        className="w-full h-12 min-h-[48px] text-base mt-3 touch-manipulation"
+        disabled={!canSubmit}
+      >
         Add to basket
       </Button>
     </form>

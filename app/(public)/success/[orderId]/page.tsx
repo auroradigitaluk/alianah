@@ -41,7 +41,7 @@ export default async function SuccessPage({
   }
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12 md:px-6">
+    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12 md:px-6 text-foreground">
       <div className="max-w-2xl mx-auto">
         <Card className="!bg-transparent shadow-none hover:shadow-none">
           <CardHeader className="text-center">
