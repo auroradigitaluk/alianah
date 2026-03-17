@@ -45,7 +45,11 @@ export async function finalizeOrderByOrderNumber(params: {
     : ["ONE_OFF"]
   const shouldFinalizeOrder = !hasRecurringItems || isSubscription
   const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
-  const collectedVia = COLLECTION_SOURCES.WEBSITE
+  const isQuickDonateOrder =
+    order.donorFirstName === "Express" && order.donorLastName === "Donor"
+  const collectedVia = isQuickDonateOrder
+    ? COLLECTION_SOURCES.QUICK_DONATE
+    : COLLECTION_SOURCES.WEBSITE
 
   const donor =
     (await prisma.donor.findUnique({ where: { email: order.donorEmail } })) ??

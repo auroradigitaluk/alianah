@@ -78,6 +78,12 @@ export function PublicHeader() {
           >
             Sponsor
           </Link>
+          <Link
+            href="/donate"
+            className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Quick Donate
+          </Link>
         </nav>
         <Button
           variant="ghost"

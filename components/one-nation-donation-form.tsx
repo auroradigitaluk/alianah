@@ -715,7 +715,7 @@ export function OneNationDonationForm({
                     setSelectedProduct("")
                   }}
                 >
-                  <SelectTrigger id="project-select" className="h-11 w-full data-[size=default]:h-11">
+                  <SelectTrigger id="project-select" size="sm" className="w-full">
                     <SelectValue placeholder="Choose a project to support" />
                   </SelectTrigger>
                   <SelectContent>
@@ -898,7 +898,7 @@ export function OneNationDonationForm({
                   setSelectedProduct(value)
                   setCustomAmount("")
                 }}>
-                  <SelectTrigger id="product-select" className="h-11">
+                  <SelectTrigger id="product-select" size="sm">
                     <SelectValue placeholder="Choose a specific product or make a direct donation" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1061,7 +1061,7 @@ export function OneNationDonationForm({
                   if (isDonationType(value)) setSelectedIntention(value)
                 }}
               >
-                <SelectTrigger id="intention-select" className="h-11 w-full">
+                <SelectTrigger id="intention-select" size="sm" className="w-full">
                   <SelectValue placeholder="Select donation type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1079,7 +1079,7 @@ export function OneNationDonationForm({
             <Button
               onClick={handleAddToBag}
               size="lg"
-              className="w-full h-11 mt-6 font-medium"
+              className="w-full h-11 mt-4 font-medium"
               disabled={
                 (donationType === "appeal" && !selectedAppeal) ||
                 (donationType === "water" && (!selectedWaterProject || !selectedWaterCountry)) ||

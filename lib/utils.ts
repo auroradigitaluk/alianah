@@ -179,6 +179,7 @@ export const COLLECTION_SOURCES = {
   COLLECTIONS: "collections",
   MASJID_COLLECTIONS: "masjid_collections",
   FUNDRAISING: "fundraising",
+  QUICK_DONATE: "website_quick_donate",
 } as const
 
 export type CollectionSource = typeof COLLECTION_SOURCES[keyof typeof COLLECTION_SOURCES]
@@ -186,6 +187,7 @@ export type CollectionSource = typeof COLLECTION_SOURCES[keyof typeof COLLECTION
 export function formatCollectionSource(value: string): string {
   const mapping: Record<string, string> = {
     website: "Website",
+    website_quick_donate: "Quick Donate",
     office: "Office",
     events: "Events",
     collections: "Collections",

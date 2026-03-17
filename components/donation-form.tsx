@@ -409,7 +409,7 @@ export function DonationForm({
               <Label className="text-sm font-normal text-neutral-700">Enter a custom amount</Label>
             )}
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-900 text-xl font-semibold pointer-events-none select-none">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-white text-sm font-medium pointer-events-none select-none">
                 £
               </span>
               <Input
@@ -425,7 +425,7 @@ export function DonationForm({
                 className={
                   variant === "fundraiser"
                     ? "h-14 text-xl pl-10 pr-4 rounded-xl border-neutral-200 bg-white text-right font-semibold text-neutral-900 placeholder:text-neutral-400"
-                    : "h-11 text-base pl-7 rounded-lg border-neutral-200"
+                    : "h-11 pl-7"
                 }
               />
             </div>
@@ -483,7 +483,11 @@ export function DonationForm({
       {/* Add to Basket Button */}
       <Button
         onClick={handleAddToBasket}
-        className={variant === "fundraiser" ? "w-full h-12 rounded-xl text-base font-semibold bg-primary text-primary-foreground hover:opacity-90 shadow-sm" : "w-full h-12 text-base font-semibold"}
+        className={
+          variant === "fundraiser"
+            ? "w-full h-12 rounded-xl text-base font-semibold bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+            : "w-full h-12 text-base font-semibold mt-4"
+        }
         size="lg"
         disabled={!donationType || (!presetAmount && !customAmount)}
       >

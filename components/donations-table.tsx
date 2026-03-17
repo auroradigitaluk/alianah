@@ -100,18 +100,26 @@ const WATER_PROJECT_LABELS: Record<string, string> = {
 }
 
 function getCampaignLabel(donation: Donation): string {
-  if (donation.appeal?.title) return donation.appeal.title
-  if (
+  let base: string
+
+  if (donation.appeal?.title) {
+    base = donation.appeal.title
+  } else if (
     donation.fundraiser?.waterProject &&
     donation.fundraiser?.waterProjectCountry
   ) {
     const typeLabel =
       WATER_PROJECT_LABELS[donation.fundraiser.waterProject.projectType] ||
       "Water Project"
-    return `${typeLabel} - ${donation.fundraiser.waterProjectCountry.country}`
+    base = `${typeLabel} - ${donation.fundraiser.waterProjectCountry.country}`
+  } else if (donation.product?.name) {
+    base = donation.product.name
+  } else {
+    base = "General"
   }
-  if (donation.product?.name) return donation.product.name
-  return "General"
+
+  const isQuickDonate = donation.collectedVia === "website_quick_donate"
+  return isQuickDonate ? `${base} - QD` : base
 }
 
 type StripeInfo = {

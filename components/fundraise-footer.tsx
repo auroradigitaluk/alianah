@@ -38,12 +38,6 @@ export function FundraiseFooter() {
           </Link>
           <p className="text-xs text-muted-foreground">Registered charity no. 1160076</p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href={loginHref} className="gap-2">
-            <LogIn className="h-4 w-4" />
-            Login
-          </Link>
-        </Button>
       </div>
     </footer>
   )
