@@ -33,6 +33,14 @@ const toCsvRows = (rows: ReportRow[]) =>
     amountFormatted: formatAmount(row.amountPence),
   }))
 
+type DailyBreakdownRow = {
+  date: string
+  onlinePence: number
+  offlinePence: number
+  collectionsPence: number
+  totalPence: number
+}
+
 export function ReportsPageClient() {
   const [range, setRange] = useState<RangeState>(defaultRange)
   const [data, setData] = useState<ReportsResponse | null>(null)
@@ -145,7 +153,17 @@ export function ReportsPageClient() {
 
   if (!data) return null
 
-  const { financial, donations, donors, collections, fundraising, projects, recurring, appeals } = data
+  const {
+    financial,
+    donations,
+    donors,
+    collections,
+    fundraising,
+    projects,
+    recurring,
+    appeals,
+    fundraiserCashDetail = [],
+  } = data
   const sourceRows = financial.sources
   const paymentRows = donations.byPaymentMethod
   const appealRows = appeals.byAppeal
@@ -153,6 +171,98 @@ export function ReportsPageClient() {
   const collectionLocationRows = collections.byMasjid ?? []
   const fundraiserRows = fundraising.byFundraiser
   const recurringStatusRows = recurring.byStatus
+
+  const dailyBreakdown: DailyBreakdownRow[] = (() => {
+    const map = new Map<string, DailyBreakdownRow>()
+
+    const add = (
+      dateKey: string,
+      field: "onlinePence" | "offlinePence" | "collectionsPence",
+      amountPence: number
+    ) => {
+      if (!amountPence) return
+      const existing = map.get(dateKey) ?? {
+        date: dateKey,
+        onlinePence: 0,
+        offlinePence: 0,
+        collectionsPence: 0,
+        totalPence: 0,
+      }
+      existing[field] += amountPence
+      existing.totalPence += amountPence
+      map.set(dateKey, existing)
+    }
+
+    const isOnlinePayment = (method: string | null | undefined) => {
+      const m = (method ?? "").toUpperCase()
+      return m === "WEBSITE_STRIPE" || m === "STRIPE" || m === "PAYPAL"
+    }
+
+    data.donationsDetail.forEach((row) => {
+      const iso = row.completedAt ?? row.createdAt
+      if (!iso) return
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return
+      const key = date.toISOString().slice(0, 10)
+      const field = isOnlinePayment(row.paymentMethod) ? "onlinePence" : "offlinePence"
+      add(key, field, row.amountPence ?? 0)
+    })
+
+    data.waterDonationsDetail.forEach((row) => {
+      const iso = row.createdAt
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return
+      const key = date.toISOString().slice(0, 10)
+      const field = isOnlinePayment(row.paymentMethod) ? "onlinePence" : "offlinePence"
+      add(key, field, row.amountPence ?? 0)
+    })
+
+    data.sponsorshipDonationsDetail.forEach((row) => {
+      const iso = row.createdAt
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return
+      const key = date.toISOString().slice(0, 10)
+      const field = isOnlinePayment(row.paymentMethod) ? "onlinePence" : "offlinePence"
+      add(key, field, row.amountPence ?? 0)
+    })
+
+    data.qurbaniDonationsDetail.forEach((row) => {
+      const iso = row.createdAt
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return
+      const key = date.toISOString().slice(0, 10)
+      const field = isOnlinePayment(row.paymentMethod) ? "onlinePence" : "offlinePence"
+      add(key, field, row.amountPence ?? 0)
+    })
+
+    data.offlineIncomeDetail.forEach((row) => {
+      const iso = row.receivedAt
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return
+      const key = date.toISOString().slice(0, 10)
+      add(key, "offlinePence", row.amountPence ?? 0)
+    })
+
+    fundraiserCashDetail.forEach((row) => {
+      const iso = row.receivedAt
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return
+      const key = date.toISOString().slice(0, 10)
+      add(key, "offlinePence", row.amountPence ?? 0)
+    })
+
+    data.collectionsDetail.forEach((row) => {
+      const iso = row.collectedAt
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return
+      const key = date.toISOString().slice(0, 10)
+      add(key, "collectionsPence", row.amountPence ?? 0)
+    })
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.date < b.date ? -1 : a.date > b.date ? 1 : 0
+    )
+  })()
 
   return (
     <div className="space-y-8">
@@ -656,6 +766,34 @@ export function ReportsPageClient() {
               { key: "amountFormatted", label: "Amount", getValue: (row) => formatAmount(row.amountPence) },
             ]}
             data={toCsvRows(sourceRows)}
+          />
+          <ReportExportButton
+            label="Daily breakdown (CSV)"
+            filename="daily-breakdown.csv"
+            columns={[
+              { key: "date", label: "Date", getValue: (row: DailyBreakdownRow) => row.date },
+              {
+                key: "online",
+                label: "Online",
+                getValue: (row: DailyBreakdownRow) => formatAmount(row.onlinePence),
+              },
+              {
+                key: "offline",
+                label: "Offline",
+                getValue: (row: DailyBreakdownRow) => formatAmount(row.offlinePence),
+              },
+              {
+                key: "collections",
+                label: "Collections",
+                getValue: (row: DailyBreakdownRow) => formatAmount(row.collectionsPence),
+              },
+              {
+                key: "total",
+                label: "Total",
+                getValue: (row: DailyBreakdownRow) => formatAmount(row.totalPence),
+              },
+            ]}
+            data={dailyBreakdown}
           />
         </div>
       </section>

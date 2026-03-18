@@ -10,6 +10,7 @@ import type {
   DonationDetailRow,
   CollectionDetailRow,
   OfflineIncomeDetailRow,
+  FundraiserCashDetailRow,
   WaterDonationDetailRow,
   SponsorshipDonationDetailRow,
   QurbaniDonationDetailRow,
@@ -379,12 +380,16 @@ export async function GET(request: NextRequest) {
       // Approved fundraiser cash in date range (for appeal totals – match appeals page)
       prisma.fundraiserCashDonation.findMany({
         where: { status: "APPROVED", receivedAt: dateFilter },
-        select: {
-          amountPence: true,
-          donationType: true,
-          paymentMethod: true,
-          fundraiserId: true,
-          fundraiser: { select: { appealId: true } },
+        include: {
+          fundraiser: {
+            select: {
+              appealId: true,
+              title: true,
+              fundraiserName: true,
+              appeal: { select: { title: true } },
+            },
+          },
+          reviewedBy: { select: { firstName: true, lastName: true, email: true } },
         },
       }),
     ])
@@ -1218,6 +1223,45 @@ export async function GET(request: NextRequest) {
       addedByName: o.addedBy ? formatAdminUserName(o.addedBy) : null,
     }))
 
+    const fundraiserCashDetail: FundraiserCashDetailRow[] = (
+      fundraiserCashRows as {
+        id: string
+        amountPence: number
+        donationType: string
+        paymentMethod: string
+        donorName: string | null
+        donorEmail: string | null
+        donorPhone: string | null
+        notes: string | null
+        receivedAt: Date
+        fundraiser?: {
+          title: string | null
+          fundraiserName: string | null
+          appeal?: { title: string | null } | null
+        } | null
+        reviewedBy?: { firstName: string | null; lastName: string | null; email: string | null } | null
+      }[]
+    ).map((f) => ({
+      id: f.id,
+      receivedAt: f.receivedAt.toISOString(),
+      amountPence: f.amountPence,
+      donationType: f.donationType,
+      paymentMethod: f.paymentMethod,
+      notes: f.notes ?? null,
+      campaignTitle: f.fundraiser?.title || f.fundraiser?.fundraiserName || null,
+      appealTitle: f.fundraiser?.appeal?.title ?? null,
+      donorName: f.donorName ?? null,
+      donorEmail: f.donorEmail ?? null,
+      donorPhone: f.donorPhone ?? null,
+      addedByName: f.reviewedBy
+        ? formatAdminUserName({
+            firstName: f.reviewedBy.firstName ?? undefined,
+            lastName: f.reviewedBy.lastName ?? undefined,
+            email: f.reviewedBy.email ?? undefined,
+          })
+        : null,
+    }))
+
     const waterDonationsDetail: WaterDonationDetailRow[] = waterDonorTotals.map((w) => ({
       id: w.id,
       createdAt: w.createdAt.toISOString(),
@@ -1421,6 +1465,7 @@ export async function GET(request: NextRequest) {
       donationsDetail,
       collectionsDetail,
       offlineIncomeDetail,
+      fundraiserCashDetail,
       waterDonationsDetail,
       sponsorshipDonationsDetail,
       qurbaniDonationsDetail,

@@ -214,6 +214,21 @@ export type OfflineIncomeDetailRow = {
   donorEmail: string | null
   addedByName: string | null
 }
+
+export type FundraiserCashDetailRow = {
+  id: string
+  receivedAt: string
+  amountPence: number
+  donationType: string
+  paymentMethod: string
+  notes: string | null
+  campaignTitle: string | null
+  appealTitle: string | null
+  donorName: string | null
+  donorEmail: string | null
+  donorPhone: string | null
+  addedByName: string | null
+}
 export type WaterDonationDetailRow = {
   id: string
   createdAt: string
@@ -273,6 +288,7 @@ export type ReportsResponse = {
   donationsDetail: DonationDetailRow[]
   collectionsDetail: CollectionDetailRow[]
   offlineIncomeDetail: OfflineIncomeDetailRow[]
+  fundraiserCashDetail: FundraiserCashDetailRow[]
   waterDonationsDetail: WaterDonationDetailRow[]
   sponsorshipDonationsDetail: SponsorshipDonationDetailRow[]
   qurbaniDonationsDetail: QurbaniDonationDetailRow[]
