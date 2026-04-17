@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
+import { sendFundraiserApprovedEmail } from "@/lib/email"
+import { getFundraiserBaseUrl } from "@/lib/utils"
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +15,8 @@ const updateSchema = z
     message: z.string().nullable().optional(),
     targetAmountPence: z.union([z.number().int().min(0), z.null()]).optional(),
     waterProjectCountryId: z.union([z.string().min(1), z.null()]).optional(),
+    customApprovalStatus: z.enum(["PENDING", "APPROVED", "DECLINED"]).optional(),
+    customDeclineReason: z.union([z.string().trim().min(1), z.null()]).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: "At least one field required" })
 
@@ -46,6 +50,12 @@ export async function GET(
           },
         },
         waterProjectCountry: {
+          select: {
+            id: true,
+            country: true,
+          },
+        },
+        qurbaniCountry: {
           select: {
             id: true,
             country: true,
@@ -164,7 +174,9 @@ export async function GET(
             ? "Water Tanks"
             : fundraiser.waterProject?.projectType === "WUDHU_AREA"
               ? "Wudhu Areas"
-              : "Water Project")
+              : fundraiser.qurbaniCountry?.country
+                ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
+                : "Water Project")
 
     const normalizedCashDonations = fundraiser.cashDonations.map((cash) => ({
       id: `cash-${cash.id}`,
@@ -231,18 +243,20 @@ export async function GET(
             ? "Water Tanks"
             : fundraiser.waterProject?.projectType === "WUDHU_AREA"
               ? "Wudhu Areas"
-              : "Water Project"
+              : fundraiser.qurbaniCountry?.country
+                ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
+                : "Water Project"
 
     const serialized = {
       ...fundraiser,
       createdAt: fundraiser.createdAt.toISOString(),
       campaign: {
-        id: fundraiser.appeal?.id || fundraiser.waterProject?.id || "",
+        id: fundraiser.appeal?.id || fundraiser.waterProject?.id || fundraiser.qurbaniCountry?.id || "",
         title: campaignTitle,
         slug: fundraiser.appeal?.slug || "",
         summary: fundraiser.appeal?.summary || fundraiser.waterProject?.description || null,
         isActive: fundraiser.appeal?.isActive ?? fundraiser.waterProject?.isActive ?? false,
-        type: fundraiser.appeal ? "APPEAL" : "WATER",
+        type: fundraiser.appeal ? "APPEAL" : fundraiser.qurbaniCountry ? "QURBANI" : "WATER",
       },
       statistics: {
         totalRaised,
@@ -282,7 +296,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const [, err] = await requireAdminAuthSafe()
+  const [user, err] = await requireAdminAuthSafe()
   if (err) return err
   try {
     const { id } = await params
@@ -296,6 +310,10 @@ export async function PATCH(
       message?: string | null
       targetAmountPence?: number | null
       waterProjectCountryId?: string | null
+      customApprovalStatus?: "PENDING" | "APPROVED" | "DECLINED"
+      customDeclineReason?: string | null
+      customReviewedAt?: Date | null
+      customReviewedByAdminUserId?: string | null
     } = {}
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.fundraiserName !== undefined) updateData.fundraiserName = data.fundraiserName
@@ -334,11 +352,50 @@ export async function PATCH(
         updateData.waterProjectCountryId = data.waterProjectCountryId
       }
     }
+    if (data.customApprovalStatus !== undefined) {
+      const existing = await prisma.fundraiser.findUnique({
+        where: { id },
+        select: { isCustom: true },
+      })
+      if (!existing?.isCustom) {
+        return NextResponse.json(
+          { error: "Custom approval status can only be changed for custom fundraisers" },
+          { status: 400 }
+        )
+      }
+      updateData.customApprovalStatus = data.customApprovalStatus
+      updateData.customReviewedAt = new Date()
+      updateData.customReviewedByAdminUserId = user?.id ?? null
+      if (data.customApprovalStatus === "APPROVED") {
+        updateData.isActive = true
+        updateData.customDeclineReason = null
+      }
+      if (data.customApprovalStatus === "PENDING" || data.customApprovalStatus === "DECLINED") {
+        updateData.isActive = false
+      }
+      if (data.customApprovalStatus === "DECLINED") {
+        updateData.customDeclineReason = data.customDeclineReason?.trim() || null
+      }
+    }
 
     const fundraiser = await prisma.fundraiser.update({
       where: { id },
       data: updateData,
     })
+
+    if (data.customApprovalStatus === "APPROVED") {
+      const fundraiserUrl = `${getFundraiserBaseUrl()}/fundraise/${fundraiser.slug}`
+      try {
+        await sendFundraiserApprovedEmail({
+          fundraiserEmail: fundraiser.email,
+          fundraiserName: fundraiser.fundraiserName,
+          fundraiserTitle: fundraiser.title,
+          fundraiserUrl,
+        })
+      } catch (emailError) {
+        console.error("Failed to send fundraiser approved email:", emailError)
+      }
+    }
 
     return NextResponse.json(fundraiser)
   } catch (error) {

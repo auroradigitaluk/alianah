@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminTable } from "@/components/admin-table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn, formatDateTime, isValidPostcode, toTitleCaseLive, toUpperCaseLive } from "@/lib/utils"
@@ -61,12 +62,32 @@ export function BookingsPageClient({
   const [detailsModalOpen, setDetailsModalOpen] = React.useState(false)
   const [editingBooking, setEditingBooking] = React.useState<CollectionBookingItem | null>(null)
 
-  const bookingsByDate = React.useMemo(() => {
-    return [...bookings].sort((a, b) => {
+  const { upcomingBookings, pastBookings } = React.useMemo(() => {
+    const now = Date.now()
+    const upcoming: CollectionBookingItem[] = []
+    const past: CollectionBookingItem[] = []
+
+    for (const booking of bookings) {
+      const scheduledAtMs = booking.scheduledAt ? new Date(booking.scheduledAt).getTime() : Number.NaN
+      if (!Number.isNaN(scheduledAtMs) && scheduledAtMs < now) {
+        past.push(booking)
+      } else {
+        upcoming.push(booking)
+      }
+    }
+
+    upcoming.sort((a, b) => {
       if (!a.scheduledAt) return 1
       if (!b.scheduledAt) return -1
       return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
     })
+    past.sort((a, b) => {
+      if (!a.scheduledAt) return 1
+      if (!b.scheduledAt) return -1
+      return new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()
+    })
+
+    return { upcomingBookings: upcoming, pastBookings: past }
   }, [bookings])
 
   const refetchBookings = React.useCallback(async () => {
@@ -230,112 +251,207 @@ export function BookingsPageClient({
     <div className="flex flex-col gap-4 sm:gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-base sm:text-lg font-semibold">Upcoming collection bookings</h2>
+          <h2 className="text-base sm:text-lg font-semibold">Collection Bookings</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Bookings for future collections (location, address, date & time)
+            Bookings for collections (location, address, date & time)
           </p>
         </div>
         {canCreate && (
           <Button onClick={handleOpenAdd}>
             <Plus className="mr-2 h-4 w-4" />
-            Add booking
+            Add Booking
           </Button>
         )}
       </div>
 
-      {bookings.length === 0 ? (
-        <Card className="mt-4">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <CalendarClock className="h-10 w-10 text-muted-foreground" />
-            <p className="mt-2 text-sm text-muted-foreground">No upcoming bookings</p>
-            {canCreate && (
-              <Button variant="outline" className="mt-2" onClick={handleOpenAdd}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add first booking
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="mt-4 w-full">
-          <AdminTable<CollectionBookingItem>
-            data={bookingsByDate}
-            onRowClick={(b) => {
-              setSelectedBooking(b)
-              setDetailsModalOpen(true)
-            }}
-            columns={[
-              {
-                id: "locationName",
-                header: "Location",
-                cell: (b) => <div className="font-medium">{b.locationName ?? "—"}</div>,
-              },
-              {
-                id: "address",
-                header: "Address",
-                cell: (b) => (
-                  <div className="text-muted-foreground text-sm">
-                    {b.addressLine1 ?? "—"}
-                    {(b.city || b.postcode || b.country) &&
-                      `, ${[b.city, b.postcode, b.country].filter(Boolean).join(", ")}`}
-                  </div>
-                ),
-              },
-              {
-                id: "scheduledAt",
-                header: "Date & time",
-                cell: (b) => (
-                  <div className="text-sm">
-                    {b.scheduledAt ? formatDateTime(b.scheduledAt) : "—"}
-                  </div>
-                ),
-                enableSorting: true,
-              },
-              {
-                id: "bookedByName",
-                header: "Booked by",
-                cell: (b) => (
-                  <div className="text-muted-foreground text-sm">{b.bookedByName ?? "—"}</div>
-                ),
-              },
-              {
-                id: "notes",
-                header: "Notes",
-                cell: (b) => (
-                  <div className="max-w-[200px] whitespace-normal text-muted-foreground text-sm">
-                    {b.notes ?? "—"}
-                  </div>
-                ),
-                enableSorting: false,
-              },
-              ...(canCreate
-                ? [
-                    {
-                      id: "actions",
-                      header: "Actions",
-                      cell: (b: CollectionBookingItem) => (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDelete(b.id)
-                          }}
-                          disabled={deletingId === b.id}
-                          aria-label="Delete booking"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      ),
-                      enableSorting: false,
-                    } as const,
-                  ]
-                : []),
-            ]}
-          />
-        </div>
-      )}
+      <Tabs defaultValue="upcoming" className="mt-4">
+        <TabsList>
+          <TabsTrigger value="upcoming">Upcoming Bookings ({upcomingBookings.length})</TabsTrigger>
+          <TabsTrigger value="past">Past Bookings ({pastBookings.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upcoming" className="w-full">
+          {upcomingBookings.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <CalendarClock className="h-10 w-10 text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">No Upcoming Bookings</p>
+                {canCreate && (
+                  <Button variant="outline" className="mt-2" onClick={handleOpenAdd}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add First Booking
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <AdminTable<CollectionBookingItem>
+              data={upcomingBookings}
+              onRowClick={(b) => {
+                setSelectedBooking(b)
+                setDetailsModalOpen(true)
+              }}
+              columns={[
+                {
+                  id: "locationName",
+                  header: "Location",
+                  cell: (b) => <div className="font-medium">{b.locationName ?? "—"}</div>,
+                },
+                {
+                  id: "address",
+                  header: "Address",
+                  cell: (b) => (
+                    <div className="text-muted-foreground text-sm">
+                      {b.addressLine1 ?? "—"}
+                      {(b.city || b.postcode || b.country) &&
+                        `, ${[b.city, b.postcode, b.country].filter(Boolean).join(", ")}`}
+                    </div>
+                  ),
+                },
+                {
+                  id: "scheduledAt",
+                  header: "Date & time",
+                  cell: (b) => (
+                    <div className="text-sm">
+                      {b.scheduledAt ? formatDateTime(b.scheduledAt) : "—"}
+                    </div>
+                  ),
+                  enableSorting: true,
+                },
+                {
+                  id: "bookedByName",
+                  header: "Booked by",
+                  cell: (b) => (
+                    <div className="text-muted-foreground text-sm">{b.bookedByName ?? "—"}</div>
+                  ),
+                },
+                {
+                  id: "notes",
+                  header: "Notes",
+                  cell: (b) => (
+                    <div className="max-w-[200px] whitespace-normal text-muted-foreground text-sm">
+                      {b.notes ?? "—"}
+                    </div>
+                  ),
+                  enableSorting: false,
+                },
+                ...(canCreate
+                  ? [
+                      {
+                        id: "actions",
+                        header: "Actions",
+                        cell: (b: CollectionBookingItem) => (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(b.id)
+                            }}
+                            disabled={deletingId === b.id}
+                            aria-label="Delete booking"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ),
+                        enableSorting: false,
+                      } as const,
+                    ]
+                  : []),
+              ]}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="past" className="w-full">
+          {pastBookings.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <CalendarClock className="h-10 w-10 text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">No Past Bookings</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <AdminTable<CollectionBookingItem>
+              data={pastBookings}
+              onRowClick={(b) => {
+                setSelectedBooking(b)
+                setDetailsModalOpen(true)
+              }}
+              columns={[
+                {
+                  id: "locationName",
+                  header: "Location",
+                  cell: (b) => <div className="font-medium">{b.locationName ?? "—"}</div>,
+                },
+                {
+                  id: "address",
+                  header: "Address",
+                  cell: (b) => (
+                    <div className="text-muted-foreground text-sm">
+                      {b.addressLine1 ?? "—"}
+                      {(b.city || b.postcode || b.country) &&
+                        `, ${[b.city, b.postcode, b.country].filter(Boolean).join(", ")}`}
+                    </div>
+                  ),
+                },
+                {
+                  id: "scheduledAt",
+                  header: "Date & time",
+                  cell: (b) => (
+                    <div className="text-sm">
+                      {b.scheduledAt ? formatDateTime(b.scheduledAt) : "—"}
+                    </div>
+                  ),
+                  enableSorting: true,
+                },
+                {
+                  id: "bookedByName",
+                  header: "Booked by",
+                  cell: (b) => (
+                    <div className="text-muted-foreground text-sm">{b.bookedByName ?? "—"}</div>
+                  ),
+                },
+                {
+                  id: "notes",
+                  header: "Notes",
+                  cell: (b) => (
+                    <div className="max-w-[200px] whitespace-normal text-muted-foreground text-sm">
+                      {b.notes ?? "—"}
+                    </div>
+                  ),
+                  enableSorting: false,
+                },
+                ...(canCreate
+                  ? [
+                      {
+                        id: "actions",
+                        header: "Actions",
+                        cell: (b: CollectionBookingItem) => (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(b.id)
+                            }}
+                            disabled={deletingId === b.id}
+                            aria-label="Delete booking"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ),
+                        enableSorting: false,
+                      } as const,
+                    ]
+                  : []),
+              ]}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog
         open={detailsModalOpen}
@@ -427,7 +543,7 @@ export function BookingsPageClient({
       >
         <DialogContent className="p-6 max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingBooking ? "Edit booking" : "Add upcoming collection"}</DialogTitle>
+            <DialogTitle>{editingBooking ? "Edit Booking" : "Add Upcoming Collection"}</DialogTitle>
             <DialogDescription>
               {editingBooking
                 ? "Update the booking details below."
@@ -563,7 +679,7 @@ export function BookingsPageClient({
               <Button type="submit" disabled={saving}>
                 {saving
                   ? (editingBooking ? "Saving…" : "Adding…")
-                  : (editingBooking ? "Save changes" : "Add booking")}
+                  : (editingBooking ? "Save Changes" : "Add Booking")}
               </Button>
             </div>
           </form>

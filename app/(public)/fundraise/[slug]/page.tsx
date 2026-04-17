@@ -9,6 +9,7 @@ import { FundraiserInlineDonation } from "@/components/fundraiser-inline-donatio
 import { FundraiserPublicCashForm } from "@/components/fundraiser-public-cash-form"
 import { FundraiserRecentDonations } from "@/components/fundraiser-recent-donations"
 import { FundraisingSlideshow } from "@/components/fundraising-slideshow"
+import { QurbaniFundraiserDonationForm } from "@/components/qurbani-fundraiser-donation-form"
 import { Button } from "@/components/ui/button"
 import { LayoutDashboard } from "lucide-react"
 
@@ -133,10 +134,40 @@ async function getFundraiser(slug: string) {
             pricePence: true,
           },
         },
+        qurbaniCountry: {
+          select: {
+            id: true,
+            country: true,
+            fundraisingImageUrls: true,
+            priceOneSeventhPence: true,
+            priceSmallPence: true,
+            priceLargePence: true,
+            labelOneSeventh: true,
+            labelSmall: true,
+            labelLarge: true,
+          },
+        },
         donations: {
           where: {
             status: "COMPLETED",
           },
+          select: {
+            amountPence: true,
+            isAnonymous: true,
+            donor: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 5,
+        },
+        qurbaniDonations: {
           select: {
             amountPence: true,
             isAnonymous: true,
@@ -223,7 +254,10 @@ export default async function FundraisePage({
       getFundraiserTotalRaisedAndCount(fundraiser.id, Boolean(fundraiser.waterProjectId && fundraiser.waterProject)),
     ])
     const isWaterFundraiser = Boolean(fundraiser.waterProjectId && fundraiser.waterProject)
-    const completedDonations = fundraiser.donations
+    const isQurbaniFundraiser = Boolean(fundraiser.qurbaniCountryId && fundraiser.qurbaniCountry)
+    const completedDonations = [...fundraiser.donations, ...fundraiser.qurbaniDonations]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 5)
     const isOwner =
       sessionEmail != null &&
       fundraiser.email != null &&
@@ -242,6 +276,8 @@ export default async function FundraisePage({
     const customImages: string[] = parseImageArray(fundraiser.customImageUrls)
     const fundraisingImages: string[] = isWaterFundraiser
       ? parseImageArray(fundraiser.waterProject?.fundraisingImageUrls)
+      : isQurbaniFundraiser
+        ? parseImageArray(fundraiser.qurbaniCountry?.fundraisingImageUrls)
       : parseImageArray(fundraiser.appeal?.fundraisingImageUrls)
 
     const appealImages: string[] = isWaterFundraiser
@@ -260,7 +296,9 @@ export default async function FundraisePage({
 
     const campaignTitle = isWaterFundraiser
       ? WATER_TYPE_LABELS[fundraiser.waterProject?.projectType || ""] || "Water Project"
-      : fundraiser.appeal?.title || "Alianah Humanity Welfare"
+      : isQurbaniFundraiser
+        ? `Qurbani - ${fundraiser.qurbaniCountry?.country ?? "Country"}`
+        : fundraiser.appeal?.title || "Alianah Humanity Welfare"
 
     return (
       <div className="min-h-screen bg-[#fafafa] dark:bg-background">
@@ -324,6 +362,8 @@ export default async function FundraisePage({
                           : undefined,
                       waterProjectPlaqueName: fundraiser.plaqueName ?? undefined,
                     }
+                  : isQurbaniFundraiser && fundraiser.qurbaniCountry
+                    ? {}
                   : {
                       appeal: {
                         id: fundraiser.appeal!.id,
@@ -397,6 +437,12 @@ export default async function FundraisePage({
                 waterProjectPlaqueName={fundraiser.plaqueName ?? undefined}
                 fundraiserId={fundraiser.id}
               />
+            ) : isQurbaniFundraiser && fundraiser.qurbaniCountry ? (
+              <div className="rounded-xl border border-neutral-200/80 dark:border-border bg-white dark:bg-card shadow-sm overflow-hidden">
+                <div className="p-5 sm:p-6">
+                  <QurbaniFundraiserDonationForm fundraiserId={fundraiser.id} country={fundraiser.qurbaniCountry} />
+                </div>
+              </div>
             ) : (
               <>
                 <FundraiserInlineDonation
@@ -407,9 +453,16 @@ export default async function FundraisePage({
                   organizerName={fundraiser.fundraiserName}
                   donationTypesEnabled={donationTypesEnabled}
                 />
-                <FundraiserPublicCashForm fundraiserId={fundraiser.id} />
               </>
             )}
+            <FundraiserPublicCashForm
+              fundraiserId={fundraiser.id}
+              qurbaniCountry={
+                isQurbaniFundraiser && fundraiser.qurbaniCountry
+                  ? fundraiser.qurbaniCountry
+                  : undefined
+              }
+            />
           </div>
         </div>
       </div>
@@ -465,6 +518,25 @@ export default async function FundraisePage({
             Creating new fundraising pages for water projects is currently unavailable. You can still
             support our water projects by donating through our main campaigns.
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (slug === "qurbani") {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-2xl">
+          <div className="mb-6 sm:mb-8 text-center">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Qurbani</h1>
+            <p className="text-muted-foreground text-base sm:text-lg">
+              Start a qurbani fundraiser and choose one country for your campaign.
+            </p>
+          </div>
+
+          <div className="mb-4 sm:mb-6">
+            <FundraiserForm qurbaniEnabled campaignTitle="Qurbani" />
+          </div>
         </div>
       </div>
     )

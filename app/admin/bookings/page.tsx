@@ -6,10 +6,9 @@ import { getAdminUser } from "@/lib/admin-auth"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-async function getUpcomingBookings() {
+async function getBookings() {
   try {
     return await prisma.collectionBooking.findMany({
-      where: { scheduledAt: { gte: new Date() } },
       orderBy: { scheduledAt: "asc" },
       include: {
         addedBy: { select: { email: true, firstName: true, lastName: true } },
@@ -22,10 +21,10 @@ async function getUpcomingBookings() {
 
 export default async function BookingsPage() {
   const user = await getAdminUser()
-  const upcomingBookings = await getUpcomingBookings()
+  const bookings = await getBookings()
   const canCreate = Boolean(user && user.role !== "VIEWER")
 
-  const initialBookings = upcomingBookings.map((b) => ({
+  const initialBookings = bookings.map((b) => ({
     id: b.id,
     locationName: b.locationName,
     addressLine1: b.addressLine1,

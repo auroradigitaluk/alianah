@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { sumDonationsDeduplicated } from "@/lib/donation-dedup"
 import { OneNationDonationForm } from "@/components/one-nation-donation-form"
+import { getQurbaniEnabled } from "@/lib/settings"
 
 export const dynamic = 'force-dynamic'
 
@@ -147,6 +148,28 @@ async function getSponsorshipProjectCountriesForForm() {
   }
 }
 
+async function getQurbaniCountriesForForm() {
+  try {
+    return await prisma.qurbaniCountry.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        country: true,
+        priceOneSeventhPence: true,
+        priceSmallPence: true,
+        priceLargePence: true,
+        labelOneSeventh: true,
+        labelSmall: true,
+        labelLarge: true,
+      },
+      orderBy: [{ sortOrder: "asc" }, { country: "asc" }],
+    })
+  } catch (error) {
+    console.error("Error fetching qurbani countries:", error)
+    return []
+  }
+}
+
 export default async function HomePage({
   searchParams,
 }: {
@@ -165,6 +188,8 @@ export default async function HomePage({
     waterProjectCountries,
     sponsorshipProjectsForForm,
     sponsorshipProjectCountries,
+    qurbaniEnabled,
+    qurbaniCountries,
   ] = await Promise.all([
     getActiveAppeals(),
     getOrCreateDefaultAppeal(), // Get any appeal or create default if none exist
@@ -172,6 +197,8 @@ export default async function HomePage({
     getWaterProjectCountriesForForm(), // Get water project countries with prices
     getSponsorshipProjectsForForm(),
     getSponsorshipProjectCountriesForForm(),
+    getQurbaniEnabled(),
+    getQurbaniCountriesForForm(),
   ])
 
   // Calculate totals for each appeal (one amount per transaction)
@@ -221,7 +248,7 @@ export default async function HomePage({
             Make a Donation
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
-            Choose how you'd like to give and where your donation will be used. Secure, fast, and impactful.
+            Choose how you&apos;d like to give and where your donation will be used. Secure, fast, and impactful.
           </p>
         </div>
 
@@ -243,6 +270,7 @@ export default async function HomePage({
             waterProjectCountries={waterProjectCountries}
             sponsorshipProjects={sponsorshipProjectsForForm}
             sponsorshipProjectCountries={sponsorshipProjectCountries}
+            qurbaniCountries={qurbaniEnabled ? qurbaniCountries : []}
             initialZakatPence={initialZakatPence}
           />
         ) : (

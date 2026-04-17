@@ -12,6 +12,8 @@ const bodySchema = z.object({
   donorName: z.string().max(200).optional(),
   paymentMethod: z.enum(PAYMENT_METHODS).default("CASH"),
   donationType: z.enum(DONATION_TYPES).default("GENERAL"),
+  qurbaniSize: z.enum(["ONE_SEVENTH", "SMALL", "LARGE"]).optional(),
+  qurbaniCountryId: z.string().optional(),
   donorEmail: z.string().email().max(320).optional().or(z.literal("")),
   donorPhone: z.string().max(50).optional(),
   notes: z.string().max(1000).optional(),
@@ -29,7 +31,22 @@ export async function POST(
     const { id: fundraiserId } = await params
     const fundraiser = await prisma.fundraiser.findFirst({
       where: { id: fundraiserId, isActive: true },
-      select: { id: true },
+      select: {
+        id: true,
+        qurbaniCountryId: true,
+        qurbaniCountry: {
+          select: {
+            id: true,
+            country: true,
+            priceOneSeventhPence: true,
+            priceSmallPence: true,
+            priceLargePence: true,
+            labelOneSeventh: true,
+            labelSmall: true,
+            labelLarge: true,
+          },
+        },
+      },
     })
     if (!fundraiser)
       return NextResponse.json({ error: "Fundraiser not found" }, { status: 404 })
@@ -37,16 +54,47 @@ export async function POST(
     const body = await request.json()
     const data = bodySchema.parse(body)
 
+    let normalizedAmountPence = data.amountPence
+    let qurbaniNote: string | null = null
+    if (fundraiser.qurbaniCountryId) {
+      if (!data.qurbaniSize) {
+        return NextResponse.json({ error: "Qurbani option is required" }, { status: 400 })
+      }
+      if (!fundraiser.qurbaniCountry || !data.qurbaniCountryId || data.qurbaniCountryId !== fundraiser.qurbaniCountry.id) {
+        return NextResponse.json({ error: "Invalid qurbani country" }, { status: 400 })
+      }
+
+      const expectedPrice =
+        data.qurbaniSize === "ONE_SEVENTH"
+          ? fundraiser.qurbaniCountry.priceOneSeventhPence
+          : data.qurbaniSize === "SMALL"
+            ? fundraiser.qurbaniCountry.priceSmallPence
+            : fundraiser.qurbaniCountry.priceLargePence
+
+      if (expectedPrice == null || expectedPrice <= 0) {
+        return NextResponse.json({ error: "Selected qurbani option is unavailable" }, { status: 400 })
+      }
+
+      normalizedAmountPence = expectedPrice
+      const label =
+        data.qurbaniSize === "ONE_SEVENTH"
+          ? fundraiser.qurbaniCountry.labelOneSeventh || "1/7th"
+          : data.qurbaniSize === "SMALL"
+            ? fundraiser.qurbaniCountry.labelSmall || "Small"
+            : fundraiser.qurbaniCountry.labelLarge || "Large"
+      qurbaniNote = `Qurbani offline option: ${fundraiser.qurbaniCountry.country} - ${label} (${data.qurbaniSize})`
+    }
+
     const cash = await prisma.fundraiserCashDonation.create({
       data: {
         fundraiserId: fundraiser.id,
-        amountPence: data.amountPence,
+        amountPence: normalizedAmountPence,
         donorName: data.donorName?.trim() || null,
         paymentMethod: data.paymentMethod,
         donationType: data.donationType,
         donorEmail: data.donorEmail?.trim() || null,
         donorPhone: data.donorPhone?.trim() || null,
-        notes: data.notes?.trim() || null,
+        notes: [qurbaniNote, data.notes?.trim() || ""].filter(Boolean).join(" | ") || null,
         receivedAt: new Date(),
         status: "PENDING_REVIEW",
       },

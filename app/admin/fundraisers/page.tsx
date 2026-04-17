@@ -107,7 +107,7 @@ async function FundraisersTabComplete() {
 }
 
 async function FundraisersTabCustom() {
-  const where = { isCustom: true }
+  const where = { isCustom: true, customApprovalStatus: "PENDING" }
   const [fundraisers, stats] = await Promise.all([
     getFundraisers(where),
     getFundraiserStats(where),
@@ -120,11 +120,12 @@ async function FundraisersTabCustom() {
       byCampaign={[]}
       eligibleCampaigns={[]}
       showAppealsTab={false}
-      pageTitle="Custom fundraisers"
-      pageDescription="Fundraisers created by external organisations or individuals for their own projects. Open any row to review details and donations."
-      listTitle="Custom fundraisers"
+      pageTitle="Custom fundraisers to review"
+      pageDescription="Review custom causes submitted by users. Approve to publish live, or decline to keep them offline."
+      listTitle="Pending custom fundraisers"
       showCampaignColumn={false}
       showTitleColumn
+      showCustomReviewActions
     />
   )
 }

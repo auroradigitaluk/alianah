@@ -15,10 +15,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import Image from "next/image"
 
 export type QurbaniCountryRow = {
   id: string
   country: string
+  fundraisingImageUrls?: string
   priceOneSeventhPence: number | null
   priceSmallPence: number | null
   priceLargePence: number | null
@@ -51,12 +53,23 @@ export const QurbaniTable = forwardRef<QurbaniTableRef, {
     labelLarge: "",
     isActive: true,
     sortOrder: 0,
+    fundraisingImageUrls: [] as string[],
   })
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const penceToPounds = (pence: number | null): string =>
     pence != null ? (pence / 100).toString() : ""
 
   const openEdit = useCallback((row: QurbaniCountryRow) => {
+    const parsedImages = (() => {
+      if (!row.fundraisingImageUrls) return []
+      try {
+        const arr = JSON.parse(row.fundraisingImageUrls)
+        return Array.isArray(arr) ? arr.filter((v): v is string => typeof v === "string" && Boolean(v.trim())) : []
+      } catch {
+        return []
+      }
+    })()
     setEditing(row)
     setForm({
       country: row.country,
@@ -68,6 +81,7 @@ export const QurbaniTable = forwardRef<QurbaniTableRef, {
       labelLarge: row.labelLarge ?? "",
       isActive: row.isActive,
       sortOrder: row.sortOrder,
+      fundraisingImageUrls: parsedImages,
     })
   }, [])
 
@@ -83,6 +97,7 @@ export const QurbaniTable = forwardRef<QurbaniTableRef, {
       labelLarge: "Cow",
       isActive: true,
       sortOrder: countries.length,
+      fundraisingImageUrls: [],
     })
   }, [countries.length])
 
@@ -112,6 +127,7 @@ export const QurbaniTable = forwardRef<QurbaniTableRef, {
         labelLarge: form.labelLarge.trim() || null,
         isActive: form.isActive,
         sortOrder: form.sortOrder,
+        fundraisingImageUrls: form.fundraisingImageUrls,
       }
       if (editing) {
         const res = await fetch(`/api/admin/qurbani/${editing.id}`, {
@@ -158,6 +174,49 @@ export const QurbaniTable = forwardRef<QurbaniTableRef, {
   )
 
   const formatPrice = (p: number | null) => (p == null ? "—" : formatCurrency(p))
+
+  const uploadImage = useCallback(async (file: File) => {
+    const fd = new FormData()
+    fd.append("file", file)
+    const res = await fetch("/api/fundraisers/upload", { method: "POST", body: fd })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data?.url) {
+      throw new Error(data?.error || "Failed to upload image")
+    }
+    return String(data.url)
+  }, [])
+
+  const handleFilesSelected = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return
+      const selected = Array.from(files)
+      try {
+        setSaving(true)
+        const uploadedUrls: string[] = []
+        for (const file of selected) {
+          const url = await uploadImage(file)
+          uploadedUrls.push(url)
+        }
+        setForm((f) => ({
+          ...f,
+          fundraisingImageUrls: [...f.fundraisingImageUrls, ...uploadedUrls],
+        }))
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Failed to upload images")
+      } finally {
+        setSaving(false)
+        if (fileInputRef.current) fileInputRef.current.value = ""
+      }
+    },
+    [uploadImage]
+  )
+
+  const removeImage = useCallback((idx: number) => {
+    setForm((f) => ({
+      ...f,
+      fundraisingImageUrls: f.fundraisingImageUrls.filter((_, i) => i !== idx),
+    }))
+  }, [])
 
   return (
     <>
@@ -330,6 +389,62 @@ export const QurbaniTable = forwardRef<QurbaniTableRef, {
                   className="text-sm"
                 />
               </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-sm font-medium text-foreground">
+                  Fundraiser Images
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={saving}
+                >
+                  Upload images
+                </Button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => void handleFilesSelected(e.target.files)}
+              />
+              {form.fundraisingImageUrls.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No images yet. These will be shown on fundraiser links for this country.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {form.fundraisingImageUrls.map((url, idx) => (
+                    <div key={`${url}-${idx}`} className="rounded-md border overflow-hidden">
+                      <div className="relative aspect-[4/3] bg-muted">
+                        <Image
+                          src={url}
+                          alt={`Fundraiser image ${idx + 1}`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 50vw, 200px"
+                        />
+                      </div>
+                      <div className="p-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-destructive hover:text-destructive w-full"
+                          onClick={() => removeImage(idx)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Checkbox

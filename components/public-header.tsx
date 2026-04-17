@@ -14,12 +14,33 @@ import Link from "next/link"
 export function PublicHeader() {
   const router = useRouter()
   const { items, setOpen } = useSidecart()
+  const [qurbaniEnabled, setQurbaniEnabled] = React.useState(true)
 
   const handleBack = () => {
     router.back()
   }
 
   const itemCount = items.length
+
+  React.useEffect(() => {
+    let cancelled = false
+    const loadQurbani = async () => {
+      try {
+        const res = await fetch("/api/qurbani", { cache: "no-store" })
+        if (!res.ok) return
+        const data = (await res.json()) as unknown
+        if (!cancelled && Array.isArray(data)) {
+          setQurbaniEnabled(data.length > 0)
+        }
+      } catch {
+        // keep default
+      }
+    }
+    void loadQurbani()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -78,6 +99,14 @@ export function PublicHeader() {
           >
             Sponsor
           </Link>
+          {qurbaniEnabled && (
+            <Link
+              href="/qurbani"
+              className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+            >
+              Qurbani
+            </Link>
+          )}
           <Link
             href="/donate"
             className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"

@@ -795,6 +795,13 @@ export type FundraiserDonationNotificationEmailParams = {
   baseUrl?: string
 }
 
+export type FundraiserApprovedEmailParams = {
+  fundraiserName: string
+  fundraiserTitle: string
+  fundraiserUrl: string
+  baseUrl?: string
+}
+
 export function buildFundraiserDonationNotificationEmail(
   params: FundraiserDonationNotificationEmailParams,
   settings?: OrganizationSettings | null
@@ -838,6 +845,57 @@ export function buildFundraiserDonationNotificationEmail(
       logoUrl,
       title: "New donation received",
       heading: "New donation received",
+      aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
+      contentHtml,
+    }),
+  }
+}
+
+export function buildFundraiserApprovedEmail(
+  params: FundraiserApprovedEmailParams,
+  settings?: OrganizationSettings | null
+): EmailDoc {
+  const preheader = `Your fundraiser is now live: ${params.fundraiserTitle}`
+  const subject = `Your fundraiser is now live: ${params.fundraiserTitle}`
+
+  const introHtml = `
+    <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
+      Dear ${escapeHtml(params.fundraiserName)},
+      <br />
+      Great news - your fundraiser has been approved by our team and is now live.
+    </div>
+  `
+
+  const contentHtml = `
+    ${section({
+      title: "Your fundraising link",
+      bodyHtml: `
+        <div style="margin-bottom: 12px; color:${CLEAN.muted}; font-size: 14px;">
+          You can now share your page and start collecting donations:
+        </div>
+        ${button({ href: params.fundraiserUrl, label: "View live fundraiser" })}
+        <div style="margin-top: 10px; font-size: 12px; color:${CLEAN.muted}; word-break: break-all;">
+          Or copy this link: ${escapeHtml(params.fundraiserUrl)}
+        </div>
+      `,
+    })}
+  `
+
+  const { charityName, supportEmail, websiteUrl, displayUrl, logoUrl } = getCleanLayoutDefaults(
+    settings,
+    params.baseUrl
+  )
+  return {
+    subject,
+    html: cleanLayout({
+      preheader,
+      charityName,
+      supportEmail,
+      websiteUrl,
+      displayUrl,
+      logoUrl,
+      title: "Your fundraiser is now live",
+      heading: "Your fundraiser is now live",
       aboveContentHtml: introHtml.replace(/^<div[^>]*>|<\/div>$/g, "").trim(),
       contentHtml,
     }),

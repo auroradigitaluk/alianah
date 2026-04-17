@@ -5,6 +5,8 @@ import { FundraiserDashboardClient } from "@/components/fundraiser-dashboard-cli
 
 export const dynamic = 'force-dynamic'
 
+type CustomApprovalStatus = "APPROVED" | "PENDING" | "DECLINED"
+
 async function getFundraisers(email: string) {
   try {
     const fundraisers = await prisma.fundraiser.findMany({
@@ -76,6 +78,8 @@ async function getFundraisers(email: string) {
         totalRaised,
         progressPercentage,
         donationCount: fundraiser.donations.length + fundraiser.cashDonations.length,
+        customApprovalStatus: fundraiser.customApprovalStatus as CustomApprovalStatus,
+        customDeclineReason: fundraiser.customDeclineReason,
         campaign: {
           title: campaignTitle,
           slug: campaignSlug,

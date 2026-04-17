@@ -45,7 +45,9 @@ interface Fundraiser {
   fundraiserName: string
   email?: string
   isActive: boolean
-  campaign: { title: string; type: "APPEAL" | "WATER" }
+  customApprovalStatus?: "PENDING" | "APPROVED" | "DECLINED"
+  customDeclineReason?: string | null
+  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" }
   amountRaised: number
   targetAmountPence?: number | null
 }
@@ -66,7 +68,7 @@ interface FundraiserDetails {
     slug: string
     summary: string | null
     isActive: boolean
-    type: "APPEAL" | "WATER"
+    type: "APPEAL" | "WATER" | "QURBANI"
   }
   statistics: {
     totalRaised: number
@@ -121,6 +123,8 @@ interface FundraisersTableProps {
   showCampaignColumn?: boolean
   /** When true, show a separate Campaign title column (fundraiser.title) */
   showTitleColumn?: boolean
+  /** When true, show approve/decline actions for custom review */
+  showCustomReviewActions?: boolean
 }
 
 export function FundraisersTable({
@@ -130,6 +134,7 @@ export function FundraisersTable({
   linkToDetailPage = false,
   showCampaignColumn = true,
   showTitleColumn = false,
+  showCustomReviewActions = false,
 }: FundraisersTableProps) {
   const router = useRouter()
   const [selectedFundraiser, setSelectedFundraiser] = useState<Fundraiser | null>(null)
@@ -147,6 +152,7 @@ export function FundraisersTable({
   const [savingDetails, setSavingDetails] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (initialSelectedId) {
@@ -241,6 +247,46 @@ export function FundraisersTable({
       alert(error instanceof Error ? error.message : "Failed to delete fundraiser")
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleCustomReviewAction = async (
+    fundraiser: Fundraiser,
+    action: "APPROVED" | "DECLINED",
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation()
+    setReviewingId(fundraiser.id)
+    try {
+      const declineReason =
+        action === "DECLINED"
+          ? window.prompt(
+              "Decline reason (optional): this will be visible to the fundraiser owner.",
+              fundraiser.customDeclineReason ?? ""
+            )
+          : null
+      if (action === "DECLINED" && declineReason === null) {
+        return
+      }
+      const response = await fetch(`/api/admin/fundraisers/${fundraiser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customApprovalStatus: action,
+          customDeclineReason:
+            action === "DECLINED" ? (declineReason?.trim() || null) : null,
+        }),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error ?? "Failed to update custom fundraiser status")
+      }
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+      alert(error instanceof Error ? error.message : "Failed to update custom fundraiser status")
+    } finally {
+      setReviewingId(null)
     }
   }
 
@@ -530,7 +576,18 @@ export function FundraisersTable({
           {
             id: "status",
             header: "Status",
-            cell: (fundraiser) => <StatusBadge isActive={fundraiser.isActive} />,
+            cell: (fundraiser) =>
+              showCustomReviewActions ? (
+                <Badge variant="outline">
+                  {fundraiser.customApprovalStatus === "APPROVED"
+                    ? "Approved"
+                    : fundraiser.customApprovalStatus === "DECLINED"
+                      ? "Declined"
+                      : "Pending"}
+                </Badge>
+              ) : (
+                <StatusBadge isActive={fundraiser.isActive} />
+              ),
           },
           {
             id: "actions",
@@ -545,29 +602,56 @@ export function FundraisersTable({
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => handleToggleStatus(fundraiser, e)}
-                  disabled={updating === fundraiser.id}
-                  className="h-8"
-                >
-                  {fundraiser.isActive ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => handleDelete(fundraiser, e)}
-                  disabled={deletingId === fundraiser.id}
-                  className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  title="Delete fundraiser (keeps donations)"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {showCustomReviewActions ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleCustomReviewAction(fundraiser, "APPROVED", e)}
+                      disabled={reviewingId === fundraiser.id}
+                      className="h-8 text-green-700 hover:text-green-700 hover:bg-green-50"
+                      title="Approve and publish fundraiser"
+                    >
+                      <IconCheck className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleCustomReviewAction(fundraiser, "DECLINED", e)}
+                      disabled={reviewingId === fundraiser.id}
+                      className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Decline fundraiser"
+                    >
+                      <IconX className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleToggleStatus(fundraiser, e)}
+                      disabled={updating === fundraiser.id}
+                      className="h-8"
+                    >
+                      {fundraiser.isActive ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleDelete(fundraiser, e)}
+                      disabled={deletingId === fundraiser.id}
+                      className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Delete fundraiser (keeps donations)"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             ),
             enableSorting: false,

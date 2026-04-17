@@ -62,11 +62,13 @@ export default async function OfflineIncomePage({
     fundraiserCashDonations,
     waterDonations,
     sponsorshipDonations,
+    qurbaniDonations,
     appeals,
     waterProjects,
     waterProjectCountries,
     sponsorshipProjects,
     sponsorshipProjectCountries,
+    qurbaniCountries,
   ] = await Promise.all([
     getOfflineIncome(staffId),
     prisma.fundraiserCashDonation.findMany({
@@ -111,6 +113,17 @@ export default async function OfflineIncomePage({
         addedBy: { select: { email: true, firstName: true, lastName: true } },
       },
     }),
+    prisma.qurbaniDonation.findMany({
+      where: {
+        collectedVia: "office",
+        ...(staffId ? { addedByAdminUserId: staffId } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        qurbaniCountry: { select: { country: true } },
+        donor: { select: { firstName: true, lastName: true, email: true, phone: true } },
+      },
+    }),
     prisma.appeal.findMany({
       where: { archivedAt: null },
       select: { id: true, title: true },
@@ -135,6 +148,20 @@ export default async function OfflineIncomePage({
       where: { isActive: true },
       select: { id: true, projectType: true, country: true, pricePence: true, yearlyPricePence: true },
       orderBy: [{ projectType: "asc" }, { sortOrder: "asc" }, { country: "asc" }],
+    }),
+    prisma.qurbaniCountry.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        country: true,
+        priceOneSeventhPence: true,
+        priceSmallPence: true,
+        priceLargePence: true,
+        labelOneSeventh: true,
+        labelSmall: true,
+        labelLarge: true,
+      },
+      orderBy: [{ sortOrder: "asc" }, { country: "asc" }],
     }),
   ])
 
@@ -191,6 +218,53 @@ export default async function OfflineIncomePage({
     }
   })
 
+  const qurbaniRows = qurbaniDonations.map((donation) => {
+    const sizeLabel: Record<string, string> = {
+      ONE_SEVENTH: "1/7th",
+      SMALL: "Small",
+      LARGE: "Large",
+    }
+    return {
+      id: `qurbani-${donation.id}`,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      source: donation.paymentMethod,
+      receivedAt: donation.createdAt,
+      orderNumber: donation.donationNumber ?? null,
+      appeal: { title: `Qurbani - ${donation.qurbaniCountry.country} (${sizeLabel[donation.size] || donation.size})` },
+      notes: donation.notes || donation.qurbaniNames || null,
+      addedByName: null as string | null,
+      itemType: "qurbani" as const,
+      donor: donation.donor
+        ? {
+            firstName: donation.donor.firstName ?? undefined,
+            lastName: donation.donor.lastName ?? undefined,
+            email: donation.donor.email ?? undefined,
+            phone: donation.donor.phone ?? undefined,
+          }
+        : undefined,
+    }
+  })
+
+  const qurbaniAdderIds = Array.from(
+    new Set(
+      qurbaniDonations
+        .map((donation) => donation.addedByAdminUserId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    )
+  )
+  const qurbaniAdders = qurbaniAdderIds.length
+    ? await prisma.adminUser.findMany({
+        where: { id: { in: qurbaniAdderIds } },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      })
+    : []
+  const qurbaniAdderMap = new Map(qurbaniAdders.map((user) => [user.id, formatAdminUserName(user)]))
+  const qurbaniRowsWithAddedBy = qurbaniRows.map((row, index) => ({
+    ...row,
+    addedByName: qurbaniAdderMap.get(qurbaniDonations[index].addedByAdminUserId ?? "") ?? "—",
+  }))
+
   const incomeRows = income.map((item) => ({
     id: item.id,
     amountPence: item.amountPence,
@@ -239,7 +313,7 @@ export default async function OfflineIncomePage({
     }
   })
 
-  const tableIncome = [...incomeRows, ...fundraiserCashRows, ...waterRows, ...sponsorshipRows].sort((a, b) => {
+  const tableIncome = [...incomeRows, ...fundraiserCashRows, ...waterRows, ...sponsorshipRows, ...qurbaniRowsWithAddedBy].sort((a, b) => {
     const aDate = new Date(a.receivedAt as unknown as string | Date).getTime()
     const bDate = new Date(b.receivedAt as unknown as string | Date).getTime()
     return bDate - aDate
@@ -271,6 +345,7 @@ export default async function OfflineIncomePage({
                       waterProjectCountries={waterProjectCountries}
                       sponsorshipProjects={sponsorshipProjects}
                       sponsorshipProjectCountries={sponsorshipProjectCountries}
+                      qurbaniCountries={qurbaniCountries}
                     />
                   </div>
                 </div>

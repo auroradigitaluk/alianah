@@ -83,7 +83,7 @@ interface OfflineIncome {
   appealId?: string | null
   notes?: string | null
   addedByName?: string | null
-  itemType?: "appeal" | "water" | "sponsorship" | "fundraiser_cash"
+  itemType?: "appeal" | "water" | "sponsorship" | "fundraiser_cash" | "qurbani"
   donorName?: string | null
   donorEmail?: string | null
   donorPhone?: string | null
@@ -152,12 +152,13 @@ export function OfflineIncomeTable({
     setToDate("")
   }
 
-  const getItemType = (item: OfflineIncome | null | undefined): "appeal" | "water" | "sponsorship" | "fundraiser_cash" => {
+  const getItemType = (item: OfflineIncome | null | undefined): "appeal" | "water" | "sponsorship" | "fundraiser_cash" | "qurbani" => {
     if (!item) return "appeal"
     if (item.itemType) return item.itemType
     if (item.id.startsWith("water-")) return "water"
     if (item.id.startsWith("sponsorship-")) return "sponsorship"
     if (item.id.startsWith("fundraiser_cash-")) return "fundraiser_cash"
+    if (item.id.startsWith("qurbani-")) return "qurbani"
     return "appeal"
   }
 

@@ -165,6 +165,18 @@ export async function POST(request: NextRequest) {
             where: { id: item.qurbaniCountryId, isActive: true },
           })
           if (!country) throw new Error("Qurbani country not found or inactive")
+          if (item.fundraiserId) {
+            const fundraiser = await prisma.fundraiser.findUnique({
+              where: { id: item.fundraiserId },
+              select: { qurbaniCountryId: true, isActive: true },
+            })
+            if (!fundraiser || !fundraiser.isActive) {
+              throw new Error("Fundraiser not found or inactive")
+            }
+            if (!fundraiser.qurbaniCountryId || fundraiser.qurbaniCountryId !== item.qurbaniCountryId) {
+              throw new Error("Qurbani fundraiser country mismatch")
+            }
+          }
           const price =
             item.qurbaniSize === "ONE_SEVENTH"
               ? country.priceOneSeventhPence

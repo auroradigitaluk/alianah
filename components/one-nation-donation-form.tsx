@@ -85,6 +85,18 @@ interface SponsorshipProjectCountry {
   yearlyPricePence?: number | null
 }
 
+type QurbaniSize = "ONE_SEVENTH" | "SMALL" | "LARGE"
+interface QurbaniCountry {
+  id: string
+  country: string
+  priceOneSeventhPence: number | null
+  priceSmallPence: number | null
+  priceLargePence: number | null
+  labelOneSeventh: string | null
+  labelSmall: string | null
+  labelLarge: string | null
+}
+
 interface OneNationDonationFormProps {
   appeals: Appeal[]
   products?: AppealProduct[]
@@ -93,6 +105,7 @@ interface OneNationDonationFormProps {
   waterProjectCountries?: WaterProjectCountry[]
   sponsorshipProjects?: SponsorshipProject[]
   sponsorshipProjectCountries?: SponsorshipProjectCountry[]
+  qurbaniCountries?: QurbaniCountry[]
   /** Pre-fill for Zakat calculator: amount in pence, sets intention to ZAKAT and custom amount */
   initialZakatPence?: number
   /** When true, hide Appeals/Water/Sponsors toggle and show appeal form only (e.g. Zakat page) */
@@ -110,6 +123,7 @@ export function OneNationDonationForm({
   waterProjectCountries = [],
   sponsorshipProjects = [],
   sponsorshipProjectCountries = [],
+  qurbaniCountries = [],
   initialZakatPence,
   hideDonationTypeToggle = false,
   zakatFixedAmountPence,
@@ -117,11 +131,14 @@ export function OneNationDonationForm({
   const { addItem } = useSidecart()
 
   const [frequency, setFrequency] = React.useState<"ONE_OFF" | "MONTHLY">("ONE_OFF")
-  const [donationType, setDonationType] = React.useState<"appeal" | "water" | "sponsorship">("appeal")
+  const [donationType, setDonationType] = React.useState<"appeal" | "water" | "sponsorship" | "qurbani">("appeal")
   const [selectedAppeal, setSelectedAppeal] = React.useState<string>("")
   const [selectedWaterProject, setSelectedWaterProject] = React.useState<string>("")
   const [selectedSponsorshipType, setSelectedSponsorshipType] = React.useState<string>("")
   const [selectedSponsorshipCountry, setSelectedSponsorshipCountry] = React.useState<string>("")
+  const [selectedQurbaniCountry, setSelectedQurbaniCountry] = React.useState<string>("")
+  const [selectedQurbaniSize, setSelectedQurbaniSize] = React.useState<QurbaniSize | "">("")
+  const [qurbaniNames, setQurbaniNames] = React.useState<string>("")
   const [sponsorshipFrequency, setSponsorshipFrequency] = React.useState<"MONTHLY" | "YEARLY">("MONTHLY")
   const [selectedIntention, setSelectedIntention] = React.useState<DonationType | "">(
     donationTypesEnabled.includes("GENERAL") ? "GENERAL" : ((donationTypesEnabled[0] as DonationType) ?? "")
@@ -271,6 +288,35 @@ export function OneNationDonationForm({
     (c) => c.id === selectedSponsorshipCountry
   )
   const sponsorshipHasYearly = availableSponsorshipCountries.some((c) => (c.yearlyPricePence || 0) > 0)
+  const selectedQurbaniCountryData = qurbaniCountries.find((c) => c.id === selectedQurbaniCountry)
+
+  const qurbaniSizeOptions = React.useMemo(
+    () =>
+      selectedQurbaniCountryData
+        ? ([
+            {
+              key: "ONE_SEVENTH" as const,
+              title: "1/7th",
+              label: selectedQurbaniCountryData.labelOneSeventh || "1/7th",
+              amountPence: selectedQurbaniCountryData.priceOneSeventhPence,
+            },
+            {
+              key: "SMALL" as const,
+              title: "Small",
+              label: selectedQurbaniCountryData.labelSmall || "Small",
+              amountPence: selectedQurbaniCountryData.priceSmallPence,
+            },
+            {
+              key: "LARGE" as const,
+              title: "Large",
+              label: selectedQurbaniCountryData.labelLarge || "Large",
+              amountPence: selectedQurbaniCountryData.priceLargePence,
+            },
+          ] as const).filter((option) => typeof option.amountPence === "number" && option.amountPence > 0)
+        : [],
+    [selectedQurbaniCountryData]
+  )
+  const selectedQurbaniSizeData = qurbaniSizeOptions.find((option) => option.key === selectedQurbaniSize)
 
   React.useEffect(() => {
     if (!sponsorshipHasYearly && sponsorshipFrequency === "YEARLY") {
@@ -349,6 +395,22 @@ export function OneNationDonationForm({
         amountPence: yearlyPence,
       }
     }
+    if (donationType === "qurbani") {
+      if (!selectedQurbaniCountryData || !selectedQurbaniSizeData || !selectedQurbaniSize) return null
+      return {
+        item: {
+          appealTitle: "Qurbani",
+          frequency: "ONE_OFF",
+          donationType: selectedIntention,
+          amountPence: selectedQurbaniSizeData.amountPence!,
+          qurbaniCountryId: selectedQurbaniCountryData.id,
+          qurbaniSize: selectedQurbaniSize,
+          qurbaniNames: qurbaniNames.trim() || undefined,
+          productName: `${selectedQurbaniCountryData.country} - ${selectedQurbaniSizeData.label}`,
+        },
+        amountPence: selectedQurbaniSizeData.amountPence!,
+      }
+    }
     // appeal
     if (frequency !== "ONE_OFF") return null
     if (!selectedAppeal || !appealData) return null
@@ -407,6 +469,10 @@ export function OneNationDonationForm({
     selectedSponsorshipCountry,
     selectedSponsorshipCountryData,
     sponsorshipProjectData,
+    selectedQurbaniCountryData,
+    selectedQurbaniSizeData,
+    selectedQurbaniSize,
+    qurbaniNames,
     selectedProduct,
     selectedProductData,
     productPresetAmounts,
@@ -441,6 +507,14 @@ export function OneNationDonationForm({
 
     if (donationType === "sponsorship" && !selectedSponsorshipCountry) {
       alert("Please select a country")
+      return
+    }
+    if (donationType === "qurbani" && !selectedQurbaniCountryData) {
+      alert("Please select a country")
+      return
+    }
+    if (donationType === "qurbani" && !selectedQurbaniSizeData) {
+      alert("Please select a qurbani option")
       return
     }
 
@@ -482,6 +556,8 @@ export function OneNationDonationForm({
         alert("Please select a country")
         return
       }
+    } else if (donationType === "qurbani") {
+      amountPence = selectedQurbaniSizeData?.amountPence || 0
     } else if (selectedProduct && selectedProductData) {
       // Product selected
       productId = selectedProductData.productId
@@ -573,6 +649,22 @@ export function OneNationDonationForm({
             ? `${selectedSponsorshipCountryData?.country ?? ""} (Yearly)`
             : selectedSponsorshipCountryData?.country,
       })
+    } else if (donationType === "qurbani") {
+      if (!selectedQurbaniCountryData || !selectedQurbaniSizeData || !selectedQurbaniSize) {
+        alert("Please select a country and qurbani option")
+        return
+      }
+      addItem({
+        id: "",
+        appealTitle: "Qurbani",
+        productName: `${selectedQurbaniCountryData.country} - ${selectedQurbaniSizeData.label}`,
+        frequency: "ONE_OFF",
+        donationType: selectedIntention,
+        amountPence,
+        qurbaniCountryId: selectedQurbaniCountryData.id,
+        qurbaniSize: selectedQurbaniSize,
+        qurbaniNames: qurbaniNames.trim() || undefined,
+      })
     } else {
       // Appeal donation
       addItem({
@@ -592,6 +684,7 @@ export function OneNationDonationForm({
     setSelectedProduct("")
     setPlaqueName("")
     setSelectedSponsorshipCountry("")
+    setQurbaniNames("")
   }
 
   return (
@@ -622,6 +715,28 @@ export function OneNationDonationForm({
               >
                 Appeals
               </Button>
+              {qurbaniCountries.length > 0 && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setDonationType("qurbani")
+                    setSelectedAppeal("")
+                    setSelectedProduct("")
+                    setSelectedWaterProject("")
+                    setSelectedWaterCountry("")
+                    setSelectedSponsorshipType("")
+                    setSelectedSponsorshipCountry("")
+                    setCustomAmount("")
+                  }}
+                  variant={donationType === "qurbani" ? "default" : "outline"}
+                  className={cn(
+                    "flex-1 h-11 text-sm font-medium transition-all",
+                    donationType === "qurbani" && "shadow-sm"
+                  )}
+                >
+                  Qurbani
+                </Button>
+              )}
               {waterProjects.length > 0 && (
                 <Button
                   type="button"
@@ -759,7 +874,7 @@ export function OneNationDonationForm({
                   ))}
                 </div>
               </div>
-            ) : (
+            ) : donationType === "sponsorship" ? (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-foreground">Select Sponsorship Type</Label>
@@ -850,6 +965,66 @@ export function OneNationDonationForm({
                         Yearly (one-off)
                       </Button>
                     </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">Select Country</Label>
+                  <Select
+                    value={selectedQurbaniCountry}
+                    onValueChange={(value) => {
+                      setSelectedQurbaniCountry(value)
+                      setSelectedQurbaniSize("")
+                    }}
+                  >
+                    <SelectTrigger size="sm" className="w-full">
+                      <SelectValue placeholder="Choose a country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {qurbaniCountries.map((country) => (
+                        <SelectItem key={country.id} value={country.id}>
+                          {country.country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedQurbaniCountryData && qurbaniSizeOptions.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-foreground">Select Option</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {qurbaniSizeOptions.map((option) => (
+                        <Button
+                          key={option.key}
+                          type="button"
+                          variant={selectedQurbaniSize === option.key ? "default" : "outline"}
+                          onClick={() => setSelectedQurbaniSize(option.key)}
+                          className={cn("w-full h-20 sm:h-24 flex-col justify-center px-4 py-3", selectedQurbaniSize === option.key && "shadow-sm")}
+                        >
+                          <span className="text-base font-semibold leading-tight">{option.title}</span>
+                          <span className="text-sm leading-tight">{option.label}</span>
+                          <span className="text-base font-bold">£{(option.amountPence! / 100).toFixed(2)}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedQurbaniSize && (
+                  <div className="space-y-2">
+                    <Label htmlFor="qurbani-names" className="text-sm font-medium text-foreground">
+                      Whose name is this Qurbani for?
+                    </Label>
+                    <Input
+                      id="qurbani-names"
+                      transform="titleCase"
+                      type="text"
+                      placeholder="e.g. Ahmed Khan, or leave blank"
+                      value={qurbaniNames}
+                      onChange={(e) => setQurbaniNames(e.target.value)}
+                      className="h-11"
+                    />
                   </div>
                 )}
               </div>
@@ -1084,6 +1259,7 @@ export function OneNationDonationForm({
                 (donationType === "appeal" && !selectedAppeal) ||
                 (donationType === "water" && (!selectedWaterProject || !selectedWaterCountry)) ||
                 (donationType === "sponsorship" && (!selectedSponsorshipType || !selectedSponsorshipCountry)) ||
+                (donationType === "qurbani" && (!selectedQurbaniCountry || !selectedQurbaniSize)) ||
                 !selectedIntention
               }
             >

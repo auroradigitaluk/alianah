@@ -38,6 +38,7 @@ interface FundraiserFormProps {
   appealId?: string
   waterProjectId?: string
   waterProjectType?: string
+  qurbaniEnabled?: boolean
   campaignTitle: string
   defaultMessage?: string | null
   plaqueAvailable?: boolean
@@ -47,6 +48,7 @@ export function FundraiserForm({
   appealId,
   waterProjectId,
   waterProjectType,
+  qurbaniEnabled,
   campaignTitle,
   defaultMessage,
   plaqueAvailable,
@@ -59,6 +61,10 @@ export function FundraiserForm({
   const [selectedCountryId, setSelectedCountryId] = React.useState<string>("")
   const [quantity, setQuantity] = React.useState<number>(1)
   const [plaqueName, setPlaqueName] = React.useState("")
+  const [qurbaniCountries, setQurbaniCountries] = React.useState<
+    Array<{ id: string; country: string; priceOneSeventhPence: number | null; priceSmallPence: number | null; priceLargePence: number | null }>
+  >([])
+  const [selectedQurbaniCountryId, setSelectedQurbaniCountryId] = React.useState<string>("")
 
   type FormInput = z.input<typeof fundraiserSchema>
   type FormOutput = z.output<typeof fundraiserSchema>
@@ -84,11 +90,13 @@ export function FundraiserForm({
   const getFundraiserTitle = React.useCallback(() => {
     const selectedCountry = countries.find((c) => c.id === selectedCountryId)
     const countryLabel = waterProjectId && selectedCountry ? `${selectedCountry.country} ` : ""
+    const selectedQurbani = qurbaniCountries.find((c) => c.id === selectedQurbaniCountryId)
+    const qurbaniLabel = qurbaniEnabled && selectedQurbani ? `${selectedQurbani.country} ` : ""
     if (fundraiserName) {
-      return `${fundraiserName} is fundraising for ${countryLabel}${campaignTitle}`
+      return `${fundraiserName} is fundraising for ${countryLabel}${qurbaniLabel}${campaignTitle}`
     }
-    return `Fundraising for ${countryLabel}${campaignTitle}`
-  }, [campaignTitle, countries, fundraiserName, selectedCountryId, waterProjectId])
+    return `Fundraising for ${countryLabel}${qurbaniLabel}${campaignTitle}`
+  }, [campaignTitle, countries, fundraiserName, qurbaniCountries, qurbaniEnabled, selectedCountryId, selectedQurbaniCountryId, waterProjectId])
 
   // Auto-fill title from name/campaign; only update when user hasn't edited it
   React.useEffect(() => {
@@ -131,6 +139,42 @@ export function FundraiserForm({
         setCountries([])
       })
   }, [waterProjectType])
+
+  React.useEffect(() => {
+    if (!qurbaniEnabled) return
+    fetch("/api/qurbani")
+      .then((res) => res.json())
+      .then((data: unknown) => {
+        if (!Array.isArray(data)) {
+          setQurbaniCountries([])
+          return
+        }
+        const parsed = data
+          .filter((c): c is { id: string; country: string; priceOneSeventhPence: number | null; priceSmallPence: number | null; priceLargePence: number | null } => {
+            return (
+              typeof c === "object" &&
+              c !== null &&
+              "id" in c &&
+              "country" in c &&
+              typeof (c as { id?: unknown }).id === "string" &&
+              typeof (c as { country?: unknown }).country === "string"
+            )
+          })
+          .map((c) => ({
+            id: c.id,
+            country: c.country,
+            priceOneSeventhPence: typeof c.priceOneSeventhPence === "number" ? c.priceOneSeventhPence : null,
+            priceSmallPence: typeof c.priceSmallPence === "number" ? c.priceSmallPence : null,
+            priceLargePence: typeof c.priceLargePence === "number" ? c.priceLargePence : null,
+          }))
+          .sort((a, b) => a.country.localeCompare(b.country))
+        setQurbaniCountries(parsed)
+      })
+      .catch((err) => {
+        console.error("Error fetching qurbani countries:", err)
+        setQurbaniCountries([])
+      })
+  }, [qurbaniEnabled])
 
   React.useEffect(() => {
     if (!waterProjectId) return
@@ -207,6 +251,9 @@ export function FundraiserForm({
       if (waterProjectId && !selectedCountryId) {
         throw new Error("Please select a country for your fundraiser.")
       }
+      if (qurbaniEnabled && !selectedQurbaniCountryId) {
+        throw new Error("Please select a qurbani country for your fundraiser.")
+      }
       if (waterProjectId && plaqueAvailable && !plaqueName.trim()) {
         throw new Error("Please enter a name for the plaque.")
       }
@@ -218,6 +265,7 @@ export function FundraiserForm({
           ...(appealId ? { appealId } : {}),
           ...(waterProjectId ? { waterProjectId } : {}),
           ...(waterProjectId && selectedCountryId ? { waterProjectCountryId: selectedCountryId } : {}),
+          ...(qurbaniEnabled && selectedQurbaniCountryId ? { qurbaniCountryId: selectedQurbaniCountryId } : {}),
           ...(waterProjectId && plaqueAvailable && plaqueName.trim() ? { plaqueName: plaqueName.trim() } : {}),
         }),
       })
@@ -397,6 +445,45 @@ export function FundraiserForm({
                 </div>
               )}
             </>
+          )}
+
+          {qurbaniEnabled && (
+            <div className="space-y-2">
+              <Label>Choose Qurbani Country *</Label>
+              <div className="grid grid-cols-2 gap-2 w-full place-items-stretch">
+                {qurbaniCountries.map((country) => {
+                  const isSelected = selectedQurbaniCountryId === country.id
+                  const prices = [country.priceOneSeventhPence, country.priceSmallPence, country.priceLargePence]
+                    .filter((p): p is number => typeof p === "number" && p > 0)
+                    .sort((a, b) => a - b)
+                  const fromPrice = prices.length > 0 ? prices[0] : null
+                  return (
+                    <Button
+                      key={country.id}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      onClick={() => setSelectedQurbaniCountryId(country.id)}
+                      className={[
+                        "group w-full h-16 flex-col items-center justify-center px-3 py-2.5 text-center hover:!bg-primary hover:!text-primary-foreground hover:!border-primary",
+                        isSelected && "shadow-sm",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      <span className="text-sm font-medium leading-tight">{country.country}</span>
+                      <span
+                        className={[
+                          "text-xs font-medium mt-0.5 leading-tight text-center group-hover:text-white",
+                          isSelected ? "text-primary-foreground/90" : "text-foreground/80",
+                        ].join(" ")}
+                      >
+                        {fromPrice != null ? `From ${formatCurrency(fromPrice)}` : "No options"}
+                      </span>
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
           )}
 
           <div className="space-y-2">

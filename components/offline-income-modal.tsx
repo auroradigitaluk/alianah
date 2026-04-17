@@ -29,6 +29,16 @@ type SponsorshipProjectCountryOption = {
   pricePence: number
   yearlyPricePence?: number | null
 }
+type QurbaniOption = {
+  id: string
+  country: string
+  priceOneSeventhPence: number | null
+  priceSmallPence: number | null
+  priceLargePence: number | null
+  labelOneSeventh: string | null
+  labelSmall: string | null
+  labelLarge: string | null
+}
 
 type Props = {
   appeals: AppealOption[]
@@ -36,6 +46,7 @@ type Props = {
   waterProjectCountries: WaterProjectCountryOption[]
   sponsorshipProjects: SponsorshipProjectOption[]
   sponsorshipProjectCountries: SponsorshipProjectCountryOption[]
+  qurbaniCountries: QurbaniOption[]
 }
 
 const DONATION_TYPES = [
@@ -80,16 +91,20 @@ export function OfflineIncomeModal({
   waterProjectCountries,
   sponsorshipProjects,
   sponsorshipProjectCountries,
+  qurbaniCountries,
 }: Props) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
-  const [entryType, setEntryType] = React.useState<"appeal" | "water" | "sponsorship">("appeal")
+  const [entryType, setEntryType] = React.useState<"appeal" | "water" | "sponsorship" | "qurbani">("appeal")
   const [appealId, setAppealId] = React.useState("")
   const [projectType, setProjectType] = React.useState("")
   const [countryId, setCountryId] = React.useState("")
   const [sponsorshipType, setSponsorshipType] = React.useState("")
   const [sponsorshipCountryId, setSponsorshipCountryId] = React.useState("")
+  const [qurbaniCountryId, setQurbaniCountryId] = React.useState("")
+  const [qurbaniSize, setQurbaniSize] = React.useState<"ONE_SEVENTH" | "SMALL" | "LARGE" | "">("")
+  const [qurbaniNames, setQurbaniNames] = React.useState("")
   const [amount, setAmount] = React.useState("")
   const [donationType, setDonationType] = React.useState("GENERAL")
   const [source, setSource] = React.useState("CASH")
@@ -128,6 +143,15 @@ export function OfflineIncomeModal({
     .sort((a, b) => a.pricePence - b.pricePence || a.country.localeCompare(b.country))
   const selectedSponsorshipCountry =
     filteredSponsorshipCountries.find((c) => c.id === sponsorshipCountryId) || null
+  const selectedQurbaniCountry = qurbaniCountries.find((c) => c.id === qurbaniCountryId) || null
+  const selectedQurbaniPricePence =
+    qurbaniSize === "ONE_SEVENTH"
+      ? selectedQurbaniCountry?.priceOneSeventhPence ?? null
+      : qurbaniSize === "SMALL"
+      ? selectedQurbaniCountry?.priceSmallPence ?? null
+      : qurbaniSize === "LARGE"
+      ? selectedQurbaniCountry?.priceLargePence ?? null
+      : null
 
   const countryOptions = React.useMemo(() => {
     const display = new Intl.DisplayNames(["en"], { type: "region" })
@@ -151,6 +175,9 @@ export function OfflineIncomeModal({
       setEmail("")
       setPhone("")
       setAmount("")
+      setQurbaniCountryId("")
+      setQurbaniSize("")
+      setQurbaniNames("")
       setGiftAidExpanded(false)
       setGiftaidTitle("")
       setGiftaidPhone("")
@@ -170,6 +197,9 @@ export function OfflineIncomeModal({
       setAmount("")
       setQuantity(1)
       setGiftAidExpanded(false)
+      setQurbaniCountryId("")
+      setQurbaniSize("")
+      setQurbaniNames("")
     }
     if (entryType === "sponsorship") {
       setAppealId("")
@@ -177,6 +207,18 @@ export function OfflineIncomeModal({
       setCountryId("")
       setPlaqueName("")
       setAmount("")
+      setQuantity(1)
+      setGiftAidExpanded(false)
+      setQurbaniCountryId("")
+      setQurbaniSize("")
+      setQurbaniNames("")
+    }
+    if (entryType === "qurbani") {
+      setAppealId("")
+      setProjectType("")
+      setCountryId("")
+      setSponsorshipType("")
+      setSponsorshipCountryId("")
       setQuantity(1)
       setGiftAidExpanded(false)
     }
@@ -193,7 +235,10 @@ export function OfflineIncomeModal({
         setAmount("")
       }
     }
-  }, [entryType, selectedCountry, selectedSponsorshipCountry])
+    if (entryType === "qurbani" && selectedQurbaniPricePence) {
+      setAmount((selectedQurbaniPricePence / 100).toFixed(2))
+    }
+  }, [entryType, selectedCountry, selectedSponsorshipCountry, selectedQurbaniPricePence])
 
   const resetForm = () => {
     setEntryType("appeal")
@@ -202,6 +247,9 @@ export function OfflineIncomeModal({
     setCountryId("")
     setSponsorshipType("")
     setSponsorshipCountryId("")
+    setQurbaniCountryId("")
+    setQurbaniSize("")
+    setQurbaniNames("")
     setAmount("")
     setQuantity(1)
     setDonationType("GENERAL")
@@ -313,6 +361,53 @@ export function OfflineIncomeModal({
         toast.error("Enter a valid phone number")
         return
       }
+      if (giftAidExpanded && giftaidPostcode.trim() && !isValidPostcode(giftaidPostcode, giftaidCountry)) {
+        toast.error("Enter a valid postcode")
+        return
+      }
+      if (giftAidExpanded && email.trim() && !isValidEmail(email)) {
+        toast.error("Enter a valid email address")
+        return
+      }
+      if (giftAidExpanded && giftaidPhone.trim() && !isValidPhone(giftaidPhone)) {
+        toast.error("Enter a valid phone number")
+        return
+      }
+      if (sendReceiptEmail) {
+        const firstForReceipt = giftAidExpanded ? firstName.trim() : firstName.trim()
+        const lastForReceipt = giftAidExpanded ? lastName.trim() : lastName.trim()
+        const emailForReceipt = giftAidExpanded ? email.trim() : email.trim()
+        if (!firstForReceipt || !lastForReceipt) {
+          toast.error("First name and last name are required to send receipt")
+          return
+        }
+        if (!emailForReceipt) {
+          toast.error("Email is required to send receipt")
+          return
+        }
+        if (!isValidEmail(emailForReceipt)) {
+          toast.error("Enter a valid email address for receipt")
+          return
+        }
+      }
+    }
+    if (entryType === "qurbani") {
+      if (!qurbaniCountryId || !selectedQurbaniCountry) {
+        toast.error("Select a qurbani country")
+        return
+      }
+      if (!qurbaniSize || !selectedQurbaniPricePence) {
+        toast.error("Select a qurbani option")
+        return
+      }
+      if (email.trim() && !isValidEmail(email)) {
+        toast.error("Enter a valid email address")
+        return
+      }
+      if (phone.trim() && !isValidPhone(phone)) {
+        toast.error("Enter a valid phone number")
+        return
+      }
       if (sendReceiptEmail) {
         if (!firstName.trim() || !lastName.trim()) {
           toast.error("First name and last name are required to send receipt")
@@ -406,7 +501,8 @@ export function OfflineIncomeModal({
                   }
                 : {}),
             }
-          : {
+          : entryType === "sponsorship"
+          ? {
               type: "sponsorship",
               projectType: sponsorshipType,
               sponsorshipProjectId: selectedSponsorshipProject?.id,
@@ -425,6 +521,38 @@ export function OfflineIncomeModal({
                       lastName: lastName.trim() ? toTitleCaseLive(lastName.trim()) : undefined,
                       email: email.trim() || undefined,
                       phone: phone.trim() || undefined,
+                    },
+                  }
+                : {}),
+            }
+          : {
+              type: "qurbani",
+              qurbaniCountryId,
+              qurbaniSize,
+              qurbaniNames: qurbaniNames || null,
+              giftAid: giftAidExpanded,
+              donationType,
+              source,
+              collectedVia: "office",
+              receivedAt: userChangedReceivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
+              notes: notes || null,
+              sendReceiptEmail,
+              ...(giftAidExpanded ||
+              firstName.trim() ||
+              lastName.trim() ||
+              email.trim() ||
+              phone.trim()
+                ? {
+                    donor: {
+                      title: giftAidExpanded ? giftaidTitle.trim() || undefined : undefined,
+                      firstName: firstName.trim() ? toTitleCaseLive(firstName.trim()) : undefined,
+                      lastName: lastName.trim() ? toTitleCaseLive(lastName.trim()) : undefined,
+                      email: email.trim() || undefined,
+                      phone: giftAidExpanded ? giftaidPhone.trim() || undefined : phone.trim() || undefined,
+                      address: giftAidExpanded ? giftaidAddress.trim() || undefined : undefined,
+                      city: giftAidExpanded ? giftaidCity.trim() || undefined : undefined,
+                      postcode: giftAidExpanded ? giftaidPostcode.trim() || undefined : undefined,
+                      country: giftAidExpanded ? giftaidCountry.trim() || undefined : undefined,
                     },
                   }
                 : {}),
@@ -474,7 +602,7 @@ export function OfflineIncomeModal({
           <div className="space-y-5">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">Entry Type</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 <Button
                   type="button"
                   variant={entryType === "appeal" ? "default" : "outline"}
@@ -498,6 +626,14 @@ export function OfflineIncomeModal({
                   className="h-11"
                 >
                   Sponsorship
+                </Button>
+                <Button
+                  type="button"
+                  variant={entryType === "qurbani" ? "default" : "outline"}
+                  onClick={() => setEntryType("qurbani")}
+                  className="h-11"
+                >
+                  Qurbani
                 </Button>
               </div>
             </div>
@@ -855,14 +991,269 @@ export function OfflineIncomeModal({
 
                 <Button
                   type="button"
-                  variant={sendReceiptEmail ? "secondary" : "outline"}
+                  variant={giftAidExpanded ? "secondary" : "outline"}
                   size="sm"
-                  onClick={() => setSendReceiptEmail((v) => !v)}
+                  onClick={() => setGiftAidExpanded((v) => !v)}
                   className="gap-2 w-fit"
                 >
-                  <Mail className="h-4 w-4" />
-                  {sendReceiptEmail ? "Send Email Receipt (on)" : "Send Email Receipt"}
+                  <Gift className="h-4 w-4" />
+                  {giftAidExpanded ? "Gift Aid (details added)" : "Add Gift Aid"}
                 </Button>
+
+                {giftAidExpanded && (
+                  <div className="rounded-lg border p-4 space-y-4 bg-muted/30">
+                    <p className="text-sm text-muted-foreground">
+                      Donor details for Gift Aid (UK taxpayer). Optional
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-title">Title</Label>
+                        <Select value={giftaidTitle || "none"} onValueChange={(v) => setGiftaidTitle(v === "none" ? "" : v)}>
+                          <SelectTrigger id="qurbani-giftaid-title">
+                            <SelectValue placeholder="Title" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">—</SelectItem>
+                            <SelectItem value="Mr">Mr</SelectItem>
+                            <SelectItem value="Mrs">Mrs</SelectItem>
+                            <SelectItem value="Ms">Ms</SelectItem>
+                            <SelectItem value="Miss">Miss</SelectItem>
+                            <SelectItem value="Dr">Dr</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-first">First Name *</Label>
+                        <Input
+                          id="qurbani-giftaid-first"
+                          transform="titleCase"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="First name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-last">Last Name *</Label>
+                        <Input
+                          id="qurbani-giftaid-last"
+                          transform="titleCase"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Last name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-email">Email *</Label>
+                        <Input
+                          id="qurbani-giftaid-email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="email@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-phone">Phone</Label>
+                        <Input
+                          id="qurbani-giftaid-phone"
+                          value={giftaidPhone}
+                          onChange={(e) => setGiftaidPhone(e.target.value)}
+                          placeholder="Phone number"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-country">Country</Label>
+                        <Select value={giftaidCountry} onValueChange={setGiftaidCountry}>
+                          <SelectTrigger id="qurbani-giftaid-country">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {countryOptions.map(({ code, label }) => (
+                              <SelectItem key={code} value={code}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-address">Address</Label>
+                        <Input
+                          id="qurbani-giftaid-address"
+                          transform="titleCase"
+                          value={giftaidAddress}
+                          onChange={(e) => setGiftaidAddress(e.target.value)}
+                          placeholder="Street address"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="qurbani-giftaid-city">City</Label>
+                          <Input
+                            id="qurbani-giftaid-city"
+                            transform="titleCase"
+                            value={giftaidCity}
+                            onChange={(e) => setGiftaidCity(e.target.value)}
+                            placeholder="City"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="qurbani-giftaid-postcode">Postcode</Label>
+                          <Input
+                            id="qurbani-giftaid-postcode"
+                            transform="uppercase"
+                            value={giftaidPostcode}
+                            onChange={(e) => setGiftaidPostcode(e.target.value)}
+                            placeholder="Postcode"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={giftAidExpanded ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setGiftAidExpanded((v) => !v)}
+                    className="gap-2 w-fit"
+                  >
+                    <Gift className="h-4 w-4" />
+                    {giftAidExpanded ? "Gift Aid (details added)" : "Add Gift Aid"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={sendReceiptEmail ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setSendReceiptEmail((v) => !v)}
+                    className="gap-2 w-fit"
+                  >
+                    <Mail className="h-4 w-4" />
+                    {sendReceiptEmail ? "Send Email Receipt (on)" : "Send Email Receipt"}
+                  </Button>
+                </div>
+
+                {giftAidExpanded && (
+                  <div className="rounded-lg border p-4 space-y-4 bg-muted/30">
+                    <p className="text-sm text-muted-foreground">
+                      Donor details for Gift Aid (UK taxpayer). Optional
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-title">Title</Label>
+                        <Select value={giftaidTitle || "none"} onValueChange={(v) => setGiftaidTitle(v === "none" ? "" : v)}>
+                          <SelectTrigger id="qurbani-giftaid-title">
+                            <SelectValue placeholder="Title" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">—</SelectItem>
+                            <SelectItem value="Mr">Mr</SelectItem>
+                            <SelectItem value="Mrs">Mrs</SelectItem>
+                            <SelectItem value="Ms">Ms</SelectItem>
+                            <SelectItem value="Miss">Miss</SelectItem>
+                            <SelectItem value="Dr">Dr</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-first">First Name *</Label>
+                        <Input
+                          id="qurbani-giftaid-first"
+                          transform="titleCase"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="First name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-last">Last Name *</Label>
+                        <Input
+                          id="qurbani-giftaid-last"
+                          transform="titleCase"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Last name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-email">Email *</Label>
+                        <Input
+                          id="qurbani-giftaid-email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="email@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-phone">Phone</Label>
+                        <Input
+                          id="qurbani-giftaid-phone"
+                          value={giftaidPhone}
+                          onChange={(e) => setGiftaidPhone(e.target.value)}
+                          placeholder="Phone number"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-country">Country</Label>
+                        <Select value={giftaidCountry} onValueChange={setGiftaidCountry}>
+                          <SelectTrigger id="qurbani-giftaid-country">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {countryOptions.map(({ code, label }) => (
+                              <SelectItem key={code} value={code}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="qurbani-giftaid-address">Address</Label>
+                        <Input
+                          id="qurbani-giftaid-address"
+                          transform="titleCase"
+                          value={giftaidAddress}
+                          onChange={(e) => setGiftaidAddress(e.target.value)}
+                          placeholder="Street address"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="qurbani-giftaid-city">City</Label>
+                          <Input
+                            id="qurbani-giftaid-city"
+                            transform="titleCase"
+                            value={giftaidCity}
+                            onChange={(e) => setGiftaidCity(e.target.value)}
+                            placeholder="City"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="qurbani-giftaid-postcode">Postcode</Label>
+                          <Input
+                            id="qurbani-giftaid-postcode"
+                            transform="uppercase"
+                            value={giftaidPostcode}
+                            onChange={(e) => setGiftaidPostcode(e.target.value)}
+                            placeholder="Postcode"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1044,6 +1435,152 @@ export function OfflineIncomeModal({
                     <Label htmlFor="receivedAtSponsor">Received Date & time</Label>
                     <Input
                       id="receivedAtSponsor"
+                      type="datetime-local"
+                      value={receivedAt}
+                      onChange={(e) => {
+                        setReceivedAt(e.target.value)
+                        setUserChangedReceivedAt(true)
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {entryType === "qurbani" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">Qurbani Country</Label>
+                  <Select value={qurbaniCountryId} onValueChange={(value) => {
+                    setQurbaniCountryId(value)
+                    setQurbaniSize("")
+                  }}>
+                    <SelectTrigger className="h-11 w-full">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {qurbaniCountries.map((country) => (
+                        <SelectItem key={country.id} value={country.id}>
+                          {country.country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedQurbaniCountry && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-foreground">Qurbani Option</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {[
+                        {
+                          key: "ONE_SEVENTH",
+                          title: "1/7th",
+                          label: selectedQurbaniCountry.labelOneSeventh || "1/7th",
+                          price: selectedQurbaniCountry.priceOneSeventhPence,
+                        },
+                        {
+                          key: "SMALL",
+                          title: "Small",
+                          label: selectedQurbaniCountry.labelSmall || "Small",
+                          price: selectedQurbaniCountry.priceSmallPence,
+                        },
+                        {
+                          key: "LARGE",
+                          title: "Large",
+                          label: selectedQurbaniCountry.labelLarge || "Large",
+                          price: selectedQurbaniCountry.priceLargePence,
+                        },
+                      ]
+                        .filter((item) => typeof item.price === "number" && item.price > 0)
+                        .map((item) => (
+                          <Button
+                            key={item.key}
+                            type="button"
+                            variant={qurbaniSize === item.key ? "default" : "outline"}
+                            onClick={() => setQurbaniSize(item.key as "ONE_SEVENTH" | "SMALL" | "LARGE")}
+                            className="h-20 sm:h-24 flex-col justify-center px-4 py-3"
+                          >
+                            <span className="text-base font-semibold leading-tight">{item.title}</span>
+                            <span className="text-sm leading-tight">{item.label}</span>
+                            <span className="text-base font-bold">£{((item.price || 0) / 100).toFixed(2)}</span>
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="qurbani-first">
+                      First name{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
+                    <Input
+                      id="qurbani-first"
+                      transform="titleCase"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="qurbani-last">
+                      Last name{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
+                    <Input
+                      id="qurbani-last"
+                      transform="titleCase"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="qurbani-email">
+                      Email{sendReceiptEmail ? " (required for receipt)" : " (optional)"}
+                    </Label>
+                    <Input
+                      id="qurbani-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="qurbani-phone">Phone (optional)</Label>
+                    <Input
+                      id="qurbani-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant={sendReceiptEmail ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setSendReceiptEmail((v) => !v)}
+                  className="gap-2 w-fit"
+                >
+                  <Mail className="h-4 w-4" />
+                  {sendReceiptEmail ? "Send Email Receipt (on)" : "Send Email Receipt"}
+                </Button>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="qurbani-names">Whose name is this Qurbani for?</Label>
+                    <Input
+                      id="qurbani-names"
+                      transform="titleCase"
+                      value={qurbaniNames}
+                      onChange={(e) => setQurbaniNames(e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="receivedAtQurbani">Received Date & time</Label>
+                    <Input
+                      id="receivedAtQurbani"
                       type="datetime-local"
                       value={receivedAt}
                       onChange={(e) => {

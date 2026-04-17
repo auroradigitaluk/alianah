@@ -7,6 +7,7 @@ export type OrganizationSettings = {
   supportEmail: string
   websiteUrl: string
   charityNumber: string | null
+  qurbaniEnabled: boolean
 }
 
 const DEFAULTS: OrganizationSettings = {
@@ -14,6 +15,7 @@ const DEFAULTS: OrganizationSettings = {
   supportEmail: "support@alianah.org",
   websiteUrl: "https://www.alianah.org",
   charityNumber: null,
+  qurbaniEnabled: true,
 }
 
 export async function getOrganizationSettings(): Promise<OrganizationSettings> {
@@ -27,6 +29,7 @@ export async function getOrganizationSettings(): Promise<OrganizationSettings> {
       supportEmail: row.supportEmail,
       websiteUrl: row.websiteUrl,
       charityNumber: row.charityNumber,
+      qurbaniEnabled: row.qurbaniEnabled,
     }
   } catch {
     return DEFAULTS
@@ -38,6 +41,18 @@ export type DailyGivingSettings = {
   /** End of Ramadhan: final charge on this day, then subscription stops. */
   ramadhanEndDate: Date | null
   dailyGivingAppealIds: string[]
+}
+
+export async function getQurbaniEnabled(): Promise<boolean> {
+  try {
+    const row = await prisma.settings.findUnique({
+      where: { id: SETTINGS_ID },
+      select: { qurbaniEnabled: true },
+    })
+    return row?.qurbaniEnabled ?? true
+  } catch {
+    return true
+  }
 }
 
 export async function getDailyGivingSettings(): Promise<DailyGivingSettings> {

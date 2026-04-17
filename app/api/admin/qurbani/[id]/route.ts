@@ -5,6 +5,7 @@ import { z } from "zod"
 
 const qurbaniCountrySchema = z.object({
   country: z.string().min(1),
+  fundraisingImageUrls: z.array(z.string().url()).optional(),
   priceOneSeventhPence: z.number().int().nonnegative().nullable(),
   priceSmallPence: z.number().int().nonnegative().nullable(),
   priceLargePence: z.number().int().nonnegative().nullable(),
@@ -29,6 +30,7 @@ export async function PUT(
       where: { id },
       data: {
         country: data.country,
+        fundraisingImageUrls: JSON.stringify(data.fundraisingImageUrls ?? []),
         priceOneSeventhPence: data.priceOneSeventhPence ?? null,
         priceSmallPence: data.priceSmallPence ?? null,
         priceLargePence: data.priceLargePence ?? null,

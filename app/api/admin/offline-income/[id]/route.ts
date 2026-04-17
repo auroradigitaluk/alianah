@@ -91,6 +91,39 @@ export async function GET(
       })
     }
 
+    if (id.startsWith("qurbani-")) {
+      const donationId = id.replace("qurbani-", "")
+      const donation = await prisma.qurbaniDonation.findUnique({
+        where: { id: donationId },
+        include: {
+          qurbaniCountry: { select: { country: true } },
+          donor: { select: { firstName: true, lastName: true, email: true, phone: true } },
+        },
+      })
+      if (!donation) return NextResponse.json({ error: "Not found" }, { status: 404 })
+      if (user.role === "STAFF" && donation.addedByAdminUserId !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+      const sizeLabel: Record<string, string> = {
+        ONE_SEVENTH: "1/7th",
+        SMALL: "Small",
+        LARGE: "Large",
+      }
+      return NextResponse.json({
+        id: `qurbani-${donation.id}`,
+        amountPence: donation.amountPence,
+        donationType: donation.donationType,
+        source: donation.paymentMethod,
+        receivedAt: donation.createdAt,
+        orderNumber: donation.donationNumber ?? null,
+        appeal: {
+          title: `Qurbani - ${donation.qurbaniCountry.country} (${sizeLabel[donation.size] || donation.size})`,
+        },
+        notes: donation.notes || donation.qurbaniNames || null,
+        itemType: "qurbani" as const,
+      })
+    }
+
     const item = await prisma.offlineIncome.findUnique({
       where: { id },
       include: {
@@ -201,6 +234,30 @@ export async function PATCH(
       if (data.receivedAt !== undefined) updateData.createdAt = new Date(data.receivedAt)
       if (data.notes !== undefined) updateData.notes = data.notes
       await prisma.sponsorshipDonation.update({
+        where: { id: donationId },
+        data: updateData,
+      })
+      return NextResponse.json({ success: true })
+    }
+
+    if (id.startsWith("qurbani-")) {
+      const donationId = id.replace("qurbani-", "")
+      if (user.role === "STAFF") {
+        const existing = await prisma.qurbaniDonation.findUnique({
+          where: { id: donationId },
+          select: { addedByAdminUserId: true },
+        })
+        if (!existing || existing.addedByAdminUserId !== user.id) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+        }
+      }
+      const updateData: Record<string, unknown> = {}
+      if (data.amountPence !== undefined) updateData.amountPence = data.amountPence
+      if (data.donationType !== undefined) updateData.donationType = data.donationType
+      if (data.source !== undefined) updateData.paymentMethod = data.source
+      if (data.receivedAt !== undefined) updateData.createdAt = new Date(data.receivedAt)
+      if (data.notes !== undefined) updateData.notes = data.notes
+      await prisma.qurbaniDonation.update({
         where: { id: donationId },
         data: updateData,
       })
@@ -395,6 +452,23 @@ export async function DELETE(
         }
       }
       await prisma.fundraiserCashDonation.delete({
+        where: { id: donationId },
+      })
+      return NextResponse.json({ success: true })
+    }
+
+    if (id.startsWith("qurbani-")) {
+      const donationId = id.replace("qurbani-", "")
+      if (user.role === "STAFF") {
+        const existing = await prisma.qurbaniDonation.findUnique({
+          where: { id: donationId },
+          select: { addedByAdminUserId: true },
+        })
+        if (!existing || existing.addedByAdminUserId !== user.id) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+        }
+      }
+      await prisma.qurbaniDonation.delete({
         where: { id: donationId },
       })
       return NextResponse.json({ success: true })

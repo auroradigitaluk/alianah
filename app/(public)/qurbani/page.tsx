@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { QurbaniPublicPage } from "@/components/qurbani-public-page"
+import { getQurbaniEnabled } from "@/lib/settings"
 
 export const dynamic = "force-dynamic"
 
@@ -15,11 +16,12 @@ async function getQurbaniCountries() {
 }
 
 export default async function QurbaniPage() {
-  const countries = await getQurbaniCountries()
+  const [countries, qurbaniEnabled] = await Promise.all([getQurbaniCountries(), getQurbaniEnabled()])
+  const visibleCountries = qurbaniEnabled ? countries : []
 
   return (
-    <div className="min-h-screen bg-background">
-      <QurbaniPublicPage countries={countries} />
+    <div className="min-h-screen">
+      <QurbaniPublicPage countries={visibleCountries} />
     </div>
   )
 }

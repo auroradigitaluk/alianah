@@ -10,6 +10,7 @@ const fundraiserSchema = z
     appealId: z.string().optional(),
     waterProjectId: z.string().optional(),
     waterProjectCountryId: z.string().optional(),
+    qurbaniCountryId: z.string().optional(),
     isCustom: z.boolean().optional().default(false),
     customImageUrls: z.array(z.string().url()).optional(),
     title: z.string().min(1),
@@ -22,11 +23,12 @@ const fundraiserSchema = z
   .superRefine((data, ctx) => {
     const hasAppeal = Boolean(data.appealId)
     const hasWaterProject = Boolean(data.waterProjectId)
-    if (hasAppeal === hasWaterProject) {
+    const hasQurbani = Boolean(data.qurbaniCountryId)
+    if ([hasAppeal, hasWaterProject, hasQurbani].filter(Boolean).length !== 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["appealId"],
-        message: "Provide either appealId or waterProjectId",
+        message: "Provide exactly one campaign: appeal, water project, or qurbani country",
       })
     }
     if (data.waterProjectId && !data.waterProjectCountryId) {
@@ -77,6 +79,7 @@ export async function POST(request: NextRequest) {
     let appealTitleForEmail = "the appeal"
     let appealId: string | null = null
     let waterProjectId: string | null = null
+    let qurbaniCountryId: string | null = null
 
     if (data.appealId) {
       const appeal = await prisma.appeal.findUnique({
@@ -164,6 +167,21 @@ export async function POST(request: NextRequest) {
       waterProjectId = project.id
     }
 
+    if (data.qurbaniCountryId) {
+      const country = await prisma.qurbaniCountry.findUnique({
+        where: { id: data.qurbaniCountryId },
+        select: { id: true, country: true, isActive: true },
+      })
+      if (!country) {
+        return NextResponse.json({ error: "Qurbani country not found" }, { status: 404 })
+      }
+      if (!country.isActive) {
+        return NextResponse.json({ error: "This qurbani country is not active" }, { status: 403 })
+      }
+      appealTitleForEmail = `Qurbani - ${country.country}`
+      qurbaniCountryId = country.id
+    }
+
     const title = (data.title && data.title.trim()) ? data.title.trim() : appealTitleForEmail
 
     // Generate unique slug
@@ -174,6 +192,7 @@ export async function POST(request: NextRequest) {
       exists = await prisma.fundraiser.findUnique({ where: { slug } })
     }
 
+    const isCustom = data.isCustom ?? false
     const fundraiser = await prisma.fundraiser.create({
       data: {
         ...(appealId
@@ -197,6 +216,13 @@ export async function POST(request: NextRequest) {
               },
             }
           : {}),
+        ...(qurbaniCountryId
+          ? {
+              qurbaniCountry: {
+                connect: { id: qurbaniCountryId },
+              },
+            }
+          : {}),
         ...(data.plaqueName != null && data.plaqueName.trim() !== ""
           ? { plaqueName: data.plaqueName.trim() }
           : {}),
@@ -206,30 +232,41 @@ export async function POST(request: NextRequest) {
         email: data.email,
         message: data.message || null,
         targetAmountPence: data.targetAmountPence,
-        isCustom: data.isCustom ?? false,
+        isCustom,
+        customApprovalStatus: isCustom ? "PENDING" : "APPROVED",
         customImageUrls: JSON.stringify(data.customImageUrls ?? []),
-        isActive: true,
+        isActive: !isCustom,
       },
     })
 
-    // Send welcome email with fundraising link
+    // Send welcome email with fundraising link for immediate-live campaigns
     const { getFundraiserBaseUrl } = await import("@/lib/utils")
     const fundraiserUrl = `${getFundraiserBaseUrl()}/fundraise/${fundraiser.slug}`
-    
-    try {
-      await sendFundraiserWelcomeEmail({
-        fundraiserEmail: fundraiser.email,
-        fundraiserName: fundraiser.fundraiserName,
-        fundraiserTitle: fundraiser.title,
-        appealTitle: appealTitleForEmail,
-        fundraiserUrl,
-      })
-    } catch (emailError) {
-      // Log error but don't fail the request - fundraiser is already created
-      console.error("Error sending welcome email:", emailError)
+
+    if (!isCustom) {
+      try {
+        await sendFundraiserWelcomeEmail({
+          fundraiserEmail: fundraiser.email,
+          fundraiserName: fundraiser.fundraiserName,
+          fundraiserTitle: fundraiser.title,
+          appealTitle: appealTitleForEmail,
+          fundraiserUrl,
+        })
+      } catch (emailError) {
+        // Log error but don't fail the request - fundraiser is already created
+        console.error("Error sending welcome email:", emailError)
+      }
     }
 
-    return NextResponse.json({ slug: fundraiser.slug })
+    if (isCustom) {
+      return NextResponse.json({
+        slug: fundraiser.slug,
+        pendingApproval: true,
+        message: "Custom fundraiser submitted for admin approval",
+      })
+    }
+
+    return NextResponse.json({ slug: fundraiser.slug, pendingApproval: false })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 })

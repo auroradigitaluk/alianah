@@ -1,0 +1,3 @@
+-- Restored migration file placeholder.
+-- This migration was previously applied in environments where it existed,
+-- but the SQL file was missing from source control.

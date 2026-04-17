@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,6 +28,14 @@ export type EligibleCampaign =
       type: "WATER"
       projectType: string
       plaqueAvailable: boolean
+      fundraisingDefaultMessage?: string | null
+    }
+  | {
+      id: string
+      title: string
+      slug: string
+      summary: string | null
+      type: "QURBANI"
       fundraisingDefaultMessage?: string | null
     }
 
@@ -68,6 +77,16 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
   const [waterCountryId, setWaterCountryId] = React.useState("")
   const [waterQuantity, setWaterQuantity] = React.useState(1)
   const [plaqueName, setPlaqueName] = React.useState("")
+  const [qurbaniCountries, setQurbaniCountries] = React.useState<
+    Array<{
+      id: string
+      country: string
+      priceOneSeventhPence: number | null
+      priceSmallPence: number | null
+      priceLargePence: number | null
+    }>
+  >([])
+  const [qurbaniCountryId, setQurbaniCountryId] = React.useState("")
 
   // Custom cause
   const [isCustom, setIsCustom] = React.useState(false)
@@ -84,9 +103,11 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
   // Step 5: submit
   const [submitting, setSubmitting] = React.useState(false)
   const [submitError, setSubmitError] = React.useState("")
+  const [pendingApprovalSlug, setPendingApprovalSlug] = React.useState<string | null>(null)
   const [sessionChecked, setSessionChecked] = React.useState(false)
 
   const isWater = selectedCampaign?.type === "WATER"
+  const isQurbani = selectedCampaign?.type === "QURBANI"
 
   // Preselect campaign when coming from a specific appeal/water project
   React.useEffect(() => {
@@ -173,6 +194,46 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
       .catch(() => setWaterCountries([]))
   }, [selectedCampaign])
 
+  // Fetch qurbani countries when qurbani campaign selected
+  React.useEffect(() => {
+    if (selectedCampaign?.type !== "QURBANI") return
+    fetch("/api/qurbani")
+      .then((res) => res.json())
+      .then((data: unknown) => {
+        if (!Array.isArray(data)) {
+          setQurbaniCountries([])
+          return
+        }
+        const list = data
+          .filter(
+            (c): c is {
+              id: string
+              country: string
+              priceOneSeventhPence: number | null
+              priceSmallPence: number | null
+              priceLargePence: number | null
+            } =>
+              typeof c === "object" &&
+              c !== null &&
+              "id" in c &&
+              "country" in c &&
+              typeof (c as { id?: unknown }).id === "string" &&
+              typeof (c as { country?: unknown }).country === "string"
+          )
+          .map((c) => ({
+            id: c.id,
+            country: c.country,
+            priceOneSeventhPence: typeof c.priceOneSeventhPence === "number" ? c.priceOneSeventhPence : null,
+            priceSmallPence: typeof c.priceSmallPence === "number" ? c.priceSmallPence : null,
+            priceLargePence: typeof c.priceLargePence === "number" ? c.priceLargePence : null,
+          }))
+          .sort((a, b) => a.country.localeCompare(b.country))
+        setQurbaniCountries(list)
+        setQurbaniCountryId("")
+      })
+      .catch(() => setQurbaniCountries([]))
+  }, [selectedCampaign])
+
   // Sync water target from country × quantity
   React.useEffect(() => {
     if (!isWater || !waterCountryId) {
@@ -190,8 +251,30 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
     e?.preventDefault()
     if (!email.trim()) return
     setAuthError("")
-    // Skip OTP step – go straight to name/details
-    setStep(2)
+    setAuthLoading(true)
+    try {
+      const normalizedEmail = email.trim().toLowerCase()
+      const res = await fetch(`/api/fundraisers/check-email?email=${encodeURIComponent(normalizedEmail)}`)
+      const data = await res.json().catch(() => ({} as { requiresLogin?: boolean; error?: string }))
+
+      if (!res.ok) {
+        throw new Error(data.error || "Unable to verify email")
+      }
+
+      if (data.requiresLogin) {
+        router.push(
+          `/fundraiser/login?redirect=${encodeURIComponent("/fundraiser/create")}&email=${encodeURIComponent(normalizedEmail)}`
+        )
+        return
+      }
+
+      // Email is clear for create flow
+      setStep(2)
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : "Unable to continue")
+    } finally {
+      setAuthLoading(false)
+    }
   }
 
   const verifyOtp = async (e: React.FormEvent) => {
@@ -297,6 +380,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
       if (!waterCountryId) return
       if (selectedCampaign.plaqueAvailable && !plaqueName.trim()) return
     }
+    if (isQurbani && !qurbaniCountryId) return
 
     setSubmitError("")
     setSubmitting(true)
@@ -316,6 +400,8 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
       }
       if (selectedCampaign.type === "APPEAL") {
         payload.appealId = selectedCampaign.id
+      } else if (selectedCampaign.type === "QURBANI") {
+        payload.qurbaniCountryId = qurbaniCountryId
       } else {
         payload.waterProjectId = selectedCampaign.id
         payload.waterProjectCountryId = waterCountryId
@@ -349,8 +435,13 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
       }
 
       const data = await res.json()
+      if (data.pendingApproval) {
+        setPendingApprovalSlug(typeof data.slug === "string" ? data.slug : null)
+        setStep(7)
+        return
+      }
       if (data.slug) {
-        router.push(`/fundraiser/create/live/${data.slug}`)
+        router.push(`/fundraise/${data.slug}`)
         return
       }
       throw new Error("No slug returned")
@@ -415,6 +506,14 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
               "Continue to your details"
             )}
           </Button>
+          <div className="text-center">
+            <Link
+              href={`/fundraiser/login?redirect=${encodeURIComponent("/fundraiser/create")}${email.trim() ? `&email=${encodeURIComponent(email.trim())}` : ""}`}
+              className="text-sm text-primary underline underline-offset-4 hover:no-underline"
+            >
+              Already have a fundraiser account? Log in
+            </Link>
+          </div>
         </form>
       </div>
     )
@@ -690,6 +789,8 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
           <p className="text-muted-foreground text-sm mb-6">
             {isWater
               ? "Select a country and quantity. Your target is set automatically."
+              : isQurbani
+                ? "Select a Qurbani country and set your target amount."
               : "Set how much you want to raise."}
           </p>
         </div>
@@ -759,6 +860,34 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
           </>
         )}
 
+        {isQurbani && (
+          <div className="space-y-2">
+            <Label>Qurbani country</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {qurbaniCountries.map((c) => {
+                const prices = [c.priceOneSeventhPence, c.priceSmallPence, c.priceLargePence]
+                  .filter((p): p is number => typeof p === "number" && p > 0)
+                  .sort((a, b) => a - b)
+                const fromPrice = prices.length > 0 ? prices[0] : null
+                return (
+                  <Button
+                    key={c.id}
+                    type="button"
+                    variant={qurbaniCountryId === c.id ? "default" : "outline"}
+                    className="h-auto py-3 flex flex-col items-center"
+                    onClick={() => setQurbaniCountryId(c.id)}
+                  >
+                    <span className="text-sm font-medium">{c.country}</span>
+                    <span className="text-xs opacity-90">
+                      {fromPrice != null ? `From ${formatCurrency(fromPrice)}` : "No options"}
+                    </span>
+                  </Button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {showPresets && (
           <>
             <div className="space-y-2">
@@ -800,7 +929,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
 
         <Button
           className="w-full h-11"
-          disabled={!amountValid || !plaqueOk}
+          disabled={!amountValid || !plaqueOk || (isQurbani && !qurbaniCountryId)}
           onClick={() => setStep(5)}
         >
           Continue
@@ -1055,6 +1184,36 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
             "Create my fundraiser"
           )}
         </Button>
+      </div>
+    )
+  }
+
+  if (step === 7) {
+    return (
+      <div className="space-y-6 pb-20 text-center">
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 text-primary px-3 py-1 text-sm font-medium w-fit mb-4">
+            <Heart className="size-4" />
+            Custom campaign submitted
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-2">
+            Waiting for admin approval
+          </h2>
+          <p className="text-muted-foreground text-sm max-w-xl mx-auto">
+            Your custom fundraiser has been submitted for review. Once an admin approves it, your page
+            will go live and we&apos;ll email you the live fundraising link.
+          </p>
+        </div>
+        {pendingApprovalSlug && (
+          <p className="text-xs text-muted-foreground">
+            Reference: {pendingApprovalSlug}
+          </p>
+        )}
+        <div className="flex justify-center">
+          <Button asChild>
+            <Link href="/fundraise/dashboard">Go to dashboard</Link>
+          </Button>
+        </div>
       </div>
     )
   }

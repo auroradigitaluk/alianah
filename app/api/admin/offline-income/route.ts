@@ -13,7 +13,7 @@ import {
 const donorPhoneRefine = (v: string | undefined) => !v || isValidPhone(v)
 
 const baseSchema = z.object({
-  type: z.enum(["appeal", "water", "sponsorship"]),
+  type: z.enum(["appeal", "water", "sponsorship", "qurbani"]),
   donationType: z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"]),
   source: z.enum(["CASH", "OFFICE_BUCKETS", "CARD_SUMUP", "BANK_TRANSFER"]),
   collectedVia: z.string().optional().default("office"),
@@ -71,6 +71,27 @@ const sponsorshipSchema = baseSchema.extend({
       lastName: z.string().min(1).optional(),
       email: z.string().email().optional(),
       phone: z.string().optional().refine(donorPhoneRefine, "Invalid phone number"),
+    })
+    .optional(),
+})
+
+const qurbaniSchema = baseSchema.extend({
+  type: z.literal("qurbani"),
+  qurbaniCountryId: z.string().min(1),
+  qurbaniSize: z.enum(["ONE_SEVENTH", "SMALL", "LARGE"]),
+  qurbaniNames: z.string().nullable().optional(),
+  giftAid: z.boolean().optional().default(false),
+  donor: z
+    .object({
+      title: z.string().nullable().optional(),
+      firstName: z.string().min(1).optional(),
+      lastName: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+      phone: z.string().optional().refine(donorPhoneRefine, "Invalid phone number"),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      postcode: z.string().optional(),
+      country: z.string().optional(),
     })
     .optional(),
 })
@@ -331,6 +352,115 @@ export async function POST(request: NextRequest) {
         donationId: created[0].id,
         count: created.length,
       })
+    }
+
+    if (body?.type === "qurbani") {
+      const data = qurbaniSchema.parse(body)
+      const receivedAt = new Date(data.receivedAt)
+      const giftAid = !!data.giftAid
+      const donationNumber = await generateDonationNumber()
+      const [country] = await Promise.all([
+        prisma.qurbaniCountry.findUnique({ where: { id: data.qurbaniCountryId } }),
+      ])
+      if (!country) {
+        return NextResponse.json({ error: "Qurbani country not found" }, { status: 404 })
+      }
+
+      const amountPence =
+        data.qurbaniSize === "ONE_SEVENTH"
+          ? country.priceOneSeventhPence
+          : data.qurbaniSize === "SMALL"
+          ? country.priceSmallPence
+          : country.priceLargePence
+
+      if (!amountPence || amountPence <= 0) {
+        return NextResponse.json({ error: "Qurbani option is not configured" }, { status: 400 })
+      }
+
+      const donorInput = data.donor
+      if (data.sendReceiptEmail) {
+        if (!donorInput?.email?.trim() || isPlaceholderDonorEmail(donorInput.email.trim())) {
+          return NextResponse.json({ error: "Valid email is required to send receipt" }, { status: 400 })
+        }
+        if (!donorInput?.firstName?.trim() || !donorInput?.lastName?.trim()) {
+          return NextResponse.json(
+            { error: "First name and last name are required to send receipt" },
+            { status: 400 }
+          )
+        }
+      }
+      const donorEmail = donorInput?.email?.trim() || makeFallbackEmail()
+      const donorFirst = donorInput?.firstName?.trim() || "Anonymous"
+      const donorLast = donorInput?.lastName?.trim() || "Donor"
+      const donorPhone = donorInput?.phone?.trim() || null
+      const donor = await prisma.donor.upsert({
+        where: { email: donorEmail },
+        update: {
+          title: donorInput?.title || null,
+          firstName: donorFirst,
+          lastName: donorLast,
+          phone: donorPhone,
+          address: donorInput?.address?.trim() || null,
+          city: donorInput?.city?.trim() || null,
+          postcode: donorInput?.postcode?.trim() || null,
+          country: donorInput?.country?.trim() || null,
+        },
+        create: {
+          title: donorInput?.title || null,
+          firstName: donorFirst,
+          lastName: donorLast,
+          email: donorEmail,
+          phone: donorPhone,
+          address: donorInput?.address?.trim() || null,
+          city: donorInput?.city?.trim() || null,
+          postcode: donorInput?.postcode?.trim() || null,
+          country: donorInput?.country?.trim() || null,
+        },
+      })
+
+      const donation = await prisma.qurbaniDonation.create({
+        data: {
+          qurbaniCountryId: country.id,
+          size: data.qurbaniSize,
+          donorId: donor.id,
+          amountPence,
+          donationType: data.donationType,
+          paymentMethod: data.source,
+          collectedVia: data.collectedVia || "office",
+          giftAid,
+          billingAddress: donorInput?.address?.trim() || donor.address || null,
+          billingCity: donorInput?.city?.trim() || donor.city || null,
+          billingPostcode: donorInput?.postcode?.trim() || donor.postcode || null,
+          billingCountry: donorInput?.country?.trim() || donor.country || null,
+          donationNumber,
+          addedByAdminUserId: adminUser.id,
+          notes: data.notes || null,
+          qurbaniNames: data.qurbaniNames || null,
+          createdAt: receivedAt,
+        },
+      })
+
+      if (data.sendReceiptEmail && !isPlaceholderDonorEmail(donor.email)) {
+        try {
+          await sendOfflineDonationReceiptEmail({
+            donorEmail: donor.email,
+            donorName: [donorFirst, donorLast].filter(Boolean).join(" ") || "Donor",
+            appealTitle: `Qurbani - ${country.country}`,
+            amountPence,
+            donationType: data.donationType,
+            receivedAt,
+            donationNumber: donation.donationNumber ?? donationNumber,
+          })
+        } catch (err) {
+          console.error("Failed to send qurbani receipt:", err)
+          return NextResponse.json(
+            { error: "Donation saved but receipt email failed to send" },
+            { status: 500 }
+          )
+        }
+      }
+
+      return NextResponse.json({ success: true, donationId: donation.id })
     }
 
     const data = waterSchema.parse(body)

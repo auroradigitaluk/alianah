@@ -4,6 +4,7 @@ import {
   buildRefundConfirmationEmail,
   buildDonationConfirmationEmail,
   buildFundraiserDonationNotificationEmail,
+  buildFundraiserApprovedEmail,
   buildFundraiserOtpEmail,
   buildFundraiserWelcomeEmail,
   buildSponsorshipDonationEmail,
@@ -118,6 +119,13 @@ interface FundraiserDonationNotificationParams {
   donorName: string
   amount: number
   donationType: string
+  fundraiserUrl: string
+}
+
+interface FundraiserApprovedEmailParams {
+  fundraiserEmail: string
+  fundraiserName: string
+  fundraiserTitle: string
   fundraiserUrl: string
 }
 
@@ -441,6 +449,37 @@ export async function sendFundraiserDonationNotification(params: FundraiserDonat
     })
   } catch (error) {
     console.error("Error sending fundraiser donation notification:", error)
+    throw error
+  }
+}
+
+export async function sendFundraiserApprovedEmail(params: FundraiserApprovedEmailParams) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email")
+    return
+  }
+
+  const { fundraiserEmail, fundraiserName, fundraiserTitle, fundraiserUrl } = params
+
+  try {
+    const settings = await getOrganizationSettings()
+    const { subject, html } = buildFundraiserApprovedEmail(
+      {
+        fundraiserName,
+        fundraiserTitle,
+        fundraiserUrl,
+        baseUrl: getEmailBaseUrl(settings),
+      },
+      settings
+    )
+    await getResend().emails.send({
+      from: getFromAddress(),
+      to: fundraiserEmail,
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error("Error sending fundraiser approved email:", error)
     throw error
   }
 }

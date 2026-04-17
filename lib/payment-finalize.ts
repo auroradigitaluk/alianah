@@ -434,6 +434,7 @@ export async function finalizeOrderByOrderNumber(params: {
             qurbaniCountryId: item.qurbaniCountryId!,
             size: item.qurbaniSize!,
             donorId: donor.id,
+            fundraiserId: item.fundraiserId || null,
             amountPence: item.amountPence,
             donationType: item.donationType,
             paymentMethod,

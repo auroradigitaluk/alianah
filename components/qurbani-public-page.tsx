@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 import { DonationExpressCheckout, type DonationExpressItem } from "@/components/donation-express-checkout"
 import { Input } from "@/components/ui/input"
+import Link from "next/link"
 
 const DONATION_TYPES = [
   { value: "GENERAL", label: "General Donation" },
@@ -137,7 +138,7 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:px-6 md:py-8 max-w-2xl">
         <div className="mb-4 sm:mb-6 text-center">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight md:text-3xl mb-2">
@@ -146,6 +147,15 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
             Give your sacrifice this Eid. Choose a country and option to support those in need.
           </p>
+          <div className="mt-3">
+            <Button
+              asChild
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 border-primary focus-visible:ring-primary/50"
+              size="lg"
+            >
+              <Link href="/fundraiser/create?campaignId=__qurbani__">Start a Qurbani fundraiser</Link>
+            </Button>
+          </div>
         </div>
 
         <Card className="!bg-transparent shadow-none hover:shadow-none">

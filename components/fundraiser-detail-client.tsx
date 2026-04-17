@@ -76,7 +76,7 @@ interface FundraiserDetails {
     slug: string
     summary: string | null
     isActive: boolean
-    type: "APPEAL" | "WATER"
+    type: "APPEAL" | "WATER" | "QURBANI"
   }
   statistics: {
     totalRaised: number

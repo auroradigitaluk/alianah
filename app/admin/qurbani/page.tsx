@@ -1,6 +1,7 @@
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
 import { QurbaniPageClient } from "@/components/qurbani-page-client"
+import { getQurbaniEnabled } from "@/lib/settings"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -17,7 +18,7 @@ async function getQurbaniCountries() {
 }
 
 export default async function QurbaniAdminPage() {
-  const countries = await getQurbaniCountries()
+  const [countries, qurbaniEnabled] = await Promise.all([getQurbaniCountries(), getQurbaniEnabled()])
 
   return (
     <>
@@ -27,13 +28,7 @@ export default async function QurbaniAdminPage() {
           <div className="flex flex-col gap-4 py-4 md:gap-4 sm:gap-6 md:py-6">
             <div className="px-2 sm:px-4 lg:px-6">
               <div className="flex flex-col gap-4 sm:gap-6">
-                <div>
-                  <h2 className="text-base sm:text-lg font-semibold">Qurbani</h2>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Set up qurbani donation options by country (1/7th, Small, Large) and view donations
-                  </p>
-                </div>
-                <QurbaniPageClient initialCountries={countries} />
+                <QurbaniPageClient initialCountries={countries} initialQurbaniEnabled={qurbaniEnabled} />
               </div>
             </div>
           </div>

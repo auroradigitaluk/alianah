@@ -130,10 +130,12 @@ export async function GET(request: NextRequest) {
       eligibleWater,
       eligibleSponsorship,
       eligibleOfflineIncome,
+      eligibleQurbani,
       nonDonations,
       nonWater,
       nonSponsorship,
       nonOfflineIncome,
+      nonQurbani,
     ] = await Promise.all([
         prisma.donation.findMany({
           where: { createdAt: dateFilter, status: "COMPLETED", giftAid: true },
@@ -218,6 +220,31 @@ export async function GET(request: NextRequest) {
             donorId: true,
             amountPence: true,
             receivedAt: true,
+            giftAidClaimed: true,
+            giftAidClaimedAt: true,
+            billingAddress: true,
+            billingPostcode: true,
+            donor: {
+              select: {
+                title: true,
+                firstName: true,
+                lastName: true,
+                address: true,
+                postcode: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        }),
+        prisma.qurbaniDonation.findMany({
+          where: { createdAt: dateFilter, giftAid: true },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            donorId: true,
+            amountPence: true,
+            createdAt: true,
             giftAidClaimed: true,
             giftAidClaimedAt: true,
             billingAddress: true,
@@ -335,6 +362,31 @@ export async function GET(request: NextRequest) {
             },
           },
         }),
+        prisma.qurbaniDonation.findMany({
+          where: { createdAt: dateFilter, giftAid: false },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            donorId: true,
+            amountPence: true,
+            createdAt: true,
+            giftAidClaimed: true,
+            giftAidClaimedAt: true,
+            billingAddress: true,
+            billingPostcode: true,
+            donor: {
+              select: {
+                title: true,
+                firstName: true,
+                lastName: true,
+                address: true,
+                postcode: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        }),
       ])
 
     const eligibleRows = [
@@ -342,6 +394,7 @@ export async function GET(request: NextRequest) {
         ...eligibleDonations,
         ...eligibleWater,
         ...eligibleSponsorship,
+        ...eligibleQurbani,
       ]),
       ...buildOfflineIncomeRows(eligibleOfflineIncome),
     ].sort((a, b) => new Date(a.donationDate).getTime() - new Date(b.donationDate).getTime())
@@ -351,6 +404,7 @@ export async function GET(request: NextRequest) {
         ...nonDonations,
         ...nonWater,
         ...nonSponsorship,
+        ...nonQurbani,
       ]),
       ...buildOfflineIncomeRows(nonOfflineIncome),
     ].sort((a, b) => new Date(a.donationDate).getTime() - new Date(b.donationDate).getTime())
@@ -392,7 +446,7 @@ export async function PATCH(request: NextRequest) {
     const range = start && end ? { start, end } : defaultDateRange()
     const dateFilter = { gte: range.start, lte: range.end }
 
-    const [donations, waterDonations, sponsorshipDonations] = await Promise.all([
+    const [donations, waterDonations, sponsorshipDonations, qurbaniDonations] = await Promise.all([
       prisma.donation.updateMany({
         where: { donorId: body.donorId, createdAt: dateFilter, status: "COMPLETED", giftAid: false },
         data: { giftAid: true },
@@ -405,10 +459,14 @@ export async function PATCH(request: NextRequest) {
         where: { donorId: body.donorId, createdAt: dateFilter, status: "COMPLETE", giftAid: false },
         data: { giftAid: true },
       }),
+      prisma.qurbaniDonation.updateMany({
+        where: { donorId: body.donorId, createdAt: dateFilter, giftAid: false },
+        data: { giftAid: true },
+      }),
     ])
 
     return NextResponse.json({
-      updated: donations.count + waterDonations.count + sponsorshipDonations.count,
+      updated: donations.count + waterDonations.count + sponsorshipDonations.count + qurbaniDonations.count,
     })
   } catch (error) {
     console.error("Gift Aid update error:", error)
@@ -433,7 +491,7 @@ export async function POST(request: NextRequest) {
 
     const dateFilterReceivedAt = { receivedAt: { gte: range.start, lte: range.end } }
 
-    const [donations, waterDonations, sponsorshipDonations, offlineIncome] = await Promise.all([
+    const [donations, waterDonations, sponsorshipDonations, qurbaniDonations, offlineIncome] = await Promise.all([
       prisma.donation.updateMany({
         where: { createdAt: dateFilter, status: "COMPLETED", giftAid: true, giftAidClaimed: false },
         data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
@@ -446,6 +504,10 @@ export async function POST(request: NextRequest) {
         where: { createdAt: dateFilter, status: "COMPLETE", giftAid: true, giftAidClaimed: false },
         data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
       }),
+      prisma.qurbaniDonation.updateMany({
+        where: { createdAt: dateFilter, giftAid: true, giftAidClaimed: false },
+        data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
+      }),
       prisma.offlineIncome.updateMany({
         where: { ...dateFilterReceivedAt, giftAid: true, giftAidClaimed: false },
         data: { giftAidClaimed: true, giftAidClaimedAt: claimedAt },
@@ -453,7 +515,12 @@ export async function POST(request: NextRequest) {
     ])
 
     return NextResponse.json({
-      updated: donations.count + waterDonations.count + sponsorshipDonations.count + offlineIncome.count,
+      updated:
+        donations.count +
+        waterDonations.count +
+        sponsorshipDonations.count +
+        qurbaniDonations.count +
+        offlineIncome.count,
     })
   } catch (error) {
     console.error("Gift Aid claim error:", error)

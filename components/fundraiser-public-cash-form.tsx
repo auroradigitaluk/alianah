@@ -29,9 +29,19 @@ const DONATION_TYPES = [
 
 type Props = {
   fundraiserId: string
+  qurbaniCountry?: {
+    id: string
+    country: string
+    priceOneSeventhPence: number | null
+    priceSmallPence: number | null
+    priceLargePence: number | null
+    labelOneSeventh: string | null
+    labelSmall: string | null
+    labelLarge: string | null
+  }
 }
 
-export function FundraiserPublicCashForm({ fundraiserId }: Props) {
+export function FundraiserPublicCashForm({ fundraiserId, qurbaniCountry }: Props) {
   const [open, setOpen] = React.useState(false)
   const [amountPounds, setAmountPounds] = React.useState("")
   const [donorName, setDonorName] = React.useState("")
@@ -40,11 +50,48 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
   const [donorEmail, setDonorEmail] = React.useState("")
   const [donorPhone, setDonorPhone] = React.useState("")
   const [notes, setNotes] = React.useState("")
+  const [qurbaniSize, setQurbaniSize] = React.useState<"ONE_SEVENTH" | "SMALL" | "LARGE" | "">("")
   const [status, setStatus] = React.useState<"idle" | "submitting" | "success" | "error">("idle")
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
+  const qurbaniOptions = React.useMemo(() => {
+    if (!qurbaniCountry) return []
+    return [
+      {
+        value: "ONE_SEVENTH" as const,
+        pricePence: qurbaniCountry.priceOneSeventhPence,
+        label: qurbaniCountry.labelOneSeventh?.trim() || "1/7th",
+      },
+      {
+        value: "SMALL" as const,
+        pricePence: qurbaniCountry.priceSmallPence,
+        label: qurbaniCountry.labelSmall?.trim() || "Small",
+      },
+      {
+        value: "LARGE" as const,
+        pricePence: qurbaniCountry.priceLargePence,
+        label: qurbaniCountry.labelLarge?.trim() || "Large",
+      },
+    ].filter((opt): opt is { value: "ONE_SEVENTH" | "SMALL" | "LARGE"; pricePence: number; label: string } =>
+      typeof opt.pricePence === "number" && opt.pricePence > 0
+    )
+  }, [qurbaniCountry])
+
+  React.useEffect(() => {
+    if (!qurbaniCountry || !qurbaniSize) return
+    const selected = qurbaniOptions.find((o) => o.value === qurbaniSize)
+    if (selected) {
+      setAmountPounds((selected.pricePence / 100).toFixed(2))
+    }
+  }, [qurbaniCountry, qurbaniOptions, qurbaniSize])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (qurbaniCountry && !qurbaniSize) {
+      setStatus("error")
+      setErrorMessage("Please select the Qurbani option")
+      return
+    }
     const pounds = parseFloat(amountPounds)
     if (Number.isNaN(pounds) || pounds <= 0) {
       setStatus("error")
@@ -63,6 +110,8 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
           donorName: donorName.trim() || undefined,
           paymentMethod,
           donationType,
+          qurbaniSize: qurbaniSize || undefined,
+          qurbaniCountryId: qurbaniCountry?.id,
           donorEmail: donorEmail.trim() || undefined,
           donorPhone: donorPhone.trim() || undefined,
           notes: notes.trim() || undefined,
@@ -82,6 +131,7 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
       setDonorEmail("")
       setDonorPhone("")
       setNotes("")
+      setQurbaniSize("")
     } catch {
       setStatus("error")
       setErrorMessage("Something went wrong. Please try again.")
@@ -147,7 +197,13 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
                   value={amountPounds}
                   onChange={(e) => setAmountPounds(e.target.value)}
                   disabled={status === "submitting"}
+                  readOnly={Boolean(qurbaniCountry)}
                 />
+                {qurbaniCountry && (
+                  <p className="text-xs text-muted-foreground">
+                    Amount is set by selected Qurbani option for {qurbaniCountry.country}.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="public-cash-name">Name (optional)</Label>
@@ -162,6 +218,27 @@ export function FundraiserPublicCashForm({ fundraiserId }: Props) {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {qurbaniCountry && (
+                <div className="space-y-2">
+                  <Label>Qurbani option *</Label>
+                  <Select
+                    value={qurbaniSize}
+                    onValueChange={(v) => setQurbaniSize(v as typeof qurbaniSize)}
+                    disabled={status === "submitting"}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {qurbaniOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label} - £{(opt.pricePence / 100).toFixed(2)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Payment method</Label>
                 <Select

@@ -16,7 +16,9 @@ export type FundraiserRow = {
   email: string
   isActive: boolean
   targetAmountPence: number | null
-  campaign: { title: string; type: "APPEAL" | "WATER" }
+  customApprovalStatus: "APPROVED" | "PENDING" | "DECLINED"
+  customDeclineReason: string | null
+  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" }
   amountRaised: number
 }
 
@@ -29,6 +31,7 @@ export async function getFundraisers(
     include: {
       appeal: { select: { title: true } },
       waterProject: { select: { projectType: true } },
+      qurbaniCountry: { select: { country: true } },
       donations: {
         where: { status: "COMPLETED" },
         select: {
@@ -71,7 +74,9 @@ export async function getFundraisers(
             ? "Water Tanks"
             : fundraiser.waterProject?.projectType === "WUDHU_AREA"
               ? "Wudhu Areas"
-              : "Water Project"
+              : fundraiser.qurbaniCountry?.country
+                ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
+                : "Water Project"
 
     return {
       id: fundraiser.id,
@@ -81,9 +86,14 @@ export async function getFundraisers(
       email: fundraiser.email,
       isActive: fundraiser.isActive,
       targetAmountPence: fundraiser.targetAmountPence,
+      customApprovalStatus: fundraiser.customApprovalStatus as "APPROVED" | "PENDING" | "DECLINED",
+      customDeclineReason: fundraiser.customDeclineReason,
       campaign: {
         title: campaignTitle,
-        type: (fundraiser.appeal ? "APPEAL" : "WATER") as "APPEAL" | "WATER",
+        type: (fundraiser.appeal ? "APPEAL" : fundraiser.qurbaniCountry ? "QURBANI" : "WATER") as
+          | "APPEAL"
+          | "WATER"
+          | "QURBANI",
       },
       amountRaised,
     }

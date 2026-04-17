@@ -42,7 +42,6 @@ export async function GET() {
   }
   try {
     const bookings = await prisma.collectionBooking.findMany({
-      where: { scheduledAt: { gte: new Date() } },
       orderBy: { scheduledAt: "asc" },
       include: {
         addedBy: { select: { email: true, firstName: true, lastName: true } },

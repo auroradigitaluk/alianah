@@ -31,11 +31,15 @@ export function displayDonorEmail(email: string | null | undefined): string {
 
 /** Base URL for public fundraiser/donation links (e.g. give.alianah.org). No trailing slash. */
 export function getFundraiserBaseUrl(): string {
-  const raw =
-    process.env.NEXT_PUBLIC_FUNDRAISER_BASE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "https://give.alianah.org"
-  return raw.replace(/\/$/, "")
+  if (process.env.NODE_ENV !== "production") {
+    const devUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_FUNDRAISER_BASE_URL ||
+      "http://localhost:3000"
+    return devUrl.replace(/\/$/, "")
+  }
+
+  return "https://give.alianah.org"
 }
 
 /** UK postcode validation */

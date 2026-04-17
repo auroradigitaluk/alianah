@@ -34,10 +34,12 @@ interface Fundraiser {
   createdAt: Date
   imageUrl?: string | null
   message?: string | null
+  customApprovalStatus?: "PENDING" | "APPROVED" | "DECLINED"
+  customDeclineReason?: string | null
   campaign: {
     title: string
     slug: string
-    type: "APPEAL" | "WATER"
+    type: "APPEAL" | "WATER" | "QURBANI"
   }
 }
 
@@ -211,6 +213,21 @@ export function FundraiserDashboardClient({
                     <h3 className="font-semibold text-foreground mb-3 line-clamp-2 min-h-[2.5em] leading-tight">
                       {fundraiser.title}
                     </h3>
+                    {fundraiser.customApprovalStatus === "PENDING" && (
+                      <p className="mb-2 text-xs font-medium text-amber-600">
+                        Pending admin approval
+                      </p>
+                    )}
+                    {fundraiser.customApprovalStatus === "DECLINED" && (
+                      <div className="mb-2">
+                        <p className="text-xs font-medium text-destructive">Declined by admin</p>
+                        {fundraiser.customDeclineReason ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Reason: {fundraiser.customDeclineReason}
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
                     <div className="mb-4">
                       <div className="flex items-center justify-between gap-2 text-base text-white mb-1.5">
                         <span className="font-semibold">

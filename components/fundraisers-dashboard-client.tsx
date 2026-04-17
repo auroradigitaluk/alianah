@@ -14,7 +14,7 @@ import type { EligibleCampaign } from "@/app/admin/fundraisers/page"
 export interface FundraisedByCampaignRow {
   campaignId: string
   campaignTitle: string
-  campaignType: "APPEAL" | "WATER"
+  campaignType: "APPEAL" | "WATER" | "QURBANI"
   amountPence: number
 }
 
@@ -25,7 +25,9 @@ export interface FundraiserRow {
   fundraiserName: string
   email?: string
   isActive: boolean
-  campaign: { title: string; type: "APPEAL" | "WATER" }
+  customApprovalStatus?: "APPROVED" | "PENDING" | "DECLINED"
+  customDeclineReason?: string | null
+  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" }
   amountRaised: number
 }
 
@@ -46,6 +48,7 @@ interface FundraisersDashboardClientProps {
   showCampaignColumn?: boolean
   /** When true, show a Campaign title column in the table */
   showTitleColumn?: boolean
+  showCustomReviewActions?: boolean
 }
 
 export function FundraisersDashboardClient({
@@ -60,6 +63,7 @@ export function FundraisersDashboardClient({
   listTitle,
   showCampaignColumn = true,
   showTitleColumn = false,
+  showCustomReviewActions = false,
 }: FundraisersDashboardClientProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const router = useRouter()
@@ -103,6 +107,7 @@ export function FundraisersDashboardClient({
             linkToDetailPage
             showCampaignColumn={showCampaignColumn}
             showTitleColumn={showTitleColumn}
+            showCustomReviewActions={showCustomReviewActions}
           />
         </div>
         {showAppealsTab && (
