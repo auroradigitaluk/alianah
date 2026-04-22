@@ -335,7 +335,7 @@ export async function GET(request: NextRequest) {
             id: t.id,
             label: t.title,
             subtitle: t.description ?? undefined,
-            url: "/admin/tasks",
+            url: "/admin/to-do",
           }))
         ),
     ])

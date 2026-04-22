@@ -143,6 +143,7 @@ export function OneNationDonationForm({
   const [selectedIntention, setSelectedIntention] = React.useState<DonationType | "">(
     donationTypesEnabled.includes("GENERAL") ? "GENERAL" : ((donationTypesEnabled[0] as DonationType) ?? "")
   )
+  const effectiveIntention: DonationType | "" = donationType === "qurbani" ? "GENERAL" : selectedIntention
   const [selectedWaterCountry, setSelectedWaterCountry] = React.useState<string>("")
   const [customAmount, setCustomAmount] = React.useState<string>("")
   const [selectedProduct, setSelectedProduct] = React.useState<string>("")
@@ -350,7 +351,7 @@ export function OneNationDonationForm({
   // One-off express checkout (Apple Pay): same validation as Add to Bag, one-off only
   /* eslint-disable react-hooks/preserve-manual-memoization -- complex dependency array with stable object refs */
   const expressCheckout = React.useMemo((): { item: DonationExpressItem; amountPence: number } | null => {
-    if (!selectedIntention) return null
+    if (!effectiveIntention) return null
     if (donationType === "water") {
       if (!selectedWaterProject || !selectedWaterCountry || !selectedWaterCountryData) return null
       if (requiresPlaqueName && !plaqueName.trim()) return null
@@ -365,7 +366,7 @@ export function OneNationDonationForm({
         item: {
           appealTitle: title,
           frequency: "ONE_OFF",
-          donationType: selectedIntention,
+          donationType: effectiveIntention,
           amountPence: selectedWaterCountryData.pricePence,
           waterProjectId: waterProjectData?.id || "",
           waterProjectCountryId: selectedWaterCountry,
@@ -385,7 +386,7 @@ export function OneNationDonationForm({
         item: {
           appealTitle: `Sponsorship - ${labels[sponsorshipProjectData.projectType] || sponsorshipProjectData.projectType}`,
           frequency: "ONE_OFF",
-          donationType: selectedIntention,
+          donationType: effectiveIntention,
           amountPence: yearlyPence,
           sponsorshipProjectId: sponsorshipProjectData.id,
           sponsorshipCountryId: selectedSponsorshipCountry,
@@ -401,7 +402,7 @@ export function OneNationDonationForm({
         item: {
           appealTitle: "Qurbani",
           frequency: "ONE_OFF",
-          donationType: selectedIntention,
+          donationType: effectiveIntention,
           amountPence: selectedQurbaniSizeData.amountPence!,
           qurbaniCountryId: selectedQurbaniCountryData.id,
           qurbaniSize: selectedQurbaniSize,
@@ -447,7 +448,7 @@ export function OneNationDonationForm({
         productId,
         productName,
         frequency: "ONE_OFF",
-        donationType: selectedIntention,
+        donationType: effectiveIntention,
         amountPence,
       },
       amountPence,
@@ -457,7 +458,7 @@ export function OneNationDonationForm({
     frequency,
     selectedAppeal,
     appealData,
-    selectedIntention,
+    effectiveIntention,
     selectedWaterProject,
     selectedWaterCountry,
     selectedWaterCountryData,
@@ -518,7 +519,7 @@ export function OneNationDonationForm({
       return
     }
 
-    if (!selectedIntention) {
+    if (!effectiveIntention) {
       alert("Please select an intention")
       return
     }
@@ -619,7 +620,7 @@ export function OneNationDonationForm({
         id: "",
         appealTitle: waterProjectData?.location || projectTypeLabels[waterProjectData?.projectType || ""] || "Water Project",
         frequency: "ONE_OFF",
-        donationType: selectedIntention,
+        donationType: effectiveIntention,
         amountPence,
         waterProjectId: waterProjectData?.id || "",
         waterProjectCountryId: selectedWaterCountry,
@@ -639,7 +640,7 @@ export function OneNationDonationForm({
         id: "",
         appealTitle: `Sponsorship - ${labels[sponsorshipProjectData.projectType] || sponsorshipProjectData.projectType}`,
         frequency: sponsorshipFrequency === "YEARLY" ? "ONE_OFF" : "MONTHLY",
-        donationType: selectedIntention,
+        donationType: effectiveIntention,
         amountPence,
         sponsorshipProjectId: sponsorshipProjectData.id,
         sponsorshipCountryId: selectedSponsorshipCountry,
@@ -659,7 +660,7 @@ export function OneNationDonationForm({
         appealTitle: "Qurbani",
         productName: `${selectedQurbaniCountryData.country} - ${selectedQurbaniSizeData.label}`,
         frequency: "ONE_OFF",
-        donationType: selectedIntention,
+        donationType: effectiveIntention,
         amountPence,
         qurbaniCountryId: selectedQurbaniCountryData.id,
         qurbaniSize: selectedQurbaniSize,
@@ -674,7 +675,7 @@ export function OneNationDonationForm({
         productId,
         productName,
         frequency: frequency === "ONE_OFF" ? "ONE_OFF" : "MONTHLY",
-        donationType: selectedIntention,
+        donationType: effectiveIntention,
         amountPence,
       })
     }
@@ -1225,7 +1226,7 @@ export function OneNationDonationForm({
             )}
 
             {/* Intention (Donation Type) - hide when only one type (e.g. Zakat-only) */}
-            {donationTypesEnabled.length > 1 && (
+            {donationType !== "qurbani" && donationTypesEnabled.length > 1 && (
             <div className="space-y-2">
               <Label htmlFor="intention-select" className="text-sm font-medium text-foreground">
                 Donation Type
@@ -1260,7 +1261,7 @@ export function OneNationDonationForm({
                 (donationType === "water" && (!selectedWaterProject || !selectedWaterCountry)) ||
                 (donationType === "sponsorship" && (!selectedSponsorshipType || !selectedSponsorshipCountry)) ||
                 (donationType === "qurbani" && (!selectedQurbaniCountry || !selectedQurbaniSize)) ||
-                !selectedIntention
+                !effectiveIntention
               }
             >
               Add to Donation Bag

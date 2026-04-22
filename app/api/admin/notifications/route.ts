@@ -8,6 +8,7 @@ const PAGE_KEYS = [
   "offline-income",
   "collections",
   "tasks",
+  "task-submissions",
   "water-for-life",
   "sponsorships",
   "qurbani",
@@ -42,6 +43,7 @@ export async function GET() {
     const sinceOffline = getSinceDate(visits, "offline-income")
     const sinceCollections = getSinceDate(visits, "collections")
     const sinceTasks = getSinceDate(visits, "tasks")
+    const sinceTaskSubmissions = getSinceDate(visits, "task-submissions")
     const sinceWaterForLife = getSinceDate(visits, "water-for-life")
     const sinceSponsorships = getSinceDate(visits, "sponsorships")
     const sinceQurbani = getSinceDate(visits, "qurbani")
@@ -58,6 +60,7 @@ export async function GET() {
       offlineCount,
       collectionsCount,
       tasksCount,
+      taskSubmissionsCount,
       waterForLifeCount,
       sponsorshipsCount,
       qurbaniCount,
@@ -84,6 +87,12 @@ export async function GET() {
         where: {
           assigneeId: user.id,
           ...(sinceTasks ? { createdAt: { gt: sinceTasks } } : {}),
+        },
+      }),
+      prisma.employeeTaskSubmission.count({
+        where: {
+          ...(user.role === "STAFF" ? { submittedByAdminUserId: user.id } : {}),
+          ...(sinceTaskSubmissions ? { createdAt: { gt: sinceTaskSubmissions } } : {}),
         },
       }),
       prisma.waterProjectDonation.count({
@@ -121,6 +130,7 @@ export async function GET() {
       "offline-income": offlineCount,
       collections: collectionsCount,
       tasks: tasksCount,
+      "task-submissions": taskSubmissionsCount,
       "water-for-life": waterForLifeCount,
       sponsorships: sponsorshipsCount,
       qurbani: qurbaniCount,

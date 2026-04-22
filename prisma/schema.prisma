@@ -37,6 +37,7 @@ model AdminUser {
   tasksAssigned       Task[]                 @relation("TaskAssignee")
   tasksCreated        Task[]                 @relation("TaskCreator")
   taskNotes           TaskNote[]             @relation("TaskNoteAuthor")
+  employeeTaskSubmissions EmployeeTaskSubmission[] @relation("EmployeeTaskSubmitter")
   distributionsCreated Distribution[]
   fundraiserCashDonationsReviewed FundraiserCashDonation[]
   pageVisits          AdminPageVisit[]
@@ -99,6 +100,23 @@ model TaskNote {
   @@index([taskId])
   @@index([createdById])
   @@map("task_notes")
+}
+
+model EmployeeTaskSubmission {
+  id                     String    @id @default(cuid())
+  title                  String
+  description            String?
+  completedAt            DateTime
+  submittedByAdminUserId String
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  submittedBy AdminUser @relation("EmployeeTaskSubmitter", fields: [submittedByAdminUserId], references: [id], onDelete: Cascade)
+
+  @@index([submittedByAdminUserId])
+  @@index([completedAt])
+  @@index([createdAt])
+  @@map("employee_task_submissions")
 }
 
 model Settings {

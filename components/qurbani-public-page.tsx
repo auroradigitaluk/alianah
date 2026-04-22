@@ -19,13 +19,6 @@ import { DonationExpressCheckout, type DonationExpressItem } from "@/components/
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 
-const DONATION_TYPES = [
-  { value: "GENERAL", label: "General Donation" },
-  { value: "SADAQAH", label: "Sadaqah" },
-  { value: "ZAKAT", label: "Zakat" },
-  { value: "LILLAH", label: "Lillah" },
-] as const
-
 type QurbaniSize = "ONE_SEVENTH" | "SMALL" | "LARGE"
 
 interface QurbaniCountry {
@@ -67,7 +60,7 @@ function getLabel(country: QurbaniCountry, size: QurbaniSize): string {
 
 export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
   const { addItem } = useSidecart()
-  const [donationType, setDonationType] = useState<"GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH">("GENERAL")
+  const donationType = "GENERAL" as const
   const [selectedCountryId, setSelectedCountryId] = useState<string>("")
   const [selectedSize, setSelectedSize] = useState<QurbaniSize | null>(null)
   const [qurbaniNames, setQurbaniNames] = useState("")
@@ -259,22 +252,6 @@ export function QurbaniPublicPage({ countries }: QurbaniPublicPageProps) {
             {selectedCountryId && !selectedCountry && (
               <p className="text-sm text-muted-foreground">Country not found.</p>
             )}
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Donation Type</Label>
-              <Select value={donationType} onValueChange={(v) => setDonationType(v as typeof donationType)}>
-                <SelectTrigger className="!h-11 w-full min-h-11 text-base">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DONATION_TYPES.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             <Button
               type="button"

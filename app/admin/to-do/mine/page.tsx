@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
 
 export default function MyTasksRedirect() {
-  redirect("/admin/tasks")
+  redirect("/admin/to-do")
 }

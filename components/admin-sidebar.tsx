@@ -49,6 +49,7 @@ type NotificationCounts = {
   "offline-income": number
   collections: number
   tasks: number
+  "task-submissions": number
   "water-for-life": number
   sponsorships: number
   qurbani: number
@@ -62,7 +63,8 @@ type NotificationCounts = {
 
 function pathnameToPageKey(pathname: string | null): keyof NotificationCounts | null {
   if (!pathname) return null
-  if (pathname === "/admin/tasks" || pathname.startsWith("/admin/tasks/")) return "tasks"
+  if (pathname === "/admin/to-do" || pathname.startsWith("/admin/to-do/")) return "tasks"
+  if (pathname === "/admin/employee-task-submissions" || pathname.startsWith("/admin/employee-task-submissions/")) return "task-submissions"
   if (pathname === "/admin/donations" || pathname.startsWith("/admin/donations/")) return "donations"
   if (pathname === "/admin/recurring" || pathname.startsWith("/admin/recurring/")) return "recurring"
   if (pathname === "/admin/offline-income" || pathname.startsWith("/admin/offline-income/")) return "offline-income"
@@ -86,6 +88,7 @@ function useNotificationCounts(pathname: string | null) {
     "offline-income": 0,
     collections: 0,
     tasks: 0,
+    "task-submissions": 0,
     "water-for-life": 0,
     sponsorships: 0,
     qurbani: 0,
@@ -480,25 +483,42 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Operations - Tasks for ADMIN + STAFF, Distributions for ADMIN only */}
-        {(role === "ADMIN" || role === "STAFF") && (
+        {/* Operations */}
+        {role && (
           <SidebarGroup>
             <SidebarGroupLabel>Operations</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip="Tasks"
-                    isActive={pathname === "/admin/tasks" || pathname?.startsWith("/admin/tasks/")}
-                  >
-                    <Link href="/admin/tasks" className="flex w-full items-center gap-2">
-                      <IconListCheck />
-                      <span>Tasks</span>
-                      <NotificationBadge count={counts.tasks} />
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {(role === "ADMIN" || role === "STAFF") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="To-Do"
+                      isActive={pathname === "/admin/to-do" || pathname?.startsWith("/admin/to-do/")}
+                    >
+                      <Link href="/admin/to-do" className="flex w-full items-center gap-2">
+                        <IconListCheck />
+                        <span>To-Do</span>
+                        <NotificationBadge count={counts.tasks} />
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {(role === "ADMIN" || role === "STAFF") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Employee Task Submissions"
+                      isActive={pathname === "/admin/employee-task-submissions" || pathname?.startsWith("/admin/employee-task-submissions/")}
+                    >
+                      <Link href="/admin/employee-task-submissions" className="flex w-full items-center gap-2">
+                        <IconListCheck />
+                        <span>Task Submissions</span>
+                        <NotificationBadge count={counts["task-submissions"]} />
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {role === "ADMIN" && (
                   <SidebarMenuItem>
                     <SidebarMenuButton

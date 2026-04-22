@@ -68,7 +68,8 @@ function getPrismaClient(): PrismaClient {
     if (
       !("fundraiserCashDonation" in cached) ||
       !("volunteer" in cached) ||
-      !("collectionBooking" in cached)
+      !("collectionBooking" in cached) ||
+      !("employeeTaskSubmission" in cached)
     ) {
       globalForPrisma.prisma = undefined
     }

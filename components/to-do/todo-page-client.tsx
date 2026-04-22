@@ -169,7 +169,7 @@ function capitalizeFirstWord(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export function TasksPageClient() {
+export function TodoPageClient() {
   const [role, setRole] = React.useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null)
   const [tasks, setTasks] = React.useState<TaskRow[]>([])
@@ -235,7 +235,7 @@ export function TasksPageClient() {
         if (search.trim()) params.set("search", search.trim())
         if (dueFrom) params.set("dueFrom", dueFrom)
         if (dueTo) params.set("dueTo", dueTo)
-        const res = await fetch(`/api/admin/tasks?${params}`)
+        const res = await fetch(`/api/admin/to-do?${params}`)
         if (!res.ok) throw new Error("Failed to load tasks")
         const data = (await res.json()) as TaskRow[]
         setTasks(data)
@@ -289,7 +289,7 @@ export function TasksPageClient() {
     setViewTaskDetails(null)
     const taskId = viewTask.id
     let cancelled = false
-    fetch(`/api/admin/tasks/${taskId}`)
+    fetch(`/api/admin/to-do/${taskId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: TaskWithNotes | null) => {
         if (!cancelled && data && data.id === taskId) setViewTaskDetails(data)
@@ -306,7 +306,7 @@ export function TasksPageClient() {
     if (!viewTask || !newNoteContent.trim()) return
     setNoteSubmitting(true)
     try {
-      const res = await fetch(`/api/admin/tasks/${viewTask.id}/notes`, {
+      const res = await fetch(`/api/admin/to-do/${viewTask.id}/notes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: newNoteContent.trim() }),
@@ -386,7 +386,7 @@ export function TasksPageClient() {
               status: formStatus,
             }
           : { status: formStatus, staffNote: formStaffNote.trim() || null }
-        const res = await fetch(`/api/admin/tasks/${editingTask.id}`, {
+        const res = await fetch(`/api/admin/to-do/${editingTask.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -398,7 +398,7 @@ export function TasksPageClient() {
         }
         toast.success("Task updated")
       } else {
-        const res = await fetch("/api/admin/tasks", {
+        const res = await fetch("/api/admin/to-do", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -430,7 +430,7 @@ export function TasksPageClient() {
     if (!deleteConfirm) return
     setSubmitting(true)
     try {
-      const res = await fetch(`/api/admin/tasks/${deleteConfirm.id}`, { method: "DELETE" })
+      const res = await fetch(`/api/admin/to-do/${deleteConfirm.id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Failed to delete task")
       toast.success("Task deleted")
       setDeleteConfirm(null)
@@ -456,7 +456,7 @@ export function TasksPageClient() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold">Tasks</h2>
+          <h2 className="text-base font-semibold">To-Do</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {isAdmin
               ? "Create and assign tasks to staff, admins, or yourself. Filter by assignee or status."
@@ -928,7 +928,7 @@ export function TasksPageClient() {
                       onValueChange={async (value) => {
                         if (!viewTask || value === displayTask.status) return
                         try {
-                          const res = await fetch(`/api/admin/tasks/${viewTask.id}`, {
+                          const res = await fetch(`/api/admin/to-do/${viewTask.id}`, {
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ status: value }),

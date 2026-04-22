@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/utils"
 import { useSidecart } from "@/components/sidecart-provider"
 import { toast } from "sonner"
@@ -12,13 +11,6 @@ import { cn } from "@/lib/utils"
 import { DonationExpressCheckout, type DonationExpressItem } from "@/components/donation-express-checkout"
 
 type QurbaniSize = "ONE_SEVENTH" | "SMALL" | "LARGE"
-
-const DONATION_TYPES = [
-  { value: "GENERAL", label: "General Donation" },
-  { value: "SADAQAH", label: "Sadaqah" },
-  { value: "ZAKAT", label: "Zakat" },
-  { value: "LILLAH", label: "Lillah" },
-] as const
 
 interface QurbaniFundraiserDonationFormProps {
   fundraiserId: string
@@ -54,7 +46,7 @@ function getLabel(country: QurbaniFundraiserDonationFormProps["country"], size: 
 
 export function QurbaniFundraiserDonationForm({ fundraiserId, country }: QurbaniFundraiserDonationFormProps) {
   const { addItem } = useSidecart()
-  const [donationType, setDonationType] = useState<"GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH">("GENERAL")
+  const donationType = "GENERAL" as const
   const [selectedSize, setSelectedSize] = useState<QurbaniSize | null>(null)
   const [qurbaniNames, setQurbaniNames] = useState("")
   const [walletAvailable, setWalletAvailable] = useState(false)
@@ -163,22 +155,6 @@ export function QurbaniFundraiserDonationForm({ fundraiserId, country }: Qurbani
           transform="titleCase"
           className="h-11"
         />
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-foreground">Donation Type</Label>
-        <Select value={donationType} onValueChange={(v) => setDonationType(v as typeof donationType)}>
-          <SelectTrigger className="!h-11 w-full min-h-11 text-base">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DONATION_TYPES.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <Button type="button" className="w-full h-11" onClick={handleAddToBasket} disabled={!selectedSize}>

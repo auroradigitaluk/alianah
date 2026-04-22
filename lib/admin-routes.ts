@@ -21,6 +21,7 @@ export function canAccessRoute(role: string, pathname: string): boolean {
     "/admin/documents",
     "/admin/analytics",
     "/admin/settings",
+    "/admin/employee-task-submissions",
   ]
   if (role === "VIEWER" && viewerHidden.some((p) => path === p || path.startsWith(p + "/"))) {
     return false

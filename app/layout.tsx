@@ -16,7 +16,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+const metadataBase = appUrl
+  ? new URL(appUrl.startsWith("http") ? appUrl : `https://${appUrl}`)
+  : new URL("http://localhost:3000")
+
 export const metadata: Metadata = {
+  metadataBase,
   title: "Alianah Humanity Welfare",
   description: "Support our appeals and make a difference with your donation",
   icons: {
