@@ -277,6 +277,7 @@ export default async function OfflineIncomePage({
     notes: item.notes,
     addedByName: formatAdminUserName(item.addedBy),
     itemType: "appeal" as const,
+    offlineIncomeGroupId: item.offlineIncomeGroupId ?? null,
     giftAid: item.giftAid,
     donor: item.donor
       ? {

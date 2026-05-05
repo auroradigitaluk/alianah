@@ -112,6 +112,38 @@ export async function GET(
       return NextResponse.json({ error: "Fundraiser not found" }, { status: 404 })
     }
 
+    const qurbaniDonations = await prisma.qurbaniDonation.findMany({
+      where: { fundraiserId: id },
+      include: {
+        donor: { select: { title: true, firstName: true, lastName: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+
+    const qurbaniAppealTitle = fundraiser.qurbaniCountry?.country
+      ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
+      : "Qurbani"
+
+    const normalizedQurbaniDonations = qurbaniDonations.map((donation) => ({
+      id: donation.id,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      frequency: "ONE_OFF",
+      status: "COMPLETED" as const,
+      paymentMethod: donation.paymentMethod,
+      giftAid: donation.giftAid,
+      transactionId: donation.transactionId,
+      billingAddress: donation.billingAddress,
+      billingCity: donation.billingCity,
+      billingPostcode: donation.billingPostcode,
+      billingCountry: donation.billingCountry,
+      createdAt: donation.createdAt,
+      completedAt: donation.createdAt,
+      donor: donation.donor,
+      appeal: { title: qurbaniAppealTitle },
+      product: null,
+    }))
+
     const normalizedWaterDonations = fundraiser.waterProjectDonations.map((donation) => ({
       id: donation.id,
       amountPence: donation.amountPence,
@@ -206,6 +238,7 @@ export async function GET(
     const combinedDonations = normalizedDonations
       .concat(normalizedWaterDonations)
       .concat(normalizedCashDonations)
+      .concat(normalizedQurbaniDonations)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     // Calculate statistics

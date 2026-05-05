@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { Plus, Gift, Mail } from "lucide-react"
+import { Plus, Gift, Mail, Trash2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 import { CHECKOUT_COUNTRIES } from "@/lib/countries"
 import { isValidEmail, isValidPhone, isValidPostcode, toTitleCaseLive } from "@/lib/utils"
 
@@ -128,6 +129,14 @@ export function OfflineIncomeModal({
   const [receiptEmail, setReceiptEmail] = React.useState("")
   const [receiptFirstName, setReceiptFirstName] = React.useState("")
   const [receiptLastName, setReceiptLastName] = React.useState("")
+  /** One payment split across several appeals (creates linked offline income rows). */
+  const [appealSplitMode, setAppealSplitMode] = React.useState(false)
+  const [appealLines, setAppealLines] = React.useState<
+    { appealId: string; amount: string; donationType: string }[]
+  >([
+    { appealId: "", amount: "", donationType: "GENERAL" },
+    { appealId: "", amount: "", donationType: "GENERAL" },
+  ])
 
   const selectedWaterProject = waterProjects.find((p) => p.projectType === projectType) || null
   const filteredCountries = waterProjectCountries
@@ -271,20 +280,44 @@ export function OfflineIncomeModal({
     setReceiptEmail("")
     setReceiptFirstName("")
     setReceiptLastName("")
+    setAppealSplitMode(false)
+    setAppealLines([
+      { appealId: "", amount: "", donationType: "GENERAL" },
+      { appealId: "", amount: "", donationType: "GENERAL" },
+    ])
     const today = new Date()
     setReceivedAt(today.toISOString().slice(0, 10))
   }
 
   const handleSubmit = async () => {
     if (entryType === "appeal") {
-      if (!appealId) {
-        toast.error("Select an appeal")
-        return
-      }
-      const numericAmount = Number(amount)
-      if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-        toast.error("Enter a valid amount")
-        return
+      if (appealSplitMode) {
+        if (appealLines.length < 2) {
+          toast.error("Add at least two appeals for a split payment")
+          return
+        }
+        for (let i = 0; i < appealLines.length; i++) {
+          const row = appealLines[i]
+          if (!row.appealId) {
+            toast.error(`Select an appeal on line ${i + 1}`)
+            return
+          }
+          const n = Number(row.amount.replace(/,/g, ""))
+          if (!Number.isFinite(n) || n <= 0) {
+            toast.error(`Enter a valid amount on line ${i + 1}`)
+            return
+          }
+        }
+      } else {
+        if (!appealId) {
+          toast.error("Select an appeal")
+          return
+        }
+        const numericAmount = Number(amount)
+        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+          toast.error("Enter a valid amount")
+          return
+        }
       }
       if (giftAidExpanded && giftaidPostcode.trim() && !isValidPostcode(giftaidPostcode, giftaidCountry)) {
         toast.error("Enter a valid postcode")
@@ -462,14 +495,34 @@ export function OfflineIncomeModal({
                       },
                     }
                   : {}
+              const receivedAtIso = userChangedReceivedAt
+                ? new Date(receivedAt).toISOString()
+                : new Date().toISOString()
+              if (appealSplitMode) {
+                return {
+                  type: "appeal_multi" as const,
+                  lines: appealLines.map((row) => ({
+                    appealId: row.appealId,
+                    amountPence: Math.round(Number(row.amount.replace(/,/g, "")) * 100),
+                    donationType: row.donationType as "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH",
+                  })),
+                  source,
+                  collectedVia: "office",
+                  receivedAt: receivedAtIso,
+                  notes: notes || null,
+                  giftAid: giftAidExpanded,
+                  sendReceiptEmail,
+                  ...donorPayload,
+                }
+              }
               return {
-                type: "appeal",
+                type: "appeal" as const,
                 appealId,
                 amountPence: Math.round(Number(amount) * 100),
                 donationType,
                 source,
                 collectedVia: "office",
-                receivedAt: userChangedReceivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
+                receivedAt: receivedAtIso,
                 notes: notes || null,
                 giftAid: giftAidExpanded,
                 sendReceiptEmail,
@@ -640,51 +693,191 @@ export function OfflineIncomeModal({
 
             {entryType === "appeal" && (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">Appeal</Label>
-                  <Select value={appealId} onValueChange={setAppealId}>
-                  <SelectTrigger className="h-11 w-full">
-                      <SelectValue placeholder="Select appeal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {appeals.map((appeal) => (
-                        <SelectItem key={appeal.id} value={appeal.id}>
-                          {appeal.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="appeal-split" className="text-base">
+                      Multiple appeals, one payment
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-xl">
+                      One visitor payment split across appeals (e.g. £10 Palestine + £10 Bulgaria). Creates linked
+                      rows with one receipt reference.
+                    </p>
+                  </div>
+                  <Switch
+                    id="appeal-split"
+                    checked={appealSplitMode}
+                    onCheckedChange={(v) => setAppealSplitMode(v === true)}
+                  />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="appeal-amount">Amount (£)</Label>
-                    <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
-                      <span className="pl-3 text-muted-foreground text-sm">£</span>
+
+                {appealSplitMode ? (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium text-foreground">Allocations</Label>
+                    {appealLines.map((row, idx) => (
+                      <div
+                        key={idx}
+                        className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_110px_130px_auto] gap-3 items-end rounded-lg border p-3 bg-muted/20"
+                      >
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Appeal</Label>
+                          <Select
+                            value={row.appealId}
+                            onValueChange={(v) =>
+                              setAppealLines((prev) =>
+                                prev.map((r, i) => (i === idx ? { ...r, appealId: v } : r))
+                              )
+                            }
+                          >
+                            <SelectTrigger className="h-11 w-full">
+                              <SelectValue placeholder="Select appeal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {appeals.map((appeal) => (
+                                <SelectItem key={appeal.id} value={appeal.id}>
+                                  {appeal.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Amount (£)</Label>
+                          <div className="flex h-11 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+                            <span className="pl-3 text-muted-foreground text-sm">£</span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={row.amount}
+                              onChange={(e) =>
+                                setAppealLines((prev) =>
+                                  prev.map((r, i) => (i === idx ? { ...r, amount: e.target.value } : r))
+                                )
+                              }
+                              placeholder="0.00"
+                              className="border-0 shadow-none min-w-0 flex-1 rounded-none h-11 py-1 pr-3 pl-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Type</Label>
+                          <Select
+                            value={row.donationType}
+                            onValueChange={(v) =>
+                              setAppealLines((prev) =>
+                                prev.map((r, i) => (i === idx ? { ...r, donationType: v } : r))
+                              )
+                            }
+                          >
+                            <SelectTrigger className="h-11 w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DONATION_TYPES.map((dt) => (
+                                <SelectItem key={dt.value} value={dt.value}>
+                                  {dt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex justify-end pb-0.5">
+                          {appealLines.length > 2 ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() =>
+                                setAppealLines((prev) => prev.filter((_, i) => i !== idx))
+                              }
+                              aria-label="Remove line"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <span className="w-10 shrink-0" aria-hidden />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={() =>
+                        setAppealLines((prev) => [
+                          ...prev,
+                          { appealId: "", amount: "", donationType: "GENERAL" },
+                        ])
+                      }
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add appeal line
+                    </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor="receivedAt-split">Received Date & time</Label>
                       <Input
-                        id="appeal-amount"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        id="receivedAt-split"
+                        type="datetime-local"
+                        value={receivedAt}
+                        onChange={(e) => {
+                          setReceivedAt(e.target.value)
+                          setUserChangedReceivedAt(true)
+                        }}
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="receivedAt">Received Date & time</Label>
-                    <Input
-                      id="receivedAt"
-                      type="datetime-local"
-                      value={receivedAt}
-                      onChange={(e) => {
-                        setReceivedAt(e.target.value)
-                        setUserChangedReceivedAt(true)
-                      }}
-                    />
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">Appeal</Label>
+                      <Select value={appealId} onValueChange={setAppealId}>
+                        <SelectTrigger className="h-11 w-full">
+                          <SelectValue placeholder="Select appeal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {appeals.map((appeal) => (
+                            <SelectItem key={appeal.id} value={appeal.id}>
+                              {appeal.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="appeal-amount">Amount (£)</Label>
+                        <div className="flex h-9 items-center rounded-md border border-input bg-transparent shadow-xs overflow-hidden">
+                          <span className="pl-3 text-muted-foreground text-sm">£</span>
+                          <Input
+                            id="appeal-amount"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder="0.00"
+                            className="border-0 shadow-none min-w-0 flex-1 rounded-none py-1 pr-3 pl-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="receivedAt">Received Date & time</Label>
+                        <Input
+                          id="receivedAt"
+                          type="datetime-local"
+                          value={receivedAt}
+                          onChange={(e) => {
+                            setReceivedAt(e.target.value)
+                            setUserChangedReceivedAt(true)
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1593,22 +1786,28 @@ export function OfflineIncomeModal({
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Donation Type</Label>
-                <Select value={donationType} onValueChange={setDonationType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DONATION_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div
+              className={`grid gap-4 ${
+                entryType === "appeal" && appealSplitMode ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
+              }`}
+            >
+              {!(entryType === "appeal" && appealSplitMode) && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">Donation Type</Label>
+                  <Select value={donationType} onValueChange={setDonationType}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DONATION_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Payment Method</Label>
                 <Select value={source} onValueChange={setSource}>

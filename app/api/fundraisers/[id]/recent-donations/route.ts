@@ -25,7 +25,7 @@ export async function GET(
       return NextResponse.json({ error: "Fundraiser not found" }, { status: 404 })
     }
 
-    const [donations, approvedCash] = await Promise.all([
+    const [donations, approvedCash, qurbaniDonations] = await Promise.all([
       prisma.donation.findMany({
         where: {
           fundraiserId,
@@ -57,6 +57,23 @@ export async function GET(
         orderBy: { receivedAt: "desc" },
         take: MAX_RECENT,
       }),
+      prisma.qurbaniDonation.findMany({
+        where: { fundraiserId },
+        select: {
+          id: true,
+          amountPence: true,
+          isAnonymous: true,
+          createdAt: true,
+          donor: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: MAX_RECENT,
+      }),
     ])
 
     const onlineList = donations.map((d) => ({
@@ -77,7 +94,15 @@ export async function GET(
       createdAt: new Date(d.receivedAt).toISOString(),
     }))
 
-    const list = [...onlineList, ...cashList]
+    const qurbaniList = qurbaniDonations.map((d) => ({
+      id: `qurbani-${d.id}`,
+      amountPence: d.amountPence,
+      isAnonymous: d.isAnonymous,
+      donor: d.donor,
+      createdAt: d.createdAt.toISOString(),
+    }))
+
+    const list = [...onlineList, ...cashList, ...qurbaniList]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, MAX_RECENT)
 

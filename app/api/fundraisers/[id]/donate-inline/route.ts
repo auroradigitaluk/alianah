@@ -70,9 +70,12 @@ export async function POST(
       return NextResponse.json({ error: "Fundraiser not found" }, { status: 404 })
     }
 
-    if (!fundraiser.appeal) {
+    const isStandaloneCustom =
+      !fundraiser.appealId && !fundraiser.waterProjectId && !fundraiser.qurbaniCountryId
+
+    if (!fundraiser.appeal && !isStandaloneCustom) {
       return NextResponse.json(
-        { error: "Inline donation is only for appeal fundraisers" },
+        { error: "This fundraiser does not accept card donations in this way." },
         { status: 400 }
       )
     }
@@ -132,8 +135,8 @@ export async function POST(
         donorCountry: validated.country ?? null,
         items: {
           create: {
-            appealId: fundraiser.appeal.id,
-            appealTitle: fundraiser.appeal.title,
+            appealId: fundraiser.appeal?.id ?? null,
+            appealTitle: fundraiser.appeal?.title ?? fundraiser.title,
             fundraiserId: fundraiser.id,
             frequency: "ONE_OFF",
             donationType: validated.donationType,

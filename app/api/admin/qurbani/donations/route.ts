@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
+import { getDashboardDateRange } from "@/lib/dashboard-date-range"
 
 export const dynamic = "force-dynamic"
 
@@ -11,19 +12,22 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl
     const name = searchParams.get("name")?.trim() || undefined
     const country = searchParams.get("country")?.trim() || undefined
-    const size = searchParams.get("size")?.trim() || undefined
+    const rangeParam = searchParams.get("range")?.trim() || "all"
+    const startParam = searchParams.get("start")
+    const endParam = searchParams.get("end")
+
+    const { startDate, endDate } = getDashboardDateRange(rangeParam, startParam, endParam)
 
     const where: {
+      createdAt: { gte: Date; lte: Date }
       qurbaniCountry?: { country?: { contains: string; mode: "insensitive" } }
-      size?: string
       donor?: { OR: Array<{ firstName?: { contains: string; mode: "insensitive" }; lastName?: { contains: string; mode: "insensitive" }; email?: { contains: string; mode: "insensitive" } }> }
-    } = {}
+    } = {
+      createdAt: { gte: startDate, lte: endDate },
+    }
 
     if (country) {
       where.qurbaniCountry = { country: { contains: country, mode: "insensitive" } }
-    }
-    if (size && ["ONE_SEVENTH", "SMALL", "LARGE"].includes(size)) {
-      where.size = size
     }
     if (name) {
       const term = name
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
         qurbaniCountry: true,
         donor: { select: { id: true, firstName: true, lastName: true, email: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     })
 
     return NextResponse.json(donations)

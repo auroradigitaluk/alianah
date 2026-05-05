@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { nanoid } from "nanoid"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRole } from "@/lib/admin-auth"
 import { isValidPhone, isPlaceholderDonorEmail } from "@/lib/utils"
@@ -9,7 +10,6 @@ import {
   sendWaterProjectDonationEmail,
   sendSponsorshipDonationEmail,
 } from "@/lib/email"
-
 const donorPhoneRefine = (v: string | undefined) => !v || isValidPhone(v)
 
 const baseSchema = z.object({
@@ -94,6 +94,27 @@ const qurbaniSchema = baseSchema.extend({
       country: z.string().optional(),
     })
     .optional(),
+})
+
+/** One office payment allocated across multiple appeals (e.g. £10 Palestine + £10 Bulgaria). */
+const appealMultiSchema = z.object({
+  type: z.literal("appeal_multi"),
+  lines: z
+    .array(
+      z.object({
+        appealId: z.string().min(1),
+        amountPence: z.number().int().positive(),
+        donationType: z.enum(["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"]),
+      })
+    )
+    .min(2, "Add at least two appeal lines"),
+  source: z.enum(["CASH", "OFFICE_BUCKETS", "CARD_SUMUP", "BANK_TRANSFER"]),
+  collectedVia: z.string().optional().default("office"),
+  receivedAt: z.string(),
+  notes: z.string().nullable().optional(),
+  sendReceiptEmail: z.boolean().optional().default(false),
+  giftAid: z.boolean().optional().default(false),
+  donor: appealSchema.shape.donor,
 })
 
 export async function POST(request: NextRequest) {
@@ -225,6 +246,153 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ success: true, incomeId: income.id })
+    }
+
+    if (body?.type === "appeal_multi") {
+      const data = appealMultiSchema.parse(body)
+      const receivedAt = new Date(data.receivedAt)
+      const giftAid = !!data.giftAid
+      const donorInput = data.donor
+
+      let donorId: string | null = null
+      let billingAddress: string | null = null
+      let billingCity: string | null = null
+      let billingPostcode: string | null = null
+      let billingCountry: string | null = null
+
+      if ((giftAid || data.sendReceiptEmail) && donorInput) {
+        const emailProvided = donorInput.email?.trim()
+        const firstProvided = donorInput.firstName?.trim()
+        const lastProvided = donorInput.lastName?.trim()
+        if (data.sendReceiptEmail) {
+          if (!emailProvided) {
+            return NextResponse.json(
+              { error: "Email is required to send receipt" },
+              { status: 400 }
+            )
+          }
+          if (!firstProvided || !lastProvided) {
+            return NextResponse.json(
+              { error: "First name and last name are required to send receipt" },
+              { status: 400 }
+            )
+          }
+        }
+        const email = emailProvided || makeFallbackEmail()
+        const firstName = firstProvided || "Anonymous"
+        const lastName = lastProvided || "Donor"
+        const donor = await prisma.donor.upsert({
+          where: { email: email.toLowerCase() },
+          update: {
+            title: donorInput.title || null,
+            firstName,
+            lastName,
+            phone: donorInput.phone?.trim() || null,
+            address: donorInput.address?.trim() || null,
+            city: donorInput.city?.trim() || null,
+            postcode: donorInput.postcode?.trim() || null,
+            country: donorInput.country?.trim() || null,
+          },
+          create: {
+            email: email.toLowerCase(),
+            title: donorInput.title || null,
+            firstName,
+            lastName,
+            phone: donorInput.phone?.trim() || null,
+            address: donorInput.address?.trim() || null,
+            city: donorInput.city?.trim() || null,
+            postcode: donorInput.postcode?.trim() || null,
+            country: donorInput.country?.trim() || null,
+          },
+        })
+        donorId = donor.id
+        billingAddress = donorInput.address?.trim() || donor.address || null
+        billingCity = donorInput.city?.trim() || donor.city || null
+        billingPostcode = donorInput.postcode?.trim() || donor.postcode || null
+        billingCountry = donorInput.country?.trim() || donor.country || null
+      }
+      if (data.sendReceiptEmail && !donorId) {
+        return NextResponse.json(
+          { error: "Email is required to send receipt" },
+          { status: 400 }
+        )
+      }
+
+      const appealIds = [...new Set(data.lines.map((l) => l.appealId))]
+      const appealsFound = await prisma.appeal.findMany({
+        where: { id: { in: appealIds } },
+        select: { id: true, title: true },
+      })
+      if (appealsFound.length !== appealIds.length) {
+        return NextResponse.json({ error: "One or more appeals were not found" }, { status: 400 })
+      }
+
+      const groupId = nanoid()
+      const donationNumber = await generateDonationNumber()
+
+      const created = await prisma.$transaction(
+        data.lines.map((line) =>
+          prisma.offlineIncome.create({
+            data: {
+              appealId: line.appealId,
+              donorId,
+              amountPence: line.amountPence,
+              donationType: line.donationType,
+              source: data.source,
+              collectedVia: data.collectedVia || "office",
+              receivedAt,
+              notes: data.notes || null,
+              addedByAdminUserId: adminUser.id,
+              giftAid,
+              billingAddress,
+              billingCity,
+              billingPostcode,
+              billingCountry,
+              donationNumber,
+              offlineIncomeGroupId: groupId,
+            },
+            include: { donor: true, appeal: { select: { title: true } } },
+          })
+        )
+      )
+
+      if (
+        data.sendReceiptEmail &&
+        created[0]?.donor &&
+        !isPlaceholderDonorEmail(created[0].donor.email)
+      ) {
+        try {
+          const linesForEmail = data.lines.map((line) => {
+            const a = appealsFound.find((x) => x.id === line.appealId)
+            return {
+              description: a?.title ?? "Appeal",
+              amountPence: line.amountPence,
+              donationType: line.donationType,
+            }
+          })
+          await sendOfflineDonationReceiptEmail({
+            donorEmail: created[0].donor.email,
+            donorName:
+              [created[0].donor.firstName, created[0].donor.lastName].filter(Boolean).join(" ") ||
+              "Donor",
+            donationNumber: created[0].donationNumber ?? donationNumber,
+            receivedAt,
+            lines: linesForEmail,
+          })
+        } catch (err) {
+          console.error("Failed to send offline donation receipt:", err)
+          return NextResponse.json(
+            { error: "Entries saved but receipt email failed to send" },
+            { status: 500 }
+          )
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        incomeIds: created.map((c) => c.id),
+        offlineIncomeGroupId: groupId,
+      })
     }
 
     if (body?.type === "sponsorship") {

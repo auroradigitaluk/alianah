@@ -52,6 +52,19 @@ export async function getFundraisers(
     },
   })
 
+  const fundraiserIds = fundraisers.map((f) => f.id)
+  const qurbaniByFundraiser =
+    fundraiserIds.length === 0
+      ? []
+      : await prisma.qurbaniDonation.groupBy({
+          by: ["fundraiserId"],
+          where: { fundraiserId: { in: fundraiserIds } },
+          _sum: { amountPence: true },
+        })
+  const qurbaniPenceById = new Map(
+    qurbaniByFundraiser.map((r) => [r.fundraiserId, r._sum.amountPence ?? 0])
+  )
+
   return fundraisers.map((fundraiser) => {
     const isWater = Boolean(fundraiser.waterProject)
     const legacyWaterSum =
@@ -63,7 +76,8 @@ export async function getFundraisers(
     const amountRaised =
       sumDonationsDeduplicated(fundraiser.donations) +
       legacyWaterSum +
-      fundraiser.cashDonations.reduce((sum, d) => sum + d.amountPence, 0)
+      fundraiser.cashDonations.reduce((sum, d) => sum + d.amountPence, 0) +
+      (qurbaniPenceById.get(fundraiser.id) ?? 0)
     const campaignTitle = fundraiser.appeal?.title
       ? fundraiser.appeal.title
       : fundraiser.waterProject?.projectType === "WATER_PUMP"
@@ -121,53 +135,82 @@ export async function getFundraiserStats(
         ? ({ fundraiser: { isCustom: where.isCustom } } as const)
         : ({} as const)
 
-    const [donationSum, waterAgg, cashAgg, activeCount, totalCount, donationCountDonation, donationCountWater, cashCount] =
-      await Promise.all([
-        getDeduplicatedDonationSum({
-          ...baseWhere,
-          ...fundraiserRelationFilter,
-          status: "COMPLETED",
-        }),
-        prisma.waterProjectDonation.aggregate({
-          where: {
+    const qurbaniRelationWhere =
+      where && typeof where.isCustom === "boolean"
+        ? {
             fundraiserId: { not: null },
-            status: { in: [...WATER_PROJECT_STATUSES] },
-            ...fundraiserRelationFilter,
-          },
-          _sum: { amountPence: true },
-        }),
-        prisma.fundraiserCashDonation.aggregate({
-          where: {
-            status: "APPROVED",
-            ...fundraiserRelationFilter,
-          },
-          _sum: { amountPence: true },
-        }),
-        prisma.fundraiser.count({ where: { ...where, isActive: true } }),
-        prisma.fundraiser.count({ where }),
-        getDeduplicatedDonationCount({
-          ...baseWhere,
+            fundraiser: { isCustom: where.isCustom },
+          }
+        : { fundraiserId: { not: null } }
+
+    const [
+      donationSum,
+      waterAgg,
+      cashAgg,
+      qurbaniAgg,
+      activeCount,
+      totalCount,
+      donationCountDonation,
+      donationCountWater,
+      cashCount,
+      qurbaniCount,
+    ] = await Promise.all([
+      getDeduplicatedDonationSum({
+        ...baseWhere,
+        ...fundraiserRelationFilter,
+        status: "COMPLETED",
+      }),
+      prisma.waterProjectDonation.aggregate({
+        where: {
+          fundraiserId: { not: null },
+          status: { in: [...WATER_PROJECT_STATUSES] },
           ...fundraiserRelationFilter,
-          status: "COMPLETED",
-        }),
-        prisma.waterProjectDonation.count({
-          where: {
-            fundraiserId: { not: null },
-            status: { in: [...WATER_PROJECT_STATUSES] },
-            ...fundraiserRelationFilter,
-          },
-        }),
-        prisma.fundraiserCashDonation.count({
-          where: {
-            status: "APPROVED",
-            ...fundraiserRelationFilter,
-          },
-        }),
-      ])
+        },
+        _sum: { amountPence: true },
+      }),
+      prisma.fundraiserCashDonation.aggregate({
+        where: {
+          status: "APPROVED",
+          ...fundraiserRelationFilter,
+        },
+        _sum: { amountPence: true },
+      }),
+      prisma.qurbaniDonation.aggregate({
+        where: qurbaniRelationWhere,
+        _sum: { amountPence: true },
+      }),
+      prisma.fundraiser.count({ where: { ...where, isActive: true } }),
+      prisma.fundraiser.count({ where }),
+      getDeduplicatedDonationCount({
+        ...baseWhere,
+        ...fundraiserRelationFilter,
+        status: "COMPLETED",
+      }),
+      prisma.waterProjectDonation.count({
+        where: {
+          fundraiserId: { not: null },
+          status: { in: [...WATER_PROJECT_STATUSES] },
+          ...fundraiserRelationFilter,
+        },
+      }),
+      prisma.fundraiserCashDonation.count({
+        where: {
+          status: "APPROVED",
+          ...fundraiserRelationFilter,
+        },
+      }),
+      prisma.qurbaniDonation.count({
+        where: qurbaniRelationWhere,
+      }),
+    ])
 
     const totalRaisedPence =
-      donationSum + (waterAgg._sum.amountPence ?? 0) + (cashAgg._sum.amountPence ?? 0)
-    const donationsThroughFundraisers = donationCountDonation + donationCountWater + cashCount
+      donationSum +
+      (waterAgg._sum.amountPence ?? 0) +
+      (cashAgg._sum.amountPence ?? 0) +
+      (qurbaniAgg._sum.amountPence ?? 0)
+    const donationsThroughFundraisers =
+      donationCountDonation + donationCountWater + cashCount + qurbaniCount
 
     return {
       totalRaisedPence,

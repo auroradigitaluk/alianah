@@ -38,6 +38,23 @@ export type EligibleCampaign =
       type: "QURBANI"
       fundraisingDefaultMessage?: string | null
     }
+  | {
+      id: "__custom_standalone__"
+      title: string
+      slug: string
+      summary: string | null
+      type: "CUSTOM_STANDALONE"
+      fundraisingDefaultMessage?: null
+    }
+
+/** User-defined cause — not linked to an org campaign; we only facilitate donations. */
+export const CUSTOM_STANDALONE_CAMPAIGN: EligibleCampaign = {
+  id: "__custom_standalone__",
+  title: "Your own cause",
+  slug: "custom",
+  summary: null,
+  type: "CUSTOM_STANDALONE",
+}
 
 const TOTAL_STEPS = 7
 const PRESET_AMOUNTS_PENCE = [100000, 250000, 500000, 1000000] // £1000, £2500, £5000, £10000
@@ -108,6 +125,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
 
   const isWater = selectedCampaign?.type === "WATER"
   const isQurbani = selectedCampaign?.type === "QURBANI"
+  const isStandaloneCustom = selectedCampaign?.type === "CUSTOM_STANDALONE"
 
   // Preselect campaign when coming from a specific appeal/water project
   React.useEffect(() => {
@@ -386,28 +404,21 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
     setSubmitting(true)
     try {
       const effectiveTitle =
-      title && title.trim()
-        ? title.trim()
-        : fundraiserName.trim()
-          ? `${fundraiserName.trim()} is fundraising for ${campaignTitle}`
-          : `Fundraising for ${campaignTitle}`
-    const payload: Record<string, unknown> = {
+        title && title.trim()
+          ? title.trim()
+          : isStandaloneCustom
+            ? fundraiserName.trim()
+              ? `${fundraiserName.trim()}'s fundraiser`
+              : "Fundraising campaign"
+            : fundraiserName.trim()
+              ? `${fundraiserName.trim()} is fundraising for ${campaignTitle}`
+              : `Fundraising for ${campaignTitle}`
+      const payload: Record<string, unknown> = {
         email: email.trim(),
         fundraiserName: fundraiserName.trim(),
         title: effectiveTitle,
         message: message.trim() || undefined,
         targetAmountPence: target,
-      }
-      if (selectedCampaign.type === "APPEAL") {
-        payload.appealId = selectedCampaign.id
-      } else if (selectedCampaign.type === "QURBANI") {
-        payload.qurbaniCountryId = qurbaniCountryId
-      } else {
-        payload.waterProjectId = selectedCampaign.id
-        payload.waterProjectCountryId = waterCountryId
-        if (selectedCampaign.plaqueAvailable && plaqueName.trim()) {
-          payload.plaqueName = plaqueName.trim()
-        }
       }
 
       if (isCustom) {
@@ -415,6 +426,16 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
         payload.isCustom = true
         if (trimmedImages.length > 0) {
           payload.customImageUrls = trimmedImages
+        }
+      } else if (selectedCampaign.type === "APPEAL") {
+        payload.appealId = selectedCampaign.id
+      } else if (selectedCampaign.type === "QURBANI") {
+        payload.qurbaniCountryId = qurbaniCountryId
+      } else if (selectedCampaign.type === "WATER") {
+        payload.waterProjectId = selectedCampaign.id
+        payload.waterProjectCountryId = waterCountryId
+        if (selectedCampaign.plaqueAvailable && plaqueName.trim()) {
+          payload.plaqueName = plaqueName.trim()
         }
       }
 
@@ -717,9 +738,8 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
           <button
             type="button"
             onClick={() => {
-              // Default to first eligible campaign as the underlying destination
-              const defaultCampaign = eligibleCampaigns[0] ?? null
-              setSelectedCampaign(defaultCampaign)
+              setSelectedCampaign(CUSTOM_STANDALONE_CAMPAIGN)
+              setQurbaniCountryId("")
               setIsCustom(true)
             }}
             className={`rounded-xl border p-4 text-left transition-all flex flex-col gap-1 ${

@@ -79,6 +79,7 @@ interface OfflineIncome {
   source: string
   receivedAt: Date
   orderNumber?: string | null
+  offlineIncomeGroupId?: string | null
   appeal?: { title: string } | null
   appealId?: string | null
   notes?: string | null
@@ -345,8 +346,13 @@ export function OfflineIncomeTable({
           id: "appeal",
           header: "Appeal Name",
           cell: (item) => (
-            <div className="font-medium">
-              {item.appeal?.title || "General"}
+            <div className="font-medium space-y-1">
+              <div>{item.appeal?.title || "General"}</div>
+              {item.offlineIncomeGroupId ? (
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  Split payment
+                </Badge>
+              ) : null}
             </div>
           ),
         },

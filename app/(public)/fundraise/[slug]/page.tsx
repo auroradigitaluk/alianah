@@ -255,6 +255,8 @@ export default async function FundraisePage({
     ])
     const isWaterFundraiser = Boolean(fundraiser.waterProjectId && fundraiser.waterProject)
     const isQurbaniFundraiser = Boolean(fundraiser.qurbaniCountryId && fundraiser.qurbaniCountry)
+    const isStandaloneFundraiser =
+      !fundraiser.appealId && !fundraiser.waterProjectId && !fundraiser.qurbaniCountryId
     const completedDonations = [...fundraiser.donations, ...fundraiser.qurbaniDonations]
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, 5)
@@ -278,11 +280,15 @@ export default async function FundraisePage({
       ? parseImageArray(fundraiser.waterProject?.fundraisingImageUrls)
       : isQurbaniFundraiser
         ? parseImageArray(fundraiser.qurbaniCountry?.fundraisingImageUrls)
-      : parseImageArray(fundraiser.appeal?.fundraisingImageUrls)
+        : isStandaloneFundraiser
+          ? []
+          : parseImageArray(fundraiser.appeal?.fundraisingImageUrls)
 
     const appealImages: string[] = isWaterFundraiser
       ? parseImageArray(fundraiser.waterProject?.projectImageUrls)
-      : parseImageArray(fundraiser.appeal?.appealImageUrls)
+      : isStandaloneFundraiser
+        ? []
+        : parseImageArray(fundraiser.appeal?.appealImageUrls)
 
     // Use custom images if set, otherwise first fundraising/appeal image, or fallback to hardcoded
     const slideshowImages =
@@ -298,7 +304,9 @@ export default async function FundraisePage({
       ? WATER_TYPE_LABELS[fundraiser.waterProject?.projectType || ""] || "Water Project"
       : isQurbaniFundraiser
         ? `Qurbani - ${fundraiser.qurbaniCountry?.country ?? "Country"}`
-        : fundraiser.appeal?.title || "Alianah Humanity Welfare"
+        : isStandaloneFundraiser
+          ? fundraiser.title
+          : fundraiser.appeal?.title || "Alianah Humanity Welfare"
 
     return (
       <div className="min-h-screen bg-[#fafafa] dark:bg-background">
@@ -364,19 +372,21 @@ export default async function FundraisePage({
                     }
                   : isQurbaniFundraiser && fundraiser.qurbaniCountry
                     ? {}
-                  : {
-                      appeal: {
-                        id: fundraiser.appeal!.id,
-                        title: fundraiser.appeal!.title,
-                        allowMonthly: false,
-                        monthlyPricePence: null,
-                        oneOffPresetAmountsPence: fundraiser.appeal!.oneOffPresetAmountsPence,
-                        monthlyPresetAmountsPence: fundraiser.appeal!.monthlyPresetAmountsPence,
-                        yearlyPresetAmountsPence: fundraiser.appeal!.yearlyPresetAmountsPence,
-                      },
-                      products: fundraiser.appeal!.products.filter((p) => p.frequency === "ONE_OFF"),
-                      donationTypesEnabled,
-                    })}
+                    : isStandaloneFundraiser
+                      ? {}
+                      : {
+                          appeal: {
+                            id: fundraiser.appeal!.id,
+                            title: fundraiser.appeal!.title,
+                            allowMonthly: false,
+                            monthlyPricePence: null,
+                            oneOffPresetAmountsPence: fundraiser.appeal!.oneOffPresetAmountsPence,
+                            monthlyPresetAmountsPence: fundraiser.appeal!.monthlyPresetAmountsPence,
+                            yearlyPresetAmountsPence: fundraiser.appeal!.yearlyPresetAmountsPence,
+                          },
+                          products: fundraiser.appeal!.products.filter((p) => p.frequency === "ONE_OFF"),
+                          donationTypesEnabled,
+                        })}
                 fundraiserId={fundraiser.id}
               />
             </div>
@@ -385,10 +395,20 @@ export default async function FundraisePage({
           {/* Story + recent supporters side by side on desktop (card same width as split card right column) */}
           <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 lg:gap-10 items-start">
             <div id="fundraiser-about" className="min-w-0 scroll-mt-24">
-              {(fundraiser.message || (isWaterFundraiser ? fundraiser.waterProject?.fundraisingDefaultMessage : fundraiser.appeal?.fundraisingDefaultMessage)) && (
+              {(fundraiser.message ||
+                (isWaterFundraiser
+                  ? fundraiser.waterProject?.fundraisingDefaultMessage
+                  : isStandaloneFundraiser
+                    ? null
+                    : fundraiser.appeal?.fundraisingDefaultMessage)) && (
                 <div className="prose prose-sm sm:prose-base max-w-none text-neutral-700 dark:text-muted-foreground prose-p:text-neutral-700 dark:prose-p:text-muted-foreground">
                   <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
-                    {fundraiser.message || (isWaterFundraiser ? fundraiser.waterProject?.fundraisingDefaultMessage : fundraiser.appeal?.fundraisingDefaultMessage)}
+                    {fundraiser.message ||
+                      (isWaterFundraiser
+                        ? fundraiser.waterProject?.fundraisingDefaultMessage
+                        : isStandaloneFundraiser
+                          ? null
+                          : fundraiser.appeal?.fundraisingDefaultMessage)}
                   </p>
                 </div>
               )}
@@ -443,6 +463,16 @@ export default async function FundraisePage({
                   <QurbaniFundraiserDonationForm fundraiserId={fundraiser.id} country={fundraiser.qurbaniCountry} />
                 </div>
               </div>
+            ) : isStandaloneFundraiser ? (
+              <>
+                <FundraiserInlineDonation
+                  fundraiserId={fundraiser.id}
+                  appealTitle={fundraiser.title}
+                  campaignTitle={campaignTitle}
+                  organizerName={fundraiser.fundraiserName}
+                  donationTypesEnabled={["GENERAL", "SADAQAH", "ZAKAT", "LILLAH"]}
+                />
+              </>
             ) : (
               <>
                 <FundraiserInlineDonation

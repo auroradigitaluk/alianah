@@ -1,12 +1,81 @@
 import type { DemoOrder, DemoOrderItem } from "@prisma/client"
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
+import type { DonationRow } from "@/components/donations-page-content"
 import { DonationsPageContent } from "@/components/donations-page-content"
 
 type AbandonedCheckoutRow = DemoOrder & { items: DemoOrderItem[] }
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
+
+function orderNumberFromNotes(notes: string | null): string | null {
+  if (!notes) return null
+  const match = notes.match(/OrderNumber:([A-Z0-9-]+)/)
+  return match?.[1] ?? null
+}
+
+async function getQurbaniDonationRows(): Promise<DonationRow[]> {
+  try {
+    const rows = await prisma.qurbaniDonation.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        donor: {
+          select: {
+            title: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            address: true,
+            city: true,
+            postcode: true,
+            country: true,
+          },
+        },
+        qurbaniCountry: { select: { country: true } },
+        fundraiser: {
+          select: {
+            fundraiserName: true,
+            title: true,
+            slug: true,
+            waterProjectId: true,
+            waterProject: { select: { projectType: true } },
+            waterProjectCountry: { select: { country: true } },
+          },
+        },
+      },
+    })
+    return rows.map((q): DonationRow => ({
+      id: q.id,
+      listKind: "qurbani",
+      amountPence: q.amountPence,
+      donationType: q.donationType,
+      frequency: "ONE_OFF",
+      status: "COMPLETED",
+      paymentMethod: q.paymentMethod,
+      collectedVia: q.collectedVia,
+      transactionId: q.transactionId,
+      orderNumber: q.donationNumber ?? orderNumberFromNotes(q.notes),
+      giftAid: q.giftAid,
+      billingAddress: q.billingAddress,
+      billingCity: q.billingCity,
+      billingPostcode: q.billingPostcode,
+      billingCountry: q.billingCountry,
+      createdAt: q.createdAt,
+      completedAt: q.createdAt,
+      donor: q.donor,
+      appeal: null,
+      product: null,
+      qurbaniCountry: { country: q.qurbaniCountry.country },
+      qurbaniSize: q.size,
+      fundraiser: q.fundraiser,
+    }))
+  } catch (error) {
+    console.error("[getQurbaniDonationRows]", error)
+    return []
+  }
+}
 
 async function getDonations() {
   try {
@@ -29,14 +98,24 @@ async function getDonations() {
         },
       },
     })
-    // Show one row per transaction: deduplicate by (orderNumber, transactionId) so the same payment
-    // doesn't appear twice when both client confirm and webhook ran.
+    const lineDedupeKey = (row: (typeof rows)[number]) => {
+      if (!row.orderNumber || !row.transactionId) return row.id
+      return [
+        row.orderNumber,
+        row.transactionId,
+        row.appealId ?? "",
+        row.waterProjectId ?? "",
+        row.fundraiserId ?? "",
+        row.productId ?? "",
+        row.amountPence,
+        row.donationType,
+        row.frequency,
+      ].join("|")
+    }
+    // Show one row per logical line item: dedupe identical rows when confirm + webhook both wrote the same donation.
     const byTx = new Map<string, typeof rows>()
     for (const row of rows) {
-      const key =
-        row.orderNumber && row.transactionId
-          ? `${row.orderNumber}:${row.transactionId}`
-          : row.id
+      const key = lineDedupeKey(row)
       const group = byTx.get(key)
       if (!group) byTx.set(key, [row])
       else group.push(row)
@@ -48,6 +127,7 @@ async function getDonations() {
     deduped.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))
     return deduped
   } catch (error) {
+    console.error("[getDonations]", error)
     return []
   }
 }
@@ -141,11 +221,19 @@ export default async function DonationsPage({
   searchParams: Promise<{ open?: string }>
 }) {
   const params = await searchParams
-  const [donations, abandonedCheckoutsRaw, completedDonorEmailAmounts] = await Promise.all([
-    getDonations(),
-    getAbandonedCheckouts(),
-    getCompletedDonorEmailAmounts(),
-  ])
+  const [regularDonations, abandonedCheckoutsRaw, completedDonorEmailAmounts, qurbaniRows] =
+    await Promise.all([
+      getDonations(),
+      getAbandonedCheckouts(),
+      getCompletedDonorEmailAmounts(),
+      getQurbaniDonationRows(),
+    ])
+
+  const donations = [...regularDonations, ...qurbaniRows].sort((a, b) => {
+    const ta = (a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt)).getTime()
+    const tb = (b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt)).getTime()
+    return tb - ta
+  })
 
   // Mark as recovered only when same email has a completed donation with the same total amount
   const withRecovered = abandonedCheckoutsRaw.map((order) => {

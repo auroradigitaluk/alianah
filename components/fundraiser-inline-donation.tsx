@@ -57,7 +57,8 @@ type DonationType = "GENERAL" | "SADAQAH" | "ZAKAT" | "LILLAH"
 
 export type FundraiserInlineDonationProps = {
   fundraiserId: string
-  appealId: string
+  /** Omit for standalone custom fundraisers (donations go only via fundraiserId). */
+  appealId?: string | null
   appealTitle: string
   campaignTitle: string
   organizerName: string
@@ -387,7 +388,7 @@ export function FundraiserInlineDonation({
 
             <WalletButtons
               fundraiserId={fundraiserId}
-              appealId={appealId}
+              appealId={appealId ?? undefined}
               appealTitle={appealTitle}
               amountPence={amountPence}
               donationType={effectiveDonationType}
@@ -564,7 +565,7 @@ function WalletButtons({
   onSuccess,
 }: {
   fundraiserId: string
-  appealId: string
+  appealId?: string
   appealTitle: string
   amountPence: number
   donationType: DonationType
@@ -616,7 +617,7 @@ function WalletButtons({
             body: JSON.stringify({
               items: [
                 {
-                  appealId,
+                  ...(appealId ? { appealId } : {}),
                   appealTitle,
                   fundraiserId,
                   frequency: "ONE_OFF",

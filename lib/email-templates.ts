@@ -590,21 +590,29 @@ export function buildSponsorshipDonationEmail(
 export type OfflineDonationReceiptEmailParams = {
   donorEmail: string
   donorName: string
-  appealTitle: string
-  amountPence: number
-  donationType: string
   receivedAt: Date
   donationNumber: string
   baseUrl?: string
+  /** Single-appeal receipt (default). */
+  appealTitle?: string
+  amountPence?: number
+  donationType?: string
+  /** When set, one office payment with multiple allocations (appeals, water, qurbani, sponsorship). */
+  lines?: Array<{ description: string; amountPence: number; donationType: string }>
 }
 
 export function buildOfflineDonationReceiptEmail(
   params: OfflineDonationReceiptEmailParams,
   settings?: OrganizationSettings | null
 ): EmailDoc {
-  const preheader = `Your donation receipt – ${escapeHtml(params.appealTitle)}`
-  const subject = `Donation receipt – ${escapeHtml(params.appealTitle)}`
   const receivedDate = formatDate(params.receivedAt)
+  const multiLines = params.lines && params.lines.length > 0 ? params.lines : null
+  const preheader = multiLines
+    ? `Your donation receipt – ${multiLines.length} items`
+    : `Your donation receipt – ${escapeHtml(params.appealTitle ?? "")}`
+  const subject = multiLines
+    ? `Donation receipt – ${multiLines.length} items`
+    : `Donation receipt – ${escapeHtml(params.appealTitle ?? "")}`
   const introHtml = `
     <div style="color:${BRAND.muted}; font-size: 14px; margin: 0 0 16px 0;">
       Dear ${escapeHtml(params.donorName)},
@@ -613,12 +621,38 @@ export function buildOfflineDonationReceiptEmail(
     </div>
   `
   const rowBorder = `border-bottom: 1px solid ${BRAND.border};`
-  const details = `
+  const details =
+    multiLines != null
+      ? (() => {
+          const totalPence = multiLines.reduce((s, l) => s + l.amountPence, 0)
+          const lineRows = multiLines
+            .map(
+              (l) => `
+      <tr>
+        <td style="padding: 10px 8px 10px 0; ${rowBorder} vertical-align: top;">
+          <div style="font-weight: 600; color:${BRAND.text};">${escapeHtml(l.description)}</div>
+          <div style="font-size: 13px; color:${BRAND.muted};">${escapeHtml(DONATION_TYPE_LABELS[l.donationType] || l.donationType)}</div>
+        </td>
+        <td align="right" style="padding: 10px 0 10px 8px; ${rowBorder} font-weight: 700; white-space: nowrap;">${moneyPence(l.amountPence)}</td>
+      </tr>`
+            )
+            .join("")
+          return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
       <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation number</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.donationNumber)}</td></tr>
-      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Appeal</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.appealTitle)}</td></tr>
-      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType] || params.donationType)}</td></tr>
-      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.amountPence)}</td></tr>
+      <tr><td colspan="2" style="padding: 12px 0 8px 0; font-size: 13px; font-weight: 600; color:${BRAND.muted};">Allocations</td></tr>
+      ${lineRows}
+      <tr><td style="padding: 12px 0 8px 0; font-weight: 700; border-top: 1px solid ${BRAND.border};">Total</td><td align="right" style="padding: 12px 0 8px 0; font-weight: 700; border-top: 1px solid ${BRAND.border};">${moneyPence(totalPence)}</td></tr>
+      <tr><td style="padding: 8px 0; color:${BRAND.muted};">Date received</td><td align="right" style="padding: 8px 0; font-weight: 700;">${escapeHtml(receivedDate)}</td></tr>
+    </table>
+  `
+        })()
+      : `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation number</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.donationNumber)}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Appeal</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(params.appealTitle ?? "")}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Donation type</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${escapeHtml(DONATION_TYPE_LABELS[params.donationType ?? ""] || params.donationType || "")}</td></tr>
+      <tr><td style="padding: 8px 0; ${rowBorder} color:${BRAND.muted};">Amount</td><td align="right" style="padding: 8px 0; ${rowBorder} font-weight: 700;">${moneyPence(params.amountPence ?? 0)}</td></tr>
       <tr><td style="padding: 8px 0; color:${BRAND.muted};">Date received</td><td align="right" style="padding: 8px 0; font-weight: 700;">${escapeHtml(receivedDate)}</td></tr>
     </table>
   `

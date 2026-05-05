@@ -82,6 +82,8 @@ interface Donation {
   }
   appeal?: { title: string } | null
   product?: { name: string } | null
+  qurbaniCountry?: { country: string } | null
+  qurbaniSize?: string | null
   fundraiser?: {
     fundraiserName: string
     title: string
@@ -90,6 +92,7 @@ interface Donation {
     waterProject?: { projectType: string } | null
     waterProjectCountry?: { country: string } | null
   } | null
+  listKind?: "qurbani"
 }
 
 const WATER_PROJECT_LABELS: Record<string, string> = {
@@ -99,10 +102,21 @@ const WATER_PROJECT_LABELS: Record<string, string> = {
   WUDHU_AREA: "Wudhu Areas",
 }
 
+const QURBANI_SIZE_LABELS: Record<string, string> = {
+  ONE_SEVENTH: "1/7th",
+  SMALL: "Small",
+  LARGE: "Large",
+}
+
 function getCampaignLabel(donation: Donation): string {
   let base: string
 
-  if (donation.appeal?.title) {
+  if (donation.qurbaniCountry?.country) {
+    const sz = donation.qurbaniSize
+      ? QURBANI_SIZE_LABELS[donation.qurbaniSize] ?? donation.qurbaniSize
+      : ""
+    base = sz ? `Qurbani (${sz}) — ${donation.qurbaniCountry.country}` : `Qurbani — ${donation.qurbaniCountry.country}`
+  } else if (donation.appeal?.title) {
     base = donation.appeal.title
   } else if (
     donation.fundraiser?.waterProject &&
@@ -179,6 +193,12 @@ type DonationDetailsResponse = {
   stripe: StripeInfo | null
 }
 
+type QurbaniDonationDetailsResponse = {
+  order: DemoOrder | null
+  stripe: StripeInfo | null
+  checkoutOrderNumber: string | null
+}
+
 function InfoRow(props: { label: string; value?: string | null; mono?: boolean }) {
   const { label, value, mono } = props
   return (
@@ -200,6 +220,7 @@ export function DonationsTable({
 }) {
   const [selectedDonation, setSelectedDonation] = useState<Donation | null>(null)
   const [details, setDetails] = useState<DonationDetailsResponse | null>(null)
+  const [qurbaniDetails, setQurbaniDetails] = useState<QurbaniDonationDetailsResponse | null>(null)
 
   useEffect(() => {
     if (initialSelectedId) {
@@ -225,6 +246,7 @@ export function DonationsTable({
   useEffect(() => {
     if (!selectedDonation) {
       setDetails(null)
+      setQurbaniDetails(null)
       setDetailsError(null)
       return
     }
@@ -234,14 +256,27 @@ export function DonationsTable({
       setDetailsLoading(true)
       setDetailsError(null)
       try {
-        const response = await fetch(`/api/admin/donations/${selectedDonation.id}/details`, {
-          signal: controller.signal,
-        })
-        if (!response.ok) {
-          throw new Error("Failed to load donation details")
+        if (selectedDonation.listKind === "qurbani") {
+          setDetails(null)
+          const response = await fetch(`/api/admin/qurbani/donations/${selectedDonation.id}/details`, {
+            signal: controller.signal,
+          })
+          if (!response.ok) {
+            throw new Error("Failed to load donation details")
+          }
+          const data = (await response.json()) as QurbaniDonationDetailsResponse
+          setQurbaniDetails(data)
+        } else {
+          setQurbaniDetails(null)
+          const response = await fetch(`/api/admin/donations/${selectedDonation.id}/details`, {
+            signal: controller.signal,
+          })
+          if (!response.ok) {
+            throw new Error("Failed to load donation details")
+          }
+          const data = (await response.json()) as DonationDetailsResponse
+          setDetails(data)
         }
-        const data = (await response.json()) as DonationDetailsResponse
-        setDetails(data)
       } catch (error) {
         if (!controller.signal.aborted) {
           setDetailsError(error instanceof Error ? error.message : "Failed to load details")
@@ -258,14 +293,22 @@ export function DonationsTable({
     return () => controller.abort()
   }, [selectedDonation])
 
-  const stripeInfo = details?.stripe || null
-  const donation = details?.donation || selectedDonation
-  const order = details?.order || null
+  const stripeForModal =
+    selectedDonation?.listKind === "qurbani"
+      ? qurbaniDetails?.stripe ?? null
+      : details?.stripe ?? null
+
+  const donation =
+    selectedDonation?.listKind === "qurbani"
+      ? selectedDonation
+      : (details?.donation ?? selectedDonation)
+  const order = selectedDonation?.listKind === "qurbani" ? qurbaniDetails?.order ?? null : details?.order || null
   const canRefund =
-    Boolean(stripeInfo?.paymentIntentId) &&
-    stripeInfo?.status === "succeeded" &&
-    !stripeInfo?.refunded &&
-    !stripeInfo?.subscriptionId
+    selectedDonation?.listKind !== "qurbani" &&
+    Boolean(stripeForModal?.paymentIntentId) &&
+    stripeForModal?.status === "succeeded" &&
+    !stripeForModal?.refunded &&
+    !stripeForModal?.subscriptionId
 
   const statusOptions = useMemo(
     () =>
@@ -676,52 +719,52 @@ export function DonationsTable({
                           <InfoRow label="Payment Method" value={formatPaymentMethod(donation.paymentMethod)} />
                           <InfoRow label="Order Number" value={donation.orderNumber || "-"} mono />
                           <InfoRow label="Stripe Reference" value={donation.transactionId || "-"} mono />
-                          <InfoRow label="Payment ID" value={stripeInfo?.paymentIntentId || "-"} mono />
-                          <InfoRow label="Charge ID" value={stripeInfo?.chargeId || "-"} mono />
-                          <InfoRow label="Stripe Status" value={stripeInfo?.status || "-"} />
-                          <InfoRow label="Receipt Email" value={stripeInfo?.receiptEmail || "-"} />
-                          <InfoRow label="Description" value={stripeInfo?.description || "-"} />
+                          <InfoRow label="Payment ID" value={stripeForModal?.paymentIntentId || "-"} mono />
+                          <InfoRow label="Charge ID" value={stripeForModal?.chargeId || "-"} mono />
+                          <InfoRow label="Stripe Status" value={stripeForModal?.status || "-"} />
+                          <InfoRow label="Receipt Email" value={stripeForModal?.receiptEmail || "-"} />
+                          <InfoRow label="Description" value={stripeForModal?.description || "-"} />
                           <InfoRow
                             label="Payment Created"
                             value={
-                              stripeInfo?.created ? formatDateTime(new Date(stripeInfo.created * 1000)) : "-"
+                              stripeForModal?.created ? formatDateTime(new Date(stripeForModal.created * 1000)) : "-"
                             }
                           />
                           <InfoRow
                             label="Amount Charged"
                             value={
-                              stripeInfo?.amount != null && stripeInfo?.currency
-                                ? formatCurrency(stripeInfo.amount)
+                              stripeForModal?.amount != null && stripeForModal?.currency
+                                ? formatCurrency(stripeForModal.amount)
                                 : "-"
                             }
                           />
                           <InfoRow
                             label="Amount Refunded"
                             value={
-                              stripeInfo?.amountRefunded
-                                ? formatCurrency(stripeInfo.amountRefunded)
-                                : stripeInfo?.refunded
-                                  ? formatCurrency(stripeInfo.amount || 0)
+                              stripeForModal?.amountRefunded
+                                ? formatCurrency(stripeForModal.amountRefunded)
+                                : stripeForModal?.refunded
+                                  ? formatCurrency(stripeForModal.amount || 0)
                                   : "-"
                             }
                           />
                           <InfoRow
                             label="Fees"
                             value={
-                              stripeInfo?.fees != null ? formatCurrency(stripeInfo.fees) : "-"
+                              stripeForModal?.fees != null ? formatCurrency(stripeForModal.fees) : "-"
                             }
                           />
                           <InfoRow
                             label="Net"
                             value={
-                              stripeInfo?.net != null ? formatCurrency(stripeInfo.net) : "-"
+                              stripeForModal?.net != null ? formatCurrency(stripeForModal.net) : "-"
                             }
                           />
-                          <InfoRow label="Subscription ID" value={stripeInfo?.subscriptionId || "-"} mono />
-                          <InfoRow label="Subscription Status" value={stripeInfo?.subscriptionStatus || "-"} />
+                          <InfoRow label="Subscription ID" value={stripeForModal?.subscriptionId || "-"} mono />
+                          <InfoRow label="Subscription Status" value={stripeForModal?.subscriptionStatus || "-"} />
                           <InfoRow
                             label="Next Payment Date"
-                            value={stripeInfo?.nextPaymentDate ? formatDateTime(stripeInfo.nextPaymentDate) : "-"}
+                            value={stripeForModal?.nextPaymentDate ? formatDateTime(stripeForModal.nextPaymentDate) : "-"}
                           />
                         </div>
                       </section>
@@ -735,24 +778,24 @@ export function DonationsTable({
                           <InfoRow
                             label="Card"
                             value={
-                              stripeInfo?.card?.brand
-                                ? `${formatEnum(stripeInfo.card.brand)} •••• ${stripeInfo.card.last4}`
+                              stripeForModal?.card?.brand
+                                ? `${formatEnum(stripeForModal.card.brand)} •••• ${stripeForModal.card.last4}`
                                 : "-"
                             }
                           />
                           <InfoRow
                             label="Expiry"
                             value={
-                              stripeInfo?.card?.expMonth && stripeInfo?.card?.expYear
-                                ? `${stripeInfo.card.expMonth}/${stripeInfo.card.expYear}`
+                              stripeForModal?.card?.expMonth && stripeForModal?.card?.expYear
+                                ? `${stripeForModal.card.expMonth}/${stripeForModal.card.expYear}`
                                 : "-"
                             }
                           />
-                          <InfoRow label="Funding" value={stripeInfo?.card?.funding ? formatEnum(stripeInfo.card.funding) : "-"} />
-                          <InfoRow label="Card Country" value={stripeInfo?.card?.country || "-"} />
-                          <InfoRow label="Network" value={stripeInfo?.card?.network || "-"} />
-                          <InfoRow label="Risk Level" value={stripeInfo?.riskLevel || "-"} />
-                          <InfoRow label="Risk Score" value={stripeInfo?.riskScore != null ? `${stripeInfo.riskScore}` : "-"} />
+                          <InfoRow label="Funding" value={stripeForModal?.card?.funding ? formatEnum(stripeForModal.card.funding) : "-"} />
+                          <InfoRow label="Card Country" value={stripeForModal?.card?.country || "-"} />
+                          <InfoRow label="Network" value={stripeForModal?.card?.network || "-"} />
+                          <InfoRow label="Risk Level" value={stripeForModal?.riskLevel || "-"} />
+                          <InfoRow label="Risk Score" value={stripeForModal?.riskScore != null ? `${stripeForModal.riskScore}` : "-"} />
                         </div>
                       </section>
                     </div>

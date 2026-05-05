@@ -35,6 +35,8 @@ export type DonationRow = {
   }
   appeal?: { title: string } | null
   product?: { name: string } | null
+  qurbaniCountry?: { country: string } | null
+  qurbaniSize?: string | null
   fundraiser?: {
     fundraiserName: string
     title: string
@@ -43,6 +45,8 @@ export type DonationRow = {
     waterProject?: { projectType: string } | null
     waterProjectCountry?: { country: string } | null
   } | null
+  /** When set, this row comes from Qurbani donations (merged into the website donations table). */
+  listKind?: "qurbani"
 }
 
 export function DonationsPageContent({

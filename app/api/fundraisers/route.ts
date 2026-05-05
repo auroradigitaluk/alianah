@@ -24,22 +24,16 @@ const fundraiserSchema = z
     const hasAppeal = Boolean(data.appealId)
     const hasWaterProject = Boolean(data.waterProjectId)
     const hasQurbani = Boolean(data.qurbaniCountryId)
-    if ([hasAppeal, hasWaterProject, hasQurbani].filter(Boolean).length !== 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["appealId"],
-        message: "Provide exactly one campaign: appeal, water project, or qurbani country",
-      })
-    }
-    if (data.waterProjectId && !data.waterProjectCountryId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["waterProjectCountryId"],
-        message: "Water project fundraiser requires a country selection",
-      })
-    }
+    const hasAnyCampaign = hasAppeal || hasWaterProject || hasQurbani
 
     if (data.isCustom) {
+      if (hasAnyCampaign) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["isCustom"],
+          message: "Custom fundraisers cannot be linked to an existing campaign — omit appeal, water, and qurbani IDs.",
+        })
+      }
       const images = data.customImageUrls ?? []
       if (!Array.isArray(images) || images.length < 3) {
         ctx.addIssue({
@@ -48,6 +42,20 @@ const fundraiserSchema = z
           message: "Custom fundraisers must include at least 3 image URLs",
         })
       }
+    } else if ([hasAppeal, hasWaterProject, hasQurbani].filter(Boolean).length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["appealId"],
+        message: "Provide exactly one campaign: appeal, water project, or qurbani country",
+      })
+    }
+
+    if (!data.isCustom && data.waterProjectId && !data.waterProjectCountryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["waterProjectCountryId"],
+        message: "Water project fundraiser requires a country selection",
+      })
     }
   })
 
@@ -75,13 +83,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const isCustom = data.isCustom ?? false
+
     let campaignTitle = data.title
-    let appealTitleForEmail = "the appeal"
+    let appealTitleForEmail = isCustom ? data.title.trim() || "Custom fundraiser" : "the appeal"
     let appealId: string | null = null
     let waterProjectId: string | null = null
     let qurbaniCountryId: string | null = null
 
-    if (data.appealId) {
+    if (isCustom) {
+      // Standalone custom page: no appeal / water / qurbani — we only facilitate donations.
+    } else if (data.appealId) {
       const appeal = await prisma.appeal.findUnique({
         where: { id: data.appealId },
         select: { id: true, title: true, allowFundraising: true, isActive: true },
@@ -182,7 +194,12 @@ export async function POST(request: NextRequest) {
       qurbaniCountryId = country.id
     }
 
-    const title = (data.title && data.title.trim()) ? data.title.trim() : appealTitleForEmail
+    const title =
+      data.title && data.title.trim()
+        ? data.title.trim()
+        : isCustom
+          ? "Fundraising campaign"
+          : appealTitleForEmail
 
     // Generate unique slug
     let slug = nanoid(12)
@@ -192,7 +209,6 @@ export async function POST(request: NextRequest) {
       exists = await prisma.fundraiser.findUnique({ where: { slug } })
     }
 
-    const isCustom = data.isCustom ?? false
     const fundraiser = await prisma.fundraiser.create({
       data: {
         ...(appealId

@@ -269,7 +269,7 @@ export function DashboardDateFilter() {
         {currentRange === "custom" && (
           <Popover open={customPopoverOpen} onOpenChange={setCustomPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="shrink-0 min-w-0">
+              <Button variant="outline" className="h-9 shrink-0 min-w-0 px-3 text-sm">
                 {customRangeLabel ?? "Pick dates"}
               </Button>
             </PopoverTrigger>

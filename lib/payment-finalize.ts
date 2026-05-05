@@ -9,6 +9,15 @@ import { generateDonationNumber } from "@/lib/donation-number"
 import { createPortalToken } from "@/lib/portal-token"
 import { COLLECTION_SOURCES, PAYMENT_METHODS } from "@/lib/utils"
 
+function fundraiserDonorDisplayName(d: {
+  isAnonymous?: boolean | null
+  donor: { firstName: string; lastName: string }
+}): string {
+  if (d.isAnonymous) return "Anonymous"
+  const name = [d.donor.firstName, d.donor.lastName].filter(Boolean).join(" ").trim()
+  return name || "Anonymous"
+}
+
 export async function finalizeOrderByOrderNumber(params: {
   orderNumber: string
   paidAt: Date
@@ -101,6 +110,7 @@ export async function finalizeOrderByOrderNumber(params: {
     status?: string | null
     transactionId?: string | null
     emailSent?: boolean | null
+    isAnonymous?: boolean | null
     donor: { firstName: string; lastName: string; email: string }
     country: { country: string } | null
     waterProject: { id: string; projectType: string; location: string | null; status?: string | null } | null
@@ -223,6 +233,64 @@ export async function finalizeOrderByOrderNumber(params: {
         )
       )
     }
+  }
+
+  // Standalone custom fundraiser (no linked appeal / water / qurbani) → Donation with fundraiserId only
+  const standaloneFundraiserItems = order.items.filter(
+    (item) =>
+      item.fundraiserId &&
+      !item.appealId &&
+      !item.waterProjectId &&
+      !item.qurbaniCountryId &&
+      targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
+  )
+  const standaloneFundraiserItemsToCreate = standaloneFundraiserItems.filter((item) => {
+    const key = donationKeyForItem(item)
+    const count = existingDonationCounts.get(key) ?? 0
+    if (count > 0) {
+      existingDonationCounts.set(key, count - 1)
+      return false
+    }
+    return true
+  })
+
+  if (standaloneFundraiserItemsToCreate.length > 0) {
+    const createdStandaloneFundraiserDonations = await Promise.all(
+      standaloneFundraiserItemsToCreate.map((item) =>
+        prisma.donation.create({
+          data: {
+            donorId: donor.id,
+            appealId: null,
+            fundraiserId: item.fundraiserId!,
+            productId: null,
+            amountPence: item.amountPence,
+            donationType: item.donationType,
+            frequency: item.frequency,
+            paymentMethod,
+            collectedVia,
+            status: "COMPLETED",
+            giftAid: order.giftAid,
+            isAnonymous: item.isAnonymous ?? false,
+            billingAddress,
+            billingCity,
+            billingPostcode,
+            billingCountry,
+            orderNumber,
+            completedAt: paidAt,
+            ...(paymentRef ? { transactionId: paymentRef } : {}),
+          },
+          include: {
+            donor: true,
+            fundraiser: {
+              include: {
+                appeal: { select: { title: true } },
+              },
+            },
+          },
+        })
+      )
+    )
+    createdAppealDonations = [...createdAppealDonations, ...createdStandaloneFundraiserDonations]
   }
 
   // Water fundraiser contributions → Donation (show on donations page; one pump added to water table when target met)
@@ -427,8 +495,9 @@ export async function finalizeOrderByOrderNumber(params: {
       targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
   )
   if (qurbaniItems.length > 0 && existingQurbaniDonations.length === 0) {
-    await Promise.all(
-      qurbaniItems.map((item) =>
+    const qurbaniDonationNumbers = await Promise.all(qurbaniItems.map(() => generateDonationNumber()))
+    const createdQurbaniDonations = await Promise.all(
+      qurbaniItems.map((item, i) =>
         prisma.qurbaniDonation.create({
           data: {
             qurbaniCountryId: item.qurbaniCountryId!,
@@ -446,12 +515,38 @@ export async function finalizeOrderByOrderNumber(params: {
             billingCity,
             billingPostcode,
             billingCountry,
+            donationNumber: qurbaniDonationNumbers[i],
             notes: `OrderNumber:${orderNumber}`,
             qurbaniNames: item.qurbaniNames ?? null,
+          },
+          include: {
+            donor: true,
+            fundraiser: {
+              select: { email: true, fundraiserName: true, title: true, slug: true },
+            },
           },
         })
       )
     )
+
+    const { getFundraiserBaseUrl } = await import("@/lib/utils")
+    const fundraiserBase = getFundraiserBaseUrl()
+    for (const q of createdQurbaniDonations) {
+      if (!q.fundraiserId || !q.fundraiser) continue
+      try {
+        await sendFundraiserDonationNotification({
+          fundraiserEmail: q.fundraiser.email,
+          fundraiserName: q.fundraiser.fundraiserName,
+          fundraiserTitle: q.fundraiser.title,
+          donorName: fundraiserDonorDisplayName(q),
+          amount: q.amountPence,
+          donationType: q.donationType,
+          fundraiserUrl: `${fundraiserBase}/fundraise/${q.fundraiser.slug}`,
+        })
+      } catch (err) {
+        console.error("Error sending fundraiser donation notification (qurbani):", err)
+      }
+    }
   }
 
   if (!wasAlreadyCompleted && shouldFinalizeOrder) {
@@ -654,7 +749,7 @@ export async function finalizeOrderByOrderNumber(params: {
           fundraiserEmail: donation.fundraiser.email,
           fundraiserName: donation.fundraiser.fundraiserName,
           fundraiserTitle: donation.fundraiser.title,
-          donorName: donation.donor.firstName || "Anonymous",
+          donorName: fundraiserDonorDisplayName(donation),
           amount: donation.amountPence,
           donationType: donation.donationType,
           fundraiserUrl,
@@ -674,7 +769,7 @@ export async function finalizeOrderByOrderNumber(params: {
           fundraiserEmail: donation.fundraiser.email,
           fundraiserName: donation.fundraiser.fundraiserName,
           fundraiserTitle: donation.fundraiser.title,
-          donorName: donation.donor.firstName || "Anonymous",
+          donorName: fundraiserDonorDisplayName(donation),
           amount: donation.amountPence,
           donationType: donation.donationType,
           fundraiserUrl,

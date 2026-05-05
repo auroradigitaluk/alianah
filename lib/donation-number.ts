@@ -7,31 +7,48 @@ export async function generateDonationNumber(): Promise<string> {
     const n = randomInt(0, 100_000_000)
     const candidate = `786-1${String(n).padStart(8, "0")}`
 
-    const [demoOrder, offlineIncome, waterDonation, sponsorshipDonation, fundraiserCash] =
-      await Promise.all([
-        prisma.demoOrder.findUnique({
-          where: { orderNumber: candidate },
-          select: { id: true },
-        }),
-        prisma.offlineIncome.findFirst({
-          where: { donationNumber: candidate },
-          select: { id: true },
-        }),
-        prisma.waterProjectDonation.findFirst({
-          where: { donationNumber: candidate },
-          select: { id: true },
-        }),
-        prisma.sponsorshipDonation.findFirst({
-          where: { donationNumber: candidate },
-          select: { id: true },
-        }),
-        prisma.fundraiserCashDonation.findFirst({
-          where: { donationNumber: candidate },
-          select: { id: true },
-        }),
-      ])
+    const [
+      demoOrder,
+      offlineIncome,
+      waterDonation,
+      sponsorshipDonation,
+      fundraiserCash,
+      qurbaniDonation,
+    ] = await Promise.all([
+      prisma.demoOrder.findUnique({
+        where: { orderNumber: candidate },
+        select: { id: true },
+      }),
+      prisma.offlineIncome.findFirst({
+        where: { donationNumber: candidate },
+        select: { id: true },
+      }),
+      prisma.waterProjectDonation.findFirst({
+        where: { donationNumber: candidate },
+        select: { id: true },
+      }),
+      prisma.sponsorshipDonation.findFirst({
+        where: { donationNumber: candidate },
+        select: { id: true },
+      }),
+      prisma.fundraiserCashDonation.findFirst({
+        where: { donationNumber: candidate },
+        select: { id: true },
+      }),
+      prisma.qurbaniDonation.findFirst({
+        where: { donationNumber: candidate },
+        select: { id: true },
+      }),
+    ])
 
-    if (!demoOrder && !offlineIncome && !waterDonation && !sponsorshipDonation && !fundraiserCash) {
+    if (
+      !demoOrder &&
+      !offlineIncome &&
+      !waterDonation &&
+      !sponsorshipDonation &&
+      !fundraiserCash &&
+      !qurbaniDonation
+    ) {
       return candidate
     }
   }

@@ -395,6 +395,8 @@ model OfflineIncome {
   billingPostcode     String?
   billingCountry      String?
   donationNumber      String?   // Reference for receipts (e.g. 786-1xxxxxxxx), same format as online
+  /// When set, this row is one of several `OfflineIncome` records from a single office payment split across appeals.
+  offlineIncomeGroupId String?
   createdAt           DateTime  @default(now())
 
   appeal    Appeal?    @relation(fields: [appealId], references: [id], onDelete: SetNull)
@@ -407,6 +409,7 @@ model OfflineIncome {
   @@index([donorId])
   @@index([giftAid])
   @@index([donationNumber])
+  @@index([offlineIncomeGroupId])
   @@map("offline_income")
 }
 
@@ -781,6 +784,7 @@ model QurbaniDonation {
   addedByAdminUserId  String?
   notes               String?   // e.g. OrderNumber:786-1...
   qurbaniNames        String?   // Whose name the qurbani is for (comma-separated for Large)
+  officePaymentGroupId String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -796,6 +800,7 @@ model QurbaniDonation {
   @@index([createdAt])
   @@index([donationNumber])
   @@index([addedByAdminUserId])
+  @@index([officePaymentGroupId])
   @@map("qurbani_donations")
 }
 
@@ -873,6 +878,7 @@ model WaterProjectDonation {
   status               String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE (individual donation status)
   addedByAdminUserId   String?
   donationNumber       String?   // Reference for receipts (e.g. 786-1xxxxxxxx), same format as online
+  officePaymentGroupId  String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   completedAt         DateTime?
@@ -892,6 +898,7 @@ model WaterProjectDonation {
   @@index([createdAt])
   @@index([addedByAdminUserId])
   @@index([donationNumber])
+  @@index([officePaymentGroupId])
   @@map("water_project_donations")
 }
 
@@ -978,6 +985,7 @@ model SponsorshipDonation {
   status              String?   // WAITING_TO_REVIEW | ORDERED | PENDING | COMPLETE
   addedByAdminUserId  String?
   donationNumber      String?   // Reference for receipts (e.g. 786-1xxxxxxxx), same format as online
+  officePaymentGroupId String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   completedAt         DateTime?
@@ -994,5 +1002,6 @@ model SponsorshipDonation {
   @@index([createdAt])
   @@index([addedByAdminUserId])
   @@index([donationNumber])
+  @@index([officePaymentGroupId])
   @@map("sponsorship_donations")
 }

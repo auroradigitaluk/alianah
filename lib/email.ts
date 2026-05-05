@@ -12,6 +12,7 @@ import {
   buildWaterProjectCompletionEmail,
   buildWaterProjectDonationEmail,
   buildOfflineDonationReceiptEmail,
+  type OfflineDonationReceiptEmailParams,
   buildCollectionReceiptEmail,
   buildAdminInviteEmail,
   buildAdminPasswordResetEmail,
@@ -588,15 +589,7 @@ export async function sendAdminLoginOtpEmail(params: { email: string; code: stri
   }
 }
 
-export async function sendOfflineDonationReceiptEmail(params: {
-  donorEmail: string
-  donorName: string
-  appealTitle: string
-  amountPence: number
-  donationType: string
-  receivedAt: Date
-  donationNumber: string
-}) {
+export async function sendOfflineDonationReceiptEmail(params: OfflineDonationReceiptEmailParams) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set, skipping offline donation receipt email")
     return
