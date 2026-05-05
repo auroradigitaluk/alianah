@@ -17,7 +17,7 @@ import { getAdminUser } from "@/lib/admin-auth"
 import { getDeduplicatedDonationGroupBy, getDeduplicatedDonationSum, getDeduplicatedDonationCount, sumDonationsDeduplicated, deduplicateDonationsByTransaction } from "@/lib/donation-dedup"
 import { formatCurrency, formatDonorName, PAYMENT_METHODS, formatPaymentMethod } from "@/lib/utils"
 import { Wallet, Globe, Building2, TrendingUp, TrendingDown, Repeat, XCircle } from "lucide-react"
-import { getDashboardDateRange } from "@/lib/dashboard-date-range"
+import { getDashboardDateRange, getDashboardComparisonPeriod } from "@/lib/dashboard-date-range"
 
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic'
@@ -321,20 +321,19 @@ export default async function AdminDashboardPage({
     const staffId = isStaff ? user!.id : null
 
     // Get global date range (applies to all cards, charts, and tables)
-    const dateRange = getDashboardDateRange(
-      params?.range || "30d",
-      params?.start,
-      params?.end
-    )
+    const rangeParam = params?.range || "30d"
+    const dateRange = getDashboardDateRange(rangeParam, params?.start, params?.end)
     const { startDate, endDate } = dateRange
-    
-    // Calculate previous period for comparison
-    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-    const comparisonStartDate = new Date(startDate)
-    comparisonStartDate.setDate(comparisonStartDate.getDate() - daysDiff - 1)
-    const comparisonEndDate = new Date(startDate)
-    comparisonEndDate.setDate(comparisonEndDate.getDate() - 1)
-    comparisonEndDate.setHours(23, 59, 59, 999)
+
+    const comparisonMeta = getDashboardComparisonPeriod(startDate, endDate, {
+      skipWhenAllTime: rangeParam === "all",
+    })
+    const comparisonPeriodEnabled = comparisonMeta !== null
+    /** When comparison is disabled (all-time), use an empty future range so previous-period sums stay zero. */
+    const comparisonStartDate =
+      comparisonMeta?.comparisonStartDate ?? new Date("2100-01-01T00:00:00.000Z")
+    const comparisonEndDate =
+      comparisonMeta?.comparisonEndDate ?? new Date("2100-01-01T00:00:00.000Z")
 
     // Staff filter: only show data they logged (addedByAdminUserId)
     const staffFilter = staffId ? { addedByAdminUserId: staffId } : {}
@@ -348,6 +347,8 @@ export default async function AdminDashboardPage({
       "CASH",
       "BANK_TRANSFER",
     ]
+    /** Office-logged Stripe/PayPal belongs in Total Offline only (not Total Online). */
+    const notCollectedViaOffice = { NOT: { collectedVia: "office" } }
 
     // Get stat card metrics for the selected period (current + previous for comparison)
     const [
@@ -368,6 +369,7 @@ export default async function AdminDashboardPage({
               status: "COMPLETED",
               paymentMethod: { in: STRIPE_PAYMENT_METHODS },
               createdAt: { gte: startDate, lte: endDate },
+              ...notCollectedViaOffice,
             })
               .then((s) => ({ _sum: { amountPence: s } }))
               .catch(() => ({ _sum: { amountPence: 0 } })),
@@ -376,6 +378,7 @@ export default async function AdminDashboardPage({
                 where: {
                   paymentMethod: { in: STRIPE_PAYMENT_METHODS },
                   createdAt: { gte: startDate, lte: endDate },
+                  ...notCollectedViaOffice,
                 },
                 _sum: { amountPence: true },
               })
@@ -385,16 +388,28 @@ export default async function AdminDashboardPage({
                 where: {
                   paymentMethod: { in: STRIPE_PAYMENT_METHODS },
                   createdAt: { gte: startDate, lte: endDate },
+                  ...notCollectedViaOffice,
                 },
                 _sum: { amountPence: true },
               })
               .catch(() => ({ _sum: { amountPence: 0 } })),
-          ]).then(([donationsAgg, waterAgg, sponsorshipAgg]) => ({
+            prisma.qurbaniDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: STRIPE_PAYMENT_METHODS },
+                  createdAt: { gte: startDate, lte: endDate },
+                  ...notCollectedViaOffice,
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+          ]).then(([donationsAgg, waterAgg, sponsorshipAgg, qurbaniAgg]) => ({
             _sum: {
               amountPence:
                 (donationsAgg._sum.amountPence ?? 0) +
                 (waterAgg._sum.amountPence ?? 0) +
-                (sponsorshipAgg._sum.amountPence ?? 0),
+                (sponsorshipAgg._sum.amountPence ?? 0) +
+                (qurbaniAgg._sum.amountPence ?? 0),
             },
           })),
       // Current period: Total Offline = all offline sources (appeal, water, sponsorship, fundraiser cash)
@@ -452,14 +467,28 @@ export default async function AdminDashboardPage({
             _sum: { amountPence: true },
           })
           .catch(() => ({ _sum: { amountPence: 0 } })),
-      ]).then(([offlineIncomeAgg, donationAgg, waterAgg, sponsorshipAgg, fundraiserCashAgg]) => ({
+        prisma.qurbaniDonation
+          .aggregate({
+            where: {
+              ...(isStaff ? { addedByAdminUserId: staffId! } : {}),
+              createdAt: { gte: startDate, lte: endDate },
+              OR: [
+                { paymentMethod: { in: OFFLINE_PAYMENT_METHODS } },
+                { collectedVia: "office" },
+              ],
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+      ]).then(([offlineIncomeAgg, donationAgg, waterAgg, sponsorshipAgg, fundraiserCashAgg, qurbaniOfflineAgg]) => ({
         _sum: {
           amountPence:
             (offlineIncomeAgg._sum.amountPence ?? 0) +
             (donationAgg._sum.amountPence ?? 0) +
             (waterAgg._sum.amountPence ?? 0) +
             (sponsorshipAgg._sum.amountPence ?? 0) +
-            (fundraiserCashAgg._sum.amountPence ?? 0),
+            (fundraiserCashAgg._sum.amountPence ?? 0) +
+            (qurbaniOfflineAgg._sum.amountPence ?? 0),
         },
       })),
       // Current period: Total Collections (filtered by staff if STAFF)
@@ -504,6 +533,7 @@ export default async function AdminDashboardPage({
               status: "COMPLETED",
               paymentMethod: { in: STRIPE_PAYMENT_METHODS },
               createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+              ...notCollectedViaOffice,
             })
               .then((s) => ({ _sum: { amountPence: s } }))
               .catch(() => ({ _sum: { amountPence: 0 } })),
@@ -512,6 +542,7 @@ export default async function AdminDashboardPage({
                 where: {
                   paymentMethod: { in: STRIPE_PAYMENT_METHODS },
                   createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+                  ...notCollectedViaOffice,
                 },
                 _sum: { amountPence: true },
               })
@@ -521,16 +552,28 @@ export default async function AdminDashboardPage({
                 where: {
                   paymentMethod: { in: STRIPE_PAYMENT_METHODS },
                   createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+                  ...notCollectedViaOffice,
                 },
                 _sum: { amountPence: true },
               })
               .catch(() => ({ _sum: { amountPence: 0 } })),
-          ]).then(([donationsAgg, waterAgg, sponsorshipAgg]) => ({
+            prisma.qurbaniDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: STRIPE_PAYMENT_METHODS },
+                  createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+                  ...notCollectedViaOffice,
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+          ]).then(([donationsAgg, waterAgg, sponsorshipAgg, qurbaniAgg]) => ({
             _sum: {
               amountPence:
                 (donationsAgg._sum.amountPence ?? 0) +
                 (waterAgg._sum.amountPence ?? 0) +
-                (sponsorshipAgg._sum.amountPence ?? 0),
+                (sponsorshipAgg._sum.amountPence ?? 0) +
+                (qurbaniAgg._sum.amountPence ?? 0),
             },
           })),
       // Previous period: Total Offline (same sources as current period)
@@ -589,14 +632,28 @@ export default async function AdminDashboardPage({
             _sum: { amountPence: true },
           })
           .catch(() => ({ _sum: { amountPence: 0 } })),
-      ]).then(([offlineIncomeAgg, donationAgg, waterAgg, sponsorshipAgg, fundraiserCashAgg]) => ({
+        prisma.qurbaniDonation
+          .aggregate({
+            where: {
+              ...(isStaff ? { addedByAdminUserId: staffId! } : {}),
+              createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+              OR: [
+                { paymentMethod: { in: OFFLINE_PAYMENT_METHODS } },
+                { collectedVia: "office" },
+              ],
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+      ]).then(([offlineIncomeAgg, donationAgg, waterAgg, sponsorshipAgg, fundraiserCashAgg, qurbaniOfflineAgg]) => ({
         _sum: {
           amountPence:
             (offlineIncomeAgg._sum.amountPence ?? 0) +
             (donationAgg._sum.amountPence ?? 0) +
             (waterAgg._sum.amountPence ?? 0) +
             (sponsorshipAgg._sum.amountPence ?? 0) +
-            (fundraiserCashAgg._sum.amountPence ?? 0),
+            (fundraiserCashAgg._sum.amountPence ?? 0) +
+            (qurbaniOfflineAgg._sum.amountPence ?? 0),
         },
       })),
       // Previous period: Total Collections
@@ -671,7 +728,14 @@ export default async function AdminDashboardPage({
               })
               .then((r) => r._sum.amountPence ?? 0)
               .catch(() => 0),
-          ]).then(([offline, collections, water, sponsor]) => offline + collections + water + sponsor),
+            prisma.qurbaniDonation
+              .aggregate({
+                where: { addedByAdminUserId: staffId!, createdAt: { gte: startDate, lte: endDate } },
+                _sum: { amountPence: true },
+              })
+              .then((r) => r._sum.amountPence ?? 0)
+              .catch(() => 0),
+          ]).then(([offline, collections, water, sponsor, qurbani]) => offline + collections + water + sponsor + qurbani),
           // Previous period (staff-only data)
           Promise.all([
             prisma.offlineIncome
@@ -714,7 +778,17 @@ export default async function AdminDashboardPage({
               })
               .then((r) => r._sum.amountPence ?? 0)
               .catch(() => 0),
-          ]).then(([offline, collections, water, sponsor]) => offline + collections + water + sponsor),
+            prisma.qurbaniDonation
+              .aggregate({
+                where: {
+                  addedByAdminUserId: staffId!,
+                  createdAt: { gte: comparisonStartDate, lte: comparisonEndDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .then((r) => r._sum.amountPence ?? 0)
+              .catch(() => 0),
+          ]).then(([offline, collections, water, sponsor, qurbani]) => offline + collections + water + sponsor + qurbani),
         ])
       : Promise.all([
           // Current period (all data)
@@ -758,8 +832,15 @@ export default async function AdminDashboardPage({
               })
               .then((r) => r._sum.amountPence ?? 0)
               .catch(() => 0),
-          ]).then(([donation, offline, collections, water, sponsor, fundraiserCash]) =>
-            donation + offline + collections + water + sponsor + fundraiserCash
+            prisma.qurbaniDonation
+              .aggregate({
+                where: { createdAt: { gte: startDate, lte: endDate } },
+                _sum: { amountPence: true },
+              })
+              .then((r) => r._sum.amountPence ?? 0)
+              .catch(() => 0),
+          ]).then(([donation, offline, collections, water, sponsor, fundraiserCash, qurbani]) =>
+            donation + offline + collections + water + sponsor + fundraiserCash + qurbani
           ),
           // Previous period (all data)
           Promise.all([
@@ -805,8 +886,15 @@ export default async function AdminDashboardPage({
               })
               .then((r) => r._sum.amountPence ?? 0)
               .catch(() => 0),
-          ]).then(([donation, offline, collections, water, sponsor, fundraiserCash]) =>
-            donation + offline + collections + water + sponsor + fundraiserCash
+            prisma.qurbaniDonation
+              .aggregate({
+                where: { createdAt: { gte: comparisonStartDate, lte: comparisonEndDate } },
+                _sum: { amountPence: true },
+              })
+              .then((r) => r._sum.amountPence ?? 0)
+              .catch(() => 0),
+          ]).then(([donation, offline, collections, water, sponsor, fundraiserCash, qurbani]) =>
+            donation + offline + collections + water + sponsor + fundraiserCash + qurbani
           ),
         ]))
 
@@ -883,13 +971,23 @@ export default async function AdminDashboardPage({
                 _sum: { amountPence: true },
               })
               .catch(() => ({ _sum: { amountPence: 0 } })),
-          ]).then(([donationsAgg, waterAgg, sponsorshipAgg, offlineSumupAgg]) => ({
+            prisma.qurbaniDonation
+              .aggregate({
+                where: {
+                  paymentMethod: { in: SUMUP_PAYMENT_METHODS },
+                  createdAt: { gte: startDate, lte: endDate },
+                },
+                _sum: { amountPence: true },
+              })
+              .catch(() => ({ _sum: { amountPence: 0 } })),
+          ]).then(([donationsAgg, waterAgg, sponsorshipAgg, offlineSumupAgg, qurbaniSumupAgg]) => ({
             _sum: {
               amountPence:
                 (donationsAgg._sum.amountPence ?? 0) +
                 (waterAgg._sum.amountPence ?? 0) +
                 (sponsorshipAgg._sum.amountPence ?? 0) +
-                (offlineSumupAgg._sum.amountPence ?? 0),
+                (offlineSumupAgg._sum.amountPence ?? 0) +
+                (qurbaniSumupAgg._sum.amountPence ?? 0),
             },
           })),
       Promise.all([
@@ -935,13 +1033,24 @@ export default async function AdminDashboardPage({
             _sum: { amountPence: true },
           })
           .catch(() => ({ _sum: { amountPence: 0 } })),
-      ]).then(([donationsAgg, offlineAgg, waterAgg, sponsorshipAgg]) => ({
+        prisma.qurbaniDonation
+          .aggregate({
+            where: {
+              ...(isStaff ? { addedByAdminUserId: staffId! } : {}),
+              paymentMethod: { in: CASH_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+      ]).then(([donationsAgg, offlineAgg, waterAgg, sponsorshipAgg, qurbaniCashAgg]) => ({
         _sum: {
           amountPence:
             (donationsAgg._sum.amountPence ?? 0) +
             (offlineAgg._sum.amountPence ?? 0) +
             (waterAgg._sum.amountPence ?? 0) +
-            (sponsorshipAgg._sum.amountPence ?? 0),
+            (sponsorshipAgg._sum.amountPence ?? 0) +
+            (qurbaniCashAgg._sum.amountPence ?? 0),
         },
       })),
       Promise.all([
@@ -987,13 +1096,24 @@ export default async function AdminDashboardPage({
             _sum: { amountPence: true },
           })
           .catch(() => ({ _sum: { amountPence: 0 } })),
-      ]).then(([donationsAgg, offlineAgg, waterAgg, sponsorshipAgg]) => ({
+        prisma.qurbaniDonation
+          .aggregate({
+            where: {
+              ...(isStaff ? { addedByAdminUserId: staffId! } : {}),
+              paymentMethod: { in: BANK_TRANSFER_PAYMENT_METHODS },
+              createdAt: { gte: startDate, lte: endDate },
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => ({ _sum: { amountPence: 0 } })),
+      ]).then(([donationsAgg, offlineAgg, waterAgg, sponsorshipAgg, qurbaniBankAgg]) => ({
         _sum: {
           amountPence:
             (donationsAgg._sum.amountPence ?? 0) +
             (offlineAgg._sum.amountPence ?? 0) +
             (waterAgg._sum.amountPence ?? 0) +
-            (sponsorshipAgg._sum.amountPence ?? 0),
+            (sponsorshipAgg._sum.amountPence ?? 0) +
+            (qurbaniBankAgg._sum.amountPence ?? 0),
         },
       })),
       prisma.fundraiserCashDonation
@@ -1135,7 +1255,15 @@ export default async function AdminDashboardPage({
               status: "COMPLETED",
               createdAt: { gte: startDate, lte: endDate },
             },
-            select: { id: true, amountPence: true, orderNumber: true, transactionId: true, createdAt: true, paymentMethod: true },
+            select: {
+              id: true,
+              amountPence: true,
+              orderNumber: true,
+              transactionId: true,
+              createdAt: true,
+              paymentMethod: true,
+              collectedVia: true,
+            },
           }).catch(() => [])
         )
     const lineChartData = []
@@ -1152,14 +1280,19 @@ export default async function AdminDashboardPage({
 
       const stripeSum = isStaff ? 0 : chartDonationsDeduped.filter((d) => {
         const t = new Date(d.createdAt).getTime()
-        return t >= dayStart.getTime() && t <= dayEnd.getTime() && STRIPE_PAYMENT_METHODS.includes(d.paymentMethod as (typeof STRIPE_PAYMENT_METHODS)[number])
+        return (
+          t >= dayStart.getTime() &&
+          t <= dayEnd.getTime() &&
+          STRIPE_PAYMENT_METHODS.includes(d.paymentMethod as (typeof STRIPE_PAYMENT_METHODS)[number]) &&
+          d.collectedVia !== "office"
+        )
       }).reduce((s, d) => s + d.amountPence, 0)
       const offlineDonationSum = isStaff ? 0 : chartDonationsDeduped.filter((d) => {
         const t = new Date(d.createdAt).getTime()
         return t >= dayStart.getTime() && t <= dayEnd.getTime() && OFFLINE_PAYMENT_METHODS.includes(d.paymentMethod as (typeof OFFLINE_PAYMENT_METHODS)[number])
       }).reduce((s, d) => s + d.amountPence, 0)
 
-      const [stripeDonations, offlineDonationAgg, offlineIncomeAgg, dayCollections, dayFundraiserCash, dayWater, daySponsor] = await Promise.all([
+      const [stripeDonations, offlineDonationAgg, offlineIncomeAgg, dayCollections, dayFundraiserCash, dayWater, daySponsor, dayQurbani] = await Promise.all([
         Promise.resolve({ _sum: { amountPence: stripeSum } }),
         Promise.resolve({ _sum: { amountPence: offlineDonationSum } }),
         // Offline income (filtered by staff)
@@ -1214,17 +1347,30 @@ export default async function AdminDashboardPage({
               where: { createdAt: { gte: dayStart, lte: dayEnd } },
               _sum: { amountPence: true },
             }).catch(() => ({ _sum: { amountPence: 0 } })),
+        isStaff
+          ? prisma.qurbaniDonation.aggregate({
+              where: {
+                addedByAdminUserId: staffId!,
+                createdAt: { gte: dayStart, lte: dayEnd },
+              },
+              _sum: { amountPence: true },
+            }).catch(() => ({ _sum: { amountPence: 0 } }))
+          : prisma.qurbaniDonation.aggregate({
+              where: { createdAt: { gte: dayStart, lte: dayEnd } },
+              _sum: { amountPence: true },
+            }).catch(() => ({ _sum: { amountPence: 0 } })),
       ])
 
-      // Total = ALL sources: online (Stripe) + offline donations + offline income + collections + water + sponsor + fundraiser cash
+      // Total = ALL sources: online (Stripe) + offline donations + offline income + collections + water + sponsor + fundraiser cash + qurbani
       const totalDay =
         (stripeDonations._sum.amountPence || 0) +
         (offlineDonationAgg._sum.amountPence || 0) +
         (offlineIncomeAgg._sum.amountPence || 0) +
         (dayCollections._sum.amountPence || 0) +
+        (dayFundraiserCash._sum.amountPence || 0) +
         (dayWater._sum.amountPence || 0) +
         (daySponsor._sum.amountPence || 0) +
-        (dayFundraiserCash._sum.amountPence || 0)
+        (dayQurbani._sum.amountPence || 0)
 
       lineChartData.push({
         date: date.toISOString().split("T")[0],
@@ -1332,7 +1478,7 @@ export default async function AdminDashboardPage({
     let fundraiserCashByAppeal = new Map<string, number>()
     if (!isStaff) {
       const dateFilter = { gte: startDate, lte: endDate }
-      const [donationByFundraiser, waterByFundraiser, fundraiserCashRows] = await Promise.all([
+      const [donationByFundraiser, waterByFundraiser, fundraiserCashRows, qurbaniByFundraiser] = await Promise.all([
         getDeduplicatedDonationGroupBy(
           { createdAt: dateFilter, status: "COMPLETED" },
           "fundraiserId"
@@ -1356,6 +1502,16 @@ export default async function AdminDashboardPage({
             fundraiser: { select: { appealId: true } },
           },
         }),
+        prisma.qurbaniDonation
+          .groupBy({
+            by: ["fundraiserId"],
+            where: {
+              createdAt: dateFilter,
+              fundraiserId: { not: null },
+            },
+            _sum: { amountPence: true },
+          })
+          .catch(() => []),
       ])
       const allFundraiserIds = [
         ...new Set([
@@ -1364,6 +1520,7 @@ export default async function AdminDashboardPage({
             .filter(Boolean) as string[],
           ...waterByFundraiser.map((r) => r.fundraiserId).filter(Boolean) as string[],
           ...(fundraiserCashRows as { fundraiserId: string }[]).map((r) => r.fundraiserId),
+          ...qurbaniByFundraiser.map((r) => r.fundraiserId).filter(Boolean) as string[],
         ]),
       ]
       const fundraiserLookup = await prisma.fundraiser.findMany({
@@ -1384,6 +1541,14 @@ export default async function AdminDashboardPage({
         }
       )
       waterByFundraiser.forEach((row) => {
+        const appealId = row.fundraiserId ? fundraiserIdToAppealId.get(row.fundraiserId) : null
+        if (!appealId) return
+        fundraiserDonationByAppeal.set(
+          appealId,
+          (fundraiserDonationByAppeal.get(appealId) ?? 0) + (row._sum?.amountPence ?? 0)
+        )
+      })
+      qurbaniByFundraiser.forEach((row) => {
         const appealId = row.fundraiserId ? fundraiserIdToAppealId.get(row.fundraiserId) : null
         if (!appealId) return
         fundraiserDonationByAppeal.set(
@@ -1460,6 +1625,37 @@ export default async function AdminDashboardPage({
         })
       }
     })
+
+    // All qurbani for each country in range (including via fundraisers). Appeal rows also include
+    // fundraiser-tied qurbani when the fundraiser links to that appeal—see card note; do not add rows.
+    const qurbaniCountryTotals = await prisma.qurbaniDonation
+      .groupBy({
+        by: ["qurbaniCountryId"],
+        where: {
+          createdAt: { gte: startDate, lte: endDate },
+          ...(staffId ? { addedByAdminUserId: staffId } : {}),
+        },
+        _sum: { amountPence: true },
+      })
+      .catch(() => [] as { qurbaniCountryId: string; _sum: { amountPence: number | null } }[])
+    if (qurbaniCountryTotals.length > 0) {
+      const qcIds = qurbaniCountryTotals.map((r) => r.qurbaniCountryId)
+      const qurbaniCountriesForTable = await prisma.qurbaniCountry.findMany({
+        where: { id: { in: qcIds } },
+        select: { id: true, country: true },
+      })
+      const qurbaniCountryLabelById = new Map(qurbaniCountriesForTable.map((c) => [c.id, c.country]))
+      qurbaniCountryTotals.forEach((row) => {
+        const amount = row._sum.amountPence ?? 0
+        if (amount <= 0) return
+        allCampaigns.push({
+          id: `qurbani-country-${row.qurbaniCountryId}`,
+          name: `Qurbani — ${qurbaniCountryLabelById.get(row.qurbaniCountryId) ?? "Unknown"}`,
+          amountPence: amount,
+          type: "Qurbani",
+        })
+      })
+    }
 
     // Sort by amount descending and take top 5
     const topProjects = allCampaigns
@@ -1550,6 +1746,16 @@ export default async function AdminDashboardPage({
               },
             },
           },
+          {
+            qurbaniDonations: {
+              some: {
+                createdAt: {
+                  gte: startDate,
+                  lte: endDate,
+                },
+              },
+            },
+          },
         ],
       },
       select: {
@@ -1604,6 +1810,12 @@ export default async function AdminDashboardPage({
           },
           select: { amountPence: true },
         },
+        qurbaniDonations: {
+          where: {
+            createdAt: { gte: startDate, lte: endDate },
+          },
+          select: { amountPence: true },
+        },
       },
       take: 5,
     }).catch(() => [])
@@ -1621,10 +1833,15 @@ export default async function AdminDashboardPage({
           (sum: number, c: { amountPence: number }) => sum + (c.amountPence ?? 0),
           0
         )
+        const qurbaniRaised = (fundraiser.qurbaniDonations ?? []).reduce(
+          (sum: number, c: { amountPence: number }) => sum + (c.amountPence ?? 0),
+          0
+        )
         const totalRaised =
           sumDonationsDeduplicated(fundraiser.donations) +
           legacyWaterSum +
-          cashTotal
+          cashTotal +
+          qurbaniRaised
         const appealTitle = fundraiser.appeal?.title
           ? fundraiser.appeal.title
           : fundraiser.waterProject?.projectType === "WATER_PUMP"
@@ -1707,6 +1924,26 @@ export default async function AdminDashboardPage({
         type: "collection",
         message: `Collection logged: ${formatCurrency(collection.amountPence)}`,
         timestamp: collection.collectedAt,
+      })
+    })
+
+    const recentQurbani = await prisma.qurbaniDonation.findMany({
+      take: 20,
+      orderBy: { createdAt: "desc" },
+      where: {
+        ...staffFilter,
+        createdAt: { gte: startDate, lte: endDate },
+      },
+      include: {
+        qurbaniCountry: { select: { country: true } },
+      },
+    }).catch(() => [])
+    recentQurbani.forEach((q) => {
+      const place = q.qurbaniCountry?.country ?? "Qurbani"
+      recentActivity.push({
+        type: "qurbani",
+        message: `Qurbani donation: ${formatCurrency(q.amountPence)} (${place})`,
+        timestamp: q.createdAt,
       })
     })
 
@@ -1900,7 +2137,7 @@ export default async function AdminDashboardPage({
                         <p className="text-xs text-muted-foreground mt-1">
                           {isStaff ? "No donations logged yet" : "No income recorded"}
                         </p>
-                      ) : (
+                      ) : comparisonPeriodEnabled ? (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           vs previous period{" "}
                           {totalAmountChange >= 0 ? (
@@ -1915,7 +2152,7 @@ export default async function AdminDashboardPage({
                             </span>
                           )}
                         </p>
-                      )}
+                      ) : null}
                     </CardContent>
                   </Card>
 
@@ -1935,7 +2172,7 @@ export default async function AdminDashboardPage({
                         <p className="text-xs text-muted-foreground mt-1">
                           No online donations
                         </p>
-                      ) : (
+                      ) : comparisonPeriodEnabled ? (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           vs previous period{" "}
                           {totalOnlineChange >= 0 ? (
@@ -1950,7 +2187,7 @@ export default async function AdminDashboardPage({
                             </span>
                           )}
                         </p>
-                      )}
+                      ) : null}
                     </CardContent>
                   </Card>
                   )}
@@ -1971,7 +2208,7 @@ export default async function AdminDashboardPage({
                         <p className="text-xs text-muted-foreground mt-1">
                           No water or sponsor donations logged
                         </p>
-                      ) : (
+                      ) : comparisonPeriodEnabled ? (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           vs previous period{" "}
                           {totalWaterSponsorChange >= 0 ? (
@@ -1986,7 +2223,7 @@ export default async function AdminDashboardPage({
                             </span>
                           )}
                         </p>
-                      )}
+                      ) : null}
                     </CardContent>
                   </Card>
                   )}
@@ -2006,7 +2243,7 @@ export default async function AdminDashboardPage({
                         <p className="text-xs text-muted-foreground mt-1">
                           No offline income logged
                         </p>
-                      ) : (
+                      ) : comparisonPeriodEnabled ? (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           vs previous period{" "}
                           {totalOfflineChange >= 0 ? (
@@ -2021,7 +2258,7 @@ export default async function AdminDashboardPage({
                             </span>
                           )}
                         </p>
-                      )}
+                      ) : null}
                     </CardContent>
                   </Card>
 
@@ -2040,7 +2277,7 @@ export default async function AdminDashboardPage({
                         <p className="text-xs text-muted-foreground mt-1">
                           No collections recorded yet
                         </p>
-                      ) : (
+                      ) : comparisonPeriodEnabled ? (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           vs previous period{" "}
                           {totalCollectionsChange >= 0 ? (
@@ -2055,7 +2292,7 @@ export default async function AdminDashboardPage({
                             </span>
                           )}
                         </p>
-                      )}
+                      ) : null}
                     </CardContent>
                   </Card>
                 </div>
@@ -2142,8 +2379,8 @@ export default async function AdminDashboardPage({
               <div className="px-2 sm:px-2 sm:px-4 lg:px-6">
                 <ChartAreaInteractive
                   data={lineChartData}
-                  title="Total donations"
-                  description="Total donations for each day"
+                  title="Total income"
+                  description="All sources combined for each day (donations, qurbani, water, sponsor, offline, collections, fundraiser cash)"
                   periodLabel={periodLabel}
                 />
               </div>

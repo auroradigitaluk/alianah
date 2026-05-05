@@ -60,3 +60,26 @@ export function getDashboardDateRange(
 
   return { startDate, endDate }
 }
+
+/**
+ * Previous window immediately before the selected range, with the same duration in milliseconds
+ * as [startDate, endDate]. Keeps "vs previous period" aligned with custom ranges and preset filters.
+ *
+ * Returns null when comparison is not meaningful (e.g. all-time from epoch).
+ */
+export function getDashboardComparisonPeriod(
+  startDate: Date,
+  endDate: Date,
+  options?: { skipWhenAllTime?: boolean }
+): { comparisonStartDate: Date; comparisonEndDate: Date } | null {
+  if (options?.skipWhenAllTime && startDate.getTime() <= 0) {
+    return null
+  }
+  const durationMs = endDate.getTime() - startDate.getTime()
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return null
+  }
+  const comparisonEndDate = new Date(startDate.getTime() - 1)
+  const comparisonStartDate = new Date(comparisonEndDate.getTime() - durationMs)
+  return { comparisonStartDate, comparisonEndDate }
+}
