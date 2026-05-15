@@ -10,6 +10,7 @@ export function canAccessRoute(role: string, pathname: string): boolean {
     "/admin/donors",
     "/admin/documents",
     "/admin/analytics",
+    "/admin/qurbani",
   ]
   if (adminOnly.some((p) => path === p || path.startsWith(p + "/"))) {
     return role === "ADMIN"

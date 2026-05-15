@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { del } from "@vercel/blob"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { z } from "zod"
@@ -15,6 +16,8 @@ const patchSchema = z.object({
     .union([z.string().trim(), z.null()])
     .optional()
     .transform((v) => (v === "" || v === undefined ? null : v)),
+  invoiceUrl: z.string().url().nullable().optional(),
+  invoiceFileName: z.string().max(255).nullable().optional(),
 })
 
 export async function PATCH(
@@ -28,8 +31,29 @@ export async function PATCH(
 
   try {
     const { id } = await params
+    const existing = await prisma.distribution.findUnique({
+      where: { id },
+      select: { invoiceUrl: true },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: "Distribution not found" }, { status: 404 })
+    }
+
     const body = await request.json()
     const data = patchSchema.parse(body)
+
+    const oldInvoiceUrl = existing.invoiceUrl
+    if (
+      oldInvoiceUrl &&
+      data.invoiceUrl !== undefined &&
+      (data.invoiceUrl === null || data.invoiceUrl !== oldInvoiceUrl)
+    ) {
+      try {
+        await del(oldInvoiceUrl)
+      } catch (e) {
+        console.warn("Distribution PATCH: could not remove previous invoice blob", e)
+      }
+    }
 
     const updateData: Parameters<typeof prisma.distribution.update>[0]["data"] = {}
     if (data.appealId !== undefined) updateData.appeal = { connect: { id: data.appealId } }
@@ -37,6 +61,8 @@ export async function PATCH(
     if (data.description !== undefined) updateData.description = data.description.trim()
     if (data.country !== undefined) updateData.country = data.country
     if (data.itemsDistributed !== undefined) updateData.itemsDistributed = data.itemsDistributed
+    if (data.invoiceUrl !== undefined) updateData.invoiceUrl = data.invoiceUrl
+    if (data.invoiceFileName !== undefined) updateData.invoiceFileName = data.invoiceFileName
 
     const distribution = await prisma.distribution.update({
       where: { id },
@@ -57,6 +83,8 @@ export async function PATCH(
       description: distribution.description,
       country: distribution.country,
       itemsDistributed: distribution.itemsDistributed,
+      invoiceUrl: distribution.invoiceUrl,
+      invoiceFileName: distribution.invoiceFileName,
       createdAt: distribution.createdAt.toISOString(),
       createdById: distribution.createdById,
       createdBy: distribution.createdBy,
@@ -87,6 +115,17 @@ export async function DELETE(
 
   try {
     const { id } = await params
+    const existing = await prisma.distribution.findUnique({
+      where: { id },
+      select: { invoiceUrl: true },
+    })
+    if (existing?.invoiceUrl) {
+      try {
+        await del(existing.invoiceUrl)
+      } catch (e) {
+        console.warn("Distribution DELETE: could not remove invoice from blob storage", e)
+      }
+    }
     await prisma.distribution.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (error) {

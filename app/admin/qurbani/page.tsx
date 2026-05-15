@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation"
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
+import { getAdminUser } from "@/lib/admin-auth"
 import { QurbaniPageClient } from "@/components/qurbani-page-client"
 import { getQurbaniEnabled } from "@/lib/settings"
 
@@ -18,6 +20,14 @@ async function getQurbaniCountries() {
 }
 
 export default async function QurbaniAdminPage() {
+  const user = await getAdminUser()
+  if (!user) {
+    redirect(`/login?redirect=${encodeURIComponent("/admin/qurbani")}`)
+  }
+  if (user.role !== "ADMIN") {
+    redirect("/admin/dashboard")
+  }
+
   const [countries, qurbaniEnabled] = await Promise.all([getQurbaniCountries(), getQurbaniEnabled()])
 
   return (

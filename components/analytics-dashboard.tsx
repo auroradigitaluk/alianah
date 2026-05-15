@@ -235,7 +235,8 @@ export function AnalyticsDashboard() {
         <div>
           <h2 className="text-base sm:text-lg font-semibold">Analytics</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Traffic overview from client-side tracking.
+            Public site traffic only (donation and marketing pages). Admin app, localhost, and local
+            referrers are excluded.
           </p>
         </div>
         <AnalyticsRangeFilter value={selection} onChange={setSelection} />

@@ -47,7 +47,7 @@ interface Fundraiser {
   isActive: boolean
   customApprovalStatus?: "PENDING" | "APPROVED" | "DECLINED"
   customDeclineReason?: string | null
-  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" }
+  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" | "CUSTOM" }
   amountRaised: number
   targetAmountPence?: number | null
 }
@@ -68,7 +68,7 @@ interface FundraiserDetails {
     slug: string
     summary: string | null
     isActive: boolean
-    type: "APPEAL" | "WATER" | "QURBANI"
+    type: "APPEAL" | "WATER" | "QURBANI" | "CUSTOM"
   }
   statistics: {
     totalRaised: number
@@ -603,28 +603,56 @@ export function FundraisersTable({
                   <ExternalLink className="h-4 w-4" />
                 </Button>
                 {showCustomReviewActions ? (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleCustomReviewAction(fundraiser, "APPROVED", e)}
-                      disabled={reviewingId === fundraiser.id}
-                      className="h-8 text-green-700 hover:text-green-700 hover:bg-green-50"
-                      title="Approve and publish fundraiser"
-                    >
-                      <IconCheck className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleCustomReviewAction(fundraiser, "DECLINED", e)}
-                      disabled={reviewingId === fundraiser.id}
-                      className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      title="Decline fundraiser"
-                    >
-                      <IconX className="h-4 w-4" />
-                    </Button>
-                  </>
+                  fundraiser.customApprovalStatus === "PENDING" ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleCustomReviewAction(fundraiser, "APPROVED", e)}
+                        disabled={reviewingId === fundraiser.id}
+                        className="h-8 text-green-700 hover:text-green-700 hover:bg-green-50"
+                        title="Approve and publish fundraiser"
+                      >
+                        <IconCheck className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleCustomReviewAction(fundraiser, "DECLINED", e)}
+                        disabled={reviewingId === fundraiser.id}
+                        className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Decline fundraiser"
+                      >
+                        <IconX className="h-4 w-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleToggleStatus(fundraiser, e)}
+                        disabled={updating === fundraiser.id}
+                        className="h-8"
+                      >
+                        {fundraiser.isActive ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleDelete(fundraiser, e)}
+                        disabled={deletingId === fundraiser.id}
+                        className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Delete fundraiser (keeps donations)"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )
                 ) : (
                   <>
                     <Button

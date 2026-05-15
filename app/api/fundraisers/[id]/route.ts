@@ -10,9 +10,10 @@ const updateSchema = z.object({
   fundraiserName: z.string().min(1, "Name is required").optional(),
   message: z.string().nullable().optional(),
   targetAmountPence: z.union([z.number().int().min(1), z.null()]).optional(),
+  customImageUrls: z.array(z.string().url()).min(3).max(24).optional(),
 })
 
-/** Allow logged-in fundraiser owner to update their own fundraiser (title, name, message, target). */
+/** Allow logged-in fundraiser owner to update their own fundraiser (title, name, message, target, custom images). */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,7 +30,7 @@ export async function PATCH(
 
     const fundraiser = await prisma.fundraiser.findUnique({
       where: { id },
-      select: { id: true, email: true },
+      select: { id: true, email: true, isCustom: true },
     })
 
     if (!fundraiser) {
@@ -45,11 +46,21 @@ export async function PATCH(
       fundraiserName?: string
       message?: string | null
       targetAmountPence?: number | null
+      customImageUrls?: string
     } = {}
     if (data.title !== undefined) updateData.title = data.title
     if (data.fundraiserName !== undefined) updateData.fundraiserName = data.fundraiserName
     if (data.message !== undefined) updateData.message = data.message
     if (data.targetAmountPence !== undefined) updateData.targetAmountPence = data.targetAmountPence
+    if (data.customImageUrls !== undefined) {
+      if (!fundraiser.isCustom) {
+        return NextResponse.json(
+          { error: "Images can only be updated for custom fundraisers" },
+          { status: 400 }
+        )
+      }
+      updateData.customImageUrls = JSON.stringify(data.customImageUrls)
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })

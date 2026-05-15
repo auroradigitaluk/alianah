@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireAdminAuthSafe } from "@/lib/admin-auth"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { getDashboardDateRange } from "@/lib/dashboard-date-range"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
-  const [, err] = await requireAdminAuthSafe()
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     const { searchParams } = request.nextUrl

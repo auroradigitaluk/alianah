@@ -107,11 +107,16 @@ async function FundraisersTabComplete() {
 }
 
 async function FundraisersTabCustom() {
-  const where = { isCustom: true, customApprovalStatus: "PENDING" }
-  const [fundraisers, stats] = await Promise.all([
+  const where = { isCustom: true }
+  const [raw, stats] = await Promise.all([
     getFundraisers(where),
     getFundraiserStats(where),
   ])
+  const statusOrder: Record<string, number> = { PENDING: 0, APPROVED: 1, DECLINED: 2 }
+  const fundraisers = [...raw].sort(
+    (a, b) =>
+      (statusOrder[a.customApprovalStatus] ?? 9) - (statusOrder[b.customApprovalStatus] ?? 9)
+  )
 
   return (
     <FundraisersDashboardClient
@@ -120,9 +125,9 @@ async function FundraisersTabCustom() {
       byCampaign={[]}
       eligibleCampaigns={[]}
       showAppealsTab={false}
-      pageTitle="Custom fundraisers to review"
-      pageDescription="Review custom causes submitted by users. Approve to publish live, or decline to keep them offline."
-      listTitle="Pending custom fundraisers"
+      pageTitle="Custom fundraisers"
+      pageDescription="All custom causes in one place — pending first, then approved and declined. Approve or decline pending rows; open any fundraiser to edit details and campaign images."
+      listTitle="Custom fundraisers"
       showCampaignColumn={false}
       showTitleColumn
       showCustomReviewActions

@@ -9,6 +9,8 @@ const createSchema = z.object({
   description: z.string().trim().optional().transform((v) => v ?? ""),
   country: z.string().trim().optional().transform((v) => (v === "" ? null : v ?? null)),
   itemsDistributed: z.string().trim().optional().transform((v) => (v === "" ? null : v ?? null)),
+  invoiceUrl: z.string().url().nullable().optional(),
+  invoiceFileName: z.string().max(255).nullable().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -39,6 +41,8 @@ export async function GET(request: NextRequest) {
         description: d.description,
         country: d.country,
         itemsDistributed: d.itemsDistributed,
+        invoiceUrl: d.invoiceUrl,
+        invoiceFileName: d.invoiceFileName,
         createdAt: d.createdAt.toISOString(),
         createdById: d.createdById,
         createdBy: d.createdBy,
@@ -69,6 +73,8 @@ export async function POST(request: NextRequest) {
         description: data.description.trim(),
         country: data.country ?? null,
         itemsDistributed: data.itemsDistributed ?? null,
+        invoiceUrl: data.invoiceUrl ?? null,
+        invoiceFileName: data.invoiceFileName ?? null,
         createdById: user.id,
       },
       include: {
@@ -87,6 +93,8 @@ export async function POST(request: NextRequest) {
       description: distribution.description,
       country: distribution.country,
       itemsDistributed: distribution.itemsDistributed,
+      invoiceUrl: distribution.invoiceUrl,
+      invoiceFileName: distribution.invoiceFileName,
       createdAt: distribution.createdAt.toISOString(),
       createdById: distribution.createdById,
       createdBy: distribution.createdBy,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireAdminAuthSafe } from "@/lib/admin-auth"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +19,7 @@ function emptyBySize(): SizeBreakdown {
 
 /** Calendar-year totals per qurbani country (same notion of “this year” as other admin stats). */
 export async function GET() {
-  const [, err] = await requireAdminAuthSafe()
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
 
   try {

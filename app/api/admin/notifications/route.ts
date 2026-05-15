@@ -46,7 +46,7 @@ export async function GET() {
     const sinceTaskSubmissions = getSinceDate(visits, "task-submissions")
     const sinceWaterForLife = getSinceDate(visits, "water-for-life")
     const sinceSponsorships = getSinceDate(visits, "sponsorships")
-    const sinceQurbani = getSinceDate(visits, "qurbani")
+    const sinceQurbani = user.role === "ADMIN" ? getSinceDate(visits, "qurbani") : null
     const sinceBookings = getSinceDate(visits, "bookings")
     const sinceFundraisers = getSinceDate(visits, "fundraisers")
     const sinceDonors = getSinceDate(visits, "donors")
@@ -101,9 +101,11 @@ export async function GET() {
       prisma.sponsorshipDonation.count({
         where: sinceSponsorships ? { createdAt: { gt: sinceSponsorships } } : undefined,
       }),
-      prisma.qurbaniDonation.count({
-        where: sinceQurbani ? { createdAt: { gt: sinceQurbani } } : undefined,
-      }),
+      user.role === "ADMIN"
+        ? prisma.qurbaniDonation.count({
+            where: sinceQurbani ? { createdAt: { gt: sinceQurbani } } : undefined,
+          })
+        : Promise.resolve(0),
       prisma.collectionBooking.count({
         where: sinceBookings ? { createdAt: { gt: sinceBookings } } : undefined,
       }),
@@ -162,6 +164,10 @@ export async function POST(request: NextRequest) {
     const page = body?.page
     if (!page || !(PAGE_KEYS as readonly string[]).includes(page)) {
       return NextResponse.json({ error: "Invalid page key" }, { status: 400 })
+    }
+
+    if (page === "qurbani" && user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const now = new Date()

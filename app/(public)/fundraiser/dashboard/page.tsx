@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getFundraiserEmail } from "@/lib/fundraiser-auth"
+import { getFundraiserTotalRaisedAndCount } from "@/lib/fundraiser-totals"
 import { FundraiserDashboardClient } from "@/components/fundraiser-dashboard-client"
 
 export const dynamic = "force-dynamic"
@@ -25,6 +26,12 @@ async function getFundraisers(email: string) {
             projectType: true,
             fundraisingImageUrls: true,
             projectImageUrls: true,
+          },
+        },
+        qurbaniCountry: {
+          select: {
+            country: true,
+            fundraisingImageUrls: true,
           },
         },
         donations: {
@@ -52,61 +59,86 @@ async function getFundraisers(email: string) {
     const defaultImage =
       "https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_3000/https://alianah.org/wp-content/uploads/2025/05/4-1.webp"
 
-    return fundraisers.map((fundraiser) => {
-      const totalRaised =
-        fundraiser.donations.reduce((sum, d) => sum + d.amountPence, 0) +
-        fundraiser.cashDonations.reduce((sum, d) => sum + d.amountPence, 0)
-      const progressPercentage = fundraiser.targetAmountPence
-        ? Math.min((totalRaised / fundraiser.targetAmountPence) * 100, 100)
-        : 0
-      const campaignTitle = fundraiser.appeal?.title
-        ? fundraiser.appeal.title
-        : fundraiser.waterProject?.projectType === "WATER_PUMP"
-          ? "Water Pumps"
-          : fundraiser.waterProject?.projectType === "WATER_WELL"
-            ? "Water Wells"
-            : fundraiser.waterProject?.projectType === "WATER_TANK"
-              ? "Water Tanks"
-              : fundraiser.waterProject?.projectType === "WUDHU_AREA"
-                ? "Wudhu Areas"
-                : "Water Project"
-      const campaignSlug = fundraiser.appeal?.slug
-        ? fundraiser.appeal.slug
-        : fundraiser.waterProject?.projectType === "WATER_PUMP"
-          ? "water-pumps"
-          : fundraiser.waterProject?.projectType === "WATER_WELL"
-            ? "water-wells"
-            : fundraiser.waterProject?.projectType === "WATER_TANK"
-              ? "water-tanks"
-              : fundraiser.waterProject?.projectType === "WUDHU_AREA"
-                ? "water-wudhu"
-                : ""
+    return await Promise.all(
+      fundraisers.map(async (fundraiser) => {
+        const isWaterFundraiser = Boolean(fundraiser.waterProjectId && fundraiser.waterProject)
+        const isQurbani = Boolean(fundraiser.qurbaniCountryId && fundraiser.qurbaniCountry)
+        const { totalRaisedPence, donationCount } = await getFundraiserTotalRaisedAndCount(
+          fundraiser.id,
+          isWaterFundraiser
+        )
+        const totalRaised = totalRaisedPence
+        const progressPercentage = fundraiser.targetAmountPence
+          ? Math.min((totalRaised / fundraiser.targetAmountPence) * 100, 100)
+          : 0
+        const campaignTitle = fundraiser.isCustom
+          ? "Custom fundraiser"
+          : fundraiser.appeal?.title
+            ? fundraiser.appeal.title
+            : fundraiser.waterProject?.projectType === "WATER_PUMP"
+              ? "Water Pumps"
+              : fundraiser.waterProject?.projectType === "WATER_WELL"
+                ? "Water Wells"
+                : fundraiser.waterProject?.projectType === "WATER_TANK"
+                  ? "Water Tanks"
+                  : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+                    ? "Wudhu Areas"
+                    : isQurbani
+                      ? `Qurbani - ${fundraiser.qurbaniCountry?.country ?? "Country"}`
+                      : "Water Project"
+        const campaignSlug = fundraiser.isCustom
+          ? ""
+          : fundraiser.appeal?.slug
+            ? fundraiser.appeal.slug
+            : fundraiser.waterProject?.projectType === "WATER_PUMP"
+              ? "water-pumps"
+              : fundraiser.waterProject?.projectType === "WATER_WELL"
+                ? "water-wells"
+                : fundraiser.waterProject?.projectType === "WATER_TANK"
+                  ? "water-tanks"
+                  : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+                    ? "water-wudhu"
+                    : isQurbani
+                      ? "qurbani"
+                      : ""
 
-      const isWater = Boolean(fundraiser.waterProject)
-      const customImages = parseImageArray(fundraiser.customImageUrls)
-      const fundraisingImages = isWater
-        ? parseImageArray(fundraiser.waterProject?.fundraisingImageUrls)
-        : parseImageArray(fundraiser.appeal?.fundraisingImageUrls)
-      const fallbackImages = isWater
-        ? parseImageArray(fundraiser.waterProject?.projectImageUrls)
-        : parseImageArray(fundraiser.appeal?.appealImageUrls)
-      const imageUrl =
-        customImages[0] || fundraisingImages[0] || fallbackImages[0] || defaultImage
+        const customImages = parseImageArray(fundraiser.customImageUrls)
+        const fundraisingImages = isWaterFundraiser
+          ? parseImageArray(fundraiser.waterProject?.fundraisingImageUrls)
+          : isQurbani
+            ? parseImageArray(fundraiser.qurbaniCountry?.fundraisingImageUrls)
+            : parseImageArray(fundraiser.appeal?.fundraisingImageUrls)
+        const fallbackImages = isWaterFundraiser
+          ? parseImageArray(fundraiser.waterProject?.projectImageUrls)
+          : isQurbani
+            ? []
+            : parseImageArray(fundraiser.appeal?.appealImageUrls)
+        const imageUrl =
+          customImages[0] || fundraisingImages[0] || fallbackImages[0] || defaultImage
 
-      return {
-        ...fundraiser,
-        totalRaised,
-        progressPercentage,
-        donationCount: fundraiser.donations.length + fundraiser.cashDonations.length,
-        campaign: {
-          title: campaignTitle,
-          slug: campaignSlug,
-          type: (fundraiser.appeal ? "APPEAL" : "WATER") as "APPEAL" | "WATER",
-        },
-        customApprovalStatus: fundraiser.customApprovalStatus as CustomApprovalStatus,
-        imageUrl,
-      }
-    })
+        return {
+          ...fundraiser,
+          totalRaised,
+          progressPercentage,
+          donationCount,
+          campaign: {
+            title: campaignTitle,
+            slug: campaignSlug,
+            type: (fundraiser.isCustom
+              ? "CUSTOM"
+              : fundraiser.appeal
+                ? "APPEAL"
+                : isWaterFundraiser
+                  ? "WATER"
+                  : isQurbani
+                    ? "QURBANI"
+                    : "WATER") as "APPEAL" | "WATER" | "QURBANI" | "CUSTOM",
+          },
+          customApprovalStatus: fundraiser.customApprovalStatus as CustomApprovalStatus,
+          imageUrl,
+        }
+      })
+    )
   } catch (error) {
     console.error("Error fetching fundraisers:", error)
     return []

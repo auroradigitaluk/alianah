@@ -318,19 +318,21 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Qurbani"
-                  isActive={pathname === "/admin/qurbani" || pathname?.startsWith("/admin/qurbani/")}
-                >
-                  <Link href="/admin/qurbani" className="flex w-full items-center gap-2">
-                    <Beef className="h-5 w-5" />
-                    <span>Qurbani</span>
-                    <NotificationBadge count={counts.qurbani} />
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {role === "ADMIN" && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Qurbani"
+                    isActive={pathname === "/admin/qurbani" || pathname?.startsWith("/admin/qurbani/")}
+                  >
+                    <Link href="/admin/qurbani" className="flex w-full items-center gap-2">
+                      <Beef className="h-5 w-5" />
+                      <span>Qurbani</span>
+                      <NotificationBadge count={counts.qurbani} />
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

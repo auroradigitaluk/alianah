@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRoleSafe } from "@/lib/admin-auth"
-import { excludeLocalhostReferrer } from "@/lib/analytics"
+import { publicSitePageviewWhere } from "@/lib/analytics"
 
 export async function GET() {
   const [, err] = await requireAdminRoleSafe(["ADMIN"])
@@ -13,7 +13,7 @@ export async function GET() {
       where: {
         eventType: "pageview",
         timestamp: { gte: fiveMinutesAgo },
-        ...excludeLocalhostReferrer,
+        ...publicSitePageviewWhere,
       },
       select: { deviceId: true },
     })

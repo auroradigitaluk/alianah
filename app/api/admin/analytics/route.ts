@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRoleSafe } from "@/lib/admin-auth"
-import { excludeLocalhostReferrer, formatBucketLabel, getBucketKey, resolveDateRange, type AnalyticsInterval, type AnalyticsRange } from "@/lib/analytics"
+import {
+  formatBucketLabel,
+  getBucketKey,
+  isLocalOrInternalReferrerLabel,
+  publicSitePageviewWhere,
+  resolveDateRange,
+  type AnalyticsInterval,
+  type AnalyticsRange,
+} from "@/lib/analytics"
 
 type BreakdownItem = { label: string; value: number }
 
@@ -44,7 +52,7 @@ export async function GET(request: Request) {
           gte: from,
           lte: to,
         },
-        ...excludeLocalhostReferrer,
+        ...publicSitePageviewWhere,
       },
       select: {
         timestamp: true,
@@ -94,7 +102,9 @@ export async function GET(request: Request) {
     pageMap.set(pathKey, (pageMap.get(pathKey) ?? 0) + 1)
 
     const refKey = parseReferrer(event.referrer)
-    referrerMap.set(refKey, (referrerMap.get(refKey) ?? 0) + 1)
+    if (!isLocalOrInternalReferrerLabel(refKey)) {
+      referrerMap.set(refKey, (referrerMap.get(refKey) ?? 0) + 1)
+    }
 
     const countryKey = event.country || "Unknown"
     countryMap.set(countryKey, (countryMap.get(countryKey) ?? 0) + 1)

@@ -29,6 +29,11 @@ export async function GET(
             projectType: true,
           },
         },
+        qurbaniCountry: {
+          select: {
+            country: true,
+          },
+        },
       },
     })
 
@@ -37,7 +42,7 @@ export async function GET(
     }
 
     // Fetch all donations for this fundraiser
-    const [donations, waterDonations] = await Promise.all([
+    const [donations, waterDonations, qurbaniDonations] = await Promise.all([
       prisma.donation.findMany({
         where: {
           fundraiserId: id,
@@ -84,6 +89,24 @@ export async function GET(
           createdAt: "desc",
         },
       }),
+      prisma.qurbaniDonation.findMany({
+        where: {
+          fundraiserId: id,
+        },
+        include: {
+          donor: {
+            select: {
+              title: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
     ])
 
     const waterCampaignTitle =
@@ -96,6 +119,10 @@ export async function GET(
             : fundraiser.waterProject?.projectType === "WUDHU_AREA"
               ? "Wudhu Areas"
               : "Water Project"
+
+    const qurbaniAppealTitle = fundraiser.qurbaniCountry?.country
+      ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
+      : "Qurbani"
 
     const donationsDeduped = deduplicateDonationsByTransaction(donations)
     const normalizedDonations = donationsDeduped.map((donation) => ({
@@ -132,9 +159,27 @@ export async function GET(
       product: null,
     }))
 
+    const normalizedQurbaniDonations = qurbaniDonations.map((donation) => ({
+      id: donation.id,
+      amountPence: donation.amountPence,
+      donationType: donation.donationType,
+      frequency: "ONE_OFF",
+      status: "COMPLETED" as const,
+      paymentMethod: donation.paymentMethod,
+      giftAid: donation.giftAid,
+      isAnonymous: donation.isAnonymous,
+      transactionId: donation.transactionId,
+      createdAt: donation.createdAt,
+      completedAt: donation.createdAt,
+      donor: donation.donor,
+      appeal: { title: qurbaniAppealTitle },
+      product: null,
+    }))
+
     // Serialize dates
     const serializedDonations = normalizedDonations
       .concat(normalizedWaterDonations)
+      .concat(normalizedQurbaniDonations)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .map((donation) => ({
         ...donation,

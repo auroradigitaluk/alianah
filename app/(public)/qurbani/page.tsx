@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { QurbaniPublicPage } from "@/components/qurbani-public-page"
 import { getQurbaniEnabled } from "@/lib/settings"
+import { getAdminUser } from "@/lib/admin-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -16,6 +18,11 @@ async function getQurbaniCountries() {
 }
 
 export default async function QurbaniPage() {
+  const user = await getAdminUser()
+  if (!user) {
+    redirect("/login?redirect=/qurbani")
+  }
+
   const [countries, qurbaniEnabled] = await Promise.all([getQurbaniCountries(), getQurbaniEnabled()])
   const visibleCountries = qurbaniEnabled ? countries : []
 

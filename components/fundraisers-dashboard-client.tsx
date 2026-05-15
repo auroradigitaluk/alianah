@@ -27,7 +27,7 @@ export interface FundraiserRow {
   isActive: boolean
   customApprovalStatus?: "APPROVED" | "PENDING" | "DECLINED"
   customDeclineReason?: string | null
-  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" }
+  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" | "CUSTOM" }
   amountRaised: number
 }
 

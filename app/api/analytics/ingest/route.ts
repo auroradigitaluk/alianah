@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { isPublicSiteAnalyticsPath } from "@/lib/analytics"
 import { parseUserAgent } from "@/lib/parse-user-agent"
 
 type DrainEvent = {
@@ -106,9 +107,16 @@ export async function POST(request: Request) {
     const referrer = clientEvent.referrer || null
     const path = clientEvent.path.startsWith("/") ? clientEvent.path : `/${clientEvent.path}`
 
-    // Exclude localhost so development traffic doesn't inflate analytics
+    if (!isPublicSiteAnalyticsPath(path)) {
+      return NextResponse.json({ ok: true })
+    }
+
     const ref = (referrer ?? "").toLowerCase()
-    if (ref.includes("localhost") || ref.includes("127.0.0.1")) {
+    if (
+      ref.includes("localhost") ||
+      ref.includes("127.0.0.1") ||
+      ref.includes("0.0.0.0")
+    ) {
       return NextResponse.json({ ok: true })
     }
 
@@ -157,7 +165,10 @@ export async function POST(request: Request) {
     .filter((event) => (projectId ? event.projectId === projectId : true))
     .filter((event) => {
       const ref = (event.referrer ?? "").toLowerCase()
-      return !ref.includes("localhost") && !ref.includes("127.0.0.1")
+      if (ref.includes("localhost") || ref.includes("127.0.0.1") || ref.includes("0.0.0.0")) {
+        return false
+      }
+      return isPublicSiteAnalyticsPath(event.path ?? null)
     })
     .map((event) => {
       const timestampMs = typeof event.timestamp === "number" ? event.timestamp : Date.now()

@@ -39,7 +39,9 @@ import {
   IconPencil,
   IconTrash,
 } from "@tabler/icons-react"
+import { ExternalLink, FileText } from "lucide-react"
 import { toast } from "sonner"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type AvailableRow = {
   appealId: string
@@ -92,6 +94,18 @@ function formatAmountInput(n: number): string {
   return n.toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
+async function uploadDistributionInvoice(file: File): Promise<{ url: string; fileName: string }> {
+  const fd = new FormData()
+  fd.set("file", file)
+  const res = await fetch("/api/admin/distributions/upload-invoice", { method: "POST", body: fd })
+  const data = (await res.json().catch(() => ({}))) as { error?: string; url?: string; fileName?: string }
+  if (!res.ok) {
+    throw new Error(typeof data?.error === "string" ? data.error : "Failed to upload invoice")
+  }
+  if (!data.url) throw new Error("Upload did not return a file URL")
+  return { url: data.url, fileName: typeof data.fileName === "string" ? data.fileName : file.name }
+}
+
 type DistributionRow = {
   id: string
   appealId: string
@@ -100,6 +114,8 @@ type DistributionRow = {
   description: string
   country: string | null
   itemsDistributed: string | null
+  invoiceUrl: string | null
+  invoiceFileName: string | null
   createdAt: string
   createdBy: { id: string; email: string; firstName: string | null; lastName: string | null } | null
 }
@@ -131,6 +147,10 @@ export function DistributionsPageClient() {
   >([{ label: "", amount: "", unit: ITEM_UNIT_EMPTY }])
   const [savingEdit, setSavingEdit] = React.useState(false)
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const [formInvoiceFile, setFormInvoiceFile] = React.useState<File | null>(null)
+  const [logModalKey, setLogModalKey] = React.useState(0)
+  const [editInvoiceFile, setEditInvoiceFile] = React.useState<File | null>(null)
+  const [editRemoveInvoice, setEditRemoveInvoice] = React.useState(false)
 
   const fetchAvailable = React.useCallback(async () => {
     try {
@@ -181,6 +201,8 @@ export function DistributionsPageClient() {
     setFormDescription("")
     setFormCountry("")
     setFormItems([{ label: "", amount: "", unit: ITEM_UNIT_EMPTY }])
+    setFormInvoiceFile(null)
+    setLogModalKey((k) => k + 1)
     setModalOpen(true)
   }, [])
 
@@ -203,6 +225,13 @@ export function DistributionsPageClient() {
     }
     setSubmitting(true)
     try {
+      let invoiceUrl: string | null = null
+      let invoiceFileName: string | null = null
+      if (formInvoiceFile) {
+        const uploaded = await uploadDistributionInvoice(formInvoiceFile)
+        invoiceUrl = uploaded.url
+        invoiceFileName = uploaded.fileName
+      }
       const res = await fetch("/api/admin/distributions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -222,6 +251,8 @@ export function DistributionsPageClient() {
               .filter((r) => Number.isFinite(r.amount))
             return items.length > 0 ? JSON.stringify(items) : null
           })(),
+          invoiceUrl,
+          invoiceFileName,
         }),
       })
       if (!res.ok) {
@@ -236,11 +267,13 @@ export function DistributionsPageClient() {
     } finally {
       setSubmitting(false)
     }
-  }, [formAppealId, formAmount, formDescription, formCountry, formItems, available, load])
+  }, [formAppealId, formAmount, formDescription, formCountry, formItems, formInvoiceFile, available, load])
 
   const openDetails = React.useCallback((d: DistributionRow) => {
     setSelectedDistribution(d)
     setEditingDistribution(false)
+    setEditInvoiceFile(null)
+    setEditRemoveInvoice(false)
     setEditAppealId(d.appealId)
     setEditAmount(formatAmountInput(d.amountPence / 100))
     setEditDescription(d.description)
@@ -263,6 +296,8 @@ export function DistributionsPageClient() {
     setSelectedDistribution(null)
     setEditingDistribution(false)
     setDeletingId(null)
+    setEditInvoiceFile(null)
+    setEditRemoveInvoice(false)
   }, [])
 
   const handleUpdateDistribution = React.useCallback(async () => {
@@ -296,31 +331,50 @@ export function DistributionsPageClient() {
     }
     setSavingEdit(true)
     try {
+      let invoiceUrl: string | null | undefined
+      let invoiceFileName: string | null | undefined
+      if (editRemoveInvoice) {
+        invoiceUrl = null
+        invoiceFileName = null
+      } else if (editInvoiceFile) {
+        const uploaded = await uploadDistributionInvoice(editInvoiceFile)
+        invoiceUrl = uploaded.url
+        invoiceFileName = uploaded.fileName
+      }
+
+      const patchBody: Record<string, unknown> = {
+        appealId: editAppealId.trim(),
+        amountPence: pence,
+        description: editDescription.trim() || "",
+        country: editCountry.trim() || null,
+        itemsDistributed: (() => {
+          const items = editItems
+            .filter((r) => r.label.trim() && r.amount.trim())
+            .map((r) => ({
+              label: r.label.trim(),
+              amount: Number(r.amount.trim()),
+              ...(r.unit && r.unit !== ITEM_UNIT_EMPTY ? { unit: r.unit } : {}),
+            }))
+            .filter((r) => Number.isFinite(r.amount))
+          return items.length > 0 ? JSON.stringify(items) : null
+        })(),
+      }
+      if (invoiceUrl !== undefined) {
+        patchBody.invoiceUrl = invoiceUrl
+        patchBody.invoiceFileName = invoiceFileName ?? null
+      }
+
       const res = await fetch(`/api/admin/distributions/${selectedDistribution.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          appealId: editAppealId.trim(),
-          amountPence: pence,
-          description: editDescription.trim() || "",
-          country: editCountry.trim() || null,
-          itemsDistributed: (() => {
-            const items = editItems
-              .filter((r) => r.label.trim() && r.amount.trim())
-              .map((r) => ({
-                label: r.label.trim(),
-                amount: Number(r.amount.trim()),
-                ...(r.unit && r.unit !== ITEM_UNIT_EMPTY ? { unit: r.unit } : {}),
-              }))
-              .filter((r) => Number.isFinite(r.amount))
-            return items.length > 0 ? JSON.stringify(items) : null
-          })(),
-        }),
+        body: JSON.stringify(patchBody),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error || "Failed to update")
       toast.success("Distribution updated")
       setEditingDistribution(false)
+      setEditInvoiceFile(null)
+      setEditRemoveInvoice(false)
       load()
       setSelectedDistribution(
         (prev) =>
@@ -332,6 +386,8 @@ export function DistributionsPageClient() {
             description: data.description,
             country: data.country ?? null,
             itemsDistributed: data.itemsDistributed ?? null,
+            invoiceUrl: data.invoiceUrl ?? null,
+            invoiceFileName: data.invoiceFileName ?? null,
           }
       )
     } catch (e) {
@@ -346,6 +402,8 @@ export function DistributionsPageClient() {
     editDescription,
     editCountry,
     editItems,
+    editInvoiceFile,
+    editRemoveInvoice,
     available,
     distributions,
     load,
@@ -476,6 +534,7 @@ export function DistributionsPageClient() {
                       <TableHead>What was distributed</TableHead>
                       <TableHead>Country</TableHead>
                       <TableHead>Logged by</TableHead>
+                      <TableHead className="w-[100px] text-center">Invoice</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -501,6 +560,22 @@ export function DistributionsPageClient() {
                             ? formatAdminUserName(d.createdBy) || d.createdBy.email
                             : "—"}
                         </TableCell>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          {d.invoiceUrl ? (
+                            <a
+                              href={d.invoiceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                            >
+                              <FileText className="size-4 shrink-0" />
+                              <ExternalLink className="size-3.5 shrink-0" />
+                              <span className="sr-only">View invoice</span>
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -512,15 +587,16 @@ export function DistributionsPageClient() {
       </Tabs>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg sm:rounded-lg">
+          <DialogHeader className="shrink-0 space-y-1.5 border-b px-6 pb-4 pt-6 pr-12 text-center sm:text-left">
             <DialogTitle>Log distribution</DialogTitle>
             <DialogDescription>
               Record money spent from an appeal (e.g. convoy to Gaza, water tank). This reduces the
               available to spend for that appeal.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
+            <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Appeal</Label>
               <Select value={formAppealId} onValueChange={setFormAppealId}>
@@ -651,8 +727,28 @@ export function DistributionsPageClient() {
                 </Button>
               </div>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="dist-invoice">Invoice (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                PDF or image (JPEG, PNG, WebP, GIF), up to 10MB. Open it anytime from the list or
+                details.
+              </p>
+              <Input
+                key={logModalKey}
+                id="dist-invoice"
+                type="file"
+                accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
+                onChange={(e) => setFormInvoiceFile(e.target.files?.[0] ?? null)}
+                className="cursor-pointer"
+              />
+              {formInvoiceFile && (
+                <p className="text-xs text-muted-foreground">Selected: {formInvoiceFile.name}</p>
+              )}
+            </div>
+            </div>
           </div>
-          <DialogFooter>
+          <div className="shrink-0 border-t bg-background px-6 py-4">
+            <DialogFooter className="gap-2 sm:justify-end">
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={submitting}>
               Cancel
             </Button>
@@ -660,13 +756,14 @@ export function DistributionsPageClient() {
               {submitting && <IconLoader2 className="size-4 animate-spin mr-2" />}
               Log distribution
             </Button>
-          </DialogFooter>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={detailsModalOpen} onOpenChange={(open) => !open && closeDetails()}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg sm:rounded-lg">
+          <DialogHeader className="shrink-0 space-y-1.5 border-b px-6 pb-4 pt-6 pr-12 text-center sm:text-left">
             <DialogTitle>
               {editingDistribution ? "Edit distribution" : "Distribution details"}
             </DialogTitle>
@@ -678,8 +775,9 @@ export function DistributionsPageClient() {
           </DialogHeader>
           {selectedDistribution && (
             <>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
               {editingDistribution ? (
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4">
                   <div className="grid gap-2">
                     <Label>Appeal</Label>
                     <Select value={editAppealId} onValueChange={setEditAppealId}>
@@ -824,9 +922,65 @@ export function DistributionsPageClient() {
                       onChange={(e) => setEditCountry(e.target.value)}
                     />
                   </div>
+                  <div className="grid gap-2">
+                    <Label>Invoice</Label>
+                    {selectedDistribution.invoiceUrl && !editRemoveInvoice && !editInvoiceFile ? (
+                      <p className="text-xs text-muted-foreground">
+                        Current file:{" "}
+                        <a
+                          href={selectedDistribution.invoiceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline inline-flex items-center gap-1"
+                        >
+                          {selectedDistribution.invoiceFileName || "View invoice"}
+                          <ExternalLink className="size-3" />
+                        </a>
+                      </p>
+                    ) : null}
+                    {selectedDistribution.invoiceUrl ? (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="edit-remove-invoice"
+                          checked={editRemoveInvoice}
+                          onCheckedChange={(checked) => {
+                            const on = checked === true
+                            setEditRemoveInvoice(on)
+                            if (on) setEditInvoiceFile(null)
+                          }}
+                        />
+                        <label htmlFor="edit-remove-invoice" className="text-sm cursor-pointer">
+                          Remove invoice
+                        </label>
+                      </div>
+                    ) : null}
+                    {!editRemoveInvoice && (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedDistribution.invoiceUrl
+                            ? "Upload a new PDF or image to replace the current invoice."
+                            : "Add an invoice (optional): PDF or image, up to 10MB."}
+                        </p>
+                        <Input
+                          type="file"
+                          accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
+                          onChange={(e) => {
+                            setEditInvoiceFile(e.target.files?.[0] ?? null)
+                            setEditRemoveInvoice(false)
+                          }}
+                          className="cursor-pointer"
+                        />
+                        {editInvoiceFile && (
+                          <p className="text-xs text-muted-foreground">
+                            New file: {editInvoiceFile.name}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               ) : (
-                <div className="grid gap-3 py-2 text-sm">
+                <div className="grid gap-3 text-sm">
                   <div className="flex justify-between gap-4">
                     <span className="text-muted-foreground">Date</span>
                     <span>{formatDate(selectedDistribution.createdAt)}</span>
@@ -866,6 +1020,27 @@ export function DistributionsPageClient() {
                     <span className="text-muted-foreground">Country</span>
                     <span>{selectedDistribution.country ?? "—"}</span>
                   </div>
+                  <div className="flex justify-between gap-4 items-start">
+                    <span className="text-muted-foreground shrink-0">Invoice</span>
+                    <span className="text-right min-w-0">
+                      {selectedDistribution.invoiceUrl ? (
+                        <a
+                          href={selectedDistribution.invoiceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-end gap-1.5 font-medium text-primary hover:underline break-all"
+                        >
+                          <FileText className="size-4 shrink-0" />
+                          <span className="min-w-0">
+                            {selectedDistribution.invoiceFileName || "View invoice"}
+                          </span>
+                          <ExternalLink className="size-3.5 shrink-0" />
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </span>
+                  </div>
                   <div className="flex justify-between gap-4">
                     <span className="text-muted-foreground">Logged by</span>
                     <span>
@@ -877,12 +1052,18 @@ export function DistributionsPageClient() {
                   </div>
                 </div>
               )}
-              <DialogFooter>
+              </div>
+              <div className="shrink-0 border-t bg-background px-6 py-4">
+                <DialogFooter className="gap-2 sm:justify-end">
                 {editingDistribution ? (
                   <>
                     <Button
                       variant="outline"
-                      onClick={() => setEditingDistribution(false)}
+                      onClick={() => {
+                        setEditingDistribution(false)
+                        setEditInvoiceFile(null)
+                        setEditRemoveInvoice(false)
+                      }}
                       disabled={savingEdit}
                     >
                       Cancel
@@ -896,7 +1077,11 @@ export function DistributionsPageClient() {
                   <>
                     <Button
                       variant="outline"
-                      onClick={() => setEditingDistribution(true)}
+                      onClick={() => {
+                        setEditingDistribution(true)
+                        setEditInvoiceFile(null)
+                        setEditRemoveInvoice(false)
+                      }}
                       disabled={!!deletingId}
                     >
                       <IconPencil className="size-4 mr-2" />
@@ -917,6 +1102,7 @@ export function DistributionsPageClient() {
                   </>
                 )}
               </DialogFooter>
+              </div>
             </>
           )}
         </DialogContent>

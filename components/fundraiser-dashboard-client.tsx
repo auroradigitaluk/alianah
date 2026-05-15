@@ -22,6 +22,18 @@ import Link from "next/link"
 import { Plus, Share2, Pencil, Loader2, ExternalLink, ListOrdered } from "lucide-react"
 import { FundraiserDonationsView } from "@/components/fundraiser-donations-view"
 
+function parseStoredFundraiserImages(value: string | null | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return Array.isArray(parsed)
+      ? parsed.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+      : []
+  } catch {
+    return []
+  }
+}
+
 interface Fundraiser {
   id: string
   title: string
@@ -34,12 +46,14 @@ interface Fundraiser {
   createdAt: Date
   imageUrl?: string | null
   message?: string | null
+  isCustom?: boolean
+  customImageUrls?: string | null
   customApprovalStatus?: "PENDING" | "APPROVED" | "DECLINED"
   customDeclineReason?: string | null
   campaign: {
     title: string
     slug: string
-    type: "APPEAL" | "WATER" | "QURBANI"
+    type: "APPEAL" | "WATER" | "QURBANI" | "CUSTOM"
   }
 }
 
@@ -72,6 +86,9 @@ export function FundraiserDashboardClient({
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState("")
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
+  const [editCustomImageUrls, setEditCustomImageUrls] = useState<string[]>([])
+  const [customImagesUploading, setCustomImagesUploading] = useState(false)
+  const [customImagesError, setCustomImagesError] = useState<string | null>(null)
 
   const handleFundraiserClick = (fundraiser: Fundraiser) => {
     setSelectedFundraiserId(fundraiser.id)
@@ -90,11 +107,59 @@ export function FundraiserDashboardClient({
     )
     setEditMessage(f.message || "")
     setEditError("")
+    setCustomImagesError(null)
+    setEditCustomImageUrls(
+      f.isCustom ? parseStoredFundraiserImages(f.customImageUrls ?? undefined) : []
+    )
+  }
+
+  const handleCustomImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files?.length) return
+    setCustomImagesError(null)
+    setCustomImagesUploading(true)
+    try {
+      const maxSize = 5 * 1024 * 1024
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) {
+          setCustomImagesError("Please choose image files only.")
+          e.target.value = ""
+          return
+        }
+        if (file.size > maxSize) {
+          setCustomImagesError("Each image must be 5MB or smaller.")
+          e.target.value = ""
+          return
+        }
+      }
+      const newUrls: string[] = []
+      for (const file of Array.from(files)) {
+        const formData = new FormData()
+        formData.append("file", file)
+        const res = await fetch("/api/fundraisers/upload", { method: "POST", body: formData })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          setCustomImagesError(
+            typeof data.error === "string" ? data.error : "Failed to upload image"
+          )
+          continue
+        }
+        const data = (await res.json()) as { url?: string }
+        if (data.url) newUrls.push(data.url)
+      }
+      if (newUrls.length > 0) {
+        setEditCustomImageUrls((prev) => [...prev, ...newUrls])
+      }
+    } finally {
+      setCustomImagesUploading(false)
+      e.target.value = ""
+    }
   }
 
   const closeEditModal = () => {
     setEditingFundraiser(null)
     setEditError("")
+    setCustomImagesError(null)
   }
 
   const handleEditSave = async () => {
@@ -115,18 +180,29 @@ export function FundraiserDashboardClient({
       setEditError("Your name is required")
       return
     }
+    if (editingFundraiser.isCustom) {
+      const imgs = editCustomImageUrls.map((u) => u.trim()).filter(Boolean)
+      if (imgs.length < 3) {
+        setEditError("Custom fundraisers need at least 3 images.")
+        return
+      }
+    }
     setEditSaving(true)
     setEditError("")
     try {
+      const body: Record<string, unknown> = {
+        title: editTitle.trim(),
+        fundraiserName: editName.trim(),
+        targetAmountPence: targetPence,
+        message: editMessage.trim() || null,
+      }
+      if (editingFundraiser.isCustom) {
+        body.customImageUrls = editCustomImageUrls.map((u) => u.trim()).filter(Boolean)
+      }
       const res = await fetch(`/api/fundraisers/${editingFundraiser.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: editTitle.trim(),
-          fundraiserName: editName.trim(),
-          targetAmountPence: targetPence,
-          message: editMessage.trim() || null,
-        }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -316,7 +392,8 @@ export function FundraiserDashboardClient({
           <DialogHeader>
             <DialogTitle>Edit fundraiser</DialogTitle>
             <DialogDescription>
-              Update the title, your name, target amount, or message.
+              Update the title, your name, target amount, or message
+              {editingFundraiser?.isCustom ? ", and your campaign images (minimum three)." : "."}
             </DialogDescription>
           </DialogHeader>
           {editingFundraiser && (
@@ -363,6 +440,58 @@ export function FundraiserDashboardClient({
                   className="resize-none"
                 />
               </div>
+              {editingFundraiser.isCustom && (
+                <div className="space-y-2">
+                  <Label>Campaign images</Label>
+                  <p className="text-xs text-muted-foreground">
+                    At least 3 images. Max 5MB each.
+                  </p>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleCustomImageUpload}
+                    disabled={customImagesUploading}
+                    className="h-10 cursor-pointer file:cursor-pointer"
+                  />
+                  {customImagesError && (
+                    <p className="text-xs text-destructive">{customImagesError}</p>
+                  )}
+                  {editCustomImageUrls.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {editCustomImageUrls.map((url) => (
+                        <div
+                          key={url}
+                          className="relative aspect-square overflow-hidden rounded-md border bg-muted group"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditCustomImageUrls((prev) =>
+                                prev.filter((existing) => existing !== url)
+                              )
+                            }
+                            className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                            aria-label="Remove image"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {editCustomImageUrls.length} image{editCustomImageUrls.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              )}
               {editError && <p className="text-sm text-destructive">{editError}</p>}
             </div>
           )}

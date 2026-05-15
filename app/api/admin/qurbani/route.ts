@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireAdminAuthSafe, requireAdminRoleSafe } from "@/lib/admin-auth"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 
 const qurbaniCountrySchema = z.object({
@@ -17,7 +17,7 @@ const qurbaniCountrySchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const [, err] = await requireAdminAuthSafe()
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
   try {
     const countries = await prisma.qurbaniCountry.findMany({

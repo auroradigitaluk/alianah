@@ -17,6 +17,7 @@ const updateSchema = z
     waterProjectCountryId: z.union([z.string().min(1), z.null()]).optional(),
     customApprovalStatus: z.enum(["PENDING", "APPROVED", "DECLINED"]).optional(),
     customDeclineReason: z.union([z.string().trim().min(1), z.null()]).optional(),
+    customImageUrls: z.array(z.string().url()).min(3).max(24).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: "At least one field required" })
 
@@ -266,19 +267,21 @@ export async function GET(
     const giftAidCount = completedDonations.filter((d) => d.giftAid).length
 
     // Serialize dates
-    const campaignTitle = fundraiser.appeal?.title
-      ? fundraiser.appeal.title
-      : fundraiser.waterProject?.projectType === "WATER_PUMP"
-        ? "Water Pumps"
-        : fundraiser.waterProject?.projectType === "WATER_WELL"
-          ? "Water Wells"
-          : fundraiser.waterProject?.projectType === "WATER_TANK"
-            ? "Water Tanks"
-            : fundraiser.waterProject?.projectType === "WUDHU_AREA"
-              ? "Wudhu Areas"
-              : fundraiser.qurbaniCountry?.country
-                ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
-                : "Water Project"
+    const campaignTitle = fundraiser.isCustom
+      ? "Custom fundraiser"
+      : fundraiser.appeal?.title
+        ? fundraiser.appeal.title
+        : fundraiser.waterProject?.projectType === "WATER_PUMP"
+          ? "Water Pumps"
+          : fundraiser.waterProject?.projectType === "WATER_WELL"
+            ? "Water Wells"
+            : fundraiser.waterProject?.projectType === "WATER_TANK"
+              ? "Water Tanks"
+              : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+                ? "Wudhu Areas"
+                : fundraiser.qurbaniCountry?.country
+                  ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
+                  : "Water Project"
 
     const serialized = {
       ...fundraiser,
@@ -288,8 +291,16 @@ export async function GET(
         title: campaignTitle,
         slug: fundraiser.appeal?.slug || "",
         summary: fundraiser.appeal?.summary || fundraiser.waterProject?.description || null,
-        isActive: fundraiser.appeal?.isActive ?? fundraiser.waterProject?.isActive ?? false,
-        type: fundraiser.appeal ? "APPEAL" : fundraiser.qurbaniCountry ? "QURBANI" : "WATER",
+        isActive: fundraiser.isCustom
+          ? fundraiser.isActive
+          : fundraiser.appeal?.isActive ?? fundraiser.waterProject?.isActive ?? false,
+        type: fundraiser.isCustom
+          ? "CUSTOM"
+          : fundraiser.appeal
+            ? "APPEAL"
+            : fundraiser.qurbaniCountry
+              ? "QURBANI"
+              : "WATER",
       },
       statistics: {
         totalRaised,
@@ -347,6 +358,7 @@ export async function PATCH(
       customDeclineReason?: string | null
       customReviewedAt?: Date | null
       customReviewedByAdminUserId?: string | null
+      customImageUrls?: string
     } = {}
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.fundraiserName !== undefined) updateData.fundraiserName = data.fundraiserName
@@ -409,6 +421,20 @@ export async function PATCH(
       if (data.customApprovalStatus === "DECLINED") {
         updateData.customDeclineReason = data.customDeclineReason?.trim() || null
       }
+    }
+
+    if (data.customImageUrls !== undefined) {
+      const existing = await prisma.fundraiser.findUnique({
+        where: { id },
+        select: { isCustom: true },
+      })
+      if (!existing?.isCustom) {
+        return NextResponse.json(
+          { error: "Campaign images can only be set for custom fundraisers" },
+          { status: 400 }
+        )
+      }
+      updateData.customImageUrls = JSON.stringify(data.customImageUrls)
     }
 
     const fundraiser = await prisma.fundraiser.update({

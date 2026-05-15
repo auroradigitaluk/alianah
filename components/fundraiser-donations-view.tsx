@@ -171,7 +171,9 @@ export function FundraiserDonationsView({
     .filter((d) => d.status === "APPROVED")
     .reduce((sum, d) => sum + d.amountPence, 0)
   const totalRaised = totalOnline + totalCashApproved
-  const completedCount = donations.filter((d) => d.status === "COMPLETED").length
+  const totalDonationRows =
+    donations.filter((d) => d.status === "COMPLETED").length +
+    cashDonations.filter((d) => d.status === "APPROVED").length
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -210,7 +212,7 @@ export function FundraiserDonationsView({
               </div>
               <div className="p-4 border rounded-lg">
                 <p className="text-sm text-muted-foreground">Total Donations</p>
-                <p className="text-2xl font-bold mt-1">{completedCount}</p>
+                <p className="text-2xl font-bold mt-1">{totalDonationRows}</p>
               </div>
             </div>
 

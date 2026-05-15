@@ -76,7 +76,7 @@ export function formatBucketLabel(bucketKey: string, interval: AnalyticsInterval
   return bucketKey
 }
 
-/** Exclude development traffic: events whose referrer is localhost or 127.0.0.1. */
+/** Exclude events whose referrer points at local development (common URL spellings). */
 export const excludeLocalhostReferrer = {
   OR: [
     { referrer: null },
@@ -84,7 +84,37 @@ export const excludeLocalhostReferrer = {
       AND: [
         { referrer: { not: { contains: "localhost" } } },
         { referrer: { not: { contains: "127.0.0.1" } } },
+        { referrer: { not: { contains: "0.0.0.0" } } },
       ],
     },
   ],
+}
+
+/** Pageviews that count toward public marketing / donation site analytics only. */
+export const publicSitePageviewWhere = {
+  AND: [
+    excludeLocalhostReferrer,
+    { path: { not: null } },
+    { NOT: { path: { startsWith: "/admin" } } },
+    { NOT: { path: { contains: "localhost" } } },
+    { NOT: { path: { contains: "127.0.0.1" } } },
+  ],
+}
+
+/** Client / drain ingest: skip recording pageviews for admin app or dev URLs in path. */
+export function isPublicSiteAnalyticsPath(path: string | null | undefined): boolean {
+  if (path == null || path.trim() === "") return false
+  const p = path.trim().toLowerCase()
+  if (p.startsWith("/admin")) return false
+  if (p.includes("localhost") || p.includes("127.0.0.1") || p.includes("0.0.0.0")) return false
+  return true
+}
+
+/** Referrer hostname label for breakdowns — skip local / internal referrers. */
+export function isLocalOrInternalReferrerLabel(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase()
+  if (h === "direct") return false
+  if (h.includes("localhost") || h.includes("127.0.0.1") || h.includes("0.0.0.0")) return true
+  if (h.endsWith(".local")) return true
+  return false
 }

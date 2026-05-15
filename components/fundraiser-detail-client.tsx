@@ -56,6 +56,20 @@ import {
 import { IconCheck, IconX, IconCircleCheckFilled, IconLoader } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+function parseStoredImageUrls(value: unknown): string[] {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      return Array.isArray(parsed)
+        ? parsed.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+        : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 interface FundraiserDetails {
   id: string
   title: string
@@ -67,6 +81,10 @@ interface FundraiserDetails {
   isActive: boolean
   createdAt: string
   consolidatedWaterProjectDonationId?: string | null
+  isCustom?: boolean
+  customImageUrls?: string
+  customApprovalStatus?: string
+  customDeclineReason?: string | null
   waterProject?: { id: string; projectType: string } | null
   waterProjectCountryId?: string | null
   waterProjectCountry?: { id: string; country: string } | null
@@ -76,7 +94,7 @@ interface FundraiserDetails {
     slug: string
     summary: string | null
     isActive: boolean
-    type: "APPEAL" | "WATER" | "QURBANI"
+    type: "APPEAL" | "WATER" | "QURBANI" | "CUSTOM"
   }
   statistics: {
     totalRaised: number
@@ -132,6 +150,9 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
   const [consolidating, setConsolidating] = useState(false)
   const [editWaterProjectCountryId, setEditWaterProjectCountryId] = useState("")
   const [waterCountries, setWaterCountries] = useState<{ id: string; country: string }[]>([])
+  const [editCustomImageUrls, setEditCustomImageUrls] = useState<string[]>([])
+  const [customImagesUploading, setCustomImagesUploading] = useState(false)
+  const [customImagesError, setCustomImagesError] = useState<string | null>(null)
 
   const fetchDetails = useCallback(async () => {
     setLoading(true)
@@ -203,6 +224,10 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
         details.targetAmountPence != null ? (details.targetAmountPence / 100).toFixed(2) : ""
       )
       setEditWaterProjectCountryId(details.waterProjectCountryId ?? "")
+      setEditCustomImageUrls(
+        details.isCustom ? parseStoredImageUrls(details.customImageUrls) : []
+      )
+      setCustomImagesError(null)
       setEditError(null)
       setIsEditing(true)
       if (details.campaign.type === "WATER" && details.waterProject?.projectType) {
@@ -230,6 +255,50 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
   const cancelEditing = () => {
     setIsEditing(false)
     setEditError(null)
+    setCustomImagesError(null)
+  }
+
+  const handleCustomImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files?.length) return
+    setCustomImagesError(null)
+    setCustomImagesUploading(true)
+    try {
+      const maxSize = 5 * 1024 * 1024
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) {
+          setCustomImagesError("Please choose image files only.")
+          e.target.value = ""
+          return
+        }
+        if (file.size > maxSize) {
+          setCustomImagesError("Each image must be 5MB or smaller.")
+          e.target.value = ""
+          return
+        }
+      }
+      const newUrls: string[] = []
+      for (const file of Array.from(files)) {
+        const formData = new FormData()
+        formData.append("file", file)
+        const res = await fetch("/api/fundraisers/upload", { method: "POST", body: formData })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          setCustomImagesError(
+            typeof data.error === "string" ? data.error : "Failed to upload image"
+          )
+          continue
+        }
+        const data = (await res.json()) as { url?: string }
+        if (data.url) newUrls.push(data.url)
+      }
+      if (newUrls.length > 0) {
+        setEditCustomImageUrls((prev) => [...prev, ...newUrls])
+      }
+    } finally {
+      setCustomImagesUploading(false)
+      e.target.value = ""
+    }
   }
 
   const saveDetails = async () => {
@@ -250,21 +319,32 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
       }
       targetAmountPence = Math.round(pounds * 100)
     }
+    if (details.isCustom) {
+      const imgs = editCustomImageUrls.map((u) => u.trim()).filter(Boolean)
+      if (imgs.length < 3) {
+        setEditError("Custom fundraisers need at least 3 images.")
+        return
+      }
+    }
     setSaving(true)
     setEditError(null)
     try {
+      const payload: Record<string, unknown> = {
+        fundraiserName: name,
+        email,
+        message: editMessage.trim() || null,
+        targetAmountPence,
+      }
+      if (details.campaign.type === "WATER" && details.waterProject) {
+        payload.waterProjectCountryId = editWaterProjectCountryId || null
+      }
+      if (details.isCustom) {
+        payload.customImageUrls = editCustomImageUrls.map((u) => u.trim()).filter(Boolean)
+      }
       const res = await fetch(`/api/admin/fundraisers/${details.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fundraiserName: name,
-          email,
-          message: editMessage.trim() || null,
-          targetAmountPence,
-          ...(details.campaign.type === "WATER"
-            ? { waterProjectCountryId: editWaterProjectCountryId || null }
-            : {}),
-        }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -435,6 +515,7 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                     of {formatCurrency(details.targetAmountPence)}
                   </div>
                   {details.campaign.type === "WATER" &&
+                    details.waterProject &&
                     details.statistics.totalRaised >= (details.targetAmountPence ?? 0) &&
                     !details.consolidatedWaterProjectDonationId && (
                       <Button
@@ -517,7 +598,9 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                   onChange={(e) => setEditTargetAmountPence(e.target.value)}
                 />
               </div>
-              {details.campaign.type === "WATER" && waterCountries.length > 0 && (
+              {details.campaign.type === "WATER" &&
+                details.waterProject &&
+                waterCountries.length > 0 && (
                 <div className="space-y-2">
                   <Label>Water project country</Label>
                   <Select
@@ -549,6 +632,60 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                   rows={4}
                 />
               </div>
+              {details.isCustom && (
+                <div className="space-y-2">
+                  <Label>Campaign images</Label>
+                  <p className="text-xs text-muted-foreground">
+                    At least 3 images. Max 5MB each. Uploads use the same storage as the public
+                    fundraiser flow.
+                  </p>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleCustomImageUpload}
+                    disabled={customImagesUploading}
+                    className="h-10 cursor-pointer file:cursor-pointer"
+                  />
+                  {customImagesError && (
+                    <p className="text-xs text-destructive">{customImagesError}</p>
+                  )}
+                  {editCustomImageUrls.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {editCustomImageUrls.map((url) => (
+                        <div
+                          key={url}
+                          className="relative aspect-square overflow-hidden rounded-md border bg-muted group"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditCustomImageUrls((prev) =>
+                                prev.filter((existing) => existing !== url)
+                              )
+                            }
+                            className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                            aria-label="Remove image"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {editCustomImageUrls.length} image{editCustomImageUrls.length === 1 ? "" : "s"}{" "}
+                    (minimum 3 required)
+                  </p>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Button onClick={saveDetails} disabled={saving}>
                   {saving ? "Saving…" : "Save"}
@@ -582,7 +719,7 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                     <p className="font-mono text-sm">{details.slug}</p>
                   </div>
                 </div>
-                {details.campaign.type === "WATER" && (
+                {details.campaign.type === "WATER" && details.waterProject && (
                   <div className="flex items-center gap-3">
                     <Megaphone className="h-4 w-4 text-muted-foreground" />
                     <div>
@@ -609,6 +746,27 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                     <p>{formatDate(new Date(details.createdAt))}</p>
                   </div>
                 </div>
+                {details.isCustom && details.customApprovalStatus && (
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Custom review</p>
+                      <Badge variant="outline" className="mt-0.5 font-normal">
+                        {details.customApprovalStatus === "APPROVED"
+                          ? "Approved"
+                          : details.customApprovalStatus === "DECLINED"
+                            ? "Declined"
+                            : "Pending"}
+                      </Badge>
+                      {details.customApprovalStatus === "DECLINED" &&
+                        details.customDeclineReason && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Reason: {details.customDeclineReason}
+                          </p>
+                        )}
+                    </div>
+                  </div>
+                )}
               </div>
               {(details.message ?? "").trim() && (
                 <div className="md:col-span-2 flex items-start gap-3 p-4 rounded-lg bg-muted/20">
@@ -616,6 +774,25 @@ export function FundraiserDetailClient({ fundraiserId }: { fundraiserId: string 
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Message</p>
                     <p className="text-sm">{details.message}</p>
+                  </div>
+                </div>
+              )}
+              {details.isCustom && parseStoredImageUrls(details.customImageUrls).length > 0 && (
+                <div className="md:col-span-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">Campaign images</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {parseStoredImageUrls(details.customImageUrls).map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative aspect-square overflow-hidden rounded-md border bg-muted"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      </a>
+                    ))}
                   </div>
                 </div>
               )}

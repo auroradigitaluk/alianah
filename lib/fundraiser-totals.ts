@@ -7,10 +7,9 @@ import {
 const WATER_PROJECT_STATUSES = ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"] as const
 
 /**
- * Total raised and donation count for a fundraiser (same logic as admin).
- * - Appeal fundraisers: Donation table (deduplicated) + cash.
- * - Water fundraisers: Donation table (contributions) + cash. When target is met, one consolidated
- *   WaterProjectDonation is created for the pump (excluded from this total).
+ * Total raised and donation count for a fundraiser (same logic as admin and public campaign pages).
+ * - Donation rows (per-id dedupe) + approved cash + QurbaniDonation rows for this fundraiser.
+ * - Water fundraisers: also legacy WaterProjectDonation rows (excluding the consolidated pump row when set).
  */
 export async function getFundraiserTotalRaisedAndCount(
   fundraiserId: string,

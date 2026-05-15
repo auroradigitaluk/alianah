@@ -14,7 +14,7 @@ import Link from "next/link"
 export function PublicHeader() {
   const router = useRouter()
   const { items, setOpen } = useSidecart()
-  const [qurbaniEnabled, setQurbaniEnabled] = React.useState(true)
+  const [showQurbaniNav, setShowQurbaniNav] = React.useState(false)
 
   const handleBack = () => {
     router.back()
@@ -24,19 +24,27 @@ export function PublicHeader() {
 
   React.useEffect(() => {
     let cancelled = false
-    const loadQurbani = async () => {
+    const loadQurbaniNav = async () => {
       try {
+        const adminRes = await fetch("/api/admin/auth/me", { cache: "no-store" })
+        if (!adminRes.ok) {
+          if (!cancelled) setShowQurbaniNav(false)
+          return
+        }
         const res = await fetch("/api/qurbani", { cache: "no-store" })
-        if (!res.ok) return
+        if (!res.ok) {
+          if (!cancelled) setShowQurbaniNav(false)
+          return
+        }
         const data = (await res.json()) as unknown
-        if (!cancelled && Array.isArray(data)) {
-          setQurbaniEnabled(data.length > 0)
+        if (!cancelled) {
+          setShowQurbaniNav(Array.isArray(data) && data.length > 0)
         }
       } catch {
-        // keep default
+        if (!cancelled) setShowQurbaniNav(false)
       }
     }
-    void loadQurbani()
+    void loadQurbaniNav()
     return () => {
       cancelled = true
     }
@@ -99,7 +107,7 @@ export function PublicHeader() {
           >
             Sponsor
           </Link>
-          {qurbaniEnabled && (
+          {showQurbaniNav && (
             <Link
               href="/qurbani"
               className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"

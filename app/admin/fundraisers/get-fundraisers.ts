@@ -18,7 +18,7 @@ export type FundraiserRow = {
   targetAmountPence: number | null
   customApprovalStatus: "APPROVED" | "PENDING" | "DECLINED"
   customDeclineReason: string | null
-  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" }
+  campaign: { title: string; type: "APPEAL" | "WATER" | "QURBANI" | "CUSTOM" }
   amountRaised: number
 }
 
@@ -78,19 +78,21 @@ export async function getFundraisers(
       legacyWaterSum +
       fundraiser.cashDonations.reduce((sum, d) => sum + d.amountPence, 0) +
       (qurbaniPenceById.get(fundraiser.id) ?? 0)
-    const campaignTitle = fundraiser.appeal?.title
-      ? fundraiser.appeal.title
-      : fundraiser.waterProject?.projectType === "WATER_PUMP"
-        ? "Water Pumps"
-        : fundraiser.waterProject?.projectType === "WATER_WELL"
-          ? "Water Wells"
-          : fundraiser.waterProject?.projectType === "WATER_TANK"
-            ? "Water Tanks"
-            : fundraiser.waterProject?.projectType === "WUDHU_AREA"
-              ? "Wudhu Areas"
-              : fundraiser.qurbaniCountry?.country
-                ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
-                : "Water Project"
+    const campaignTitle = fundraiser.isCustom
+      ? "Custom fundraiser"
+      : fundraiser.appeal?.title
+        ? fundraiser.appeal.title
+        : fundraiser.waterProject?.projectType === "WATER_PUMP"
+          ? "Water Pumps"
+          : fundraiser.waterProject?.projectType === "WATER_WELL"
+            ? "Water Wells"
+            : fundraiser.waterProject?.projectType === "WATER_TANK"
+              ? "Water Tanks"
+              : fundraiser.waterProject?.projectType === "WUDHU_AREA"
+                ? "Wudhu Areas"
+                : fundraiser.qurbaniCountry?.country
+                  ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
+                  : "Water Project"
 
     return {
       id: fundraiser.id,
@@ -104,10 +106,13 @@ export async function getFundraisers(
       customDeclineReason: fundraiser.customDeclineReason,
       campaign: {
         title: campaignTitle,
-        type: (fundraiser.appeal ? "APPEAL" : fundraiser.qurbaniCountry ? "QURBANI" : "WATER") as
-          | "APPEAL"
-          | "WATER"
-          | "QURBANI",
+        type: (fundraiser.isCustom
+          ? "CUSTOM"
+          : fundraiser.appeal
+            ? "APPEAL"
+            : fundraiser.qurbaniCountry
+              ? "QURBANI"
+              : "WATER") as "APPEAL" | "WATER" | "QURBANI" | "CUSTOM",
       },
       amountRaised,
     }

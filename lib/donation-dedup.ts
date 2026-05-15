@@ -1,23 +1,28 @@
 import { prisma } from "@/lib/prisma"
 import type { Prisma } from "@prisma/client"
 
-/** One donation per (orderNumber, transactionId); use first occurrence so amount is not doubled. */
+/**
+ * Remove duplicate donation *rows* (same `id` only).
+ *
+ * We intentionally do **not** collapse by `orderNumber` + `transactionId`: one Stripe payment can
+ * fund multiple basket lines (e.g. five identical Qurbani shares). Those become multiple `Donation`
+ * rows sharing the same transaction id; each must count toward totals and appear in lists.
+ * Webhook idempotency is handled when rows are created, not here.
+ */
 export function deduplicateDonationsByTransaction<
   T extends { id: string; orderNumber: string | null; transactionId: string | null }
 >(donations: T[]): T[] {
   const seen = new Set<string>()
   const out: T[] = []
   for (const d of donations) {
-    const key =
-      d.orderNumber && d.transactionId ? `${d.orderNumber}:${d.transactionId}` : d.id
-    if (seen.has(key)) continue
-    seen.add(key)
+    if (seen.has(d.id)) continue
+    seen.add(d.id)
     out.push(d)
   }
   return out
 }
 
-/** Sum amountPence counting each transaction once (deduplicated by orderNumber + transactionId). */
+/** Sum amountPence for each distinct donation row (`id`). */
 export function sumDonationsDeduplicated(
   donations: Array<{
     id: string
@@ -30,7 +35,7 @@ export function sumDonationsDeduplicated(
   return deduped.reduce((s, d) => s + d.amountPence, 0)
 }
 
-/** Deduplicated sum of donations matching where (one amount per Stripe transaction). */
+/** Sum of completed donations matching `where` (one row per DB `Donation` id). */
 export async function getDeduplicatedDonationSum(
   where: Prisma.DonationWhereInput
 ): Promise<number> {
@@ -41,7 +46,7 @@ export async function getDeduplicatedDonationSum(
   return sumDonationsDeduplicated(rows)
 }
 
-/** Deduplicated count of donations (unique transactions). */
+/** Count of donation rows matching `where` (one per DB `Donation` id). */
 export async function getDeduplicatedDonationCount(
   where: Prisma.DonationWhereInput
 ): Promise<number> {
@@ -59,7 +64,7 @@ export type DeduplicatedDonationGroupByRow = {
   _count: { _all: number }
 } & Partial<Record<DonationGroupByKey, string | null>>
 
-/** GroupBy with deduplication: one row per transaction, then group by field and sum. Returns shape compatible with Prisma groupBy (_count._all). */
+/** GroupBy after dropping duplicate `id`s, then group by field and sum. Returns shape compatible with Prisma groupBy (_count._all). */
 export async function getDeduplicatedDonationGroupBy(
   where: Prisma.DonationWhereInput,
   by: DonationGroupByKey

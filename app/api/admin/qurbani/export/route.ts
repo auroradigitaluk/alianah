@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireAdminAuthSafe } from "@/lib/admin-auth"
+import { requireAdminRoleSafe } from "@/lib/admin-auth"
 import {
   formatCurrency,
   formatDateTime,
@@ -75,7 +75,7 @@ function parseSources(searchParams: URLSearchParams): Set<QurbaniDonationChannel
 }
 
 export async function GET(request: NextRequest) {
-  const [, err] = await requireAdminAuthSafe()
+  const [, err] = await requireAdminRoleSafe(["ADMIN"])
   if (err) return err
 
   const range = parseDateRange(request)

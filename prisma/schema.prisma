@@ -215,6 +215,8 @@ model Distribution {
   description       String  // e.g. "Egypt to Gaza convoy", "Water tank in Gaza"
   country           String? // e.g. "Gaza", "Egypt" (optional)
   itemsDistributed  String? // e.g. "hot meals 300, water packs 5000 litres" (optional)
+  invoiceUrl        String? // Vercel Blob URL (PDF or image)
+  invoiceFileName   String? // Original filename for display
   createdAt         DateTime @default(now())
   createdById       String?
 

@@ -4,7 +4,7 @@ import { getQurbaniEnabled } from "@/lib/settings"
 
 export const dynamic = "force-dynamic"
 
-/** Public list of active qurbani countries for the /qurbani donation page */
+/** Active qurbani countries (used by fundraiser flows, admin nav, etc.). */
 export async function GET() {
   try {
     const qurbaniEnabled = await getQurbaniEnabled()

@@ -170,7 +170,7 @@ export function CollectionModal({ masjids, appeals }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Masjid</Label>
-                <Popover open={masjidOpen} onOpenChange={setMasjidOpen}>
+                <Popover modal={false} open={masjidOpen} onOpenChange={setMasjidOpen}>
                   <PopoverTrigger asChild>
                     <button
                       type="button"
@@ -198,7 +198,11 @@ export function CollectionModal({ masjids, appeals }: Props) {
                         className="h-9"
                       />
                     </div>
-                    <div className="max-h-[200px] overflow-y-auto p-1">
+                    <div
+                      className="max-h-[min(280px,50vh)] overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y p-1"
+                      style={{ WebkitOverflowScrolling: "touch" }}
+                      onWheel={(e) => e.stopPropagation()}
+                    >
                       <button
                         type="button"
                         className={cn(
