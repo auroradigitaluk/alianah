@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getQurbaniEnabled } from "@/lib/settings"
 
 export const dynamic = "force-dynamic"
 
-/** Active qurbani countries (used by fundraiser flows, admin nav, etc.). */
+/** Active qurbani countries (public donation forms, fundraiser flows, etc.). */
 export async function GET() {
   try {
-    const qurbaniEnabled = await getQurbaniEnabled()
-    if (!qurbaniEnabled) return NextResponse.json([])
-
     const countries = await prisma.qurbaniCountry.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: "asc" }, { country: "asc" }],

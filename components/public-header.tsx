@@ -14,41 +14,12 @@ import Link from "next/link"
 export function PublicHeader() {
   const router = useRouter()
   const { items, setOpen } = useSidecart()
-  const [showQurbaniNav, setShowQurbaniNav] = React.useState(false)
 
   const handleBack = () => {
     router.back()
   }
 
   const itemCount = items.length
-
-  React.useEffect(() => {
-    let cancelled = false
-    const loadQurbaniNav = async () => {
-      try {
-        const adminRes = await fetch("/api/admin/auth/me", { cache: "no-store" })
-        if (!adminRes.ok) {
-          if (!cancelled) setShowQurbaniNav(false)
-          return
-        }
-        const res = await fetch("/api/qurbani", { cache: "no-store" })
-        if (!res.ok) {
-          if (!cancelled) setShowQurbaniNav(false)
-          return
-        }
-        const data = (await res.json()) as unknown
-        if (!cancelled) {
-          setShowQurbaniNav(Array.isArray(data) && data.length > 0)
-        }
-      } catch {
-        if (!cancelled) setShowQurbaniNav(false)
-      }
-    }
-    void loadQurbaniNav()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -107,14 +78,12 @@ export function PublicHeader() {
           >
             Sponsor
           </Link>
-          {showQurbaniNav && (
-            <Link
-              href="/qurbani"
-              className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
-            >
-              Qurbani
-            </Link>
-          )}
+          <Link
+            href="/qurbani"
+            className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Qurbani
+          </Link>
           <Link
             href="/donate"
             className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"

@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { sumDonationsDeduplicated } from "@/lib/donation-dedup"
 import { OneNationDonationForm } from "@/components/one-nation-donation-form"
-import { getQurbaniEnabled } from "@/lib/settings"
 
 export const dynamic = 'force-dynamic'
 
@@ -188,7 +187,6 @@ export default async function HomePage({
     waterProjectCountries,
     sponsorshipProjectsForForm,
     sponsorshipProjectCountries,
-    qurbaniEnabled,
     qurbaniCountries,
   ] = await Promise.all([
     getActiveAppeals(),
@@ -197,7 +195,6 @@ export default async function HomePage({
     getWaterProjectCountriesForForm(), // Get water project countries with prices
     getSponsorshipProjectsForForm(),
     getSponsorshipProjectCountriesForForm(),
-    getQurbaniEnabled(),
     getQurbaniCountriesForForm(),
   ])
 
@@ -270,7 +267,7 @@ export default async function HomePage({
             waterProjectCountries={waterProjectCountries}
             sponsorshipProjects={sponsorshipProjectsForForm}
             sponsorshipProjectCountries={sponsorshipProjectCountries}
-            qurbaniCountries={qurbaniEnabled ? qurbaniCountries : []}
+            qurbaniCountries={qurbaniCountries}
             initialZakatPence={initialZakatPence}
           />
         ) : (
