@@ -47,6 +47,8 @@ export type DonationRow = {
   } | null
   /** When set, this row comes from Qurbani donations (merged into the website donations table). */
   listKind?: "qurbani"
+  /** Number of qurbani line items in one checkout (admin table shows one row per checkout). */
+  qurbaniLineCount?: number
 }
 
 export function DonationsPageContent({

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import Stripe from "stripe"
 import { randomInt } from "crypto"
+import { normalizeFundraiserOnQurbaniCheckoutItems } from "@/lib/fundraiser-qurbani"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -92,7 +93,11 @@ async function generateOrderNumber() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const validated = expressSchema.parse(body)
+    const parsed = expressSchema.parse(body)
+    const validated = {
+      ...parsed,
+      items: normalizeFundraiserOnQurbaniCheckoutItems(parsed.items),
+    }
 
     const allOneOff = validated.items.every((i) => i.frequency === "ONE_OFF")
     if (!allOneOff) {

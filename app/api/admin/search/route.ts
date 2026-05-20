@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { formatCurrency } from "@/lib/utils"
+import { getQurbaniCheckoutGroupKey, orderNumberFromNotes } from "@/lib/qurbani-checkout"
 
 export const dynamic = "force-dynamic"
 
@@ -34,6 +35,8 @@ export async function GET(request: NextRequest) {
     const [
       donors,
       donations,
+      checkoutOrders,
+      qurbaniCheckouts,
       appeals,
       fundraisers,
       masjids,
@@ -102,6 +105,104 @@ export async function GET(request: NextRequest) {
             url: "/admin/donations",
           }))
         ),
+
+      prisma.demoOrder
+        .findMany({
+          where: {
+            OR: [
+              { orderNumber: { contains: q, mode: "insensitive" } },
+              { transactionId: { contains: q, mode: "insensitive" } },
+            ],
+          },
+          select: {
+            id: true,
+            orderNumber: true,
+            totalPence: true,
+            donorFirstName: true,
+            donorLastName: true,
+            donorEmail: true,
+          },
+          take: LIMIT,
+        })
+        .then(async (rows) => {
+          const results: SearchResultItem[] = []
+          for (const order of rows) {
+            const qurbani = await prisma.qurbaniDonation.findFirst({
+              where: { notes: { contains: `OrderNumber:${order.orderNumber}` } },
+              select: { id: true },
+              orderBy: { createdAt: "asc" },
+            })
+            results.push({
+              type: "checkout",
+              id: order.id,
+              label: `Checkout ${order.orderNumber}`,
+              subtitle: [
+                [order.donorFirstName, order.donorLastName].filter(Boolean).join(" "),
+                formatCurrency(order.totalPence),
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              url: qurbani
+                ? `/admin/donations?open=${qurbani.id}`
+                : "/admin/donations",
+            })
+          }
+          return results
+        }),
+
+      prisma.qurbaniDonation
+        .findMany({
+          where: {
+            OR: [
+              { donationNumber: { contains: q, mode: "insensitive" } },
+              { notes: { contains: q, mode: "insensitive" } },
+            ],
+          },
+          select: {
+            id: true,
+            amountPence: true,
+            donationNumber: true,
+            notes: true,
+            donor: { select: { firstName: true, lastName: true } },
+            qurbaniCountry: { select: { country: true } },
+          },
+          take: 40,
+          orderBy: { createdAt: "desc" },
+        })
+        .then((rows) => {
+          const groups = new Map<string, typeof rows>()
+          for (const row of rows) {
+            const key = getQurbaniCheckoutGroupKey(row)
+            const group = groups.get(key)
+            if (group) group.push(row)
+            else groups.set(key, [row])
+          }
+          return Array.from(groups.values())
+            .slice(0, LIMIT)
+            .map((group) => {
+              const primary = group[0]
+              const checkout = orderNumberFromNotes(primary.notes)
+              const ref = checkout ?? primary.donationNumber ?? primary.id
+              const total = group.reduce((sum, row) => sum + row.amountPence, 0)
+              const lineLabel =
+                group.length > 1
+                  ? `${group.length}× ${primary.qurbaniCountry.country}`
+                  : primary.qurbaniCountry.country
+              return {
+                type: "qurbani",
+                id: primary.id,
+                label: `Qurbani ${ref}`,
+                subtitle: [
+                  [primary.donor.firstName, primary.donor.lastName].filter(Boolean).join(" "),
+                  lineLabel,
+                  formatCurrency(total),
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+                url: `/admin/donations?open=${primary.id}`,
+              }
+            })
+        }),
 
       prisma.appeal
         .findMany({
@@ -343,6 +444,8 @@ export async function GET(request: NextRequest) {
     const results: SearchResultItem[] = [
       ...donors,
       ...donations,
+      ...checkoutOrders,
+      ...qurbaniCheckouts,
       ...appeals,
       ...fundraisers,
       ...masjids,

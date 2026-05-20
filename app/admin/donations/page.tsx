@@ -1,6 +1,7 @@
 import type { DemoOrder, DemoOrderItem } from "@prisma/client"
 import { AdminHeader } from "@/components/admin-header"
 import { prisma } from "@/lib/prisma"
+import { consolidateQurbaniRowsForDonationsTable } from "@/lib/qurbani-checkout"
 import type { DonationRow } from "@/components/donations-page-content"
 import { DonationsPageContent } from "@/components/donations-page-content"
 
@@ -8,12 +9,6 @@ type AbandonedCheckoutRow = DemoOrder & { items: DemoOrderItem[] }
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
-
-function orderNumberFromNotes(notes: string | null): string | null {
-  if (!notes) return null
-  const match = notes.match(/OrderNumber:([A-Z0-9-]+)/)
-  return match?.[1] ?? null
-}
 
 async function getQurbaniDonationRows(): Promise<DonationRow[]> {
   try {
@@ -46,31 +41,7 @@ async function getQurbaniDonationRows(): Promise<DonationRow[]> {
         },
       },
     })
-    return rows.map((q): DonationRow => ({
-      id: q.id,
-      listKind: "qurbani",
-      amountPence: q.amountPence,
-      donationType: q.donationType,
-      frequency: "ONE_OFF",
-      status: "COMPLETED",
-      paymentMethod: q.paymentMethod,
-      collectedVia: q.collectedVia,
-      transactionId: q.transactionId,
-      orderNumber: q.donationNumber ?? orderNumberFromNotes(q.notes),
-      giftAid: q.giftAid,
-      billingAddress: q.billingAddress,
-      billingCity: q.billingCity,
-      billingPostcode: q.billingPostcode,
-      billingCountry: q.billingCountry,
-      createdAt: q.createdAt,
-      completedAt: q.createdAt,
-      donor: q.donor,
-      appeal: null,
-      product: null,
-      qurbaniCountry: { country: q.qurbaniCountry.country },
-      qurbaniSize: q.size,
-      fundraiser: q.fundraiser,
-    }))
+    return consolidateQurbaniRowsForDonationsTable(rows) as DonationRow[]
   } catch (error) {
     console.error("[getQurbaniDonationRows]", error)
     return []

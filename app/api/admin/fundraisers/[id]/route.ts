@@ -4,6 +4,11 @@ import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { z } from "zod"
 import { sendFundraiserApprovedEmail } from "@/lib/email"
 import { getFundraiserBaseUrl } from "@/lib/utils"
+import { getFundraiserTotalRaisedAndCount } from "@/lib/fundraiser-totals"
+import {
+  groupQurbaniForFundraiserRecentList,
+  loadQurbaniRowsForFundraiserTotals,
+} from "@/lib/fundraiser-qurbani"
 
 export const dynamic = 'force-dynamic'
 
@@ -113,37 +118,53 @@ export async function GET(
       return NextResponse.json({ error: "Fundraiser not found" }, { status: 404 })
     }
 
-    const qurbaniDonations = await prisma.qurbaniDonation.findMany({
-      where: { fundraiserId: id },
-      include: {
-        donor: { select: { title: true, firstName: true, lastName: true, email: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    })
-
     const qurbaniAppealTitle = fundraiser.qurbaniCountry?.country
       ? `Qurbani - ${fundraiser.qurbaniCountry.country}`
       : "Qurbani"
 
-    const normalizedQurbaniDonations = qurbaniDonations.map((donation) => ({
-      id: donation.id,
-      amountPence: donation.amountPence,
-      donationType: donation.donationType,
-      frequency: "ONE_OFF",
-      status: "COMPLETED" as const,
-      paymentMethod: donation.paymentMethod,
-      giftAid: donation.giftAid,
-      transactionId: donation.transactionId,
-      billingAddress: donation.billingAddress,
-      billingCity: donation.billingCity,
-      billingPostcode: donation.billingPostcode,
-      billingCountry: donation.billingCountry,
-      createdAt: donation.createdAt,
-      completedAt: donation.createdAt,
-      donor: donation.donor,
-      appeal: { title: qurbaniAppealTitle },
-      product: null,
-    }))
+    const qurbaniRowsForFundraiser = await loadQurbaniRowsForFundraiserTotals([id])
+    const qurbaniCheckoutGroups = groupQurbaniForFundraiserRecentList(
+      qurbaniRowsForFundraiser,
+      id
+    )
+    const qurbaniDonorById = new Map(
+      (
+        await prisma.qurbaniDonation.findMany({
+          where: { id: { in: qurbaniCheckoutGroups.map((g) => g.id) } },
+          include: {
+            donor: { select: { title: true, firstName: true, lastName: true, email: true } },
+          },
+        })
+      ).map((d) => [d.id, d])
+    )
+
+    const normalizedQurbaniDonations = qurbaniCheckoutGroups.map((group) => {
+      const source = qurbaniDonorById.get(group.id)
+      return {
+        id: group.id,
+        amountPence: group.amountPence,
+        donationType: source?.donationType ?? "GENERAL",
+        frequency: "ONE_OFF",
+        status: "COMPLETED" as const,
+        paymentMethod: source?.paymentMethod ?? "WEBSITE_STRIPE",
+        giftAid: source?.giftAid ?? false,
+        transactionId: source?.transactionId ?? null,
+        billingAddress: source?.billingAddress ?? null,
+        billingCity: source?.billingCity ?? null,
+        billingPostcode: source?.billingPostcode ?? null,
+        billingCountry: source?.billingCountry ?? null,
+        createdAt: group.createdAt,
+        completedAt: group.createdAt,
+        donor: source?.donor ?? {
+          title: null,
+          firstName: group.donor.firstName ?? "Donor",
+          lastName: group.donor.lastName ?? "",
+          email: "",
+        },
+        appeal: { title: qurbaniAppealTitle },
+        product: null,
+      }
+    })
 
     const normalizedWaterDonations = fundraiser.waterProjectDonations.map((donation) => ({
       id: donation.id,
@@ -242,10 +263,11 @@ export async function GET(
       .concat(normalizedQurbaniDonations)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
-    // Calculate statistics
+    const isWaterFundraiser = Boolean(fundraiser.waterProjectId && fundraiser.waterProject)
+    const { totalRaisedPence: totalRaised, donationCount } =
+      await getFundraiserTotalRaisedAndCount(id, isWaterFundraiser)
+
     const completedDonations = combinedDonations.filter((d) => d.status === "COMPLETED")
-    const totalRaised = completedDonations.reduce((sum, d) => sum + d.amountPence, 0)
-    const donationCount = completedDonations.length
     const averageDonation = donationCount > 0 ? totalRaised / donationCount : 0
     const progressPercentage = fundraiser.targetAmountPence
       ? Math.min((totalRaised / fundraiser.targetAmountPence) * 100, 100)

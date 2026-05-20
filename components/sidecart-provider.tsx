@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Sidecart } from "@/components/sidecart"
+import { normalizeFundraiserOnQurbaniCheckoutItems } from "@/lib/fundraiser-qurbani"
 
 interface CartItem {
   id: string
@@ -71,7 +72,7 @@ export function SidecartProvider({ children }: { children: React.ReactNode }) {
         item.qurbaniCountryId ||
         "item"
       const newItem = { ...item, id: `${baseId}-${item.productId || item.qurbaniSize || "direct"}-${Date.now()}` }
-      return [...prev, newItem]
+      return normalizeFundraiserOnQurbaniCheckoutItems([...prev, newItem]) as CartItem[]
     })
     setOpen(true)
   }, [])

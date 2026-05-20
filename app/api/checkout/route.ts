@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import Stripe from "stripe"
 import { randomInt } from "crypto"
+import { normalizeFundraiserOnQurbaniCheckoutItems } from "@/lib/fundraiser-qurbani"
 
 // Ensure Node runtime for Stripe SDK
 export const runtime = "nodejs"
@@ -120,7 +121,11 @@ async function generateOrderNumber() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const validated = checkoutSchema.parse(body)
+    const parsed = checkoutSchema.parse(body)
+    const validated = {
+      ...parsed,
+      items: normalizeFundraiserOnQurbaniCheckoutItems(parsed.items),
+    }
 
     const billing = {
       address: validated.donor.billingAddress || validated.donor.address || null,

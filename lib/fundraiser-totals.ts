@@ -3,6 +3,10 @@ import {
   getDeduplicatedDonationSum,
   getDeduplicatedDonationCount,
 } from "@/lib/donation-dedup"
+import {
+  aggregateQurbaniForFundraiser,
+  loadQurbaniRowsForFundraiserTotals,
+} from "@/lib/fundraiser-qurbani"
 
 const WATER_PROJECT_STATUSES = ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"] as const
 
@@ -15,7 +19,7 @@ export async function getFundraiserTotalRaisedAndCount(
   fundraiserId: string,
   isWaterFundraiser: boolean
 ): Promise<{ totalRaisedPence: number; donationCount: number }> {
-  const [donationSum, donationCount, legacyWaterSum, qurbaniAgg, cashAgg] = await Promise.all([
+  const [donationSum, donationCount, legacyWaterSum, qurbaniRowsForFundraiser, cashAgg] = await Promise.all([
     getDeduplicatedDonationSum({
       fundraiserId,
       status: "COMPLETED",
@@ -54,11 +58,7 @@ export async function getFundraiserTotalRaisedAndCount(
           return { sum: agg._sum.amountPence ?? 0, count: agg._count.id }
         })()
       : Promise.resolve({ sum: 0, count: 0 }),
-    prisma.qurbaniDonation.aggregate({
-      where: { fundraiserId },
-      _sum: { amountPence: true },
-      _count: { id: true },
-    }),
+    loadQurbaniRowsForFundraiserTotals([fundraiserId]),
     prisma.fundraiserCashDonation.aggregate({
       where: { fundraiserId, status: "APPROVED" },
       _sum: { amountPence: true },
@@ -66,11 +66,19 @@ export async function getFundraiserTotalRaisedAndCount(
     }),
   ])
 
+  const qurbaniTotals = aggregateQurbaniForFundraiser(qurbaniRowsForFundraiser, fundraiserId)
+
   const totalRaisedPence =
-    donationSum + legacyWaterSum.sum + (qurbaniAgg._sum.amountPence ?? 0) + (cashAgg._sum.amountPence ?? 0)
+    donationSum +
+    legacyWaterSum.sum +
+    qurbaniTotals.totalRaisedPence +
+    (cashAgg._sum.amountPence ?? 0)
 
   const donationCountTotal =
-    donationCount + legacyWaterSum.count + qurbaniAgg._count.id + cashAgg._count.id
+    donationCount +
+    legacyWaterSum.count +
+    qurbaniTotals.checkoutCount +
+    cashAgg._count.id
 
   return { totalRaisedPence, donationCount: donationCountTotal }
 }

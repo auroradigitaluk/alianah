@@ -205,6 +205,7 @@ export function QurbaniDonationsTab() {
   const [donations, setDonations] = useState<QurbaniDonationRow[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState("")
+  const [ref, setRef] = useState("")
   const [country, setCountry] = useState("")
   const [selectedRow, setSelectedRow] = useState<QurbaniDonationRow | null>(null)
   const [details, setDetails] = useState<QurbaniDonationDetailsResponse | null>(null)
@@ -218,6 +219,7 @@ export function QurbaniDonationsTab() {
     try {
       const params = new URLSearchParams()
       if (name.trim()) params.set("name", name.trim())
+      if (ref.trim()) params.set("ref", ref.trim())
       if (country.trim()) params.set("country", country.trim())
       const range = searchParams.get("range")
       const start = searchParams.get("start")
@@ -237,7 +239,7 @@ export function QurbaniDonationsTab() {
     } finally {
       setLoading(false)
     }
-  }, [name, country, rangeKey])
+  }, [name, ref, country, rangeKey])
 
   useEffect(() => {
     fetchDonations()
@@ -245,6 +247,7 @@ export function QurbaniDonationsTab() {
 
   const clearFilters = useCallback(() => {
     setName("")
+    setRef("")
     setCountry("")
   }, [])
 
@@ -311,6 +314,15 @@ export function QurbaniDonationsTab() {
                 placeholder="Search donor"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qurbani-ref">Donation reference</Label>
+              <Input
+                id="qurbani-ref"
+                placeholder="e.g. 786-186667339"
+                value={ref}
+                onChange={(e) => setRef(e.target.value)}
               />
             </div>
             <div className="space-y-2">

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import {
+  groupQurbaniForFundraiserRecentList,
+  loadQurbaniRowsForFundraiserTotals,
+} from "@/lib/fundraiser-qurbani"
 
 export const dynamic = "force-dynamic"
 
@@ -57,23 +61,7 @@ export async function GET(
         orderBy: { receivedAt: "desc" },
         take: MAX_RECENT,
       }),
-      prisma.qurbaniDonation.findMany({
-        where: { fundraiserId },
-        select: {
-          id: true,
-          amountPence: true,
-          isAnonymous: true,
-          createdAt: true,
-          donor: {
-            select: {
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: MAX_RECENT,
-      }),
+      loadQurbaniRowsForFundraiserTotals([fundraiserId]),
     ])
 
     const onlineList = donations.map((d) => ({
@@ -94,7 +82,11 @@ export async function GET(
       createdAt: new Date(d.receivedAt).toISOString(),
     }))
 
-    const qurbaniList = qurbaniDonations.map((d) => ({
+    const qurbaniGrouped = groupQurbaniForFundraiserRecentList(
+      qurbaniDonations,
+      fundraiserId
+    )
+    const qurbaniList = qurbaniGrouped.map((d) => ({
       id: `qurbani-${d.id}`,
       amountPence: d.amountPence,
       isAnonymous: d.isAnonymous,

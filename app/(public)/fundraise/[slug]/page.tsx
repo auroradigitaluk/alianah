@@ -2,6 +2,10 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { getFundraiserTotalRaisedAndCount } from "@/lib/fundraiser-totals"
+import {
+  groupQurbaniForFundraiserRecentList,
+  loadQurbaniRowsForFundraiserTotals,
+} from "@/lib/fundraiser-qurbani"
 import { getFundraiserEmail } from "@/lib/fundraiser-auth"
 import { FundraiserForm } from "@/components/fundraiser-form"
 import { FundraiserDonationCard } from "@/components/fundraiser-donation-card"
@@ -257,7 +261,21 @@ export default async function FundraisePage({
     const isQurbaniFundraiser = Boolean(fundraiser.qurbaniCountryId && fundraiser.qurbaniCountry)
     const isStandaloneFundraiser =
       !fundraiser.appealId && !fundraiser.waterProjectId && !fundraiser.qurbaniCountryId
-    const completedDonations = [...fundraiser.donations, ...fundraiser.qurbaniDonations]
+    const qurbaniForDisplay = isQurbaniFundraiser
+      ? groupQurbaniForFundraiserRecentList(
+          await loadQurbaniRowsForFundraiserTotals([fundraiser.id]),
+          fundraiser.id
+        )
+      : []
+    const completedDonations = [
+      ...fundraiser.donations,
+      ...qurbaniForDisplay.map((q) => ({
+        amountPence: q.amountPence,
+        isAnonymous: q.isAnonymous ?? false,
+        donor: q.donor,
+        createdAt: q.createdAt,
+      })),
+    ]
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, 5)
     const isOwner =

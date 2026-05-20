@@ -12,7 +12,9 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:backfill-qurbani-numbers": "tsx scripts/backfill-qurbani-donation-numbers.ts"
+    "db:backfill-qurbani-numbers": "tsx scripts/backfill-qurbani-donation-numbers.ts",
+    "db:backfill-qurbani-checkout-refs": "tsx scripts/backfill-qurbani-checkout-donation-numbers.ts",
+    "db:backfill-qurbani-fundraiser-ids": "tsx scripts/backfill-qurbani-fundraiser-ids.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

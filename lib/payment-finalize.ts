@@ -6,6 +6,7 @@ import {
   sendWaterProjectDonationEmail,
 } from "@/lib/email"
 import { generateDonationNumber } from "@/lib/donation-number"
+import { resolveFundraiserIdForOrderQurbaniItem } from "@/lib/fundraiser-qurbani"
 import { createPortalToken } from "@/lib/portal-token"
 import { COLLECTION_SOURCES, PAYMENT_METHODS } from "@/lib/utils"
 
@@ -495,15 +496,14 @@ export async function finalizeOrderByOrderNumber(params: {
       targetFrequencies.includes(item.frequency as "ONE_OFF" | "MONTHLY" | "YEARLY" | "DAILY")
   )
   if (qurbaniItems.length > 0 && existingQurbaniDonations.length === 0) {
-    const qurbaniDonationNumbers = await Promise.all(qurbaniItems.map(() => generateDonationNumber()))
     const createdQurbaniDonations = await Promise.all(
-      qurbaniItems.map((item, i) =>
+      qurbaniItems.map((item) =>
         prisma.qurbaniDonation.create({
           data: {
             qurbaniCountryId: item.qurbaniCountryId!,
             size: item.qurbaniSize!,
             donorId: donor.id,
-            fundraiserId: item.fundraiserId || null,
+            fundraiserId: resolveFundraiserIdForOrderQurbaniItem(item, qurbaniItems),
             amountPence: item.amountPence,
             donationType: item.donationType,
             paymentMethod,
@@ -515,7 +515,7 @@ export async function finalizeOrderByOrderNumber(params: {
             billingCity,
             billingPostcode,
             billingCountry,
-            donationNumber: qurbaniDonationNumbers[i],
+            donationNumber: orderNumber,
             notes: `OrderNumber:${orderNumber}`,
             qurbaniNames: item.qurbaniNames ?? null,
           },

@@ -93,6 +93,7 @@ interface Donation {
     waterProjectCountry?: { country: string } | null
   } | null
   listKind?: "qurbani"
+  qurbaniLineCount?: number
 }
 
 const WATER_PROJECT_LABELS: Record<string, string> = {
@@ -112,10 +113,17 @@ function getCampaignLabel(donation: Donation): string {
   let base: string
 
   if (donation.qurbaniCountry?.country) {
+    const count = donation.qurbaniLineCount ?? 1
     const sz = donation.qurbaniSize
       ? QURBANI_SIZE_LABELS[donation.qurbaniSize] ?? donation.qurbaniSize
       : ""
-    base = sz ? `Qurbani (${sz}) — ${donation.qurbaniCountry.country}` : `Qurbani — ${donation.qurbaniCountry.country}`
+    if (count > 1) {
+      base = sz
+        ? `Qurbani (${count}× ${sz}) — ${donation.qurbaniCountry.country}`
+        : `Qurbani (${count}×) — ${donation.qurbaniCountry.country}`
+    } else {
+      base = sz ? `Qurbani (${sz}) — ${donation.qurbaniCountry.country}` : `Qurbani — ${donation.qurbaniCountry.country}`
+    }
   } else if (donation.appeal?.title) {
     base = donation.appeal.title
   } else if (
@@ -193,10 +201,19 @@ type DonationDetailsResponse = {
   stripe: StripeInfo | null
 }
 
+type QurbaniCheckoutLine = {
+  id: string
+  amountPence: number
+  size: string
+  donationNumber: string | null
+  qurbaniCountry: { country: string }
+}
+
 type QurbaniDonationDetailsResponse = {
   order: DemoOrder | null
   stripe: StripeInfo | null
   checkoutOrderNumber: string | null
+  lineItems: QurbaniCheckoutLine[]
 }
 
 function InfoRow(props: { label: string; value?: string | null; mono?: boolean }) {
@@ -670,6 +687,33 @@ export function DonationsTable({
                           <InfoRow label="Donation Type" value={formatEnum(donation.donationType)} />
                           <InfoRow label="Frequency" value={formatEnum(donation.frequency)} />
                           <InfoRow label="Campaign / Appeal / Product" value={getCampaignLabel(donation)} />
+                          {donation.listKind === "qurbani" &&
+                            (qurbaniDetails?.lineItems?.length ?? 0) > 1 && (
+                              <div className="py-2.5 border-b border-border/60 last:border-0">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                  Qurbani items ({qurbaniDetails!.lineItems.length})
+                                </p>
+                                <ul className="space-y-1 text-sm">
+                                  {qurbaniDetails!.lineItems.map((line) => {
+                                    const sz =
+                                      QURBANI_SIZE_LABELS[line.size] ?? line.size
+                                    return (
+                                      <li
+                                        key={line.id}
+                                        className="flex justify-between gap-4"
+                                      >
+                                        <span>
+                                          {sz} — {line.qurbaniCountry.country}
+                                        </span>
+                                        <span className="font-medium shrink-0">
+                                          {formatCurrency(line.amountPence)}
+                                        </span>
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
+                              </div>
+                            )}
                           <InfoRow label="Fundraiser" value={donation.fundraiser?.fundraiserName || "-"} />
                           <InfoRow label="Gift Aid" value={donation.giftAid ? "Yes" : "No"} />
                           <InfoRow label="Collected Via" value={donation.collectedVia ? formatEnum(donation.collectedVia) : "-"} />

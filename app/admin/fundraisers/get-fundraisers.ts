@@ -4,6 +4,7 @@ import {
   getDeduplicatedDonationSum,
   getDeduplicatedDonationCount,
 } from "@/lib/donation-dedup"
+import { getQurbaniRaisedPenceByFundraiserIds } from "@/lib/fundraiser-qurbani"
 import type { Prisma } from "@prisma/client"
 
 const WATER_PROJECT_STATUSES = ["WAITING_TO_REVIEW", "ORDERED", "COMPLETE"] as const
@@ -53,17 +54,7 @@ export async function getFundraisers(
   })
 
   const fundraiserIds = fundraisers.map((f) => f.id)
-  const qurbaniByFundraiser =
-    fundraiserIds.length === 0
-      ? []
-      : await prisma.qurbaniDonation.groupBy({
-          by: ["fundraiserId"],
-          where: { fundraiserId: { in: fundraiserIds } },
-          _sum: { amountPence: true },
-        })
-  const qurbaniPenceById = new Map(
-    qurbaniByFundraiser.map((r) => [r.fundraiserId, r._sum.amountPence ?? 0])
-  )
+  const qurbaniPenceById = await getQurbaniRaisedPenceByFundraiserIds(fundraiserIds)
 
   return fundraisers.map((fundraiser) => {
     const isWater = Boolean(fundraiser.waterProject)

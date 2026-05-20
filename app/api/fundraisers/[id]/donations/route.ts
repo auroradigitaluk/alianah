@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { deduplicateDonationsByTransaction } from "@/lib/donation-dedup"
 import { getFundraiserEmail } from "@/lib/fundraiser-auth"
+import {
+  groupQurbaniForFundraiserRecentList,
+  loadQurbaniRowsForFundraiserTotals,
+} from "@/lib/fundraiser-qurbani"
 
 export const dynamic = 'force-dynamic'
 
@@ -89,24 +93,7 @@ export async function GET(
           createdAt: "desc",
         },
       }),
-      prisma.qurbaniDonation.findMany({
-        where: {
-          fundraiserId: id,
-        },
-        include: {
-          donor: {
-            select: {
-              title: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      }),
+      loadQurbaniRowsForFundraiserTotals([id]),
     ])
 
     const waterCampaignTitle =
@@ -159,22 +146,49 @@ export async function GET(
       product: null,
     }))
 
-    const normalizedQurbaniDonations = qurbaniDonations.map((donation) => ({
-      id: donation.id,
-      amountPence: donation.amountPence,
-      donationType: donation.donationType,
-      frequency: "ONE_OFF",
-      status: "COMPLETED" as const,
-      paymentMethod: donation.paymentMethod,
-      giftAid: donation.giftAid,
-      isAnonymous: donation.isAnonymous,
-      transactionId: donation.transactionId,
-      createdAt: donation.createdAt,
-      completedAt: donation.createdAt,
-      donor: donation.donor,
-      appeal: { title: qurbaniAppealTitle },
-      product: null,
-    }))
+    const qurbaniCheckoutGroups = groupQurbaniForFundraiserRecentList(qurbaniDonations, id)
+    const qurbaniDonorById = new Map(
+      (
+        await prisma.qurbaniDonation.findMany({
+          where: { id: { in: qurbaniCheckoutGroups.map((g) => g.id) } },
+          include: {
+            donor: {
+              select: {
+                title: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        })
+      ).map((d) => [d.id, d])
+    )
+
+    const normalizedQurbaniDonations = qurbaniCheckoutGroups.map((group) => {
+      const source = qurbaniDonorById.get(group.id)
+      return {
+        id: group.id,
+        amountPence: group.amountPence,
+        donationType: source?.donationType ?? "GENERAL",
+        frequency: "ONE_OFF",
+        status: "COMPLETED" as const,
+        paymentMethod: source?.paymentMethod ?? "WEBSITE_STRIPE",
+        giftAid: source?.giftAid ?? false,
+        isAnonymous: group.isAnonymous ?? false,
+        transactionId: source?.transactionId ?? null,
+        createdAt: group.createdAt,
+        completedAt: group.createdAt,
+        donor: source?.donor ?? {
+          title: null,
+          firstName: group.donor.firstName ?? "Donor",
+          lastName: group.donor.lastName ?? "",
+          email: "",
+        },
+        appeal: { title: qurbaniAppealTitle },
+        product: null,
+      }
+    })
 
     // Serialize dates
     const serializedDonations = normalizedDonations

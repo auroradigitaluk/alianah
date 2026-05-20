@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
     const name = searchParams.get("name")?.trim() || undefined
+    const ref = searchParams.get("ref")?.trim() || undefined
     const country = searchParams.get("country")?.trim() || undefined
     const rangeParam = searchParams.get("range")?.trim() || "all"
     const startParam = searchParams.get("start")
@@ -20,12 +21,22 @@ export async function GET(request: NextRequest) {
 
     const where: {
       createdAt: { gte: Date; lte: Date }
+      OR?: Array<
+        | { donationNumber?: { contains: string; mode: "insensitive" } }
+        | { notes?: { contains: string; mode: "insensitive" } }
+      >
       qurbaniCountry?: { country?: { contains: string; mode: "insensitive" } }
       donor?: { OR: Array<{ firstName?: { contains: string; mode: "insensitive" }; lastName?: { contains: string; mode: "insensitive" }; email?: { contains: string; mode: "insensitive" } }> }
     } = {
       createdAt: { gte: startDate, lte: endDate },
     }
 
+    if (ref) {
+      where.OR = [
+        { donationNumber: { contains: ref, mode: "insensitive" } },
+        { notes: { contains: ref, mode: "insensitive" } },
+      ]
+    }
     if (country) {
       where.qurbaniCountry = { country: { contains: country, mode: "insensitive" } }
     }

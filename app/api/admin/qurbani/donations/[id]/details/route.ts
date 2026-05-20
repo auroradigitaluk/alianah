@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
 import { requireAdminRoleSafe } from "@/lib/admin-auth"
+import { orderNumberFromNotes } from "@/lib/qurbani-checkout"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,12 +18,6 @@ function getStripe(): Stripe {
     })
   }
   return stripe
-}
-
-function getOrderNumberFromNotes(notes: string | null): string | null {
-  if (!notes) return null
-  const match = notes.match(/OrderNumber:([A-Z0-9-]+)/)
-  return match?.[1] || null
 }
 
 async function getStripeInfo(transactionId?: string | null) {
@@ -128,13 +123,31 @@ export async function GET(
       return NextResponse.json({ error: "Qurbani donation not found" }, { status: 404 })
     }
 
-    const checkoutOrderNumber = getOrderNumberFromNotes(donation.notes)
+    const checkoutOrderNumber = orderNumberFromNotes(donation.notes)
 
-    const order = checkoutOrderNumber
-      ? await prisma.demoOrder.findUnique({
-          where: { orderNumber: checkoutOrderNumber },
-        })
-      : null
+    const [order, lineItems] = await Promise.all([
+      checkoutOrderNumber
+        ? prisma.demoOrder.findUnique({
+            where: { orderNumber: checkoutOrderNumber },
+            include: { items: true },
+          })
+        : Promise.resolve(null),
+      checkoutOrderNumber
+        ? prisma.qurbaniDonation.findMany({
+            where: { notes: { contains: `OrderNumber:${checkoutOrderNumber}` } },
+            include: { qurbaniCountry: { select: { country: true } } },
+            orderBy: { createdAt: "asc" },
+          })
+        : Promise.resolve([
+            {
+              id: donation.id,
+              amountPence: donation.amountPence,
+              size: donation.size,
+              donationNumber: donation.donationNumber,
+              qurbaniCountry: donation.qurbaniCountry,
+            },
+          ]),
+    ])
 
     let stripeInfo = null
     try {
@@ -148,6 +161,13 @@ export async function GET(
       order,
       stripe: stripeInfo,
       checkoutOrderNumber,
+      lineItems: lineItems.map((line) => ({
+        id: line.id,
+        amountPence: line.amountPence,
+        size: line.size,
+        donationNumber: line.donationNumber,
+        qurbaniCountry: line.qurbaniCountry,
+      })),
     })
   } catch (error) {
     console.error("Error loading qurbani donation details:", error)
