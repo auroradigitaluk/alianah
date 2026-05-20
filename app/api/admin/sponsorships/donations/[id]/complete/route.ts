@@ -7,6 +7,7 @@ import { sendSponsorshipCompletionEmail } from "@/lib/email"
 const completeWithPoolSchema = z.object({
   status: z.literal("COMPLETE"),
   usePoolReport: z.literal(true),
+  poolEntryId: z.string().min(1, "Select a report from the pool"),
   googleDriveLink: z.string().url().optional().nullable(),
 })
 
@@ -64,22 +65,32 @@ export async function POST(
       const data = completeWithPoolSchema.parse(body)
       const poolEntry = await prisma.sponsorshipReportPool.findFirst({
         where: {
+          id: data.poolEntryId,
           sponsorshipProjectId: donation.sponsorshipProject.id,
           assignedDonationId: null,
           assignedRecurringRef: null,
         },
-        orderBy: { createdAt: "asc" },
       })
       if (!poolEntry) {
         return NextResponse.json(
-          { error: "No report available in pool. Upload report PDFs to the project first." },
+          { error: "Selected report is not available. It may already be assigned or removed." },
           { status: 400 }
         )
       }
-      await prisma.sponsorshipReportPool.update({
-        where: { id: poolEntry.id },
+      const assigned = await prisma.sponsorshipReportPool.updateMany({
+        where: {
+          id: poolEntry.id,
+          assignedDonationId: null,
+          assignedRecurringRef: null,
+        },
         data: { assignedDonationId: id },
       })
+      if (assigned.count === 0) {
+        return NextResponse.json(
+          { error: "Selected report was just assigned to another sponsor. Please choose another." },
+          { status: 409 }
+        )
+      }
       try {
         await sendSponsorshipCompletionEmail({
           donorEmail: donation.donor.email,

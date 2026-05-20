@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { IconUsersGroup } from "@tabler/icons-react"
 import { ExternalLink, Users, MapPin, FileText, Target, Calendar } from "lucide-react"
-import { toast } from "sonner"
 import {
   Dialog,
   DialogContent,
@@ -19,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatDate } from "@/lib/utils"
+import { SponsorshipReportPoolPanel } from "@/components/sponsorship-report-pool-panel"
 
 const PROJECT_TYPE_LABELS: Record<string, string> = {
   ORPHANS: "Orphans",
@@ -52,52 +52,6 @@ interface SponsorshipProject {
 
 export function SponsorshipProjectsTable({ projects }: { projects: SponsorshipProject[] }) {
   const [selectedProject, setSelectedProject] = useState<SponsorshipProject | null>(null)
-  const [poolTotal, setPoolTotal] = useState(0)
-  const [poolAvailable, setPoolAvailable] = useState(0)
-  const [uploadingPool, setUploadingPool] = useState(false)
-
-  useEffect(() => {
-    if (!selectedProject?.id) return
-    fetch(`/api/admin/sponsorships/${selectedProject.id}/report-pool`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) {
-          setPoolTotal(data.total ?? 0)
-          setPoolAvailable(data.available ?? 0)
-        }
-      })
-      .catch(() => {})
-  }, [selectedProject?.id])
-
-  const handleUploadPoolFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files?.length || !selectedProject?.id) return
-    const fileList = Array.from(files)
-    if (fileList.length > 50) {
-      toast.error("Maximum 50 files per upload")
-      return
-    }
-    setUploadingPool(true)
-    try {
-      const formData = new FormData()
-      fileList.forEach((file) => formData.append("file", file))
-      const res = await fetch(`/api/admin/sponsorships/${selectedProject.id}/report-pool`, {
-        method: "POST",
-        body: formData,
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Upload failed")
-      setPoolTotal(data.total ?? poolTotal)
-      setPoolAvailable(data.available ?? poolAvailable)
-      toast.success(`Uploaded ${data.uploaded ?? 0} report(s). ${data.available ?? poolAvailable} available in pool.`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to upload reports")
-    } finally {
-      setUploadingPool(false)
-      e.target.value = ""
-    }
-  }
-
   const getStatusBadge = (status: string) => {
     const statusColors: Record<string, string> = {
       WAITING_TO_REVIEW: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
@@ -411,31 +365,7 @@ export function SponsorshipProjectsTable({ projects }: { projects: SponsorshipPr
                         </div>
                         <h3 className="text-base font-bold uppercase tracking-wide text-foreground">Reports</h3>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Upload your own report PDFs (up to 50 at a time). When you mark a donation as complete or when a donor pays monthly, one report from the pool is automatically sent to them.
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          multiple
-                          onChange={handleUploadPoolFiles}
-                          disabled={uploadingPool}
-                          className="hidden"
-                          id="project-report-pool-input"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => document.getElementById("project-report-pool-input")?.click()}
-                          disabled={uploadingPool}
-                        >
-                          {uploadingPool ? "Uploading..." : "Upload PDFs (up to 50)"}
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-                          {poolTotal} in pool, {poolAvailable} available
-                        </span>
-                      </div>
+                      <SponsorshipReportPoolPanel projectId={selectedProject.id} />
                       <Link
                         href={`/admin/sponsorships/${donationsSlug(selectedProject.projectType)}`}
                         className="text-sm text-primary hover:underline inline-block"

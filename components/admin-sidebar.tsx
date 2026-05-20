@@ -155,6 +155,7 @@ const sponsorshipItems = [
   { title: "Orphans", url: "/admin/sponsorships/orphans", hideForStaff: false },
   { title: "Hifz", url: "/admin/sponsorships/hifz", hideForStaff: false },
   { title: "Families", url: "/admin/sponsorships/families", hideForStaff: false },
+  { title: "Countries", url: "/admin/sponsorships/countries", hideForStaff: true },
   { title: "Manage Projects", url: "/admin/sponsorships", hideForStaff: true },
 ]
 

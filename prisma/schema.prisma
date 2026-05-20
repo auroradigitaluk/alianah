@@ -950,6 +950,8 @@ model SponsorshipReportPool {
   id                    String    @id @default(cuid())
   sponsorshipProjectId  String
   pdfUrl                String
+  fileName              String?   // original upload filename e.g. 001.pdf
+  childCode             String?   // display id e.g. 001 — shown on sponsor table
   createdAt             DateTime  @default(now())
   assignedDonationId    String?   // when set, this report was sent to this donation
   assignedRecurringRef   String?   // e.g. "sub_xxx:1234567890" when sent for a recurring payment
@@ -957,6 +959,7 @@ model SponsorshipReportPool {
   sponsorshipProject SponsorshipProject @relation(fields: [sponsorshipProjectId], references: [id], onDelete: Cascade)
 
   @@index([sponsorshipProjectId])
+  @@index([sponsorshipProjectId, childCode])
   @@index([assignedDonationId])
   @@index([assignedRecurringRef])
   @@map("sponsorship_report_pool")

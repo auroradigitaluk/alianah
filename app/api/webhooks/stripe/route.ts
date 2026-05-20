@@ -263,6 +263,18 @@ export async function POST(request: NextRequest) {
                 const projectIds = [...new Set(sponsorshipItems.map((i) => i.sponsorshipProjectId!).filter(Boolean))]
                 const donorName = `${order.donorFirstName} ${order.donorLastName}`.trim() || "Donor"
                 const country = order.donorCountry || "UK"
+                const sponsorshipDonations = await prisma.sponsorshipDonation.findMany({
+                  where: { notes: { contains: `OrderNumber:${orderNumber}` } },
+                  orderBy: { createdAt: "asc" },
+                })
+                const donationsByProject = new Map<string, string[]>()
+                for (const d of sponsorshipDonations) {
+                  if (!d.sponsorshipProjectId) continue
+                  const list = donationsByProject.get(d.sponsorshipProjectId) ?? []
+                  list.push(d.id)
+                  donationsByProject.set(d.sponsorshipProjectId, list)
+                }
+
                 for (const projectId of projectIds) {
                   const poolEntry = await prisma.sponsorshipReportPool.findFirst({
                     where: {
@@ -273,25 +285,53 @@ export async function POST(request: NextRequest) {
                     orderBy: { createdAt: "asc" },
                     include: { sponsorshipProject: true },
                   })
-                  if (poolEntry) {
-                    await prisma.sponsorshipReportPool.update({
-                      where: { id: poolEntry.id },
-                      data: { assignedRecurringRef: recurringRef },
+                  if (!poolEntry) continue
+
+                  const donationIds = donationsByProject.get(projectId) ?? []
+                  let assignDonationId: string | null = null
+                  for (const donationId of donationIds) {
+                    const taken = await prisma.sponsorshipReportPool.findFirst({
+                      where: { assignedDonationId: donationId },
+                      select: { id: true },
                     })
-                    try {
-                      await sendSponsorshipCompletionEmail({
-                        donorEmail: order.donorEmail,
-                        donorName,
-                        projectType: poolEntry.sponsorshipProject.projectType,
-                        location: poolEntry.sponsorshipProject.location,
-                        country,
-                        images: [],
-                        report: "",
-                        completionReportPDF: poolEntry.pdfUrl,
-                      })
-                    } catch (emailErr) {
-                      console.error("Error sending sponsorship report email:", emailErr)
+                    if (!taken) {
+                      assignDonationId = donationId
+                      break
                     }
+                  }
+
+                  await prisma.sponsorshipReportPool.update({
+                    where: { id: poolEntry.id },
+                    data: {
+                      assignedRecurringRef: recurringRef,
+                      ...(assignDonationId ? { assignedDonationId: assignDonationId } : {}),
+                    },
+                  })
+
+                  if (assignDonationId) {
+                    await prisma.sponsorshipDonation.update({
+                      where: { id: assignDonationId },
+                      data: {
+                        reportSent: true,
+                        status: "COMPLETE",
+                        completedAt: new Date(),
+                      },
+                    })
+                  }
+
+                  try {
+                    await sendSponsorshipCompletionEmail({
+                      donorEmail: order.donorEmail,
+                      donorName,
+                      projectType: poolEntry.sponsorshipProject.projectType,
+                      location: poolEntry.sponsorshipProject.location,
+                      country,
+                      images: [],
+                      report: "",
+                      completionReportPDF: poolEntry.pdfUrl,
+                    })
+                  } catch (emailErr) {
+                    console.error("Error sending sponsorship report email:", emailErr)
                   }
                 }
               }

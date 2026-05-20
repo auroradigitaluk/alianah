@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,11 +17,12 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { toast } from "sonner"
-import { IconPencil, IconUpload, IconFileText, IconMail, IconCheck, IconEye, IconX, IconSend, IconDownload } from "@tabler/icons-react"
+import { IconPencil, IconUpload, IconFileText, IconMail, IconCheck, IconEye, IconX, IconSend, IconDownload, IconTrash } from "@tabler/icons-react"
 import { ExternalLink } from "lucide-react"
 import { generateCompletionReportPDF } from "@/lib/pdf-generator"
 import { formatDate, formatDonorName, formatPaymentMethod, displayDonorEmail } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
+import { SponsorshipReportPoolPanel } from "@/components/sponsorship-report-pool-panel"
 
 interface SponsorshipDonation {
   id: string
@@ -49,6 +51,9 @@ interface SponsorshipDonation {
   } | null
   countryName?: string | null
   projectTypeSnapshot?: string | null
+  assignedChildCode?: string | null
+  assignedReportPdfUrl?: string | null
+  assignedPoolEntryId?: string | null
 }
 
 const STATUS_OPTIONS = [
@@ -88,10 +93,14 @@ export function SponsorshipDonationsTable({
   projectId: string
   initialOpenId?: string | null
 }) {
+  const router = useRouter()
   const [selectedDonation, setSelectedDonation] = useState<SponsorshipDonation | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [resendingId, setResendingId] = useState<string | null>(null)
+  const [unassigningId, setUnassigningId] = useState<string | null>(null)
   const [poolTotal, setPoolTotal] = useState(0)
   const [poolAvailable, setPoolAvailable] = useState(0)
-  const [uploadingPool, setUploadingPool] = useState(false)
+  const [selectedPoolEntryId, setSelectedPoolEntryId] = useState<string | null>(null)
 
   useEffect(() => {
     if (initialOpenId && donations.length > 0) {
@@ -101,17 +110,10 @@ export function SponsorshipDonationsTable({
   }, [initialOpenId, donations])
 
   useEffect(() => {
-    if (!projectId) return
-    fetch(`/api/admin/sponsorships/${projectId}/report-pool`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) {
-          setPoolTotal(data.total ?? 0)
-          setPoolAvailable(data.available ?? 0)
-        }
-      })
-      .catch(() => {})
-  }, [projectId])
+    if (!selectedDonation) {
+      setSelectedPoolEntryId(null)
+    }
+  }, [selectedDonation])
   const [editingNotes, setEditingNotes] = useState(false)
   const [notes, setNotes] = useState("")
   const [savingNotes, setSavingNotes] = useState(false)
@@ -138,6 +140,89 @@ export function SponsorshipDonationsTable({
         {statusOption?.label || status}
       </Badge>
     )
+  }
+
+  const handleResendReport = async (donation: SponsorshipDonation) => {
+    if (!donation.assignedReportPdfUrl) {
+      toast.error("No report assigned to resend")
+      return
+    }
+    setResendingId(donation.id)
+    try {
+      const res = await fetch(`/api/admin/sponsorships/donations/${donation.id}/resend-report`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? "Failed to resend report")
+      }
+      toast.success("Report email resent to donor")
+      router.refresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to resend report")
+    } finally {
+      setResendingId(null)
+    }
+  }
+
+  const handleUnassignReport = async (donation: SponsorshipDonation) => {
+    if (
+      !window.confirm(
+        `Release child ${donation.assignedChildCode ?? "report"} back to the pool? The sponsor will be set to Pending.`
+      )
+    ) {
+      return
+    }
+    setUnassigningId(donation.id)
+    try {
+      const res = await fetch(`/api/admin/sponsorships/donations/${donation.id}/unassign-report`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? "Failed to unassign report")
+      }
+      toast.success("Report returned to pool")
+      setSelectedDonation(null)
+      router.refresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to unassign report")
+    } finally {
+      setUnassigningId(null)
+    }
+  }
+
+  const handleDeleteDonation = async (donation: SponsorshipDonation, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    const childNote = donation.assignedChildCode
+      ? ` Report ${donation.assignedChildCode} will return to the available pool.`
+      : ""
+    if (
+      !window.confirm(
+        `Remove ${formatDonorName(donation.donor)} from this sponsorship list? This cannot be undone.${childNote}`
+      )
+    ) {
+      return
+    }
+    setDeletingId(donation.id)
+    try {
+      const res = await fetch(`/api/admin/sponsorships/donations/${donation.id}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? "Failed to delete sponsor")
+      }
+      if (selectedDonation?.id === donation.id) {
+        setSelectedDonation(null)
+      }
+      toast.success("Sponsor removed")
+      router.refresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete sponsor")
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const handleUpdateStatus = async (donationId: string, newStatus: string) => {
@@ -357,40 +442,12 @@ Thank you for your generous support in making this project possible.`
     setReviewingReport(false)
   }
 
-  const handleUploadPoolFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0 || !projectId) return
-    if (files.length > 50) {
-      toast.error("Maximum 50 files per upload")
-      e.target.value = ""
-      return
-    }
-    setUploadingPool(true)
-    try {
-      const formData = new FormData()
-      Array.from(files).forEach((file) => formData.append("file", file))
-      const res = await fetch(`/api/admin/sponsorships/${projectId}/report-pool`, {
-        method: "POST",
-        body: formData,
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || "Failed to upload")
-      }
-      const data = await res.json()
-      setPoolTotal(data.total ?? poolTotal + data.uploaded)
-      setPoolAvailable(data.available ?? poolAvailable + data.uploaded)
-      toast.success(`${data.uploaded} report(s) added to pool. ${data.available} available.`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to upload reports")
-    } finally {
-      setUploadingPool(false)
-      e.target.value = ""
-    }
-  }
-
   const handleMarkCompleteWithPool = async () => {
     if (!selectedDonation) return
+    if (!selectedPoolEntryId) {
+      toast.error("Select a report from the pool to send to this donor")
+      return
+    }
     setSendingReport(true)
     try {
       const res = await fetch(`/api/admin/sponsorships/donations/${selectedDonation.id}/complete`, {
@@ -399,6 +456,7 @@ Thank you for your generous support in making this project possible.`
         body: JSON.stringify({
           status: "COMPLETE",
           usePoolReport: true,
+          poolEntryId: selectedPoolEntryId,
           googleDriveLink: googleDriveLink || null,
         }),
       })
@@ -424,6 +482,7 @@ Thank you for your generous support in making this project possible.`
         "Donor Last Name",
         "Email",
         "Country",
+        "Child",
         "Amount",
         "Status",
         "Type",
@@ -435,6 +494,7 @@ Thank you for your generous support in making this project possible.`
         d.donor.lastName,
         displayDonorEmail(d.donor.email),
         d.country?.country ?? d.countryName ?? "",
+        d.assignedChildCode ?? "",
         `£${(d.amountPence / 100).toFixed(2)}`,
         d.status || "No Status",
         DONATION_TYPE_LABELS[d.donationType] || d.donationType,
@@ -477,8 +537,9 @@ Thank you for your generous support in making this project possible.`
       const donorName = formatDonorName(donation.donor).toLowerCase()
       const email = donation.donor.email.toLowerCase()
       const country = (donation.country?.country ?? donation.countryName ?? "").toLowerCase()
+      const child = (donation.assignedChildCode ?? "").toLowerCase()
       
-      if (!donorName.includes(query) && !email.includes(query) && !country.includes(query)) {
+      if (!donorName.includes(query) && !email.includes(query) && !country.includes(query) && !child.includes(query)) {
         return false
       }
     }
@@ -547,7 +608,7 @@ Thank you for your generous support in making this project possible.`
           <Input
             type="text"
             transform="titleCase"
-            placeholder="Search by donor name, email, or country..."
+            placeholder="Search donor, email, country, or child ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="max-w-sm"
@@ -631,6 +692,19 @@ Thank you for your generous support in making this project possible.`
             ),
           },
           {
+            id: "child",
+            header: "Child",
+            cell: (donation) => (
+              <div className="font-mono text-sm">
+                {donation.assignedChildCode ? (
+                  <Badge variant="secondary" className="font-mono">{donation.assignedChildCode}</Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </div>
+            ),
+          },
+          {
             id: "amount",
             header: "Amount",
             cell: (donation) => (
@@ -658,6 +732,23 @@ Thank you for your generous support in making this project possible.`
               <div className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors">
                 <ExternalLink className="h-4 w-4" />
               </div>
+            ),
+          },
+          {
+            id: "delete",
+            header: "",
+            cell: (donation) => (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                disabled={deletingId === donation.id}
+                onClick={(e) => handleDeleteDonation(donation, e)}
+                title="Remove sponsor"
+              >
+                <IconTrash className="h-4 w-4" />
+              </Button>
             ),
           },
         ]}
@@ -878,84 +969,76 @@ Thank you for your generous support in making this project possible.`
                 </div>
               )}
             </div>
+
+            <div className="border-t pt-4">
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={deletingId === selectedDonation.id}
+                onClick={() => handleDeleteDonation(selectedDonation)}
+              >
+                <IconTrash className="h-4 w-4 mr-2" />
+                {deletingId === selectedDonation.id ? "Removing..." : "Remove sponsor"}
+              </Button>
+            </div>
                   </TabsContent>
 
                   <TabsContent value="report-pool" className="space-y-6 mt-0">
-                    {/* Report pool – upload your own PDFs (up to 50 at a time) */}
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion report pool</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Upload your own report PDFs. When you mark a donation as complete, one report from the pool is automatically sent to the donor.
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          multiple
-                          onChange={handleUploadPoolFiles}
-                          disabled={uploadingPool}
-                          className="hidden"
-                          id="report-pool-input"
-                        />
+                    <SponsorshipReportPoolPanel
+                      projectId={projectId}
+                      selectable={selectedDonation.status !== "COMPLETE"}
+                      selectedEntryId={selectedPoolEntryId}
+                      onSelectEntry={setSelectedPoolEntryId}
+                      showUpload
+                      onCountsChange={(total, available) => {
+                        setPoolTotal(total)
+                        setPoolAvailable(available)
+                      }}
+                    />
+
+                    {selectedDonation.status !== "COMPLETE" && (
+                      <div className="space-y-4 border-t pt-4">
+                        <div className="space-y-2">
+                          <Label>Google Drive Link (Optional)</Label>
+                          <Input
+                            type="url"
+                            placeholder="https://drive.google.com/..."
+                            value={googleDriveLink}
+                            onChange={(e) => setGoogleDriveLink(e.target.value)}
+                          />
+                        </div>
                         <Button
                           type="button"
-                          variant="outline"
-                          onClick={() => document.getElementById("report-pool-input")?.click()}
-                          disabled={uploadingPool}
+                          onClick={handleMarkCompleteWithPool}
+                          disabled={sendingReport || !selectedPoolEntryId}
+                          className="w-full"
                         >
-                          {uploadingPool ? "Uploading..." : "Upload PDFs (up to 50)"}
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-                          {poolTotal} in pool, {poolAvailable} available
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Completion – mark complete and send report from pool */}
-                    {selectedDonation.status !== "COMPLETE" && (
-                      <div className="space-y-3 border-t pt-4">
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion</h3>
-                        <div className="space-y-3">
-                          <div className="space-y-2">
-                            <Label>Google Drive Link (Optional)</Label>
-                            <Input
-                              type="url"
-                              placeholder="https://drive.google.com/..."
-                              value={googleDriveLink}
-                              onChange={(e) => setGoogleDriveLink(e.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Add a Google Drive link for the donor to view all project content and additional photos
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            onClick={handleMarkCompleteWithPool}
-                            disabled={sendingReport || poolAvailable === 0}
-                            className="w-full"
-                          >
-                            {sendingReport ? (
-                              "Sending..."
-                            ) : (
-                              <>
-                                <IconSend className="h-4 w-4 mr-2" />
-                                Mark complete & send report to donor
-                              </>
-                            )}
-                          </Button>
-                          {poolAvailable === 0 && (
-                            <p className="text-xs text-amber-600">Upload report PDFs to the pool above first.</p>
+                          {sendingReport ? (
+                            "Sending..."
+                          ) : (
+                            <>
+                              <IconSend className="h-4 w-4 mr-2" />
+                              Mark complete & send selected report
+                            </>
                           )}
-                        </div>
+                        </Button>
+                        {!selectedPoolEntryId && poolAvailable > 0 && (
+                          <p className="text-xs text-amber-600">Select a report above before sending.</p>
+                        )}
+                        {poolAvailable === 0 && (
+                          <p className="text-xs text-amber-600">Upload report PDFs to the pool first.</p>
+                        )}
                       </div>
                     )}
 
-                    {/* Completion Status */}
                     {selectedDonation.status === "COMPLETE" && (
-                      <div className="space-y-3 border-t pt-4">
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completion Status</h3>
+                      <div className="space-y-4 border-t pt-4">
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          Completion
+                        </h3>
                         <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Badge className="bg-primary/10 text-primary dark:text-primary">
                               <IconCheck className="h-3 w-3 mr-1" />
                               Completed
@@ -966,52 +1049,52 @@ Thank you for your generous support in making this project possible.`
                                 Report Sent
                               </Badge>
                             )}
+                            {selectedDonation.assignedChildCode && (
+                              <Badge variant="secondary" className="font-mono">
+                                Child {selectedDonation.assignedChildCode}
+                              </Badge>
+                            )}
                           </div>
                           {selectedDonation.completedAt && (
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Completion Date</p>
-                              <p className="text-sm font-medium mt-1">
-                                {formatDate(selectedDonation.completedAt)}
-                              </p>
-                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Completed {formatDate(selectedDonation.completedAt)}
+                            </p>
                           )}
-                          {selectedDonation.reportSent && (
-                            <div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    const pdfUrl = await generateCompletionReportPDF({
-                                      projectType: PROJECT_TYPE_LABELS[projectType] || projectType,
-                                      country: selectedDonation.country?.country ?? selectedDonation.countryName ?? "Unknown",
-                                      donorName: formatDonorName(selectedDonation.donor),
-                                      amount: selectedDonation.amountPence,
-                                      completionDate: selectedDonation.completedAt 
-                                        ? formatDate(selectedDonation.completedAt)
-                                        : formatDate(new Date()),
-                                      googleDriveLink: undefined,
-                                      images: [],
-                                      reportKind: "Sponsorship",
-                                    })
-                                    const link = document.createElement("a")
-                                    link.href = pdfUrl
-                                    const safeFileName = formatDonorName(selectedDonation.donor).replace(/[^a-z0-9]/gi, '-').toLowerCase()
-                                    link.download = `completion-report-${selectedDonation.id}-${safeFileName}.pdf`
-                                    link.click()
-                                    setTimeout(() => URL.revokeObjectURL(pdfUrl), 100)
-                                  } catch (error) {
-                                    toast.error("Failed to generate PDF report")
-                                    console.error("Error generating PDF:", error)
-                                  }
-                                }}
-                              >
-                                <IconFileText className="h-4 w-4 mr-1" />
-                                Download Report PDF
-                              </Button>
-                            </div>
-                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {selectedDonation.assignedReportPdfUrl && (
+                              <>
+                                <Button type="button" variant="outline" size="sm" asChild>
+                                  <a
+                                    href={selectedDonation.assignedReportPdfUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <IconFileText className="h-4 w-4 mr-1" />
+                                    View report PDF
+                                  </a>
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={resendingId === selectedDonation.id}
+                                  onClick={() => handleResendReport(selectedDonation)}
+                                >
+                                  <IconMail className="h-4 w-4 mr-1" />
+                                  {resendingId === selectedDonation.id ? "Sending..." : "Resend to donor"}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={unassigningId === selectedDonation.id}
+                                  onClick={() => handleUnassignReport(selectedDonation)}
+                                >
+                                  Release to pool
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}

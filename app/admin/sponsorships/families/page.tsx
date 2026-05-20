@@ -3,57 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { getAdminUser } from "@/lib/admin-auth"
 import { SponsorshipDonationsTable } from "@/components/sponsorship-donations-table"
 import { StaffFilterSelect } from "@/components/staff-filter-select"
+import { getSponsorshipDonationsForAdmin } from "@/lib/sponsorship-donations-admin"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
-
-async function getDonations(staffId: string | null) {
-  try {
-    const project = await prisma.sponsorshipProject.findUnique({
-      where: { projectType: "FAMILIES" },
-      include: {
-        donations: {
-          // Staff should be able to see all Families sponsorship donations here.
-          include: {
-            donor: {
-              select: { title: true, firstName: true, lastName: true, email: true, phone: true },
-            },
-            country: { select: { country: true, pricePence: true } },
-          },
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    })
-
-    const donations = project?.donations || []
-    const projectId = project?.id ?? null
-    return { projectId, donations: donations.map((d) => ({
-      id: d.id,
-      amountPence: d.amountPence,
-      donationType: d.donationType,
-      paymentMethod: d.paymentMethod,
-      giftAid: d.giftAid,
-      billingAddress: d.billingAddress,
-      billingCity: d.billingCity,
-      billingPostcode: d.billingPostcode,
-      billingCountry: d.billingCountry,
-      emailSent: d.emailSent,
-      reportSent: d.reportSent,
-      donationNumber: d.donationNumber,
-      notes: d.notes,
-      status: d.status,
-      createdAt: d.createdAt.toISOString(),
-      completedAt: d.completedAt?.toISOString() ?? null,
-      donor: d.donor,
-      country: d.country,
-      countryName: d.countryName,
-      projectTypeSnapshot: d.projectTypeSnapshot,
-    })) }
-  } catch (error) {
-    console.error("Error fetching Families donations:", error)
-    return { projectId: null, donations: [] }
-  }
-}
 
 export default async function FamiliesDonationsPage({
   searchParams,
@@ -73,7 +26,7 @@ export default async function FamiliesDonationsPage({
       })
     : []
 
-  const { projectId, donations } = await getDonations(staffId)
+  const { projectId, donations } = await getSponsorshipDonationsForAdmin("FAMILIES", staffId)
 
   return (
     <>
