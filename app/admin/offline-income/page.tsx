@@ -99,6 +99,19 @@ export default async function OfflineIncomePage({
         waterProject: { select: { projectType: true, location: true } },
         country: { select: { country: true } },
         addedBy: { select: { email: true, firstName: true, lastName: true } },
+        donor: {
+          select: {
+            title: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            address: true,
+            city: true,
+            postcode: true,
+            country: true,
+          },
+        },
       },
     }),
     prisma.sponsorshipDonation.findMany({
@@ -111,6 +124,14 @@ export default async function OfflineIncomePage({
         sponsorshipProject: { select: { projectType: true, location: true } },
         country: { select: { country: true } },
         addedBy: { select: { email: true, firstName: true, lastName: true } },
+        donor: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
       },
     }),
     prisma.qurbaniDonation.findMany({
@@ -121,7 +142,19 @@ export default async function OfflineIncomePage({
       orderBy: { createdAt: "desc" },
       include: {
         qurbaniCountry: { select: { country: true } },
-        donor: { select: { firstName: true, lastName: true, email: true, phone: true } },
+        donor: {
+          select: {
+            title: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            address: true,
+            city: true,
+            postcode: true,
+            country: true,
+          },
+        },
       },
     }),
     prisma.appeal.findMany({
@@ -188,6 +221,19 @@ export default async function OfflineIncomePage({
       notes: donation.notes || null,
       addedByName: formatAdminUserName(donation.addedBy),
       itemType: "water" as const,
+      donor: donation.donor
+        ? {
+            title: donation.donor.title ?? undefined,
+            firstName: donation.donor.firstName ?? undefined,
+            lastName: donation.donor.lastName ?? undefined,
+            email: donation.donor.email ?? undefined,
+            phone: donation.donor.phone ?? undefined,
+            address: donation.donor.address ?? undefined,
+            city: donation.donor.city ?? undefined,
+            postcode: donation.donor.postcode ?? undefined,
+            country: donation.donor.country ?? undefined,
+          }
+        : undefined,
     }
   })
 
@@ -215,6 +261,14 @@ export default async function OfflineIncomePage({
       notes: donation.notes || null,
       addedByName: formatAdminUserName(donation.addedBy),
       itemType: "sponsorship" as const,
+      donor: donation.donor
+        ? {
+            firstName: donation.donor.firstName ?? undefined,
+            lastName: donation.donor.lastName ?? undefined,
+            email: donation.donor.email ?? undefined,
+            phone: donation.donor.phone ?? undefined,
+          }
+        : undefined,
     }
   })
 
@@ -235,12 +289,18 @@ export default async function OfflineIncomePage({
       notes: donation.notes || donation.qurbaniNames || null,
       addedByName: null as string | null,
       itemType: "qurbani" as const,
+      giftAid: donation.giftAid,
       donor: donation.donor
         ? {
+            title: donation.donor.title ?? undefined,
             firstName: donation.donor.firstName ?? undefined,
             lastName: donation.donor.lastName ?? undefined,
             email: donation.donor.email ?? undefined,
             phone: donation.donor.phone ?? undefined,
+            address: donation.donor.address ?? undefined,
+            city: donation.donor.city ?? undefined,
+            postcode: donation.donor.postcode ?? undefined,
+            country: donation.donor.country ?? undefined,
           }
         : undefined,
     }

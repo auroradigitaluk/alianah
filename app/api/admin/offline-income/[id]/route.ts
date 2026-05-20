@@ -4,7 +4,35 @@ import { prisma } from "@/lib/prisma"
 import { requireAdminAuthSafe } from "@/lib/admin-auth"
 import { formatAdminUserName } from "@/lib/utils"
 import { isValidPhone, isPlaceholderDonorEmail } from "@/lib/utils"
-import { sendOfflineDonationReceiptEmail } from "@/lib/email"
+import {
+  sendOfflineDonationReceiptEmail,
+  sendWaterProjectDonationEmail,
+  sendSponsorshipDonationEmail,
+} from "@/lib/email"
+function mapDonorResponse(donor: {
+  title?: string | null
+  firstName: string
+  lastName: string
+  email: string
+  phone?: string | null
+  address?: string | null
+  city?: string | null
+  postcode?: string | null
+  country?: string | null
+} | null) {
+  if (!donor) return undefined
+  return {
+    title: donor.title ?? undefined,
+    firstName: donor.firstName,
+    lastName: donor.lastName,
+    email: donor.email,
+    phone: donor.phone ?? undefined,
+    address: donor.address ?? undefined,
+    city: donor.city ?? undefined,
+    postcode: donor.postcode ?? undefined,
+    country: donor.country ?? undefined,
+  }
+}
 
 export async function GET(
   _request: NextRequest,
@@ -26,6 +54,19 @@ export async function GET(
           waterProject: { select: { projectType: true, location: true } },
           country: { select: { country: true } },
           addedBy: { select: { email: true, firstName: true, lastName: true } },
+          donor: {
+            select: {
+              title: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              address: true,
+              city: true,
+              postcode: true,
+              country: true,
+            },
+          },
         },
       })
       if (!donation) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -48,10 +89,12 @@ export async function GET(
         donationType: donation.donationType,
         source: donation.paymentMethod,
         receivedAt: donation.createdAt,
+        orderNumber: donation.donationNumber ?? null,
         appeal: { title: `Water Project - ${projectLabel}${location}${country}` },
         notes: donation.notes,
         addedByName: formatAdminUserName(donation.addedBy),
         itemType: "water" as const,
+        donor: mapDonorResponse(donation.donor),
       })
     }
 
@@ -63,6 +106,14 @@ export async function GET(
           sponsorshipProject: { select: { projectType: true, location: true } },
           country: { select: { country: true } },
           addedBy: { select: { email: true, firstName: true, lastName: true } },
+          donor: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+            },
+          },
         },
       })
       if (!donation) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -84,10 +135,12 @@ export async function GET(
         donationType: donation.donationType,
         source: donation.paymentMethod,
         receivedAt: donation.createdAt,
+        orderNumber: donation.donationNumber ?? null,
         appeal: { title: `Sponsorship - ${projectLabel}${location}${country}` },
         notes: donation.notes,
         addedByName: formatAdminUserName(donation.addedBy),
         itemType: "sponsorship" as const,
+        donor: mapDonorResponse(donation.donor),
       })
     }
 
@@ -97,7 +150,19 @@ export async function GET(
         where: { id: donationId },
         include: {
           qurbaniCountry: { select: { country: true } },
-          donor: { select: { firstName: true, lastName: true, email: true, phone: true } },
+          donor: {
+            select: {
+              title: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              address: true,
+              city: true,
+              postcode: true,
+              country: true,
+            },
+          },
         },
       })
       if (!donation) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -121,6 +186,8 @@ export async function GET(
         },
         notes: donation.notes || donation.qurbaniNames || null,
         itemType: "qurbani" as const,
+        giftAid: donation.giftAid,
+        donor: mapDonorResponse(donation.donor),
       })
     }
 
@@ -129,6 +196,19 @@ export async function GET(
       include: {
         appeal: { select: { title: true } },
         addedBy: { select: { email: true, firstName: true, lastName: true } },
+        donor: {
+          select: {
+            title: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            address: true,
+            city: true,
+            postcode: true,
+            country: true,
+          },
+        },
       },
     })
     if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -141,11 +221,14 @@ export async function GET(
       donationType: item.donationType,
       source: item.source,
       receivedAt: item.receivedAt,
+      orderNumber: item.donationNumber ?? null,
       appeal: item.appeal,
       appealId: item.appealId,
       notes: item.notes,
       addedByName: formatAdminUserName(item.addedBy),
       itemType: "appeal" as const,
+      giftAid: item.giftAid,
+      donor: mapDonorResponse(item.donor),
     })
   } catch (error) {
     console.error("Offline income GET error:", error)
@@ -192,6 +275,9 @@ export async function PATCH(
     const body = await request.json()
     const data = patchSchema.parse(body)
 
+    const makeFallbackEmail = () =>
+      `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@alianahapp.local`
+
     if (id.startsWith("water-")) {
       const donationId = id.replace("water-", "")
       if (user.role === "STAFF") {
@@ -209,10 +295,90 @@ export async function PATCH(
       if (data.source !== undefined) updateData.paymentMethod = data.source
       if (data.receivedAt !== undefined) updateData.createdAt = new Date(data.receivedAt)
       if (data.notes !== undefined) updateData.notes = data.notes
-      await prisma.waterProjectDonation.update({
+
+      const sendReceiptEmail = data.sendReceiptEmail === true
+      const donorInput = data.donor
+      if (sendReceiptEmail && donorInput) {
+        const emailProvided = donorInput.email?.trim()
+        const firstProvided = donorInput.firstName?.trim()
+        const lastProvided = donorInput.lastName?.trim()
+        if (!emailProvided) {
+          return NextResponse.json({ error: "Email is required to send receipt" }, { status: 400 })
+        }
+        if (!firstProvided || !lastProvided) {
+          return NextResponse.json(
+            { error: "First name and last name are required to send receipt" },
+            { status: 400 }
+          )
+        }
+        const donor = await prisma.donor.upsert({
+          where: { email: emailProvided.toLowerCase() },
+          update: {
+            firstName: firstProvided,
+            lastName: lastProvided,
+            phone: donorInput.phone?.trim() || null,
+          },
+          create: {
+            email: emailProvided.toLowerCase(),
+            firstName: firstProvided,
+            lastName: lastProvided,
+            phone: donorInput.phone?.trim() || null,
+          },
+        })
+        updateData.donorId = donor.id
+      } else if (donorInput && (donorInput.email?.trim() || donorInput.firstName?.trim())) {
+        const email = donorInput.email?.trim() || makeFallbackEmail()
+        const donor = await prisma.donor.upsert({
+          where: { email: email.toLowerCase() },
+          update: {
+            firstName: donorInput.firstName?.trim() || "Anonymous",
+            lastName: donorInput.lastName?.trim() || "Donor",
+            phone: donorInput.phone?.trim() || null,
+          },
+          create: {
+            email: email.toLowerCase(),
+            firstName: donorInput.firstName?.trim() || "Anonymous",
+            lastName: donorInput.lastName?.trim() || "Donor",
+            phone: donorInput.phone?.trim() || null,
+          },
+        })
+        updateData.donorId = donor.id
+      }
+
+      const updated = await prisma.waterProjectDonation.update({
         where: { id: donationId },
         data: updateData,
+        include: {
+          donor: true,
+          waterProject: { select: { projectType: true, location: true } },
+          country: { select: { country: true } },
+        },
       })
+
+      if (sendReceiptEmail && updated.donor && !isPlaceholderDonorEmail(updated.donor.email)) {
+        try {
+          await sendWaterProjectDonationEmail({
+            donorEmail: updated.donor.email,
+            donorName: [updated.donor.firstName, updated.donor.lastName].filter(Boolean).join(" ") || "Donor",
+            projectType: updated.waterProject?.projectType ?? "WATER_PROJECT",
+            location: updated.waterProject?.location ?? null,
+            country: updated.country?.country ?? updated.countryName ?? "",
+            amount: updated.amountPence,
+            donationType: updated.donationType,
+            donationNumber: updated.donationNumber ?? updated.id,
+          })
+          await prisma.waterProjectDonation.update({
+            where: { id: donationId },
+            data: { emailSent: true },
+          })
+        } catch (err) {
+          console.error("Failed to send water project receipt:", err)
+          return NextResponse.json(
+            { error: "Entry saved but receipt email failed to send" },
+            { status: 500 }
+          )
+        }
+      }
       return NextResponse.json({ success: true })
     }
 
@@ -233,10 +399,91 @@ export async function PATCH(
       if (data.source !== undefined) updateData.paymentMethod = data.source
       if (data.receivedAt !== undefined) updateData.createdAt = new Date(data.receivedAt)
       if (data.notes !== undefined) updateData.notes = data.notes
-      await prisma.sponsorshipDonation.update({
+
+      const sendReceiptEmail = data.sendReceiptEmail === true
+      const donorInput = data.donor
+      if (sendReceiptEmail && donorInput) {
+        const emailProvided = donorInput.email?.trim()
+        const firstProvided = donorInput.firstName?.trim()
+        const lastProvided = donorInput.lastName?.trim()
+        if (!emailProvided) {
+          return NextResponse.json({ error: "Email is required to send receipt" }, { status: 400 })
+        }
+        if (!firstProvided || !lastProvided) {
+          return NextResponse.json(
+            { error: "First name and last name are required to send receipt" },
+            { status: 400 }
+          )
+        }
+        const donor = await prisma.donor.upsert({
+          where: { email: emailProvided.toLowerCase() },
+          update: {
+            firstName: firstProvided,
+            lastName: lastProvided,
+            phone: donorInput.phone?.trim() || null,
+          },
+          create: {
+            email: emailProvided.toLowerCase(),
+            firstName: firstProvided,
+            lastName: lastProvided,
+            phone: donorInput.phone?.trim() || null,
+          },
+        })
+        updateData.donorId = donor.id
+      } else if (donorInput && (donorInput.email?.trim() || donorInput.firstName?.trim())) {
+        const email = donorInput.email?.trim() || makeFallbackEmail()
+        const donor = await prisma.donor.upsert({
+          where: { email: email.toLowerCase() },
+          update: {
+            firstName: donorInput.firstName?.trim() || "Anonymous",
+            lastName: donorInput.lastName?.trim() || "Donor",
+            phone: donorInput.phone?.trim() || null,
+          },
+          create: {
+            email: email.toLowerCase(),
+            firstName: donorInput.firstName?.trim() || "Anonymous",
+            lastName: donorInput.lastName?.trim() || "Donor",
+            phone: donorInput.phone?.trim() || null,
+          },
+        })
+        updateData.donorId = donor.id
+      }
+
+      const updated = await prisma.sponsorshipDonation.update({
         where: { id: donationId },
         data: updateData,
+        include: {
+          donor: true,
+          sponsorshipProject: { select: { projectType: true, location: true } },
+          country: { select: { country: true } },
+        },
       })
+
+      if (sendReceiptEmail && updated.donor && !isPlaceholderDonorEmail(updated.donor.email)) {
+        try {
+          await sendSponsorshipDonationEmail({
+            donorEmail: updated.donor.email,
+            donorName: [updated.donor.firstName, updated.donor.lastName].filter(Boolean).join(" ") || "Donor",
+            projectType:
+              updated.sponsorshipProject?.projectType ?? updated.projectTypeSnapshot ?? "ORPHANS",
+            location: updated.sponsorshipProject?.location ?? null,
+            country: updated.country?.country ?? updated.countryName ?? "",
+            amount: updated.amountPence,
+            donationType: updated.donationType,
+            donationNumber: updated.donationNumber ?? updated.id,
+          })
+          await prisma.sponsorshipDonation.update({
+            where: { id: donationId },
+            data: { emailSent: true },
+          })
+        } catch (err) {
+          console.error("Failed to send sponsorship receipt:", err)
+          return NextResponse.json(
+            { error: "Entry saved but receipt email failed to send" },
+            { status: 500 }
+          )
+        }
+      }
       return NextResponse.json({ success: true })
     }
 
@@ -257,10 +504,86 @@ export async function PATCH(
       if (data.source !== undefined) updateData.paymentMethod = data.source
       if (data.receivedAt !== undefined) updateData.createdAt = new Date(data.receivedAt)
       if (data.notes !== undefined) updateData.notes = data.notes
-      await prisma.qurbaniDonation.update({
+      if (data.giftAid !== undefined) updateData.giftAid = data.giftAid
+
+      const giftAid = data.giftAid === true
+      const sendReceiptEmail = data.sendReceiptEmail === true
+      const donorInput = data.donor
+      if ((giftAid || sendReceiptEmail) && donorInput) {
+        const emailProvided = donorInput.email?.trim()
+        const firstProvided = donorInput.firstName?.trim()
+        const lastProvided = donorInput.lastName?.trim()
+        if (sendReceiptEmail) {
+          if (!emailProvided) {
+            return NextResponse.json({ error: "Email is required to send receipt" }, { status: 400 })
+          }
+          if (!firstProvided || !lastProvided) {
+            return NextResponse.json(
+              { error: "First name and last name are required to send receipt" },
+              { status: 400 }
+            )
+          }
+        }
+        const email = emailProvided || makeFallbackEmail()
+        const donor = await prisma.donor.upsert({
+          where: { email: email.toLowerCase() },
+          update: {
+            title: donorInput.title || null,
+            firstName: firstProvided || "Anonymous",
+            lastName: lastProvided || "Donor",
+            phone: donorInput.phone?.trim() || null,
+            address: donorInput.address?.trim() || null,
+            city: donorInput.city?.trim() || null,
+            postcode: donorInput.postcode?.trim() || null,
+            country: donorInput.country?.trim() || null,
+          },
+          create: {
+            email: email.toLowerCase(),
+            title: donorInput.title || null,
+            firstName: firstProvided || "Anonymous",
+            lastName: lastProvided || "Donor",
+            phone: donorInput.phone?.trim() || null,
+            address: donorInput.address?.trim() || null,
+            city: donorInput.city?.trim() || null,
+            postcode: donorInput.postcode?.trim() || null,
+            country: donorInput.country?.trim() || null,
+          },
+        })
+        updateData.donorId = donor.id
+        updateData.billingAddress = donorInput.address?.trim() || donor.address || null
+        updateData.billingCity = donorInput.city?.trim() || donor.city || null
+        updateData.billingPostcode = donorInput.postcode?.trim() || donor.postcode || null
+        updateData.billingCountry = donorInput.country?.trim() || donor.country || null
+      }
+
+      const updated = await prisma.qurbaniDonation.update({
         where: { id: donationId },
         data: updateData,
+        include: {
+          donor: true,
+          qurbaniCountry: { select: { country: true } },
+        },
       })
+
+      if (sendReceiptEmail && updated.donor && !isPlaceholderDonorEmail(updated.donor.email)) {
+        try {
+          await sendOfflineDonationReceiptEmail({
+            donorEmail: updated.donor.email,
+            donorName: [updated.donor.firstName, updated.donor.lastName].filter(Boolean).join(" ") || "Donor",
+            appealTitle: `Qurbani - ${updated.qurbaniCountry.country}`,
+            amountPence: updated.amountPence,
+            donationType: updated.donationType,
+            receivedAt: updated.createdAt,
+            donationNumber: updated.donationNumber ?? updated.id,
+          })
+        } catch (err) {
+          console.error("Failed to send qurbani receipt:", err)
+          return NextResponse.json(
+            { error: "Entry saved but receipt email failed to send" },
+            { status: 500 }
+          )
+        }
+      }
       return NextResponse.json({ success: true })
     }
 
@@ -292,8 +615,6 @@ export async function PATCH(
     let billingCountry: string | null | undefined = undefined
 
     if ((giftAid || sendReceiptEmail) && donorInput) {
-      const makeFallbackEmail = () =>
-        `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@alianahapp.local`
       const emailProvided = donorInput.email?.trim()
       const firstProvided = donorInput.firstName?.trim()
       const lastProvided = donorInput.lastName?.trim()

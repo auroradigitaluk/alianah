@@ -6,7 +6,14 @@ import { AdminTable } from "@/components/admin-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { IconTag, IconCash, IconBuildingBank } from "@tabler/icons-react"
-import { formatCurrency, formatEnum, formatDate, formatDateTime } from "@/lib/utils"
+import {
+  displayDonorEmail,
+  formatCurrency,
+  formatEnum,
+  formatDate,
+  formatDateTime,
+  isPlaceholderDonorEmail,
+} from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -60,6 +67,36 @@ const FUNDRAISER_PAYMENT_SOURCES = [
   { value: "BANK_TRANSFER", label: "Bank transfer" },
 ]
 
+function getItemTypeFromRow(
+  item: OfflineIncome | null | undefined
+): "appeal" | "water" | "sponsorship" | "fundraiser_cash" | "qurbani" {
+  if (!item) return "appeal"
+  if (item.itemType) return item.itemType
+  if (item.id.startsWith("water-")) return "water"
+  if (item.id.startsWith("sponsorship-")) return "sponsorship"
+  if (item.id.startsWith("fundraiser_cash-")) return "fundraiser_cash"
+  if (item.id.startsWith("qurbani-")) return "qurbani"
+  return "appeal"
+}
+
+function canResendReceiptForItem(item: OfflineIncome): boolean {
+  if (item.itemType === "fundraiser_cash" || item.id.startsWith("fundraiser_cash-")) {
+    return Boolean(item.donorEmail?.trim() && !isPlaceholderDonorEmail(item.donorEmail))
+  }
+  const email = item.donor?.email
+  return Boolean(email?.trim() && !isPlaceholderDonorEmail(email))
+}
+
+function donorNameForItem(item: OfflineIncome): string | null {
+  if (item.itemType === "fundraiser_cash" || item.id.startsWith("fundraiser_cash-")) {
+    return item.donorName?.trim() || null
+  }
+  const d = item.donor
+  if (!d) return null
+  const name = [d.firstName, d.lastName].filter(Boolean).join(" ").trim()
+  return name || null
+}
+
 interface OfflineIncomeDonor {
   title?: string | null
   firstName?: string | null
@@ -111,6 +148,7 @@ export function OfflineIncomeTable({
   const [deleteConfirm, setDeleteConfirm] = useState<OfflineIncome | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [resendingReceipt, setResendingReceipt] = useState(false)
   const [appealQuery, setAppealQuery] = useState("")
   const [sourceFilter, setSourceFilter] = useState("all")
   const [fromDate, setFromDate] = useState("")
@@ -153,14 +191,28 @@ export function OfflineIncomeTable({
     setToDate("")
   }
 
-  const getItemType = (item: OfflineIncome | null | undefined): "appeal" | "water" | "sponsorship" | "fundraiser_cash" | "qurbani" => {
-    if (!item) return "appeal"
-    if (item.itemType) return item.itemType
-    if (item.id.startsWith("water-")) return "water"
-    if (item.id.startsWith("sponsorship-")) return "sponsorship"
-    if (item.id.startsWith("fundraiser_cash-")) return "fundraiser_cash"
-    if (item.id.startsWith("qurbani-")) return "qurbani"
-    return "appeal"
+  const getItemType = getItemTypeFromRow
+
+  const handleResendReceipt = async (item: OfflineIncome) => {
+    if (!canResendReceiptForItem(item)) {
+      toast.error("Add a valid donor email before resending a receipt")
+      return
+    }
+    setResendingReceipt(true)
+    try {
+      const res = await fetch(`/api/admin/offline-income/${item.id}/resend-receipt`, {
+        method: "POST",
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body.error ?? "Failed to send receipt")
+      }
+      toast.success("Receipt email sent")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send receipt")
+    } finally {
+      setResendingReceipt(false)
+    }
   }
 
   const handleSaveEdit = async (data: {
@@ -177,7 +229,9 @@ export function OfflineIncomeTable({
     if (!editingIncome) return
     setSaving(true)
     try {
-      const isAppeal = getItemType(editingIncome) === "appeal"
+      const itemType = getItemType(editingIncome)
+      const isAppeal = itemType === "appeal"
+      const supportsDonor = ["appeal", "water", "sponsorship", "qurbani"].includes(itemType)
       const res = await fetch(`/api/admin/offline-income/${editingIncome.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -188,9 +242,9 @@ export function OfflineIncomeTable({
           source: data.source,
           receivedAt: data.receivedAt,
           notes: data.notes || null,
-          ...(isAppeal && data.giftAid !== undefined && { giftAid: data.giftAid }),
-          ...(isAppeal && data.sendReceiptEmail !== undefined && { sendReceiptEmail: data.sendReceiptEmail }),
-          ...(isAppeal && data.donor && { donor: data.donor }),
+          ...(supportsDonor && data.giftAid !== undefined && { giftAid: data.giftAid }),
+          ...(supportsDonor && data.sendReceiptEmail && { sendReceiptEmail: true }),
+          ...(supportsDonor && data.donor && { donor: data.donor }),
         }),
       })
       if (!res.ok) {
@@ -444,7 +498,18 @@ export function OfflineIncomeTable({
                 </DialogDescription>
               </div>
               {canEdit && selectedIncome && (
-                <div className="flex gap-2 shrink-0">
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  {canResendReceiptForItem(selectedIncome) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={resendingReceipt}
+                      onClick={() => handleResendReceipt(selectedIncome)}
+                    >
+                      <Mail className="mr-1 h-4 w-4" />
+                      {resendingReceipt ? "Sending…" : "Resend receipt"}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -603,6 +668,71 @@ export function OfflineIncomeTable({
                       </div>
                     </div>
 
+                    {(donorNameForItem(selectedIncome) ||
+                      (selectedIncome.itemType === "fundraiser_cash"
+                        ? selectedIncome.donorEmail
+                        : selectedIncome.donor?.email) ||
+                      selectedIncome.donor?.phone ||
+                      selectedIncome.giftAid) && (
+                      <>
+                        <Separator className="my-6" />
+                        <div className="space-y-6">
+                          <div className="flex items-center gap-3 pb-2">
+                            <div className="p-2 rounded-lg bg-muted/50">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <h3 className="text-base font-bold uppercase tracking-wide text-foreground">
+                              Donor
+                            </h3>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {donorNameForItem(selectedIncome) && (
+                              <div className="py-3 px-4 rounded-lg border border-border/30">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                                  Name
+                                </p>
+                                <p className="text-base font-medium">{donorNameForItem(selectedIncome)}</p>
+                              </div>
+                            )}
+                            {(selectedIncome.itemType === "fundraiser_cash"
+                              ? selectedIncome.donorEmail
+                              : selectedIncome.donor?.email) && (
+                              <div className="py-3 px-4 rounded-lg border border-border/30">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                                  Email
+                                </p>
+                                <p className="text-base font-medium">
+                                  {displayDonorEmail(
+                                    selectedIncome.itemType === "fundraiser_cash"
+                                      ? selectedIncome.donorEmail
+                                      : selectedIncome.donor?.email
+                                  )}
+                                </p>
+                              </div>
+                            )}
+                            {(selectedIncome.donorPhone || selectedIncome.donor?.phone) && (
+                              <div className="py-3 px-4 rounded-lg border border-border/30">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                                  Phone
+                                </p>
+                                <p className="text-base">
+                                  {selectedIncome.donorPhone || selectedIncome.donor?.phone}
+                                </p>
+                              </div>
+                            )}
+                            {selectedIncome.giftAid && (
+                              <div className="py-3 px-4 rounded-lg border border-border/30">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                                  Gift Aid
+                                </p>
+                                <p className="text-base">Yes</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
                     {selectedIncome.notes && (
                       <>
                         <Separator className="my-6" />
@@ -740,8 +870,11 @@ function OfflineIncomeEditForm({
   onCancel: () => void
   saving: boolean
 }) {
-  const isFundraiserCash = item.itemType === "fundraiser_cash"
-  const isAppealType = !isFundraiserCash && (item.itemType === "appeal" || (!item.itemType && !item.id.startsWith("water-") && !item.id.startsWith("sponsorship-")))
+  const itemType = getItemTypeFromRow(item)
+  const isFundraiserCash = itemType === "fundraiser_cash"
+  const isAppealType = itemType === "appeal"
+  const supportsDonorDetails = isFundraiserCash || ["appeal", "water", "sponsorship", "qurbani"].includes(itemType)
+  const supportsGiftAid = itemType === "appeal" || itemType === "qurbani"
 
   const [amountPence, setAmountPence] = useState(String((item.amountPence / 100).toFixed(2)))
   const [appealId, setAppealId] = useState(item.appealId ?? "")
@@ -751,10 +884,32 @@ function OfflineIncomeEditForm({
   const [notes, setNotes] = useState(item.notes ?? "")
 
   const d = item.donor
-  const hasExistingDonor = !isFundraiserCash && (item.giftAid || (d && (d.firstName || d.lastName || d.email || d.phone || d.address || d.city || d.postcode || d.country)))
-  const hasFundraiserDonor = isFundraiserCash && (item.donorName?.trim() || item.donorEmail?.trim() || item.donorPhone?.trim())
-  const [giftAidExpanded, setGiftAidExpanded] = useState(!!(hasExistingDonor || hasFundraiserDonor))
+  const hasValidReceiptEmail =
+    (isFundraiserCash && item.donorEmail?.trim() && !isPlaceholderDonorEmail(item.donorEmail)) ||
+    (d?.email?.trim() && !isPlaceholderDonorEmail(d.email))
+  const hasExistingDonor =
+    !isFundraiserCash &&
+    (item.giftAid ||
+      (d &&
+        (d.firstName ||
+          d.lastName ||
+          d.email ||
+          d.phone ||
+          d.address ||
+          d.city ||
+          d.postcode ||
+          d.country)))
+  const hasFundraiserDonor =
+    isFundraiserCash &&
+    (item.donorName?.trim() || item.donorEmail?.trim() || item.donorPhone?.trim())
+  const [giftAidExpanded, setGiftAidExpanded] = useState(
+    !!(item.giftAid || (supportsGiftAid && hasExistingDonor) || hasFundraiserDonor)
+  )
   const [sendReceiptEmail, setSendReceiptEmail] = useState(false)
+  const showReceiptDonorFields =
+    sendReceiptEmail ||
+    (hasValidReceiptEmail && !supportsGiftAid) ||
+    (hasValidReceiptEmail && !giftAidExpanded)
   const [giftaidTitle, setGiftaidTitle] = useState(d?.title ?? "")
   const [firstName, setFirstName] = useState(isFundraiserCash ? (item.donorName ?? "") : (d?.firstName ?? ""))
   const [lastName, setLastName] = useState(isFundraiserCash ? "" : (d?.lastName ?? ""))
@@ -789,9 +944,14 @@ function OfflineIncomeEditForm({
         giftaidCity.trim() ||
         giftaidPostcode.trim() ||
         giftaidCountry.trim())
+    const useGiftAidFields = giftAidExpanded && hasGiftAidDetails
+    const useReceiptFields =
+      sendReceiptEmail ||
+      showReceiptDonorFields ||
+      (!supportsGiftAid && (receiptEmail.trim() || receiptFirstName.trim() || firstName.trim()))
     const donorPayload: OfflineIncomeDonor | undefined =
-      (isAppealType || isFundraiserCash) && (hasGiftAidDetails || (sendReceiptEmail && receiptEmail.trim() && receiptFirstName.trim() && receiptLastName.trim()))
-        ? hasGiftAidDetails
+      supportsDonorDetails && (useGiftAidFields || useReceiptFields)
+        ? useGiftAidFields
           ? {
               title: giftaidTitle.trim() || undefined,
               firstName: firstName.trim() ? toTitleCaseLive(firstName.trim()) : undefined,
@@ -804,9 +964,14 @@ function OfflineIncomeEditForm({
               country: giftaidCountry.trim() || undefined,
             }
           : {
-              firstName: receiptFirstName.trim() ? toTitleCaseLive(receiptFirstName.trim()) : undefined,
-              lastName: receiptLastName.trim() ? toTitleCaseLive(receiptLastName.trim()) : undefined,
-              email: receiptEmail.trim() || undefined,
+              firstName: (receiptFirstName.trim() || firstName.trim())
+                ? toTitleCaseLive((receiptFirstName.trim() || firstName.trim()) as string)
+                : undefined,
+              lastName: (receiptLastName.trim() || lastName.trim())
+                ? toTitleCaseLive((receiptLastName.trim() || lastName.trim()) as string)
+                : undefined,
+              email: (giftAidExpanded ? email : receiptEmail).trim() || undefined,
+              phone: giftaidPhone.trim() || undefined,
             }
         : undefined
     const donorNameStr = isFundraiserCash
@@ -820,8 +985,8 @@ function OfflineIncomeEditForm({
       source,
       receivedAt: new Date(receivedAt).toISOString(),
       notes: notes.trim() || null,
-      ...(isAppealType && {
-        giftAid: giftAidExpanded,
+      ...(supportsDonorDetails && supportsGiftAid && { giftAid: giftAidExpanded }),
+      ...(supportsDonorDetails && {
         sendReceiptEmail,
         ...(donorPayload && { donor: donorPayload }),
       }),
@@ -922,19 +1087,21 @@ function OfflineIncomeEditForm({
           </Select>
         </div>
       </div>
-      {(isAppealType || isFundraiserCash) && (
+      {supportsDonorDetails && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant={giftAidExpanded ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setGiftAidExpanded((v) => !v)}
-              className="gap-2"
-            >
-              <Gift className="h-4 w-4" />
-              {giftAidExpanded ? "Gift Aid (details added)" : "Add Gift Aid"}
-            </Button>
+            {supportsGiftAid && (
+              <Button
+                type="button"
+                variant={giftAidExpanded ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setGiftAidExpanded((v) => !v)}
+                className="gap-2"
+              >
+                <Gift className="h-4 w-4" />
+                {giftAidExpanded ? "Gift Aid (details added)" : "Add Gift Aid"}
+              </Button>
+            )}
             <Button
               type="button"
               variant={sendReceiptEmail ? "secondary" : "outline"}
@@ -946,7 +1113,7 @@ function OfflineIncomeEditForm({
               {sendReceiptEmail ? "Send Email Receipt (on)" : "Send Email Receipt"}
             </Button>
           </div>
-          {giftAidExpanded && (
+          {giftAidExpanded && supportsGiftAid && (
             <div className="rounded-lg border p-4 space-y-4 bg-muted/30">
               <p className="text-sm text-muted-foreground">
                 Donor details for Gift Aid (UK taxpayer). Optional
@@ -1061,9 +1228,9 @@ function OfflineIncomeEditForm({
               </div>
             </div>
           )}
-          {sendReceiptEmail && (
+          {(showReceiptDonorFields || (sendReceiptEmail && !giftAidExpanded)) && (
             <div className="space-y-4">
-              {!giftAidExpanded && (
+              {(!giftAidExpanded || !supportsGiftAid) && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-receipt-first">First name</Label>
