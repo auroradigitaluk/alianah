@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
-export function PublicHeader() {
+export function PublicHeader({ qurbaniEnabled }: { qurbaniEnabled: boolean }) {
   const router = useRouter()
   const { items, setOpen } = useSidecart()
 
@@ -71,12 +71,14 @@ export function PublicHeader() {
           >
             Sponsor
           </Link>
-          <Link
-            href="/qurbani"
-            className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
-          >
-            Qurbani
-          </Link>
+          {qurbaniEnabled && (
+            <Link
+              href="/qurbani"
+              className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+            >
+              Qurbani
+            </Link>
+          )}
           <Link
             href="/donate"
             className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"

@@ -5,7 +5,7 @@ import { PublicHeader } from "@/components/public-header"
 import { DonateHeader } from "@/components/public-header-donate"
 import { FundraiserHeader } from "@/components/fundraiser-header"
 
-export function PublicHeaderWrapper() {
+export function PublicHeaderWrapper({ qurbaniEnabled }: { qurbaniEnabled: boolean }) {
   const pathname = usePathname()
   // Fundraiser header: public campaign page (/fundraise/slug) or hub + create/login/dashboard (/fundraiser, /fundraiser/*)
   const isFundraiserPage =
@@ -18,5 +18,5 @@ export function PublicHeaderWrapper() {
   if (isDonatePage) {
     return <DonateHeader />
   }
-  return <PublicHeader />
+  return <PublicHeader qurbaniEnabled={qurbaniEnabled} />
 }

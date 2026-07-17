@@ -1,5 +1,7 @@
+import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { QurbaniPublicPage } from "@/components/qurbani-public-page"
+import { getQurbaniEnabled } from "@/lib/settings"
 
 export const dynamic = "force-dynamic"
 
@@ -15,6 +17,11 @@ async function getQurbaniCountries() {
 }
 
 export default async function QurbaniPage() {
+  const qurbaniEnabled = await getQurbaniEnabled()
+  if (!qurbaniEnabled) {
+    notFound()
+  }
+
   const countries = await getQurbaniCountries()
 
   return (

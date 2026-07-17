@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { sumDonationsDeduplicated } from "@/lib/donation-dedup"
 import { OneNationDonationForm } from "@/components/one-nation-donation-form"
+import { getQurbaniEnabled } from "@/lib/settings"
 
 export const dynamic = 'force-dynamic'
 
@@ -187,7 +188,8 @@ export default async function HomePage({
     waterProjectCountries,
     sponsorshipProjectsForForm,
     sponsorshipProjectCountries,
-    qurbaniCountries,
+    qurbaniEnabled,
+    qurbaniCountriesRaw,
   ] = await Promise.all([
     getActiveAppeals(),
     getOrCreateDefaultAppeal(), // Get any appeal or create default if none exist
@@ -195,8 +197,10 @@ export default async function HomePage({
     getWaterProjectCountriesForForm(), // Get water project countries with prices
     getSponsorshipProjectsForForm(),
     getSponsorshipProjectCountriesForForm(),
+    getQurbaniEnabled(),
     getQurbaniCountriesForForm(),
   ])
+  const qurbaniCountries = qurbaniEnabled ? qurbaniCountriesRaw : []
 
   // Calculate totals for each appeal (one amount per transaction)
   const appealsWithTotals = appeals.map((appeal) => {
