@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react"
 import { PageViewTracker } from "@/components/page-view-tracker"
@@ -26,12 +25,9 @@ export const metadata: Metadata = {
   title: "Alianah Humanity Welfare",
   description: "Support our appeals and make a difference with your donation",
   icons: {
-    icon: [
-      { url: "/logo-light.png", media: "(prefers-color-scheme: light)" },
-      { url: "/logo-dark.png", media: "(prefers-color-scheme: dark)" },
-    ],
-    shortcut: "/logo-light.png",
-    apple: "/logo-light.png",
+    icon: "/logo-dark.png",
+    shortcut: "/logo-dark.png",
+    apple: "/logo-dark.png",
   },
   openGraph: {
     title: "Alianah Humanity Welfare",
@@ -61,22 +57,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          storageKey="theme"
-          value={{ dark: "dark", light: "light" }}
-        >
-          {children}
-          <PageViewTracker />
-          <Analytics />
-          <Toaster position="bottom-right" />
-        </ThemeProvider>
+        {children}
+        <PageViewTracker />
+        <Analytics />
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );

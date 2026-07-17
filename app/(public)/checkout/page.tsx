@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, PaymentRequestButtonElement, useElements, useStripe } from "@stripe/react-stripe-js"
-import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -519,7 +518,6 @@ function PaymentStep(props: {
 function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) {
   const { stripePromise } = props
   const router = useRouter()
-  const { resolvedTheme } = useTheme()
   const { items, clearCart, setItems } = useSidecart()
   const searchParams = useSearchParams()
   const formStorageKey = "checkout:billing-details"
@@ -849,7 +847,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
               options={{
                 clientSecret: primaryClientSecret,
                 appearance: {
-                  theme: resolvedTheme === "dark" ? "night" : "stripe",
+                  theme: "night",
                   variables: {
                     colorPrimary: "oklch(0.574 0.259 142.38)",
                     colorBackground: "hsl(var(--card))",
@@ -858,7 +856,7 @@ function CheckoutInner(props: { stripePromise: ReturnType<typeof loadStripe> }) 
                   },
                 },
               }}
-              key={`${primaryClientSecret}-${resolvedTheme ?? "system"}`}
+              key={primaryClientSecret}
             >
               <PaymentStep
                 clientSecret={primaryClientSecret}

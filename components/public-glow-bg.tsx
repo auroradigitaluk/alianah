@@ -13,11 +13,10 @@ export function PublicGlowBg({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
-  // Fundraiser hub + fundraise: theme-aware background + subtle green tint (works in both light and dark mode)
   if (isFundraiserHub || isFundraise) {
     return (
       <div className="min-h-screen">
-        <div className="fixed inset-0 -z-10 min-h-screen bg-[oklch(0.98_0.01_142)] dark:bg-[oklch(0.12_0.02_142)]" />
+        <div className="fixed inset-0 -z-10 min-h-screen bg-[oklch(0.12_0.02_142)]" />
         <div
           className="fixed bottom-0 left-0 right-0 -z-10 h-[50vh] min-h-[320px] opacity-40"
           style={{
@@ -31,7 +30,7 @@ export function PublicGlowBg({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <div className="fixed inset-0 -z-10 min-h-screen bg-[oklch(0.98_0.01_142)] dark:bg-[oklch(0.08_0.02_142.38)]" />
+      <div className="fixed inset-0 -z-10 min-h-screen bg-[oklch(0.08_0.02_142.38)]" />
       <div
         className="fixed bottom-0 left-0 right-0 -z-10 h-[60vh] min-h-[400px]"
         style={{

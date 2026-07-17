@@ -53,18 +53,10 @@ export default function ForgotPasswordPage() {
           <div className="flex justify-center gap-2 md:justify-start">
             <Link href="/" className="flex items-center gap-2 font-medium">
               <Image
-                src="/logo-light.png"
-                alt="Logo"
-                width={48}
-                height={48}
-                className="dark:hidden"
-              />
-              <Image
                 src="/logo-dark.png"
                 alt="Logo"
                 width={48}
                 height={48}
-                className="hidden dark:block"
               />
               <span>Alianah Humanity Welfare</span>
             </Link>
@@ -86,18 +78,11 @@ export default function ForgotPasswordPage() {
         <div className="bg-muted relative hidden lg:block">
           <div className="absolute inset-0 flex items-center justify-center">
             <Image
-              src="/logo-light.png"
-              alt=""
-              width={120}
-              height={120}
-              className="opacity-20 dark:hidden"
-            />
-            <Image
               src="/logo-dark.png"
               alt=""
               width={120}
               height={120}
-              className="hidden opacity-20 dark:block"
+              className="opacity-20"
             />
           </div>
         </div>
@@ -111,18 +96,10 @@ export default function ForgotPasswordPage() {
         <div className="flex justify-center gap-2 md:justify-start">
           <Link href="/" className="flex items-center gap-2 font-medium">
             <Image
-              src="/logo-light.png"
-              alt="Logo"
-              width={48}
-              height={48}
-              className="dark:hidden"
-            />
-            <Image
               src="/logo-dark.png"
               alt="Logo"
               width={48}
               height={48}
-              className="hidden dark:block"
             />
             <span>Alianah Humanity Welfare</span>
           </Link>
@@ -174,18 +151,11 @@ export default function ForgotPasswordPage() {
       <div className="bg-muted relative hidden lg:block">
         <div className="absolute inset-0 flex items-center justify-center">
           <Image
-            src="/logo-light.png"
-            alt=""
-            width={120}
-            height={120}
-            className="opacity-20 dark:hidden"
-          />
-          <Image
             src="/logo-dark.png"
             alt=""
             width={120}
             height={120}
-            className="hidden opacity-20 dark:block"
+            className="opacity-20"
           />
         </div>
       </div>

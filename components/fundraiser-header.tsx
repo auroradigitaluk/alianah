@@ -4,7 +4,6 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { FundraiserLogoutButton } from "@/components/fundraiser-logout-button"
 import { Button } from "@/components/ui/button"
 import { Share2 } from "lucide-react"
@@ -44,18 +43,11 @@ export function FundraiserHeader() {
       <div className="container mx-auto flex h-14 sm:h-16 items-center justify-between px-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Image
-            src="/logo-light.png"
-            alt="Alianah"
-            width={24}
-            height={24}
-            className="h-6 w-6 object-contain dark:hidden"
-          />
-          <Image
             src="/logo-dark.png"
             alt="Alianah"
             width={24}
             height={24}
-            className="hidden h-6 w-6 object-contain dark:block"
+            className="h-6 w-6 object-contain"
           />
           <span className="text-foreground font-semibold">Alianah Humanity Welfare</span>
         </div>
@@ -87,7 +79,6 @@ export function FundraiserHeader() {
                 </Button>
               )}
               <FundraiserLogoutButton />
-              <ThemeToggle />
             </>
           ) : (
             <>
@@ -113,7 +104,6 @@ export function FundraiserHeader() {
                   </Button>
                 </>
               )}
-              <ThemeToggle />
             </>
           )}
         </div>

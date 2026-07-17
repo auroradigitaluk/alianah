@@ -4,7 +4,6 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
-import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -200,7 +199,6 @@ export function DailyGivingPaymentStep({
 }: DailyGivingPaymentStepProps) {
   const giftAidTotalPence = totalDonationOverPeriodPence ?? totalPence
   const router = useRouter()
-  const { resolvedTheme } = useTheme()
   const [formData, setFormData] = React.useState<Record<string, string | boolean>>({
     firstName: "",
     lastName: "",
@@ -341,7 +339,7 @@ export function DailyGivingPaymentStep({
           options={{
             clientSecret,
             appearance: {
-              theme: resolvedTheme === "dark" ? "night" : "stripe",
+              theme: "night",
               variables: {
                 colorPrimary: "oklch(0.574 0.259 142.38)",
                 colorBackground: "hsl(var(--card))",

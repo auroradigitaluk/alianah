@@ -14,19 +14,11 @@ export default async function FundraiserHubPage() {
     <div className="flex-1 container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:px-6 max-w-lg flex flex-col justify-center items-center text-center">
       <div className="flex flex-col justify-center items-center text-center w-full max-w-md mx-auto px-4 py-12">
         <Image
-          src="/logo-light.png"
-          alt="Alianah"
-          width={240}
-          height={96}
-          className="h-[4.8rem] sm:h-24 w-auto object-contain mb-8 dark:hidden"
-          priority
-        />
-        <Image
           src="/logo-dark.png"
           alt="Alianah"
           width={240}
           height={96}
-          className="h-[4.8rem] sm:h-24 w-auto object-contain mb-8 hidden dark:block"
+          className="h-[4.8rem] sm:h-24 w-auto object-contain mb-8"
           priority
         />
       <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 text-primary px-3 py-1 text-sm font-medium w-fit mx-auto mb-6">

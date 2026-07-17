@@ -8,21 +8,14 @@ export function InitialLoader() {
       <div className="flex flex-col items-center gap-4 w-full max-w-xs">
         <div className="relative h-40 w-[36rem]">
           <Image
-            src="/logo-light.png"
-            alt="Alianah Humanity Welfare"
-            fill
-            priority
-            className="object-contain dark:hidden"
-          />
-          <Image
             src="/logo-dark.png"
             alt="Alianah Humanity Welfare"
             fill
             priority
-            className="object-contain hidden dark:block"
+            className="object-contain"
           />
         </div>
-        <p className="text-sm font-medium text-center text-black dark:text-white">
+        <p className="text-sm font-medium text-center text-white">
           Assisting those in need.
         </p>
         <div className="w-full h-1 rounded-full bg-muted overflow-hidden">

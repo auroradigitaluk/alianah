@@ -478,19 +478,11 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
     return (
       <div className="flex flex-col justify-center items-center text-center w-full max-w-md mx-auto px-4 py-12">
         <Image
-          src="/logo-light.png"
-          alt="Alianah"
-          width={200}
-          height={80}
-          className="h-16 sm:h-20 w-auto object-contain mb-6 dark:hidden"
-          priority
-        />
-        <Image
           src="/logo-dark.png"
           alt="Alianah"
           width={200}
           height={80}
-          className="h-16 sm:h-20 w-auto object-contain mb-6 hidden dark:block"
+          className="h-16 sm:h-20 w-auto object-contain mb-6"
           priority
         />
         <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 text-primary px-3 py-1 text-sm font-medium w-fit mx-auto mb-4">

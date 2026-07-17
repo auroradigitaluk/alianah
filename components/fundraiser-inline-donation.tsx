@@ -200,7 +200,7 @@ export function FundraiserInlineDonation({
             options={{
               clientSecret,
               appearance: {
-                theme: "stripe",
+                theme: "night",
                 variables: {
                   colorPrimary: "oklch(0.574 0.259 142.38)",
                   borderRadius: "8px",
@@ -330,19 +330,11 @@ export function FundraiserInlineDonation({
             <div className="rounded-xl border border-neutral-200 dark:border-border bg-white dark:bg-muted/30 p-4 space-y-3">
               <div className="relative h-12 w-40">
                 <Image
-                  src="/giftaid%20light.png"
-                  alt="Gift Aid"
-                  fill
-                  sizes="112px"
-                  className="object-contain object-left dark:hidden"
-                  priority={false}
-                />
-                <Image
                   src="/giftaid%20dark.png"
                   alt="Gift Aid"
                   fill
                   sizes="112px"
-                  className="hidden object-contain object-left dark:block"
+                  className="object-contain object-left"
                   priority={false}
                 />
               </div>

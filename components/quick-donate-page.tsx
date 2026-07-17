@@ -10,7 +10,6 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js"
-import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -58,7 +57,6 @@ function QuickDonatePaymentStep(props: {
   const { clientSecret, order, totalPence, onBack, onSuccess } = props
   const stripe = useStripe()
   const elements = useElements()
-  const { resolvedTheme } = useTheme()
   const [submitting, setSubmitting] = React.useState(false)
   const [paymentError, setPaymentError] = React.useState<string | null>(null)
   const [paymentRequest, setPaymentRequest] =
@@ -207,7 +205,7 @@ function QuickDonatePaymentStep(props: {
                     paymentRequest,
                     style: {
                       paymentRequestButton: {
-                        theme: resolvedTheme === "dark" ? "dark" : "light",
+                        theme: "dark",
                         height: "44px",
                       },
                     },

@@ -3,7 +3,6 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { useTheme } from "next-themes"
 import { useSidecart } from "@/components/sidecart-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,22 +13,13 @@ import { ArrowRight } from "lucide-react"
 
 export default function GiftAidPage() {
   const router = useRouter()
-  const { resolvedTheme } = useTheme()
   const { items } = useSidecart()
   const [giftAid, setGiftAid] = React.useState(false)
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => setMounted(true), [])
 
   const totalPence = React.useMemo(
     () => items.reduce((sum, i) => sum + (i.amountPence ?? 0), 0),
     [items]
   )
-
-  const logoSrc =
-    mounted && resolvedTheme === "dark"
-      ? "/giftaid%20dark.png"
-      : "/giftaid%20light.png"
 
   const handleContinue = () => {
     const params = new URLSearchParams()
@@ -53,7 +43,7 @@ export default function GiftAidPage() {
       <div className="flex flex-col items-center text-center mb-8">
         <div className="relative w-40 h-16 sm:w-48 sm:h-20 mb-6">
           <Image
-            src={logoSrc}
+            src="/giftaid%20dark.png"
             alt="Gift Aid"
             fill
             className="object-contain object-center"

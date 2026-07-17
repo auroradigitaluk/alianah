@@ -209,7 +209,7 @@ export function FundraiserDonationCard({
         )}
         <li className="flex items-center justify-center gap-2">
           <Image
-            src="/logo-light.png"
+            src="/logo-dark.png"
             alt=""
             width={20}
             height={20}

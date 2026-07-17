@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { AdminGlobalSearch } from "@/components/admin-global-search"
 
 interface AdminHeaderProps {
@@ -56,7 +55,6 @@ export function AdminHeader({ title, actions, monthFilter, dateFilter }: AdminHe
             className="mx-1 sm:mx-2 data-[orientation=vertical]:h-4 hidden sm:block"
           />
           <AdminGlobalSearch />
-          <ThemeToggle />
         </div>
       </div>
     </header>

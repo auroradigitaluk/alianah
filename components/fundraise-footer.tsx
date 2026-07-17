@@ -21,18 +21,11 @@ export function FundraiseFooter() {
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-4">
           <Link href="/" className="flex items-center gap-2" aria-label="Alianah Humanity Welfare">
             <Image
-              src="/logo-light.png"
-              alt=""
-              width={40}
-              height={40}
-              className="h-10 w-10 object-contain dark:hidden"
-            />
-            <Image
               src="/logo-dark.png"
               alt=""
               width={40}
               height={40}
-              className="hidden h-10 w-10 object-contain dark:block"
+              className="h-10 w-10 object-contain"
             />
             <span className="text-sm font-medium text-foreground">Alianah Humanity Welfare</span>
           </Link>
