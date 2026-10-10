@@ -6,6 +6,7 @@ import { loadStripe } from "@stripe/stripe-js"
 import {
   Elements,
   PaymentElement,
+  PaymentRequestButtonElement,
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js"
@@ -77,6 +78,300 @@ type DonorFormData = z.infer<typeof donorSchema>
 function capFirstLetter(s: string): string {
   if (!s.length) return s
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+type MonthlyWalletItem = {
+  appealId: string
+  appealTitle: string
+  donationType: DonationType
+  amountPence: number
+  giftAid: boolean
+}
+
+function MonthlyWalletPayInner({
+  item,
+  amountPence,
+  onWalletAvailable,
+}: {
+  item: MonthlyWalletItem
+  amountPence: number
+  onWalletAvailable?: (available: boolean) => void
+}) {
+  const stripe = useStripe()
+  const router = useRouter()
+  const [paymentRequest, setPaymentRequest] = React.useState<ReturnType<
+    NonNullable<ReturnType<typeof useStripe>>["paymentRequest"]
+  > | null>(null)
+  const [walletLabel, setWalletLabel] = React.useState<string | null>(null)
+  const [submitting, setSubmitting] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const processingRef = React.useRef(false)
+  const itemRef = React.useRef(item)
+  const amountPenceRef = React.useRef(amountPence)
+  itemRef.current = item
+  amountPenceRef.current = amountPence
+
+  React.useEffect(() => {
+    onWalletAvailable?.(!!paymentRequest)
+  }, [paymentRequest, onWalletAvailable])
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function setup() {
+      if (!stripe || amountPence < 100 || paymentRequest) return
+      const pr = stripe.paymentRequest({
+        country: "GB",
+        currency: "gbp",
+        total: { label: "Monthly donation", amount: amountPence },
+        requestPayerName: true,
+        requestPayerEmail: true,
+        requestPayerPhone: true,
+        requestShipping: true,
+        shippingOptions: [
+          {
+            id: "donation",
+            label: "Monthly donation",
+            detail: "No shipping required",
+            amount: 0,
+          },
+        ],
+      })
+      const result = await pr.canMakePayment()
+      if (cancelled) return
+      if (!result) {
+        onWalletAvailable?.(false)
+        return
+      }
+
+      setPaymentRequest(pr)
+      const payResult = result as { applePay?: boolean; googlePay?: boolean }
+      if (payResult.applePay) setWalletLabel("Apple Pay")
+      else if (payResult.googlePay) setWalletLabel("Google Pay")
+      else setWalletLabel("Wallet Pay")
+      onWalletAvailable?.(true)
+
+      pr.on("paymentmethod", async (ev) => {
+        if (processingRef.current) {
+          ev.complete("fail")
+          return
+        }
+        processingRef.current = true
+        try {
+          if (!stripe) {
+            ev.complete("fail")
+            return
+          }
+          setSubmitting(true)
+          setError(null)
+
+          const current = itemRef.current
+          const currentAmount = amountPenceRef.current
+          const bd = ev.paymentMethod.billing_details
+          const shipping = ev.shippingAddress
+
+          const email =
+            (ev.payerEmail as string | undefined)?.trim() ||
+            (bd?.email as string | undefined)?.trim()
+          if (!email) {
+            ev.complete("fail")
+            setError("Add an email in your wallet for the receipt.")
+            return
+          }
+
+          const fullName =
+            (ev.payerName as string | undefined)?.trim() ||
+            (bd?.name as string | undefined)?.trim() ||
+            ""
+          const nameParts = fullName.split(/\s+/).filter(Boolean)
+          const firstName = nameParts[0] || "Donor"
+          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Wallet"
+
+          const address =
+            (shipping?.addressLine?.[0] as string | undefined)?.trim() ||
+            (bd?.address?.line1 as string | undefined)?.trim() ||
+            ""
+          const city =
+            (shipping?.city as string | undefined)?.trim() ||
+            (bd?.address?.city as string | undefined)?.trim() ||
+            ""
+          const postcode =
+            (shipping?.postalCode as string | undefined)?.trim() ||
+            (bd?.address?.postal_code as string | undefined)?.trim() ||
+            ""
+          const country =
+            (shipping?.country as string | undefined)?.trim() ||
+            (bd?.address?.country as string | undefined)?.trim() ||
+            "GB"
+
+          if (current.giftAid && (!address || !city || !postcode)) {
+            ev.complete("fail")
+            setError("Gift Aid needs a full address from your wallet. Or uncheck Gift Aid and try again.")
+            return
+          }
+
+          const res = await fetch("/api/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              items: [
+                {
+                  appealId: current.appealId,
+                  appealTitle: current.appealTitle,
+                  frequency: "MONTHLY",
+                  donationType: current.donationType,
+                  amountPence: currentAmount,
+                },
+              ],
+              donor: {
+                firstName,
+                lastName,
+                email,
+                phone: (ev.payerPhone as string | undefined)?.trim() || undefined,
+                address: address || "Provided via wallet",
+                city: city || "—",
+                postcode: postcode || "—",
+                country,
+                billingAddress: address || "Provided via wallet",
+                billingCity: city || "—",
+                billingPostcode: postcode || "—",
+                billingCountry: country,
+                marketingEmail: false,
+                marketingSMS: false,
+                giftAid: current.giftAid,
+                coverFees: false,
+              },
+              subtotalPence: currentAmount,
+              feesPence: 0,
+              totalPence: currentAmount,
+            }),
+          })
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            ev.complete("fail")
+            setError(data.error || "Could not start monthly donation.")
+            return
+          }
+
+          const data = (await res.json()) as CheckoutCreateResponse
+          const clientSecret = data.subscriptionClientSecret || data.paymentClientSecret
+          if (!clientSecret) {
+            ev.complete("fail")
+            setError("No payment session returned.")
+            return
+          }
+
+          const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+            clientSecret,
+            { payment_method: ev.paymentMethod.id },
+            { handleActions: false },
+          )
+          if (confirmError) {
+            ev.complete("fail")
+            setError(confirmError.message || "Payment failed.")
+            return
+          }
+
+          ev.complete("success")
+
+          if (paymentIntent?.status === "requires_action") {
+            const { error: actionError } = await stripe.confirmCardPayment(clientSecret)
+            if (actionError) {
+              setError(actionError.message || "Payment failed.")
+              return
+            }
+          }
+
+          try {
+            await fetch("/api/checkout/confirm", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderNumber: data.orderNumber,
+                ...(data.paymentIntentId ? { paymentIntentId: data.paymentIntentId } : {}),
+                ...(data.subscriptionId ? { subscriptionId: data.subscriptionId } : {}),
+              }),
+            })
+          } catch {
+            // ignore
+          }
+
+          router.push(`/success/${data.orderId}`)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Payment failed.")
+          try {
+            ev.complete("fail")
+          } catch {
+            // already completed
+          }
+        } finally {
+          setSubmitting(false)
+          processingRef.current = false
+        }
+      })
+    }
+    void setup()
+    return () => {
+      cancelled = true
+    }
+  }, [stripe, amountPence, paymentRequest, router, onWalletAvailable])
+
+  React.useEffect(() => {
+    if (paymentRequest && amountPence >= 100) {
+      paymentRequest.update({
+        total: { label: "Monthly donation", amount: amountPence },
+      })
+    }
+  }, [paymentRequest, amountPence])
+
+  if (!paymentRequest) return null
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold text-foreground">
+        {walletLabel ?? "Apple Pay / Google Pay"}
+      </p>
+      <div className="rounded-md border bg-background px-3 py-3">
+        <PaymentRequestButtonElement
+          options={{
+            paymentRequest,
+            style: {
+              paymentRequestButton: {
+                theme: "dark",
+                height: "48px",
+              },
+            },
+          }}
+        />
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {submitting && (
+        <p className="text-sm text-muted-foreground">Setting up your monthly gift…</p>
+      )}
+    </div>
+  )
+}
+
+function MonthlyWalletPay({
+  stripePromise,
+  item,
+  amountPence,
+  onWalletAvailable,
+}: {
+  stripePromise: ReturnType<typeof loadStripe>
+  item: MonthlyWalletItem
+  amountPence: number
+  onWalletAvailable?: (available: boolean) => void
+}) {
+  if (!stripePromise || amountPence < 100 || !item.appealId) return null
+  return (
+    <Elements stripe={stripePromise} options={{}}>
+      <MonthlyWalletPayInner
+        item={item}
+        amountPence={amountPence}
+        onWalletAvailable={onWalletAvailable}
+      />
+    </Elements>
+  )
 }
 
 function MonthlyPaymentConfirm(props: {
@@ -223,6 +518,7 @@ export function MonthlyDonatePage({
   const [clientSecret, setClientSecret] = React.useState<string | null>(null)
   const [validatedSnapshot, setValidatedSnapshot] = React.useState<DonorFormData | null>(null)
   const [lastAmountPence, setLastAmountPence] = React.useState<number | null>(null)
+  const [walletAvailable, setWalletAvailable] = React.useState(false)
 
   const mostNeedyAppeal = appeals[0] ?? null
   const effectiveAppeal =
@@ -236,6 +532,17 @@ export function MonthlyDonatePage({
 
   const canSubmit =
     !!effectiveAppeal && baseAmountPence >= 100 && Number.isFinite(baseAmountPence)
+
+  const walletItem = React.useMemo((): MonthlyWalletItem | null => {
+    if (!effectiveAppeal || baseAmountPence < 100) return null
+    return {
+      appealId: effectiveAppeal.id,
+      appealTitle: effectiveAppeal.title,
+      donationType: (isZakat ? "ZAKAT" : "GENERAL") as DonationType,
+      amountPence: baseAmountPence,
+      giftAid: Boolean(formData.giftAid),
+    }
+  }, [effectiveAppeal, baseAmountPence, isZakat, formData.giftAid])
 
   const countryOptions = React.useMemo(() => {
     const display = new Intl.DisplayNames(["en"], { type: "region" })
@@ -687,6 +994,24 @@ export function MonthlyDonatePage({
                   </p>
                 </div>
               )}
+
+              {walletItem ? (
+                <MonthlyWalletPay
+                  stripePromise={stripePromise}
+                  item={walletItem}
+                  amountPence={baseAmountPence}
+                  onWalletAvailable={setWalletAvailable}
+                />
+              ) : null}
+
+              {walletItem && walletAvailable && (
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">or continue with card</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="h-11 w-full rounded-full text-sm font-semibold"
