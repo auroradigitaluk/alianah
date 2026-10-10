@@ -519,6 +519,8 @@ export function MonthlyDonatePage({
   const [validatedSnapshot, setValidatedSnapshot] = React.useState<DonorFormData | null>(null)
   const [lastAmountPence, setLastAmountPence] = React.useState<number | null>(null)
   const [walletAvailable, setWalletAvailable] = React.useState(false)
+  /** Card path only: collect details after amount, not before Apple Pay / Google Pay. */
+  const [cardDetailsStep, setCardDetailsStep] = React.useState(false)
 
   const mostNeedyAppeal = appeals[0] ?? null
   const effectiveAppeal =
@@ -562,6 +564,8 @@ export function MonthlyDonatePage({
     setOrderInfo(null)
     setValidatedSnapshot(null)
     setLastAmountPence(null)
+    // Stay on card details so they can edit and try again
+    setCardDetailsStep(true)
   }, [])
 
   React.useEffect(() => {
@@ -661,177 +665,250 @@ export function MonthlyDonatePage({
             Give every month
           </h1>
           <p className="max-w-md text-sm text-muted-foreground sm:text-base">
-            Set up a monthly donation in minutes. Cancel anytime.
+            Set up in seconds with Apple Pay or Google Pay. Cancel anytime.
           </p>
         </div>
 
         <div className="space-y-6 pt-5">
-          <div className="space-y-3">
-            <span className="text-xl font-semibold text-foreground sm:text-2xl">
-              Monthly amount
-            </span>
+          {!clientSecret && !cardDetailsStep && (
+            <>
+              <div className="space-y-3">
+                <span className="text-xl font-semibold text-foreground sm:text-2xl">
+                  Monthly amount
+                </span>
 
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {MONTHLY_AMOUNT_PRESETS_PENCE.map((amount) => {
-                const isActive = selectedAmountPence === amount && !customAmount
-                return (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {MONTHLY_AMOUNT_PRESETS_PENCE.map((amount) => {
+                    const isActive = selectedAmountPence === amount && !customAmount
+                    return (
+                      <Button
+                        key={amount}
+                        type="button"
+                        variant={isActive ? "default" : "outline"}
+                        size="sm"
+                        className="h-11 rounded-full text-base font-semibold sm:text-lg"
+                        onClick={() => handlePresetClick(amount)}
+                      >
+                        {formatCurrencyWhole(amount)}
+                      </Button>
+                    )
+                  })}
                   <Button
-                    key={amount}
                     type="button"
-                    variant={isActive ? "default" : "outline"}
+                    variant={customAmount || selectedAmountPence === null ? "default" : "outline"}
                     size="sm"
-                    className="h-11 rounded-full text-base font-semibold sm:text-lg"
-                    onClick={() => handlePresetClick(amount)}
-                    disabled={!!clientSecret}
+                    className="h-11 rounded-full text-base font-semibold sm:col-span-1 sm:text-lg"
+                    onClick={() => {
+                      setSelectedAmountPence(null)
+                      if (!customAmount) setCustomAmount("15")
+                    }}
                   >
-                    {formatCurrencyWhole(amount)}
+                    Custom
                   </Button>
-                )
-              })}
-              <Button
-                type="button"
-                variant={customAmount || selectedAmountPence === null ? "default" : "outline"}
-                size="sm"
-                className="h-11 rounded-full text-base font-semibold sm:col-span-1 sm:text-lg"
-                onClick={() => {
-                  setSelectedAmountPence(null)
-                  if (!customAmount) setCustomAmount("15")
-                }}
-                disabled={!!clientSecret}
-              >
-                Custom
-              </Button>
-            </div>
-
-            {(selectedAmountPence === null || customAmount) && (
-              <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-semibold text-muted-foreground">
-                  £
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  step={0.5}
-                  disabled={!!clientSecret}
-                  className="h-14 w-full rounded-xl border border-input bg-background/95 pl-9 pr-16 text-right text-2xl font-semibold tracking-tight text-foreground outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/20 focus-visible:outline-none disabled:opacity-60"
-                  value={customAmount || ""}
-                  onChange={(e) => {
-                    setCustomAmount(e.target.value)
-                    setSelectedAmountPence(null)
-                  }}
-                />
-                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
-                  /month
-                </span>
-              </div>
-            )}
-
-            {baseAmountPence > 0 && selectedAmountPence !== null && (
-              <p className="text-sm text-muted-foreground">
-                You&apos;ll give{" "}
-                <span className="font-semibold text-foreground">
-                  {formatCurrency(baseAmountPence)}
-                </span>{" "}
-                every month.
-              </p>
-            )}
-
-            <div className="flex items-center gap-3 text-xl sm:text-2xl">
-              <Checkbox
-                id="monthly-zakat"
-                checked={isZakat}
-                disabled={!!clientSecret}
-                onCheckedChange={(checked) => setIsZakat(checked === true)}
-                className="size-6"
-              />
-              <Label
-                htmlFor="monthly-zakat"
-                className="flex items-center gap-1 font-medium text-muted-foreground"
-              >
-                Count this as your Zakat
-              </Label>
-            </div>
-          </div>
-
-          {appeals.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">
-                  Choose your impact
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Alianah-verified campaigns
-                </span>
-              </div>
-
-              <Tabs
-                value={impactMode}
-                onValueChange={(value) => {
-                  if (clientSecret) return
-                  setImpactMode(value === "choose" ? "choose" : "auto")
-                }}
-                className="w-full"
-              >
-                <TabsList className="grid h-14 w-full grid-cols-2 rounded-full bg-muted/80 p-1">
-                  <TabsTrigger
-                    value="auto"
-                    disabled={!!clientSecret}
-                    className="inline-flex h-full items-center justify-center gap-1.5 rounded-full text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:text-base"
-                  >
-                    <Wand2 className="h-4 w-4" />
-                    <span>Our choice</span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="choose"
-                    disabled={!!clientSecret}
-                    className="inline-flex h-full items-center justify-center gap-1.5 rounded-full text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:text-base"
-                  >
-                    <HandHeart className="h-4 w-4" />
-                    <span>I&apos;ll choose</span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {impactMode === "auto" ? (
-                <div className="rounded-xl border border-primary/40 bg-primary/5 p-3 text-sm">
-                  <p className="font-semibold text-foreground">We&apos;ll take care of it</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Your monthly gift goes to impactful, verified appeals where it&apos;s
-                    needed most.
-                  </p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground sm:text-sm">
-                    Destination
-                  </Label>
-                  <Select
-                    value={selectedAppealId ?? undefined}
-                    onValueChange={(value) => setSelectedAppealId(value)}
-                    disabled={!!clientSecret}
+
+                {(selectedAmountPence === null || customAmount) && (
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-semibold text-muted-foreground">
+                      £
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      step={0.5}
+                      className="h-14 w-full rounded-xl border border-input bg-background/95 pl-9 pr-16 text-right text-2xl font-semibold tracking-tight text-foreground outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/20 focus-visible:outline-none"
+                      value={customAmount || ""}
+                      onChange={(e) => {
+                        setCustomAmount(e.target.value)
+                        setSelectedAmountPence(null)
+                      }}
+                    />
+                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                      /month
+                    </span>
+                  </div>
+                )}
+
+                {baseAmountPence > 0 && selectedAmountPence !== null && (
+                  <p className="text-sm text-muted-foreground">
+                    You&apos;ll give{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(baseAmountPence)}
+                    </span>{" "}
+                    every month.
+                  </p>
+                )}
+
+                <div className="flex items-center gap-3 text-xl sm:text-2xl">
+                  <Checkbox
+                    id="monthly-zakat"
+                    checked={isZakat}
+                    onCheckedChange={(checked) => setIsZakat(checked === true)}
+                    className="size-6"
+                  />
+                  <Label
+                    htmlFor="monthly-zakat"
+                    className="flex items-center gap-1 font-medium text-muted-foreground"
                   >
-                    <SelectTrigger className="h-14 w-full rounded-xl border-muted bg-muted/70 text-sm sm:text-base">
-                      <SelectValue placeholder="Select a campaign" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {appeals.map((appeal) => (
-                        <SelectItem key={appeal.id} value={appeal.id}>
-                          {appeal.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    Count this as your Zakat
+                  </Label>
+                </div>
+              </div>
+
+              {appeals.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-foreground">
+                      Choose your impact
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Alianah-verified campaigns
+                    </span>
+                  </div>
+
+                  <Tabs
+                    value={impactMode}
+                    onValueChange={(value) =>
+                      setImpactMode(value === "choose" ? "choose" : "auto")
+                    }
+                    className="w-full"
+                  >
+                    <TabsList className="grid h-14 w-full grid-cols-2 rounded-full bg-muted/80 p-1">
+                      <TabsTrigger
+                        value="auto"
+                        className="inline-flex h-full items-center justify-center gap-1.5 rounded-full text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:text-base"
+                      >
+                        <Wand2 className="h-4 w-4" />
+                        <span>Our choice</span>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="choose"
+                        className="inline-flex h-full items-center justify-center gap-1.5 rounded-full text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:text-base"
+                      >
+                        <HandHeart className="h-4 w-4" />
+                        <span>I&apos;ll choose</span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+
+                  {impactMode === "auto" ? (
+                    <div className="rounded-xl border border-primary/40 bg-primary/5 p-3 text-sm">
+                      <p className="font-semibold text-foreground">We&apos;ll take care of it</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Your monthly gift goes to impactful, verified appeals where it&apos;s
+                        needed most.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground sm:text-sm">
+                        Destination
+                      </Label>
+                      <Select
+                        value={selectedAppealId ?? undefined}
+                        onValueChange={(value) => setSelectedAppealId(value)}
+                      >
+                        <SelectTrigger className="h-14 w-full rounded-xl border-muted bg-muted/70 text-sm sm:text-base">
+                          <SelectValue placeholder="Select a campaign" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {appeals.map((appeal) => (
+                            <SelectItem key={appeal.id} value={appeal.id}>
+                              {appeal.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+
+              <div className="flex items-start gap-3 rounded-lg border p-4">
+                <Checkbox
+                  id="monthly-giftAid"
+                  checked={Boolean(formData.giftAid)}
+                  onCheckedChange={(c) =>
+                    setFormData((p) => ({ ...p, giftAid: c === true }))
+                  }
+                  className="mt-0.5"
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="monthly-giftAid" className="cursor-pointer text-sm font-normal">
+                    Add Gift Aid (UK taxpayers)
+                  </Label>
+                  {baseAmountPence > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      We can claim an extra{" "}
+                      {formatCurrency(Math.round(baseAmountPence * 0.25))} each month at no
+                      cost to you.
+                    </p>
+                  )}
+                </div>
+              </div>
+              {formData.giftAid && (
+                <div className="rounded-lg border p-4 text-muted-foreground">
+                  <p className="text-sm font-normal">
+                    I confirm I am a UK taxpayer and understand that if I pay less Income Tax
+                    and/or Capital Gains Tax than the amount of Gift Aid claimed on all my
+                    donations in that tax year it is my responsibility to pay any difference.
+                  </p>
+                </div>
+              )}
+
+              {walletItem ? (
+                <MonthlyWalletPay
+                  stripePromise={stripePromise}
+                  item={walletItem}
+                  amountPence={baseAmountPence}
+                  onWalletAvailable={setWalletAvailable}
+                />
+              ) : null}
+
+              {walletItem && walletAvailable && (
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">or pay by card</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              )}
+
+              <Button
+                type="button"
+                className="h-11 w-full rounded-full text-sm font-semibold"
+                disabled={!canSubmit}
+                onClick={() => {
+                  setErrors({})
+                  setCardDetailsStep(true)
+                }}
+              >
+                {baseAmountPence > 0
+                  ? `Continue with card (${formatCurrency(baseAmountPence)}/month)`
+                  : "Continue with card"}
+              </Button>
+            </>
           )}
 
-          {!clientSecret ? (
+          {!clientSecret && cardDetailsStep && (
             <form onSubmit={handleCreateSubscription} className="space-y-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setCardDetailsStep(false)
+                  setErrors({})
+                }}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronLeft className="size-4" />
+                Back
+              </button>
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">Your details</p>
                 <p className="text-xs text-muted-foreground">
-                  Needed for your receipt and to set up the monthly subscription.
+                  For your receipt and card payment. Then add your card below.
+                </p>
+                <p className="text-sm font-medium text-foreground pt-1">
+                  {formatCurrency(baseAmountPence)}/month
                 </p>
               </div>
               {errors._form && <p className="text-sm text-destructive">{errors._form}</p>}
@@ -871,31 +948,19 @@ export function MonthlyDonatePage({
                   )}
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="monthly-email">Email</Label>
-                  <Input
-                    id="monthly-email"
-                    type="email"
-                    value={String(formData.email)}
-                    onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-                    placeholder="you@example.com"
-                    className={errors.email ? "border-destructive" : ""}
-                  />
-                  {errors.email && (
-                    <p className="text-xs text-destructive">{errors.email}</p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="monthly-phone">Phone (optional)</Label>
-                  <Input
-                    id="monthly-phone"
-                    type="tel"
-                    value={String(formData.phone)}
-                    onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
-                    placeholder="+44 7700 900000"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="monthly-email">Email</Label>
+                <Input
+                  id="monthly-email"
+                  type="email"
+                  value={String(formData.email)}
+                  onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="you@example.com"
+                  className={errors.email ? "border-destructive" : ""}
+                />
+                {errors.email && (
+                  <p className="text-xs text-destructive">{errors.email}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="monthly-address">Address</Label>
@@ -963,68 +1028,19 @@ export function MonthlyDonatePage({
                   ))}
                 </select>
               </div>
-              <div className="flex items-start gap-3 rounded-lg border p-4">
-                <Checkbox
-                  id="monthly-giftAid"
-                  checked={Boolean(formData.giftAid)}
-                  onCheckedChange={(c) =>
-                    setFormData((p) => ({ ...p, giftAid: c === true }))
-                  }
-                  className="mt-0.5"
-                />
-                <div className="space-y-1">
-                  <Label htmlFor="monthly-giftAid" className="cursor-pointer text-sm font-normal">
-                    Add Gift Aid (UK taxpayers)
-                  </Label>
-                  {baseAmountPence > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      We can claim an extra{" "}
-                      {formatCurrency(Math.round(baseAmountPence * 0.25))} each month at no
-                      cost to you.
-                    </p>
-                  )}
-                </div>
-              </div>
-              {formData.giftAid && (
-                <div className="rounded-lg border p-4 text-muted-foreground">
-                  <p className="text-sm font-normal">
-                    I confirm I am a UK taxpayer and understand that if I pay less Income Tax
-                    and/or Capital Gains Tax than the amount of Gift Aid claimed on all my
-                    donations in that tax year it is my responsibility to pay any difference.
-                  </p>
-                </div>
-              )}
-
-              {walletItem ? (
-                <MonthlyWalletPay
-                  stripePromise={stripePromise}
-                  item={walletItem}
-                  amountPence={baseAmountPence}
-                  onWalletAvailable={setWalletAvailable}
-                />
-              ) : null}
-
-              {walletItem && walletAvailable && (
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">or continue with card</span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-              )}
-
               <Button
                 type="submit"
                 className="h-11 w-full rounded-full text-sm font-semibold"
                 disabled={!canSubmit || creatingPayment}
               >
                 {creatingPayment
-                  ? "Preparing subscription..."
-                  : baseAmountPence > 0
-                    ? `Continue to payment (${formatCurrency(baseAmountPence)}/month)`
-                    : "Continue to payment"}
+                  ? "Preparing payment..."
+                  : "Continue to card payment"}
               </Button>
             </form>
-          ) : orderInfo && validatedSnapshot && stripePromise ? (
+          )}
+
+          {clientSecret && orderInfo && validatedSnapshot && stripePromise ? (
             <Elements
               stripe={stripePromise}
               options={{
@@ -1036,11 +1052,11 @@ export function MonthlyDonatePage({
               <div className="space-y-3">
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-foreground">
-                    Choose payment method
+                    Enter card details
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Your card will be charged {formatCurrency(baseAmountPence)} now and each
-                    month thereafter.
+                    Charged {formatCurrency(baseAmountPence)} now, then every month. Cancel
+                    anytime.
                   </p>
                 </div>
                 <MonthlyPaymentConfirm
