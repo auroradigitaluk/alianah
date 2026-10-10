@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import Stripe from "stripe"
 import {
   sendDonationConfirmationEmail,
   sendFundraiserDonationNotification,
@@ -9,6 +10,111 @@ import { generateDonationNumber } from "@/lib/donation-number"
 import { resolveFundraiserIdForOrderQurbaniItem } from "@/lib/fundraiser-qurbani"
 import { createPortalToken } from "@/lib/portal-token"
 import { COLLECTION_SOURCES, PAYMENT_METHODS } from "@/lib/utils"
+import {
+  isPlaceholderExpressName,
+  personNameFromStripeBilling,
+} from "@/lib/wallet-donor"
+
+let stripeClient: Stripe | null = null
+function getStripe(): Stripe {
+  if (!stripeClient) {
+    const apiKey = process.env.STRIPE_SECRET_KEY
+    if (!apiKey) throw new Error("STRIPE_SECRET_KEY is not set")
+    stripeClient = new Stripe(apiKey, {
+      apiVersion: "2024-12-18.acacia" as unknown as Stripe.LatestApiVersion,
+    })
+  }
+  return stripeClient
+}
+
+async function enrichExpressDonorFromStripePayment(params: {
+  order: {
+    id: string
+    orderNumber: string
+    donorFirstName: string
+    donorLastName: string
+    donorEmail: string
+    donorAddress: string | null
+    donorCity: string | null
+    donorPostcode: string | null
+    donorCountry: string | null
+  }
+  paymentRef: string | null
+}): Promise<{
+  order: (typeof params)["order"]
+  isExpressCheckout: boolean
+}> {
+  const { paymentRef } = params
+  let order = params.order
+  let isExpressCheckout = isPlaceholderExpressName(order.donorFirstName, order.donorLastName)
+
+  if (!paymentRef?.startsWith("pi_")) {
+    return { order, isExpressCheckout }
+  }
+
+  try {
+    const pi = await getStripe().paymentIntents.retrieve(paymentRef, {
+      expand: ["payment_method", "latest_charge"],
+    })
+    if (pi.metadata?.checkoutFlow === "express") {
+      isExpressCheckout = true
+    }
+
+    if (!isPlaceholderExpressName(order.donorFirstName, order.donorLastName)) {
+      return { order, isExpressCheckout }
+    }
+
+    const pm =
+      pi.payment_method && typeof pi.payment_method !== "string" ? pi.payment_method : null
+    const charge =
+      pi.latest_charge && typeof pi.latest_charge !== "string" ? pi.latest_charge : null
+    const billingName =
+      pm?.billing_details?.name?.trim() ||
+      charge?.billing_details?.name?.trim() ||
+      null
+    const parsed = personNameFromStripeBilling(billingName)
+    if (!parsed) {
+      return { order, isExpressCheckout }
+    }
+
+    const billingAddress = pm?.billing_details?.address || charge?.billing_details?.address
+    const donorAddress = order.donorAddress || billingAddress?.line1?.trim() || null
+    const donorCity = order.donorCity || billingAddress?.city?.trim() || null
+    const donorPostcode = order.donorPostcode || billingAddress?.postal_code?.trim() || null
+    const donorCountry = order.donorCountry || billingAddress?.country?.trim() || null
+
+    order = await prisma.demoOrder.update({
+      where: { id: order.id },
+      data: {
+        donorFirstName: parsed.firstName,
+        donorLastName: parsed.lastName,
+        donorAddress,
+        donorCity,
+        donorPostcode,
+        donorCountry,
+      },
+    })
+
+    const donor = await prisma.donor.findUnique({ where: { email: order.donorEmail } })
+    if (donor && isPlaceholderExpressName(donor.firstName, donor.lastName)) {
+      await prisma.donor.update({
+        where: { id: donor.id },
+        data: {
+          firstName: parsed.firstName,
+          lastName: parsed.lastName,
+          address: donor.address || donorAddress,
+          city: donor.city || donorCity,
+          postcode: donor.postcode || donorPostcode,
+          country: donor.country || donorCountry,
+        },
+      })
+    }
+  } catch (err) {
+    console.error("Failed to enrich express donor name from Stripe:", err)
+  }
+
+  return { order, isExpressCheckout }
+}
 
 function fundraiserDonorDisplayName(d: {
   isAnonymous?: boolean | null
@@ -29,7 +135,7 @@ export async function finalizeOrderByOrderNumber(params: {
 }) {
   const { orderNumber, paidAt, paymentRef, isSubscription, customerEmail, nextPaymentDate } = params
 
-  const order = await prisma.demoOrder.findUnique({
+  let order = await prisma.demoOrder.findUnique({
     where: { orderNumber },
     include: { items: true },
   })
@@ -55,15 +161,29 @@ export async function finalizeOrderByOrderNumber(params: {
     : ["ONE_OFF"]
   const shouldFinalizeOrder = !hasRecurringItems || isSubscription
   const paymentMethod = PAYMENT_METHODS.WEBSITE_STRIPE
-  const isQuickDonateOrder =
-    order.donorFirstName === "Express" && order.donorLastName === "Donor"
-  const collectedVia = isQuickDonateOrder
+
+  // Replace "Express Donor" placeholders with Apple Pay / Google Pay billing name when available
+  const { order: enrichedOrder, isExpressCheckout } = await enrichExpressDonorFromStripePayment({
+    order,
+    paymentRef,
+  })
+  order = {
+    ...order,
+    donorFirstName: enrichedOrder.donorFirstName,
+    donorLastName: enrichedOrder.donorLastName,
+    donorAddress: enrichedOrder.donorAddress,
+    donorCity: enrichedOrder.donorCity,
+    donorPostcode: enrichedOrder.donorPostcode,
+    donorCountry: enrichedOrder.donorCountry,
+  }
+
+  const collectedVia = isExpressCheckout
     ? COLLECTION_SOURCES.QUICK_DONATE
     : COLLECTION_SOURCES.WEBSITE
 
-  const donor =
-    (await prisma.donor.findUnique({ where: { email: order.donorEmail } })) ??
-    (await prisma.donor.create({
+  let donor = await prisma.donor.findUnique({ where: { email: order.donorEmail } })
+  if (!donor) {
+    donor = await prisma.donor.create({
       data: {
         firstName: order.donorFirstName,
         lastName: order.donorLastName,
@@ -74,7 +194,23 @@ export async function finalizeOrderByOrderNumber(params: {
         postcode: order.donorPostcode || null,
         country: order.donorCountry || null,
       },
-    }))
+    })
+  } else if (
+    isPlaceholderExpressName(donor.firstName, donor.lastName) &&
+    !isPlaceholderExpressName(order.donorFirstName, order.donorLastName)
+  ) {
+    donor = await prisma.donor.update({
+      where: { id: donor.id },
+      data: {
+        firstName: order.donorFirstName,
+        lastName: order.donorLastName,
+        address: order.donorAddress || donor.address,
+        city: order.donorCity || donor.city,
+        postcode: order.donorPostcode || donor.postcode,
+        country: order.donorCountry || donor.country,
+      },
+    })
+  }
 
   const existingDonations = await prisma.donation.findMany({
     where: { orderNumber },

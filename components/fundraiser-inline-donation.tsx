@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { donorDetailsFromPaymentRequestEvent } from "@/lib/wallet-donor"
 import {
   formatCurrency,
   formatCurrencyWhole,
@@ -582,6 +583,7 @@ function WalletButtons({
         country: "GB",
         currency: "gbp",
         total: { label: "Donation", amount: amountPence },
+        requestPayerName: true,
         requestPayerEmail: true,
       })
       const result = await pr.canMakePayment()
@@ -597,7 +599,8 @@ function WalletButtons({
         setSubmitting(true)
         setError(null)
         try {
-          const email = (ev.paymentMethod.billing_details?.email as string | undefined)?.trim()
+          const walletDonor = donorDetailsFromPaymentRequestEvent(ev)
+          const email = walletDonor.email
           if (!email) {
             ev.complete("fail")
             setError("Add an email in your wallet for the receipt.")
@@ -622,6 +625,12 @@ function WalletButtons({
               subtotalPence: amountPence,
               coverFees: false,
               giftAid,
+              ...(walletDonor.firstName && { donorFirstName: walletDonor.firstName }),
+              ...(walletDonor.lastName && { donorLastName: walletDonor.lastName }),
+              ...(walletDonor.address && { donorAddress: walletDonor.address }),
+              ...(walletDonor.city && { donorCity: walletDonor.city }),
+              ...(walletDonor.postcode && { donorPostcode: walletDonor.postcode }),
+              ...(walletDonor.country && { donorCountry: walletDonor.country }),
             }),
           })
           if (!res.ok) {

@@ -197,12 +197,17 @@ export async function POST(request: NextRequest) {
 
     const orderNumber = await generateOrderNumber()
 
-    const firstName = validated.donorFirstName ?? "Express"
-    const lastName = validated.donorLastName ?? "Donor"
+    // Prefer wallet / client-provided name. Keep Express/Donor only as a temporary
+    // placeholder — payment finalize enriches from Apple Pay / Google Pay when possible.
+    const providedFirstName = validated.donorFirstName?.trim() || null
+    const providedLastName = validated.donorLastName?.trim() || null
+    const firstName = providedFirstName || "Express"
+    const lastName = providedLastName || "Donor"
     const donorAddress = validated.donorAddress ?? null
     const donorCity = validated.donorCity ?? null
     const donorPostcode = validated.donorPostcode ?? null
     const donorCountry = validated.donorCountry ?? null
+    const hasRealName = Boolean(providedFirstName && providedLastName)
 
     let donor = await prisma.donor.findUnique({
       where: { email: validated.email },
@@ -224,8 +229,10 @@ export async function POST(request: NextRequest) {
       donor = await prisma.donor.update({
         where: { id: donor.id },
         data: {
-          firstName,
-          lastName,
+          // Only update name when the wallet/client provided a real one
+          ...(hasRealName
+            ? { firstName: providedFirstName!, lastName: providedLastName! }
+            : {}),
           address: donorAddress ?? undefined,
           city: donorCity ?? undefined,
           postcode: donorPostcode ?? undefined,
@@ -289,6 +296,7 @@ export async function POST(request: NextRequest) {
         orderId: order.id,
         orderNumber,
         frequency: "ONE_OFF",
+        checkoutFlow: "express",
       },
     })
 

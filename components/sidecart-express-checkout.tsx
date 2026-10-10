@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentRequestButtonElement, useStripe } from "@stripe/react-stripe-js"
 import { useSidecart } from "@/components/sidecart-provider"
+import { donorDetailsFromPaymentRequestEvent } from "@/lib/wallet-donor"
 
 type CartItem = {
   id: string
@@ -62,6 +63,7 @@ function ExpressCheckoutInner({
         country: "GB",
         currency: "gbp",
         total: { label: "Total", amount: totalPence },
+        requestPayerName: true,
         requestPayerEmail: true,
       })
       const result = await pr.canMakePayment()
@@ -78,27 +80,13 @@ function ExpressCheckoutInner({
             }
             setSubmitting(true)
             setError(null)
-            const email = (ev.paymentMethod.billing_details?.email as string | undefined)?.trim()
+            const walletDonor = donorDetailsFromPaymentRequestEvent(ev)
+            const email = walletDonor.email
             if (!email) {
               ev.complete("fail")
               setError("Add an email in your wallet for the receipt.")
               return
             }
-
-            const bd = ev.paymentMethod.billing_details
-            const fullName = (bd?.name as string | undefined)?.trim()
-            let donorFirstName: string | undefined
-            let donorLastName: string | undefined
-            if (fullName) {
-              const parts = fullName.split(/\s+/)
-              donorFirstName = parts[0] ?? undefined
-              donorLastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined
-            }
-            const addr = bd?.address
-            const donorAddress = (addr?.line1 as string | undefined)?.trim() || undefined
-            const donorCity = (addr?.city as string | undefined)?.trim() || undefined
-            const donorPostcode = (addr?.postal_code as string | undefined)?.trim() || undefined
-            const donorCountry = (addr?.country as string | undefined)?.trim() || undefined
 
             const res = await fetch("/api/checkout/create-express", {
               method: "POST",
@@ -108,12 +96,12 @@ function ExpressCheckoutInner({
                 email,
                 subtotalPence,
                 coverFees: false,
-                ...(donorFirstName && { donorFirstName }),
-                ...(donorLastName && { donorLastName }),
-                ...(donorAddress && { donorAddress }),
-                ...(donorCity && { donorCity }),
-                ...(donorPostcode && { donorPostcode }),
-                ...(donorCountry && { donorCountry }),
+                ...(walletDonor.firstName && { donorFirstName: walletDonor.firstName }),
+                ...(walletDonor.lastName && { donorLastName: walletDonor.lastName }),
+                ...(walletDonor.address && { donorAddress: walletDonor.address }),
+                ...(walletDonor.city && { donorCity: walletDonor.city }),
+                ...(walletDonor.postcode && { donorPostcode: walletDonor.postcode }),
+                ...(walletDonor.country && { donorCountry: walletDonor.country }),
               }),
             })
             if (!res.ok) {

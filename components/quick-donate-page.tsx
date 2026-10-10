@@ -115,6 +115,7 @@ function QuickDonatePaymentStep(props: {
               }
             }
 
+            // Confirm finalizes the order and enriches Express Donor → wallet name from Stripe
             try {
               await fetch("/api/checkout/confirm", {
                 method: "POST",

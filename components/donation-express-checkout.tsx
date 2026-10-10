@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentRequestButtonElement, useStripe } from "@stripe/react-stripe-js"
+import { donorDetailsFromPaymentRequestEvent } from "@/lib/wallet-donor"
 
 /** Single line item for create-express (no id). Same shape as sidecart items. */
 export type DonationExpressItem = {
@@ -69,6 +70,7 @@ function DonationExpressInner({
         country: "GB",
         currency: "gbp",
         total: { label: "Donation", amount: amountPence },
+        requestPayerName: true,
         requestPayerEmail: true,
       })
       const result = await pr.canMakePayment()
@@ -90,27 +92,13 @@ function DonationExpressInner({
             }
             setSubmitting(true)
             setError(null)
-            const email = (ev.paymentMethod.billing_details?.email as string | undefined)?.trim()
+            const walletDonor = donorDetailsFromPaymentRequestEvent(ev)
+            const email = walletDonor.email
             if (!email) {
               ev.complete("fail")
               setError("Add an email in your wallet for the receipt.")
               return
             }
-
-            const bd = ev.paymentMethod.billing_details
-            const fullName = (bd?.name as string | undefined)?.trim()
-            let donorFirstName: string | undefined
-            let donorLastName: string | undefined
-            if (fullName) {
-              const parts = fullName.split(/\s+/)
-              donorFirstName = parts[0] ?? undefined
-              donorLastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined
-            }
-            const addr = bd?.address
-            const donorAddress = (addr?.line1 as string | undefined)?.trim() || undefined
-            const donorCity = (addr?.city as string | undefined)?.trim() || undefined
-            const donorPostcode = (addr?.postal_code as string | undefined)?.trim() || undefined
-            const donorCountry = (addr?.country as string | undefined)?.trim() || undefined
 
             const currentItem = itemRef.current
             const currentAmount = amountPenceRef.current
@@ -122,12 +110,12 @@ function DonationExpressInner({
                 email,
                 subtotalPence: currentAmount,
                 coverFees: false,
-                ...(donorFirstName && { donorFirstName }),
-                ...(donorLastName && { donorLastName }),
-                ...(donorAddress && { donorAddress }),
-                ...(donorCity && { donorCity }),
-                ...(donorPostcode && { donorPostcode }),
-                ...(donorCountry && { donorCountry }),
+                ...(walletDonor.firstName && { donorFirstName: walletDonor.firstName }),
+                ...(walletDonor.lastName && { donorLastName: walletDonor.lastName }),
+                ...(walletDonor.address && { donorAddress: walletDonor.address }),
+                ...(walletDonor.city && { donorCity: walletDonor.city }),
+                ...(walletDonor.postcode && { donorPostcode: walletDonor.postcode }),
+                ...(walletDonor.country && { donorCountry: walletDonor.country }),
               }),
             })
             if (!res.ok) {
