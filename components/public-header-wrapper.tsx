@@ -11,11 +11,12 @@ export function PublicHeaderWrapper({ qurbaniEnabled }: { qurbaniEnabled: boolea
   const isFundraiserPage =
     Boolean(pathname?.match(/^\/fundraise\/[^/]+$/)) || pathname?.startsWith("/fundraiser")
   const isDonatePage = pathname === "/donate"
+  const isMonthlyPage = pathname === "/monthly" || Boolean(pathname?.match(/^\/monthly\/[^/]+$/))
 
   if (isFundraiserPage) {
     return <FundraiserHeader />
   }
-  if (isDonatePage) {
+  if (isDonatePage || isMonthlyPage) {
     return <DonateHeader />
   }
   return <PublicHeader qurbaniEnabled={qurbaniEnabled} />

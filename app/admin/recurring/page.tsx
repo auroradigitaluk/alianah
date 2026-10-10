@@ -10,7 +10,9 @@ export const revalidate = 0
 
 async function getRecurringDonations() {
   try {
+    // Monthly / yearly subscriptions (daily giving has its own tab)
     const rows = await prisma.recurringDonation.findMany({
+      where: { frequency: { in: ["MONTHLY", "YEARLY"] } },
       orderBy: { createdAt: "desc" },
       include: {
         donor: { select: { title: true, firstName: true, lastName: true, email: true } },
@@ -90,7 +92,9 @@ export default async function RecurringPage() {
                     <div className="flex flex-wrap items-end justify-between gap-2">
                       <div>
                         <h2 className="text-base sm:text-lg font-semibold">Recurring Donations</h2>
-                        <p className="text-xs sm:text-sm text-muted-foreground">Recurring donation subscriptions</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Monthly and yearly subscriptions (including /monthly giving links)
+                        </p>
                       </div>
                       <ExportCsvButton exportType="recurring" />
                     </div>
