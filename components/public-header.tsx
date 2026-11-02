@@ -66,6 +66,12 @@ export function PublicHeader({ qurbaniEnabled }: { qurbaniEnabled: boolean }) {
             Water
           </Link>
           <Link
+            href="/masjids"
+            className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
+          >
+            Masjids
+          </Link>
+          <Link
             href="/sponsors"
             className="px-3 py-2 text-sm font-medium text-foreground rounded-md hover:bg-muted/50 transition-colors"
           >

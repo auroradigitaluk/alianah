@@ -41,6 +41,18 @@ export function canAccessRoute(role: string, pathname: string): boolean {
     return false
   }
 
+  // Staff can view masjid donations and fundraisers, but not create/edit countries.
+  const staffMasjidDonationsBlocked = [
+    "/admin/masjid-donations/new",
+  ]
+  if (
+    role === "STAFF" &&
+    (staffMasjidDonationsBlocked.some((p) => path === p || path.startsWith(p + "/")) ||
+      /^\/admin\/masjid-donations\/[^/]+\/edit$/.test(path))
+  ) {
+    return false
+  }
+
   // Staff cannot access "Manage Projects" pages (exact paths only - they can still access pumps, wells, orphans, etc.)
   const staffManageProjectsBlocked = ["/admin/water-projects", "/admin/sponsorships"]
   if (role === "STAFF" && staffManageProjectsBlocked.some((p) => path === p)) {
@@ -51,6 +63,7 @@ export function canAccessRoute(role: string, pathname: string): boolean {
     "/admin/collections/new",
     "/admin/appeals/new",
     "/admin/masjids/new",
+    "/admin/masjid-donations/new",
     "/admin/water-projects/new",
     "/admin/sponsorships/new",
   ]

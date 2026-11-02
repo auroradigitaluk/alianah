@@ -6,11 +6,22 @@ export const dynamic = "force-dynamic"
 
 async function getEligibleAppeals() {
   try {
-    return await prisma.appeal.findMany({
+    const appeals = await prisma.appeal.findMany({
       where: { isActive: true, allowFundraising: true },
-      select: { id: true, title: true, slug: true, summary: true, fundraisingDefaultMessage: true },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        summary: true,
+        fundraisingDefaultMessage: true,
+        masjidProject: { select: { priceFromPence: true } },
+      },
       orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
     })
+    return appeals.map(({ masjidProject, ...a }) => ({
+      ...a,
+      suggestedTargetPence: masjidProject?.priceFromPence ?? null,
+    }))
   } catch (error) {
     console.error("Error fetching eligible appeals:", error)
     return []

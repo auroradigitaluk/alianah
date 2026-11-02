@@ -84,9 +84,11 @@ function getDateRange(range: string | null, start?: string | null, end?: string 
 async function getAppeals(range: string | null, start: string | null, end: string | null) {
   try {
     const { startDate, endDate, isAllTime } = getDateRange(range, start, end)
+    // Exclude masjid-backing appeals — they are managed under Masjid Donations, not here.
     const where = isAllTime
-      ? {}
+      ? { masjidProject: { is: null } }
       : {
+          masjidProject: { is: null },
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -159,7 +161,7 @@ export default async function AppealsPage({
   const appeals = allAppeals.filter((a) => !a.archivedAt)
 
   const archivedAppeals = await prisma.appeal.findMany({
-    where: { archivedAt: { not: null } },
+    where: { archivedAt: { not: null }, slug: { not: { startsWith: "masjid-" } } },
     select: { id: true, title: true, slug: true, archivedAt: true },
     orderBy: { archivedAt: "desc" },
   })

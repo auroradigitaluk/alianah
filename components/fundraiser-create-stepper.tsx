@@ -19,6 +19,8 @@ export type EligibleCampaign =
       summary: string | null
       type: "APPEAL"
       fundraisingDefaultMessage?: string | null
+      /** Masjid-backed appeals: full masjid price, offered as the first target preset. */
+      suggestedTargetPence?: number | null
     }
   | {
       id: string
@@ -767,6 +769,12 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
   // —— Step 4: Amount ———
   if (step === 4) {
     const showPresets = !isWater
+    const suggestedTargetPence =
+      selectedCampaign?.type === "APPEAL" ? selectedCampaign.suggestedTargetPence ?? null : null
+    const presetAmountsPence =
+      suggestedTargetPence && suggestedTargetPence > 0
+        ? [suggestedTargetPence, ...PRESET_AMOUNTS_PENCE.filter((p) => p !== suggestedTargetPence)].slice(0, 4)
+        : PRESET_AMOUNTS_PENCE
     const amountValid = targetAmountPence != null && targetAmountPence > 0
     const plaqueOk =
       !isWater ||
@@ -905,7 +913,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
             <div className="space-y-2">
               <Label>Preset amounts</Label>
               <div className="grid grid-cols-2 gap-2">
-                {PRESET_AMOUNTS_PENCE.map((pence) => (
+                {presetAmountsPence.map((pence) => (
                   <Button
                     key={pence}
                     type="button"
@@ -913,7 +921,7 @@ export function FundraiserCreateStepper({ eligibleCampaigns, initialCampaignId }
                     className="h-11"
                     onClick={() => handlePreset(pence)}
                   >
-                    {formatCurrency(pence)}
+                    {pence === suggestedTargetPence ? `Full masjid – ${formatCurrency(pence)}` : formatCurrency(pence)}
                   </Button>
                 ))}
               </div>

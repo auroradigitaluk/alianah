@@ -4,7 +4,7 @@ import { QuickDonatePage } from "@/components/quick-donate-page"
 async function getAppealsForQuickDonate() {
   try {
     const appeals = await prisma.appeal.findMany({
-      where: { archivedAt: null },
+      where: { archivedAt: null, masjidProject: { is: null } },
       select: {
         id: true,
         title: true,

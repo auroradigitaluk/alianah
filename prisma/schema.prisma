@@ -200,6 +200,7 @@ model Appeal {
   donations          Donation[]
   recurringDonations RecurringDonation[]
   distributions      Distribution[]
+  masjidProject      MasjidProject?
 
   @@index([slug])
   @@index([isActive])
@@ -1009,4 +1010,36 @@ model SponsorshipDonation {
   @@index([donationNumber])
   @@index([officePaymentGroupId])
   @@map("sponsorship_donations")
+}
+
+/// Masjid Donations section. One row per country. Each row is backed by a hidden
+/// Appeal (appealId) so donations and fundraisers reuse the existing appeal
+/// checkout, Stripe, webhook, finalize, receipts, Gift Aid and fundraiser flow
+/// with no changes to payment code. This table only holds masjid-specific content.
+model MasjidProject {
+  id                        String   @id @default(cuid())
+  country                   String               // e.g. "Uganda"
+  slug                      String   @unique      // public URL: /masjids/<slug>
+  title                     String               // e.g. "Build a Masjid in Uganda"
+  summary                   String
+  content                   String?              // long description (what's included, capacity, etc.)
+  priceFromPence            Int                  // full masjid price (e.g. 700000 = £7,000)
+  priceToPence              Int?                 // range top (e.g. Pakistan); null = fixed price
+  priceNote                 String?              // e.g. "Depending on size"
+  imageUrls                 String   @default("[]") // JSON string array of Vercel Blob URLs
+  fundraisingImageUrls      String   @default("[]") // JSON string array for fundraiser pages
+  fundraisingDefaultMessage String?
+  allowFundraising          Boolean  @default(true)
+  allowPartialDonations     Boolean  @default(true)
+  framerUrl                 String?              // optional "Read more" back-link to Framer
+  isActive                  Boolean  @default(true)
+  sortOrder                 Int      @default(0)
+  appealId                  String   @unique      // backing appeal (payment rides on this)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  appeal Appeal @relation(fields: [appealId], references: [id], onDelete: Restrict)
+
+  @@index([isActive, sortOrder])
+  @@map("masjid_projects")
 }

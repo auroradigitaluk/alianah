@@ -159,6 +159,11 @@ const sponsorshipItems = [
   { title: "Manage Projects", url: "/admin/sponsorships", hideForStaff: true },
 ]
 
+const masjidDonationItems = [
+  { title: "Countries", url: "/admin/masjid-donations", hideForStaff: false },
+  { title: "Fundraisers", url: "/admin/masjid-donations/fundraisers", hideForStaff: false },
+]
+
 
 function useAdminRole() {
   const [role, setRole] = React.useState<string | null>(null)
@@ -181,9 +186,13 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const [sponsorshipMenuOpen, setSponsorshipMenuOpen] = React.useState(
     pathname?.startsWith("/admin/sponsorships") || false
   )
+  const [masjidDonationsMenuOpen, setMasjidDonationsMenuOpen] = React.useState(
+    pathname?.startsWith("/admin/masjid-donations") || false
+  )
 
   const isWaterProjectActive = pathname?.startsWith("/admin/water-projects")
   const isSponsorshipActive = pathname?.startsWith("/admin/sponsorships")
+  const isMasjidDonationsActive = pathname?.startsWith("/admin/masjid-donations")
   const isFundraiserActive = pathname?.startsWith("/admin/fundraisers")
 
   const showAppeals = role !== "STAFF"
@@ -310,6 +319,36 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                             asChild
                             isActive={pathname === item.url}
                           >
+                            <Link href={item.url}>
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Masjid Donations"
+                  isActive={isMasjidDonationsActive}
+                  onClick={() => setMasjidDonationsMenuOpen(!masjidDonationsMenuOpen)}
+                >
+                  <IconBuilding />
+                  <span>Masjid Donations</span>
+                  {masjidDonationsMenuOpen ? (
+                    <IconChevronDown className="ml-auto" />
+                  ) : (
+                    <IconChevronRight className="ml-auto" />
+                  )}
+                </SidebarMenuButton>
+                {masjidDonationsMenuOpen && (
+                  <SidebarMenuSub>
+                    {masjidDonationItems
+                      .filter((item) => role !== "STAFF" || !item.hideForStaff)
+                      .map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild isActive={pathname === item.url}>
                             <Link href={item.url}>
                               <span>{item.title}</span>
                             </Link>
