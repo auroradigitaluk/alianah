@@ -14,7 +14,8 @@
     "db:studio": "prisma studio",
     "db:backfill-qurbani-numbers": "tsx scripts/backfill-qurbani-donation-numbers.ts",
     "db:backfill-qurbani-checkout-refs": "tsx scripts/backfill-qurbani-checkout-donation-numbers.ts",
-    "db:backfill-qurbani-fundraiser-ids": "tsx scripts/backfill-qurbani-fundraiser-ids.ts"
+    "db:backfill-qurbani-fundraiser-ids": "tsx scripts/backfill-qurbani-fundraiser-ids.ts",
+    "db:seed-winter": "tsx scripts/seed-winter-appeal.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

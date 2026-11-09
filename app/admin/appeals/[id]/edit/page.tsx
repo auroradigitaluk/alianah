@@ -1,5 +1,6 @@
 import { AdminHeader } from "@/components/admin-header"
 import { AppealForm } from "@/components/appeal-form"
+import { AppealItemsManager } from "@/components/appeal-items-manager"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 
@@ -48,6 +49,9 @@ export default async function EditAppealPage({
                 </div>
                 <div>
                   <AppealForm appeal={appealWithParsedData} />
+                </div>
+                <div>
+                  <AppealItemsManager appealId={appeal.id} appealSlug={appeal.slug} />
                 </div>
               </div>
             </div>

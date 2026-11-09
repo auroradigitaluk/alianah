@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { DonationForm } from "@/components/donation-form"
+import { AppealItemPicker, type AppealItem } from "@/components/appeal-item-picker"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Users } from "lucide-react"
@@ -41,7 +42,22 @@ async function getAppeal(slug: string) {
       return null
     }
     
-    return appeal
+    // Fixed-price items (e.g. Winter Appeal) from existing products/appeal_products tables
+    const links = await prisma.appealProduct.findMany({
+      where: { appealId: appeal.id, frequency: "ONE_OFF", product: { isActive: true, type: "FIXED" } },
+      orderBy: { sortOrder: "asc" },
+      select: { product: { select: { id: true, name: true, slug: true, fixedAmountPence: true } } },
+    })
+    const items: AppealItem[] = links
+      .filter((l) => (l.product.fixedAmountPence ?? 0) > 0)
+      .map((l) => ({
+        productId: l.product.id,
+        name: l.product.name,
+        slug: l.product.slug,
+        pricePence: l.product.fixedAmountPence as number,
+      }))
+
+    return { ...appeal, items }
   } catch (error) {
     console.error("Error fetching appeal:", error)
     return null
@@ -53,7 +69,7 @@ export default async function AppealPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ frequency?: string; preset?: string; type?: string }>
+  searchParams: Promise<{ frequency?: string; preset?: string; type?: string; item?: string }>
 }) {
   const { slug } = await params
   const urlParams = await searchParams
@@ -141,6 +157,19 @@ export default async function AppealPage({
               Set up a fundraiser for this appeal
             </Link>
           </Button>
+        </div>
+      )}
+
+      {/* Item picker (only when the appeal has items, e.g. Winter Appeal) */}
+      {appeal.items.length > 0 && (
+        <div className="mb-4 sm:mb-6">
+          <AppealItemPicker
+            appeal={{ id: appeal.id, title: appeal.title }}
+            items={appeal.items}
+            donationTypesEnabled={donationTypesEnabled}
+            initialItemSlug={urlParams.item}
+          />
+          <p className="mt-4 text-center text-sm text-muted-foreground">Or give any amount below</p>
         </div>
       )}
 
